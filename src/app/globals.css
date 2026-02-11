@@ -104,3 +104,47 @@
   animation: flame-glow 1.8s ease-in-out infinite;
 }
 
+/* Kapcsolat oldal: ugráló béka */
+@keyframes frog-jump {
+  0%, 100% { transform: translateY(0) scale(1); }
+  25% { transform: translateY(-18px) scale(1.05); }
+  50% { transform: translateY(0) scale(1); }
+  75% { transform: translateY(-12px) scale(1.02); }
+}
+
+.frog-jump {
+  animation: frog-jump 1.2s ease-in-out infinite;
+}
+
+/* Esés közben: ne ugráljon */
+.frog-fall {
+  animation: none;
+}
+
+/* Meglepődött béka: nagyobb, kissé “ijedt” hatás */
+.frog-surprised {
+  filter: brightness(1.2) saturate(1.4);
+}
+
+/* Kapd el a macskát: varázs arany csillogás */
+@keyframes sparkle {
+  0% { transform: scale(0.5); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+.group:hover .magic-gold-sparkle {
+  animation: sparkle 0.6s ease-in-out forwards;
+}
+.group:hover .magic-gold-sparkle-delay {
+  animation: sparkle 0.6s ease-in-out 0.15s forwards;
+}
+.group:hover .magic-gold-shimmer {
+  animation: shimmer 1.2s ease-in-out;
+}
+

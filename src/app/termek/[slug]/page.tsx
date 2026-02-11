@@ -9,10 +9,12 @@ import { ProductTabs } from '@/components/ProductTabs'
 import { SourcingDealBox } from '@/components/SourcingDealBox'
 import { useLocale } from '@/context/LocaleContext'
 import { useCart } from '@/context/CartContext'
+import { useEuroRate } from '@/context/EuroRateContext'
 
 export default function ProductPage({ params }: { params: { slug: string } }) {
   const { t, locale } = useLocale()
   const { items } = useCart()
+  const { hufToEur, formatEur } = useEuroRate()
   const product = getProductBySlug(params.slug)
   if (!product) notFound()
   const productName = getProductName(product, locale)
@@ -23,7 +25,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
   const safeAddQty = maxAddable > 0 ? Math.min(Math.max(1, addQty), maxAddable) : 1
 
   const priceHuf = product.discountPriceHuf ?? product.priceHuf
-  const priceEur = product.discountPriceEur ?? product.priceEur
+  const priceEur = hufToEur(priceHuf)
   const hasDiscount = !!product.discountPriceHuf
 
   return (
@@ -59,7 +61,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
             <span className={`text-2xl ${hasDiscount ? 'text-discount font-bold' : 'text-foreground font-bold'}`}>
               {priceHuf.toLocaleString('hu-HU')} Ft
             </span>
-            <span className="text-muted">(€{priceEur})</span>
+            <span className="text-muted">(€{formatEur(priceEur)})</span>
           </div>
           <p className="mt-2 text-muted">{product.condition}</p>
           {product.variants && product.variants.length > 0 && (

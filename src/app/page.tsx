@@ -19,12 +19,25 @@ export default function HomePage() {
           <h1 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground max-w-3xl mx-auto leading-tight">
             {t('home.heroTitle')}
           </h1>
-          <Link
-            href="/termekek"
-            className="inline-block mt-8 px-8 py-3 bg-accent text-white font-heading font-semibold rounded-lg hover:opacity-90 transition-opacity"
-          >
-            {t('buttons.viewProducts')}
-          </Link>
+          <div className="group inline-block mt-8">
+            <Link
+              href="/termekek"
+              className="inline-block px-8 py-3 bg-accent text-white font-heading font-semibold rounded-lg hover:opacity-90 transition-opacity"
+            >
+              {t('buttons.viewProducts')}
+            </Link>
+            <p className="mt-3 min-h-[1.5rem] text-center font-medium transition-all duration-300 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 flex-wrap">
+              <span className="magic-gold-sparkle inline-block opacity-0 group-hover:opacity-100" aria-hidden>
+                <MagicGoldIcon className="w-5 h-5 text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.8)]" />
+              </span>
+              <span className="magic-gold-shimmer bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-300 bg-[length:200%_100%] bg-clip-text text-transparent">
+                {t('home.catchTheCat')}
+              </span>
+              <span className="magic-gold-sparkle-delay inline-block opacity-0 group-hover:opacity-100" aria-hidden>
+                <MagicGoldIcon className="w-5 h-5 text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.8)]" />
+              </span>
+            </p>
+          </div>
         </div>
       </section>
 
@@ -134,6 +147,15 @@ function ChatIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+    </svg>
+  )
+}
+
+/** Varázs arany csillag a „Kapd el a macskát” szöveg mellett hoverre */
+function MagicGoldIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12 2l2.4 7.4h7.6l-6 4.6 2.3 7-6.3-4.6-6.3 4.6 2.3-7-6-4.6h7.6L12 2z" />
     </svg>
   )
 }

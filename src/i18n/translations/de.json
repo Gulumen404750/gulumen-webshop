@@ -45,6 +45,7 @@
   },
   "home": {
     "heroTitle": "Qualitätsprodukte. Überraschend günstig.",
+    "catchTheCat": "Fang die Katze",
     "new": "Neu",
     "deals": "Angebote",
     "all": "Alle",
@@ -126,6 +127,10 @@
   },
   "common": {
     "language": "Sprache",
+    "lang_hu": "Ungarisch",
+    "lang_en": "Englisch",
+    "lang_de": "Deutsch",
+    "lang_ro": "Rumänisch",
     "search": "Suchen",
     "cart": "Warenkorb",
     "profile": "Profil",

@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 import { useLocale } from '@/context/LocaleContext'
-import { LOCALES, LOCALE_LABELS, type Locale } from '@/i18n/locales'
+import { LOCALES, type Locale } from '@/i18n/locales'
 import { categories, getCategoryName } from '@/lib/data'
 
 const navItems: { href: string; labelKey: string }[] = [
@@ -166,7 +166,7 @@ export function Header() {
                           setLangOpen(false)
                         }}
                       >
-                        {LOCALE_LABELS[loc as Locale]}
+                        {t(`common.lang_${loc}`)}
                       </button>
                     </li>
                   ))}

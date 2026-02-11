@@ -45,6 +45,7 @@
   },
   "home": {
     "heroTitle": "Minőségi termékek. Meglepően jó áron.",
+    "catchTheCat": "Kapd el a macskát",
     "new": "Újdonságok",
     "deals": "Akciók",
     "all": "Összes",
@@ -126,6 +127,10 @@
   },
   "common": {
     "language": "Nyelv",
+    "lang_hu": "Magyar",
+    "lang_en": "Angol",
+    "lang_de": "Német",
+    "lang_ro": "Román",
     "search": "Keresés",
     "cart": "Kosár",
     "profile": "Profil",

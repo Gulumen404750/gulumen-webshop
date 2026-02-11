@@ -10,6 +10,7 @@ import { useCatCoupon } from '@/context/CatCouponContext'
 import { useSourcingDealOrders } from '@/context/SourcingDealOrdersContext'
 import { useLocale } from '@/context/LocaleContext'
 import { useToast } from '@/context/ToastContext'
+import { useEuroRate } from '@/context/EuroRateContext'
 
 export default function CartPage() {
   const searchParams = useSearchParams()
@@ -17,25 +18,20 @@ export default function CartPage() {
   const { items, addItem, removeItem, updateQty, clearCart, subtotalHuf, discountHuf, totalHuf, isDiscountActive } = useCart()
   const { t, locale } = useLocale()
   const { toast } = useToast()
+  const { hufToEur, formatEur } = useEuroRate()
   const { markUsed } = useCatCoupon()
   const { getOrdersCount, placeOrder, cancelOrder } = useSourcingDealOrders()
   const processedAddIdRef = useRef<string | null>(null)
 
   const { subtotalEur, discountEur, totalEur } = useMemo(() => {
-    let subEur = 0
-    for (const item of items) {
-      const p = getProductById(item.productId)
-      const priceEur = p ? (p.discountPriceEur ?? p.priceEur) : 0
-      subEur += priceEur * item.qty
-    }
-    const discountRatio = subtotalHuf > 0 ? discountHuf / subtotalHuf : 0
-    const discEur = Math.round(subEur * discountRatio * 100) / 100
+    const subEur = hufToEur(subtotalHuf)
+    const discEur = hufToEur(discountHuf)
     return {
       subtotalEur: subEur,
       discountEur: discEur,
-      totalEur: Math.round((subEur - discEur) * 100) / 100,
+      totalEur: hufToEur(totalHuf),
     }
-  }, [items, subtotalHuf, discountHuf])
+  }, [subtotalHuf, discountHuf, totalHuf, hufToEur])
 
   useEffect(() => {
     const addId = searchParams.get('add')
@@ -121,7 +117,7 @@ export default function CartPage() {
             ? Math.max(0, (product.maxOrders ?? 0) - (product.ordersCount ?? 0))
             : getStockById(item.productId)
           const priceHuf = product ? (product.discountPriceHuf ?? product.priceHuf) : 0
-          const priceEur = product ? (product.discountPriceEur ?? product.priceEur) : 0
+          const priceEur = hufToEur(priceHuf)
           const img = product?.image?.startsWith('/') ? product.image : ''
           const deliveryText = product?.type === 'sourcing_deal'
             ? t('cart.deliverySourcing')
@@ -142,7 +138,7 @@ export default function CartPage() {
               <p className="font-medium text-foreground truncate">{product ? getProductName(product, locale) : item.productId}</p>
               <p className="text-muted text-sm">
                 {priceHuf.toLocaleString('hu-HU')} Ft × {item.qty}
-                {priceEur > 0 && <span className="ml-1">(€{priceEur})</span>}
+                {priceEur > 0 && <span className="ml-1">(€{formatEur(priceEur)})</span>}
               </p>
               <p className="text-muted text-xs mt-0.5">{deliveryText}</p>
               <p className="text-foreground text-sm font-medium mt-1">
@@ -201,17 +197,17 @@ export default function CartPage() {
       <div className="border-t border-[var(--border)] pt-6 space-y-2">
         <div className="flex justify-between text-foreground">
           <span>{t('cart.subtotal')}</span>
-          <span>{subtotalHuf.toLocaleString('hu-HU')} Ft <span className="text-muted">(€{subtotalEur.toLocaleString('hu-HU')})</span></span>
+          <span>{subtotalHuf.toLocaleString('hu-HU')} Ft <span className="text-muted">(€{formatEur(subtotalEur)})</span></span>
         </div>
         {isDiscountActive && discountHuf > 0 && (
           <div className="flex justify-between text-discount">
             <span>{t('cart.discount')}</span>
-            <span>−{discountHuf.toLocaleString('hu-HU')} Ft <span className="text-muted">(€{discountEur.toLocaleString('hu-HU')})</span></span>
+            <span>−{discountHuf.toLocaleString('hu-HU')} Ft <span className="text-muted">(€{formatEur(discountEur)})</span></span>
           </div>
         )}
         <div className="flex justify-between font-heading font-bold text-lg text-foreground pt-2">
           <span>{t('cart.total')}</span>
-          <span>{totalHuf.toLocaleString('hu-HU')} Ft <span className="text-muted">(€{totalEur.toLocaleString('hu-HU')})</span></span>
+          <span>{totalHuf.toLocaleString('hu-HU')} Ft <span className="text-muted">(€{formatEur(totalEur)})</span></span>
         </div>
       </div>
       <div className="mt-8 flex flex-col sm:flex-row gap-4">

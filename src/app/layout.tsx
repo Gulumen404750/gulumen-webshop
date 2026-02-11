@@ -10,6 +10,7 @@ import { AuthProvider } from '@/context/AuthContext'
 import { CatCouponProvider } from '@/context/CatCouponContext'
 import { CartProvider } from '@/context/CartContext'
 import { ToastProvider } from '@/context/ToastContext'
+import { EuroRateProvider } from '@/context/EuroRateContext'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -36,6 +37,7 @@ export default function RootLayout({
     <html lang="hu" className={`${poppins.variable} ${inter.variable}`} suppressHydrationWarning>
       <body className="min-h-screen flex flex-col font-body">
         <LocaleProvider>
+          <EuroRateProvider>
           <SourcingDealOrdersProvider>
             <AuthProvider>
               <CatCouponProvider>
@@ -50,6 +52,7 @@ export default function RootLayout({
               </CatCouponProvider>
             </AuthProvider>
           </SourcingDealOrdersProvider>
+          </EuroRateProvider>
         </LocaleProvider>
       </body>
     </html>

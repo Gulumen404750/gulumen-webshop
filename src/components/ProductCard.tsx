@@ -6,6 +6,7 @@ import type { Product } from '@/lib/data'
 import { getSourcingDealStatus, getProductName } from '@/lib/data'
 import { SourcingDealCardCountdown } from '@/components/SourcingDealCardCountdown'
 import { useLocale } from '@/context/LocaleContext'
+import { useEuroRate } from '@/context/EuroRateContext'
 
 function SourcingDealBadge({ product, t }: { product: Product; t: (k: string) => string }) {
   if (product.type !== 'sourcing_deal') return null
@@ -27,8 +28,9 @@ function SourcingDealBadge({ product, t }: { product: Product; t: (k: string) =>
 
 export function ProductCard({ product, sourcingListMode }: { product: Product; sourcingListMode?: boolean }) {
   const { t, locale } = useLocale()
+  const { hufToEur, formatEur } = useEuroRate()
   const priceHuf = product.discountPriceHuf ?? product.priceHuf
-  const priceEur = product.discountPriceEur ?? product.priceEur
+  const priceEur = hufToEur(priceHuf)
   const hasDiscount = !!product.discountPriceHuf
   const hasImage = product.image?.startsWith('/')
   const displayName = getProductName(product, locale)
@@ -73,7 +75,7 @@ export function ProductCard({ product, sourcingListMode }: { product: Product; s
               {priceHuf.toLocaleString('hu-HU')} Ft
             </span>
             <span className="text-sm text-muted">
-              (€{priceEur})
+              (€{formatEur(priceEur)})
             </span>
           </div>
           <p className="mt-1 text-sm text-muted">{product.condition}</p>

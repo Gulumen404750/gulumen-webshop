@@ -1,15 +1,20 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { useCatCoupon } from '@/context/CatCouponContext'
 import { useLocale } from '@/context/LocaleContext'
+
+const CURSOR_NEAR_PX = 80
+const WAND_CURSOR = 'url(/img/cursor-wand.svg) 16 0, pointer'
 
 const MOUSE_COUNT = 28
 const EFFECT_DURATION_MS = 4000
 
 export function HeroCat() {
+  const pathname = usePathname()
   const { t } = useLocale()
   const { isLoggedIn } = useAuth()
   const { status, activate } = useCatCoupon()
@@ -19,6 +24,8 @@ export function HeroCat() {
   const [zigzagStopped, setZigzagStopped] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [activatedJustNow, setActivatedJustNow] = useState(false)
+  const [nearCat, setNearCat] = useState(false)
+  const catRef = useRef<HTMLDivElement>(null)
 
   const handleCatClick = useCallback(() => {
     if (triggered) return
@@ -52,6 +59,33 @@ export function HeroCat() {
   )
 
   const showImage = imageLoaded && !imageError
+  const isHome = pathname === '/'
+
+  useEffect(() => {
+    if (!isHome) return
+    const onMove = (e: MouseEvent) => {
+      const el = catRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      const margin = CURSOR_NEAR_PX
+      const near =
+        e.clientX >= rect.left - margin &&
+        e.clientX <= rect.right + margin &&
+        e.clientY >= rect.top - margin &&
+        e.clientY <= rect.bottom + margin
+      setNearCat(near)
+    }
+    window.addEventListener('mousemove', onMove)
+    return () => window.removeEventListener('mousemove', onMove)
+  }, [isHome])
+
+  useEffect(() => {
+    if (!isHome) return
+    document.body.style.cursor = nearCat ? WAND_CURSOR : ''
+    return () => {
+      document.body.style.cursor = ''
+    }
+  }, [isHome, nearCat])
 
   return (
     <>
@@ -171,6 +205,7 @@ export function HeroCat() {
 
       {/* Macska */}
       <div
+        ref={catRef}
         className={`
           absolute w-20 h-20 sm:w-28 sm:h-28 lg:w-36 lg:h-36
           min-w-[5rem] min-h-[5rem]

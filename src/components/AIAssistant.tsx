@@ -7,24 +7,42 @@ import { useLocale } from '@/context/LocaleContext'
 type Message = { role: 'user' | 'assistant'; text: string; escalate?: boolean }
 
 export function AIAssistant() {
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  const send = () => {
+  const send = async () => {
     const text = input.trim()
-    if (!text) return
+    if (!text || loading) return
     setInput('')
     setMessages((m) => [...m, { role: 'user', text }])
-    const { textKey, escalate } = getResponse(text)
-    const reply = t(textKey)
-    setMessages((m) => [...m, { role: 'assistant', text: reply, escalate }])
+    setLoading(true)
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, locale }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok && typeof data?.text === 'string') {
+        setMessages((m) => [...m, { role: 'assistant', text: data.text, escalate: !!data.escalate }])
+      } else {
+        const { textKey, escalate } = getResponse(text)
+        setMessages((m) => [...m, { role: 'assistant', text: t(textKey), escalate }])
+      }
+    } catch {
+      const { textKey, escalate } = getResponse(text)
+      setMessages((m) => [...m, { role: 'assistant', text: t(textKey), escalate }])
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -77,6 +95,13 @@ export function AIAssistant() {
                   </div>
                 </div>
               ))}
+              {loading && (
+                <div className="flex justify-start">
+                  <div className="rounded-2xl px-4 py-2 text-sm bg-[var(--border)] text-muted">
+                    …
+                  </div>
+                </div>
+              )}
               <div ref={bottomRef} />
             </div>
             <form
@@ -91,11 +116,13 @@ export function AIAssistant() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={t('ai.placeholder')}
-                className="flex-1 px-4 py-2 rounded-xl border border-[var(--border)] bg-background text-foreground placeholder:text-muted text-sm"
+                disabled={loading}
+                className="flex-1 px-4 py-2 rounded-xl border border-[var(--border)] bg-background text-foreground placeholder:text-muted text-sm disabled:opacity-60"
               />
               <button
                 type="submit"
-                className="px-4 py-2 rounded-xl bg-accent text-white font-medium text-sm hover:opacity-90"
+                disabled={loading}
+                className="px-4 py-2 rounded-xl bg-accent text-white font-medium text-sm hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {t('ai.send')}
               </button>

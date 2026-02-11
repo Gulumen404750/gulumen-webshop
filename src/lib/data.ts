@@ -4,6 +4,7 @@ export type ProductType = 'stock' | 'sourcing_deal'
 
 export type SourcingDealStatus = 'preview' | 'sale' | 'soldout' | 'closed'
 
+/** Új termék: töltsd ki a name (magyar) mezőt; opcionálisan nameEn, nameDe, nameRo. Ha csak name van, minden nyelven az jelenik meg (getProductName fallback). */
 export interface Product {
   id: string
   name: string
@@ -32,17 +33,23 @@ export interface Product {
   ordersCount?: number
 }
 
-/** Locale kód: 'hu' | 'en' | 'de' | 'ro'. Terméknév a kiválasztott nyelv szerint. */
+/**
+ * Terméknév a kiválasztott nyelv szerint.
+ * Ha nincs fordítás (nameEn/nameDe/nameRo), mindig a magyar (name) jelenik meg,
+ * így magyarul felvitt termékek minden nyelven látszanak, amíg nincs külön fordítás.
+ */
 export function getProductName(product: Product, locale: string): string {
   switch (locale) {
     case 'hu':
       return product.name
+    case 'en':
+      return product.nameEn ?? product.name
     case 'de':
-      return product.nameDe ?? product.nameEn
+      return product.nameDe ?? product.nameEn ?? product.name
     case 'ro':
-      return product.nameRo ?? product.nameEn
+      return product.nameRo ?? product.nameEn ?? product.name
     default:
-      return product.nameEn
+      return product.nameEn ?? product.name
   }
 }
 
@@ -187,6 +194,8 @@ export const mockProducts: Product[] = [
     id: '7',
     name: 'Roll-top hátizsák – fekete',
     nameEn: 'Roll-top backpack – black',
+    nameDe: 'Roll-top Rucksack – schwarz',
+    nameRo: 'Rucsac roll-top – negru',
     slug: 'rolltop-hatizsak-fekete-1',
     priceHuf: 11990,
     priceEur: 31,
@@ -478,10 +487,12 @@ function addDays(d: Date, days: number): string {
 function getSourcingDealMockProducts(): Product[] {
   const now = new Date()
   return [
-    {
-      id: 'sd-1',
+  {
+    id: 'sd-1',
       name: 'Limitált beszerzés – Premium hátizsák',
       nameEn: 'Limited sourcing – Premium backpack',
+      nameDe: 'Limitierte Beschaffung – Premium-Rucksack',
+      nameRo: 'Aprovizionare limitată – Rucsac premium',
       slug: 'beszerzes-premium-hatizsak',
       priceHuf: 14990,
       priceEur: 38,
@@ -498,10 +509,12 @@ function getSourcingDealMockProducts(): Product[] {
       maxOrders: 10,
       ordersCount: 0,
     },
-    {
-      id: 'sd-2',
+  {
+    id: 'sd-2',
       name: 'Limitált beszerzés – Sendia pléd készlet',
       nameEn: 'Limited sourcing – Sendia blanket stock',
+      nameDe: 'Limitierte Beschaffung – Sendia Decken-Sortiment',
+      nameRo: 'Aprovizionare limitată – Stoc plăci Sendia',
       slug: 'beszerzes-sendia-pled',
       priceHuf: 4990,
       priceEur: 13,
@@ -518,10 +531,12 @@ function getSourcingDealMockProducts(): Product[] {
       maxOrders: 5,
       ordersCount: 0,
     },
-    {
-      id: 'sd-3',
+  {
+    id: 'sd-3',
       name: 'Roll-top hátizsák – piros',
       nameEn: 'Roll-top backpack – red',
+      nameDe: 'Roll-top Rucksack – rot',
+      nameRo: 'Rucsac roll-top – roșu',
       slug: 'beszerzes-rolltop-piros',
       priceHuf: 11990,
       priceEur: 31,

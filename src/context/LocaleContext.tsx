@@ -12,8 +12,10 @@ import {
 import {
   type Locale,
   DEFAULT_LOCALE,
+  FALLBACK_LOCALE,
   STORAGE_KEY,
   isValidLocale,
+  getLocaleFromBrowser,
   LOCALES,
 } from '@/i18n/locales'
 import { getTranslations, t as translate } from '@/i18n/translations'
@@ -34,7 +36,14 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     if (typeof window === 'undefined') return
     setMounted(true)
     const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored && isValidLocale(stored)) setLocaleState(stored as Locale)
+    if (stored && isValidLocale(stored)) {
+      setLocaleState(stored as Locale)
+    } else {
+      const detected = getLocaleFromBrowser()
+      setLocaleState(detected)
+      localStorage.setItem(STORAGE_KEY, detected)
+      document.documentElement.lang = detected
+    }
   }, [])
 
   const setLocale = useCallback((next: Locale) => {

@@ -8,6 +8,7 @@ import { useSourcingDealOrders } from '@/context/SourcingDealOrdersContext'
 import { useCart } from '@/context/CartContext'
 import { useLocale } from '@/context/LocaleContext'
 import { useToast } from '@/context/ToastContext'
+import { useEuroRate } from '@/context/EuroRateContext'
 
 function formatCountdown(ms: number): string {
   if (ms <= 0) return '0 nap 00:00:00'
@@ -36,8 +37,9 @@ export function SourcingDealBox({ product }: { product: Product }) {
   const maxQty = getMaxQty(product, effectiveCount)
   const [addQty, setAddQty] = useState(1)
   const safeAddQty = maxQty > 0 ? Math.min(Math.max(1, addQty), maxQty) : 1
+  const { hufToEur } = useEuroRate()
   const priceHuf = product.discountPriceHuf ?? product.priceHuf
-  const priceEur = product.discountPriceEur ?? product.priceEur
+  const priceEur = hufToEur(priceHuf)
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 1000)

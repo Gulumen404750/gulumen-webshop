@@ -45,6 +45,7 @@
   },
   "home": {
     "heroTitle": "Quality products. Surprisingly good prices.",
+    "catchTheCat": "Catch the cat",
     "new": "New",
     "deals": "Deals",
     "all": "All",
@@ -126,6 +127,10 @@
   },
   "common": {
     "language": "Language",
+    "lang_hu": "Hungarian",
+    "lang_en": "English",
+    "lang_de": "German",
+    "lang_ro": "Romanian",
     "search": "Search",
     "cart": "Cart",
     "profile": "Profile",
