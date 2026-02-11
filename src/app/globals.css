@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #ffffff;
+  --text: #111111;
+  --text-muted: #6b7280;
+  --accent: #0ea5e9;
+  --discount: #dc2626;
+  --card-bg: #ffffff;
+  --border: #e5e7eb;
+}
+
+.dark {
+  --bg: #111111;
+  --text: #f9fafb;
+  --text-muted: #9ca3af;
+  --accent: #38bdf8;
+  --discount: #f87171;
+  --card-bg: #1f2937;
+  --border: #374151;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+  }
+}
+
+/* Macska cikázik a sávban, faltól falig */
+@keyframes hero-cat-zigzag {
+  0%   { left: 2%; top: 42%; transform: translateY(-50%) scaleX(1); }
+  12%  { left: 18%; top: 55%; transform: translateY(-50%) scaleX(1); }
+  25%  { left: 35%; top: 40%; transform: translateY(-50%) scaleX(1); }
+  38%  { left: 52%; top: 58%; transform: translateY(-50%) scaleX(1); }
+  50%  { left: calc(100% - 6rem); top: 45%; transform: translateY(-50%) scaleX(-1); }
+  62%  { left: 52%; top: 52%; transform: translateY(-50%) scaleX(-1); }
+  75%  { left: 35%; top: 42%; transform: translateY(-50%) scaleX(-1); }
+  88%  { left: 18%; top: 56%; transform: translateY(-50%) scaleX(-1); }
+  100% { left: 2%; top: 42%; transform: translateY(-50%) scaleX(1); }
+}
+.hero-cat-zigzag {
+  animation: hero-cat-zigzag 16s linear infinite;
+}
+.hero-cat-stopped {
+  animation: none;
+  left: 50% !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) scaleX(1) !important;
+}
+
+/* Egér eső */
+@keyframes mouse-fall {
+  from { transform: translateY(-20px) rotate(0deg); }
+  to   { transform: translateY(100vh) rotate(360deg); }
+}
+.mouse-rain-item {
+  animation: mouse-fall 3s linear forwards;
+  pointer-events: none;
+}
+
+/* Akciók link: körbe égő tűz / lángoló animáció */
+@keyframes flame-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 6px #f97316,
+      0 0 12px #ea580c,
+      0 0 18px #dc2626,
+      inset 0 0 8px rgba(251, 146, 60, 0.15);
+    filter: brightness(1.05);
+  }
+  25% {
+    box-shadow:
+      0 0 8px #fb923c,
+      0 0 16px #f97316,
+      0 0 24px #ea580c,
+      inset 0 0 10px rgba(249, 115, 22, 0.2);
+    filter: brightness(1.1);
+  }
+  50% {
+    box-shadow:
+      0 0 10px #fbbf24,
+      0 0 18px #f97316,
+      0 0 26px #dc2626,
+      inset 0 0 6px rgba(251, 191, 36, 0.15);
+    filter: brightness(1.08);
+  }
+  75% {
+    box-shadow:
+      0 0 7px #ea580c,
+      0 0 14px #dc2626,
+      0 0 22px #b91c1c,
+      inset 0 0 9px rgba(234, 88, 12, 0.2);
+    filter: brightness(1.12);
+  }
+}
+
+.nav-link-fire {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  margin: -0.25rem -0.5rem;
+  border-radius: 9999px;
+  animation: flame-glow 1.8s ease-in-out infinite;
+}
+
