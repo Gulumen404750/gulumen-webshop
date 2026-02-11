@@ -196,6 +196,7 @@
     "cta": "Frage? Ich helfe!",
     "placeholder": "Schreib deine Frage...",
     "send": "Senden",
-    "escalateNote": "↑ An einen Mitarbeiter weitergeleitet."
+    "escalateNote": "↑ An einen Mitarbeiter weitergeleitet.",
+    "serviceError": "KI-Service vorübergehend nicht verfügbar."
   }
 }

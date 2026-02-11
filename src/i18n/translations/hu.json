@@ -196,7 +196,8 @@
     "cta": "Kérdésed van? Segítek!",
     "placeholder": "Írd ide a kérdésed...",
     "send": "Küldés",
-    "escalateNote": "↑ Ügy átadva emberi ügyintézőnek."
+    "escalateNote": "↑ Ügy átadva emberi ügyintézőnek.",
+    "serviceError": "Az AI szolgáltatás átmenetileg nem elérhető."
   }
 }
 

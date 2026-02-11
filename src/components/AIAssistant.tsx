@@ -35,7 +35,9 @@ export function AIAssistant() {
         setMessages((m) => [...m, { role: 'assistant', text: data.text, escalate: !!data.escalate }])
       } else {
         const { textKey, escalate } = getResponse(text)
-        setMessages((m) => [...m, { role: 'assistant', text: t(textKey), escalate }])
+        const fallbackText = t(textKey)
+        const errorNote = !res.ok && data?.error ? ` (${t('ai.serviceError')})` : ''
+        setMessages((m) => [...m, { role: 'assistant', text: fallbackText + errorNote, escalate }])
       }
     } catch {
       const { textKey, escalate } = getResponse(text)

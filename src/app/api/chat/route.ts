@@ -23,7 +23,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Üzenet kötelező' }, { status: 400 })
     }
 
-    const apiKey = process.env.OPENAI_API_KEY
+    const apiKey = process.env.OPENAI_API_KEY?.trim()
 
     if (apiKey) {
       const langNames: Record<string, string> = {
@@ -34,35 +34,47 @@ export async function POST(request: Request) {
       }
       const lang = langNames[locale] ?? 'magyarul'
 
-      const res = await fetch(OPENAI_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            { role: 'system', content: `${SYSTEM_PROMPT}\n\nVálaszolj mindig ${lang}.` },
-            { role: 'user', content: message },
-          ],
-          max_tokens: 400,
-          temperature: 0.5,
-        }),
-      })
+      const models = ['gpt-3.5-turbo', 'gpt-4o-mini', 'gpt-4o']
+      let lastError = ''
 
-      if (!res.ok) {
-        const err = await res.text()
-        console.error('OpenAI API error:', res.status, err)
-        return fallbackResponse(message, locale)
+      for (const model of models) {
+        try {
+          const res = await fetch(OPENAI_API_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model,
+              messages: [
+                { role: 'system', content: `${SYSTEM_PROMPT}\n\nVálaszolj mindig röviden és barátságosan, ${lang}.` },
+                { role: 'user', content: message },
+              ],
+              max_tokens: 400,
+              temperature: 0.5,
+            }),
+          })
+
+          const data = await res.json().catch(() => ({}))
+          const text = data?.choices?.[0]?.message?.content?.trim()
+
+          if (res.ok && text) {
+            const escalate = /átadom emberi|forward|ügyintéző|human agent/i.test(text)
+            return NextResponse.json({ text, escalate })
+          }
+
+          if (!res.ok) {
+            lastError = data?.error?.message || data?.error?.code || res.statusText || String(res.status)
+            console.error('OpenAI API error:', res.status, lastError, data)
+            if (res.status === 401) break
+          }
+        } catch (err) {
+          lastError = err instanceof Error ? err.message : String(err)
+          console.error('OpenAI fetch error:', lastError)
+        }
       }
 
-      const data = await res.json()
-      const text = data?.choices?.[0]?.message?.content?.trim()
-      if (text) {
-        const escalate = /átadom emberi|forward|ügyintéző|human agent/i.test(text)
-        return NextResponse.json({ text, escalate })
-      }
     }
 
     return fallbackResponse(message, locale)

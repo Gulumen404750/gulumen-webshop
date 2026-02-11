@@ -196,6 +196,7 @@
     "cta": "Got a question? I can help!",
     "placeholder": "Type your question here...",
     "send": "Send",
-    "escalateNote": "↑ Case forwarded to a human agent."
+    "escalateNote": "↑ Case forwarded to a human agent.",
+    "serviceError": "AI service temporarily unavailable."
   }
 }
