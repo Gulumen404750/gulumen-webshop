@@ -68,7 +68,7 @@ export function SourcingDealBox({ product }: { product: Product }) {
   const handleAddToCart = () => {
     if (!canAdd) return
     if (maxQty < 1) {
-      toast(t('cart.toastSourcingLimit'))
+      toast(t('sourcing.availableCount', { count: displayAvailable }))
       return
     }
     placeOrder(product.id, safeAddQty)
@@ -95,7 +95,7 @@ export function SourcingDealBox({ product }: { product: Product }) {
             {t('sourcing.remaining')} <strong className="text-foreground">{formatCountdown(countdownToEnd)}</strong>
           </p>
         )}
-        {status === 'sale' && (
+        {(status === 'sale' || status === 'soldout' || status === 'closed') && (
           <p className="text-sm text-muted">
             {t('sourcing.availableCount', { count: displayAvailable })}
           </p>

@@ -115,7 +115,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                     </>
                   )}
                   {maxAddable === 0 && (
-                    <p className="text-muted text-sm">{t('product.maxInCart')}</p>
+                    <p className="text-muted text-sm">{t('product.inStockCount', { count: stockFromSource })}</p>
                   )}
                 </div>
               ) : (

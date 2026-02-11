@@ -107,11 +107,18 @@ export function getAddToCartReason(
       })
       return { canAdd: false, reasonKey: 'addToCartReason.previewStarts', reasonParams: { when } }
     }
-    if (status === 'soldout') return { canAdd: false, reasonKey: 'status.soldOut' }
+    if (status === 'soldout') {
+      const serverOrders = product.ordersCount ?? 0
+      const maxOrders = product.maxOrders ?? 0
+      const available = Math.max(0, maxOrders - serverOrders)
+      if (available <= 0) return { canAdd: false, reasonKey: 'status.soldOut' }
+      return { canAdd: false, reasonKey: 'sourcing.availableCount', reasonParams: { count: available } }
+    }
     if (status === 'closed') return { canAdd: false, reasonKey: 'status.expired' }
     return { canAdd: false, reasonKey: 'addToCartReason.previewNotStarted' }
   }
-  if (getStockById(product.id) <= 0) return { canAdd: false, reasonKey: 'status.soldOut' }
+  const stock = getStockById(product.id)
+  if (stock <= 0) return { canAdd: false, reasonKey: 'status.soldOut' }
   return { canAdd: true }
 }
 

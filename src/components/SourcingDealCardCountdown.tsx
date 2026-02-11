@@ -44,9 +44,11 @@ export function SourcingDealCardCountdown({ product }: { product: Product }) {
   const nowMs = now
 
   if (status === 'soldout') {
+    const available = Math.max(0, (product.maxOrders ?? 0) - (product.ordersCount ?? 0))
+    const label = available > 0 ? t('sourcing.availableCount', { count: available }) : t('status.soldOut')
     return (
       <div className="px-3 py-2.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-center text-sm font-medium rounded-b-xl">
-        {t('status.soldOut')}
+        {label}
       </div>
     )
   }

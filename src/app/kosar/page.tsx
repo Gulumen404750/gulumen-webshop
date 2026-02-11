@@ -58,7 +58,10 @@ export default function CartPage() {
         : getStockById(product.id)
     const currentQty = items.find((x) => x.productId === product.id)?.qty ?? 0
     if (currentQty >= maxQty) {
-      toast(type === 'stock' ? t('cart.toastNoMoreStock') : t('cart.toastSourcingLimit'))
+      const maxAllowed = product?.type === 'sourcing_deal'
+        ? Math.max(0, (product.maxOrders ?? 0) - (product.ordersCount ?? 0))
+        : getStockById(product.id)
+      toast(product?.type === 'sourcing_deal' ? t('sourcing.availableCount', { count: maxAllowed }) : t('product.inStockCount', { count: maxAllowed }))
       router.replace('/kosar')
       return
     }
