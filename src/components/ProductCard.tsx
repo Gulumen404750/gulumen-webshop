@@ -80,7 +80,7 @@ export function ProductCard({ product, sourcingListMode }: { product: Product; s
           </div>
           <p className="mt-1 text-sm text-muted">{product.condition}</p>
           {product.type === 'sourcing_deal' ? (
-            <p className="mt-0.5 text-xs text-muted">{t('product.sourcingLabel')}</p>
+            <p className="mt-0.5 text-xs text-muted">{t('product.sourcingCardLabel')}</p>
           ) : (
             <p className="mt-0.5 text-xs text-muted">{t('product.stockLabel')}</p>
           )}

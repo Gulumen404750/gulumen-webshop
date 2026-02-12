@@ -17,7 +17,7 @@ export function HeroCat() {
   const pathname = usePathname()
   const { t } = useLocale()
   const { isLoggedIn } = useAuth()
-  const { status, activate } = useCatCoupon()
+  const { catStatus, activate } = useCatCoupon()
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imageError, setImageError] = useState(false)
   const [triggered, setTriggered] = useState(false)
@@ -149,7 +149,7 @@ export function HeroCat() {
                   </button>
                 </div>
               </>
-            ) : status === 'not_claimed' ? (
+            ) : catStatus === 'not_claimed' ? (
               <>
                 <p className="text-foreground mb-4">{t('coupon.activateHint')}</p>
                 <button

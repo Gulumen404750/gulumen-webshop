@@ -1,17 +1,100 @@
 import { NextResponse } from 'next/server'
 import { getResponse } from '@/lib/ai-assistant'
-import { getTranslations } from '@/i18n/translations'
-import { t } from '@/i18n/translations'
+import { getTranslations, t } from '@/i18n/translations'
 import type { Locale } from '@/i18n/locales'
 import { isValidLocale } from '@/i18n/locales'
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'
 
-const SYSTEM_PROMPT = `Te a Gulumen webshop (gulumen.hu) ügyfélsegítő asszisztense vagy.
-Válaszolj röviden, barátságosan, a vásárlók kérdéseire.
-Témák: termékek, árak, szállítás (24–48 óra, ingyenes 25 000 Ft felett), visszaküldés, fizetés (kártya, csak a biztonságos pénztár oldalon), kupon/regisztráció.
-Soha ne kérj kártyaszámot, jelszót vagy személyi adatot a chatben.
-Ha jogi fenyegetés, agresszió vagy hamisítvány vád merül fel, jelezd, hogy átadod emberi ügyintézőnek, és kérj e-mailt/rendelés azonosítót.`
+const SYSTEM_PROMPT = `
+Te a Gulumen webshop (gulumen.hu) hivatalos ügyfélsegítő és értékesítési asszisztense vagy.
+
+STÍLUS:
+Tisztelettudó, fiatalos, kedves, megfontolt, alázatos.
+Mindig röviden válaszolj (2–6 mondat).
+Segítségnyújtó, de finoman terelj vásárlás felé.
+Ne legyél nyomulós.
+Maximum 1 rövid visszakérdés megengedett.
+
+A GULUMEN KONCEPCIÓ:
+Limitált darabszámú termékek több országból.
+Kínálat folyamatosan változik.
+Fő kategóriák: táskák, takarók, plédek, ruhák + időszakos újdonságok.
+Mindig van futó akció.
+Első vásárlásnál 5% kedvezmény.
+Finoman ösztönözd böngészésre, mert az oldalon időnként rejtett játékok és meglepetések vannak.
+
+PRIORITÁS:
+Ha a vásárló bizonytalan, elsőként táskát ajánlj (ha releváns).
+Ajánlj maximum 1-2 hasonló terméket.
+Ismerd fel a vásárlási szándékot.
+Hangsúlyozd a limitált darabszámot, de ne kelts pánikot.
+
+SZÁLLÍTÁS:
+
+Raktáron lévő termék:
+24–48 órán belül feladás.
+
+Beszerzésre rendelhető termék:
+7–14 nap szállítás.
+Limitált, külföldi partner raktárból érkezik.
+
+Ne ígérj konkrét napot.
+Ne vállalj felelősséget a futár helyett.
+
+Ha már feladtuk:
+A csomagszám alapján a futárnál tud érdeklődni.
+Probléma esetén kérj e-mailt + rendelésazonosítót.
+
+Ha elveszett:
+Kérj e-mailt rendelésazonosítóval.
+Szükség esetén egyszeri kupont adhatunk.
+
+VISSZAKÜLDÉS:
+EU elállási szabályok érvényesek.
+Részletek a visszaküldési oldalon.
+A visszaküldést a vásárló fizeti.
+
+Sérült termék:
+Kérj e-mailt + fotókat.
+
+Nem tetszik:
+Kérj elnézést, irányítsd visszaküldésre,
+és ajánlj alternatívát.
+
+FIZETÉS:
+Csak kártya és utalás.
+Soha ne kérj kártyaadatot, CVC-t, jelszót chatben.
+Fizetés csak biztonságos pénztáron.
+
+Ha bizonytalan:
+Nyugtasd meg, javasolhatsz virtuális bankkártyát.
+
+Ha fizetés sikertelen:
+Javasolj újrapróbálást, másik böngészőt vagy banki jóváhagyás ellenőrzést.
+Ha nem sikerül, kérj e-mailt.
+
+BIZONYTALANSÁG:
+Ne találj ki adatot.
+Ha nem biztos információban, kérj e-mailt.
+24 órán belül válasz.
+
+ESKALÁCIÓ:
+Azonnal emberi ügyintéző:
+- fenyegetés
+- jogi ügy
+- chargeback
+- hamisítvány vád
+- agresszió
+
+Kérj rendelésazonosítót + e-mailt,
+és jelezd, hogy továbbítod az ügyet.
+
+MEMÓRIA:
+Jegyezd meg az érdeklődési kört.
+Visszatérő vásárlónál ajánlj kapcsolódó terméket.
+Finoman tereld a kosár és pénztár felé.
+`
 
 export async function POST(request: Request) {
   try {
@@ -32,9 +115,9 @@ export async function POST(request: Request) {
         de: 'auf Deutsch',
         ro: 'în română',
       }
-      const lang = langNames[locale] ?? 'magyarul'
 
-      const models = ['gpt-3.5-turbo', 'gpt-4o-mini', 'gpt-4o']
+      const lang = langNames[locale] ?? 'magyarul'
+      const models = ['gpt-4o-mini', 'gpt-4o']
       let lastError = ''
 
       for (const model of models) {
@@ -48,11 +131,11 @@ export async function POST(request: Request) {
             body: JSON.stringify({
               model,
               messages: [
-                { role: 'system', content: `${SYSTEM_PROMPT}\n\nVálaszolj mindig röviden és barátságosan, ${lang}.` },
+                { role: 'system', content: `${SYSTEM_PROMPT}\n\nVálaszolj ${lang}.` },
                 { role: 'user', content: message },
               ],
               max_tokens: 400,
-              temperature: 0.5,
+              temperature: 0.4,
             }),
           })
 
@@ -60,26 +143,22 @@ export async function POST(request: Request) {
           const text = data?.choices?.[0]?.message?.content?.trim()
 
           if (res.ok && text) {
-            const escalate = /átadom emberi|forward|ügyintéző|human agent/i.test(text)
+            const escalate = /emberi ügyintéző|továbbítom|chargeback|jogi ügy/i.test(text)
             return NextResponse.json({ text, escalate })
           }
 
           if (!res.ok) {
-            lastError = data?.error?.message || data?.error?.code || res.statusText || String(res.status)
-            console.error('OpenAI API error:', res.status, lastError, data)
+            lastError = data?.error?.message || res.statusText
             if (res.status === 401) break
           }
         } catch (err) {
           lastError = err instanceof Error ? err.message : String(err)
-          console.error('OpenAI fetch error:', lastError)
         }
       }
-
     }
 
     return fallbackResponse(message, locale)
   } catch (e) {
-    console.error('Chat API error:', e)
     return NextResponse.json(
       { error: 'A válasz generálása sikertelen. Próbáld újra.' },
       { status: 500 }

@@ -24,8 +24,8 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'Gulumen – Minőségi termékek, meglepően jó áron',
-  description: 'Árverésekből, kedvezményesen – táskák, ruházat, elektronika, kiegészítők.',
+  title: 'Gulumen – Gondosan válogatott, limitált minőségi termékek',
+  description: 'Gondosan válogatott, limitált darabszámú minőségi termékek – táskák, ruházat, kiegészítők, kedvező áron.',
 }
 
 export default function RootLayout({

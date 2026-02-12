@@ -19,6 +19,9 @@ export default function HomePage() {
           <h1 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground max-w-3xl mx-auto leading-tight">
             {t('home.heroTitle')}
           </h1>
+          <p className="mt-4 text-lg sm:text-xl text-muted max-w-2xl mx-auto">
+            {t('home.heroSubtitle')}
+          </p>
           <div className="group inline-block mt-8">
             <Link
               href="/termekek"
@@ -38,6 +41,19 @@ export default function HomePage() {
               </span>
             </p>
           </div>
+        </div>
+      </section>
+
+      <section className="py-10 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-2xl mx-auto rounded-2xl border-2 border-[var(--border)] bg-[var(--card-bg)] p-6 lg:p-8 text-center register-cta-blink">
+          <h2 className="font-heading text-xl font-bold text-foreground">{t('home.registerTitle')}</h2>
+          <p className="mt-2 text-muted">{t('home.registerDesc')}</p>
+          <Link
+            href="/regisztracio"
+            className="inline-block mt-5 px-6 py-3 bg-accent text-white font-heading font-semibold rounded-lg hover:opacity-90 transition-opacity"
+          >
+            {t('buttons.register')}
+          </Link>
         </div>
       </section>
 
@@ -104,18 +120,24 @@ export default function HomePage() {
         </div>
       </section>
 
+      <section className="py-16 bg-[var(--card-bg)] border-y border-[var(--border)]">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="font-heading text-xl font-bold text-foreground">{t('home.whyGoodPriceTitle')}</h2>
+          <p className="mt-3 text-muted">{t('home.whyGoodPriceText')}</p>
+        </div>
+      </section>
+
       <section className="py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-2xl mx-auto rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] p-8 lg:p-10 text-center">
-            <h2 className="font-heading text-xl font-bold text-foreground">{t('home.registerTitle')}</h2>
-            <p className="mt-2 text-muted">{t('home.registerDesc')}</p>
-            <Link
-              href="/regisztracio"
-              className="inline-block mt-6 px-6 py-3 bg-accent text-white font-heading font-semibold rounded-lg hover:opacity-90 transition-opacity"
-            >
-              {t('buttons.register')}
-            </Link>
-          </div>
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="font-heading text-xl font-bold text-foreground">{t('home.loyaltyTitle')}</h2>
+          <p className="mt-3 text-muted">{t('home.loyaltyText')}</p>
+        </div>
+      </section>
+
+      <section className="py-16 bg-[var(--card-bg)] border-y border-[var(--border)]">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="font-heading text-xl font-bold text-foreground">{t('home.aboutUsTitle')}</h2>
+          <p className="mt-3 text-muted">{t('home.aboutUsText')}</p>
         </div>
       </section>
     </>

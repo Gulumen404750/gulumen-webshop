@@ -148,3 +148,19 @@
   animation: shimmer 1.2s ease-in-out;
 }
 
+/* Regisztráció CTA: villogó keret / glow a Termékek megtekintése és Újdonságok között */
+@keyframes register-blink {
+  0%, 100% {
+    box-shadow: 0 0 0 2px var(--border);
+    border-color: var(--border);
+  }
+  50% {
+    box-shadow: 0 0 0 2px var(--accent), 0 0 16px rgba(14, 165, 233, 0.35);
+    border-color: var(--accent);
+  }
+}
+
+.register-cta-blink {
+  animation: register-blink 2s ease-in-out infinite;
+}
+

@@ -28,6 +28,7 @@ export default function ReturnsPage() {
         </h1>
         <div className="text-gray-200 space-y-4 max-w-2xl">
           <p>{t('pages.returns.intro')}</p>
+          <p>{t('pages.returns.withdrawalParagraph')}</p>
           <ul className="list-disc pl-6 space-y-2">
             <li>
               <strong className="text-white">{t('pages.returns.costBullet')}</strong>
@@ -35,10 +36,20 @@ export default function ReturnsPage() {
             <li>
               <strong className="text-white">{t('pages.returns.refundBullet')}</strong>
             </li>
-            <li>{t('pages.returns.noReturnBullet')}</li>
           </ul>
+          <p>{t('pages.returns.examinationRight')}</p>
+          <p>{t('pages.returns.valueReductionBullet')}</p>
+          <p>{t('pages.returns.damagedRefundBullet')}</p>
           <p>{t('pages.returns.contact')}</p>
-          <p className="pt-2">
+
+          <h2 className="font-heading text-lg font-semibold text-white mt-8 mb-2">{t('pages.returns.sourcingTitle')}</h2>
+          <p>{t('pages.returns.sourcingIntro')}</p>
+          <p>{t('pages.returns.sourcingDelivery')}</p>
+          <p>{t('pages.returns.sourcingCancel')}</p>
+          <p>{t('pages.returns.sourcingDeduction')}</p>
+          <p>{t('pages.returns.sourcingFullRefund')}</p>
+
+          <p className="pt-4">
             {t('pages.returns.legalIntro')}
             <br />
             {t('pages.returns.legalLinkLabel')}{' '}

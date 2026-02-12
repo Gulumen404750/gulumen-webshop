@@ -10,7 +10,7 @@
     "contact": "Kapcsolat"
   },
   "buttons": {
-    "viewProducts": "Termékek megtekintése",
+    "viewProducts": "Böngéssz a kínálatban",
     "addToCart": "Kosárba",
     "orderSourcing": "Megrendelem beszerzésre (Kosárba)",
     "details": "Részletek",
@@ -28,8 +28,8 @@
     "logout": "Kijelentkezés"
   },
   "status": {
-    "badgePreview": "ELŐNÉZET",
-    "badgeSale": "3 NAPIG RENDELHETŐ",
+    "badgePreview": "IDŐSZAKOS KÍNÁLAT",
+    "badgeSale": "LIMITÁLT ELÉRHETŐSÉG",
     "badgeSoldout": "ELKELT",
     "badgeClosed": "LEJÁRT",
     "badgeSoon": "HAMAROSAN",
@@ -44,7 +44,8 @@
     "new": "Új"
   },
   "home": {
-    "heroTitle": "Minőségi termékek. Meglepően jó áron.",
+    "heroTitle": "Gondosan válogatott, limitált darabszámú minőségi termékek.",
+    "heroSubtitle": "Kis mennyiségben elérhető kínálat, kedvező áron.",
     "catchTheCat": "Kapd el a macskát",
     "new": "Újdonságok",
     "deals": "Akciók",
@@ -54,14 +55,22 @@
     "trustPayment": "Biztonságos kártyás fizetés",
     "trustReturns": "EU visszaküldés",
     "trustChat": "AI ügyfélszolgálat",
-    "registerTitle": "Regisztrálj, és kapj kuponkódot az első vásárláshoz",
-    "registerDesc": "Érdeklődj a jelenlegi akciókról, és a jövőben e-mailben értesítünk az újdonságokról és kedvezményekről."
+    "whyGoodPriceTitle": "Miért ilyen kedvező az ár?",
+    "whyGoodPriceText": "A Gulumen kis mennyiségben, válogatott forrásból szerzi be a termékeket, így kedvezőbb áron tudja kínálni őket.",
+    "loyaltyTitle": "Hűségkedvezmény",
+    "loyaltyText": "A hűségprogram e-mail címhez kötött: a 50 000 Ft feletti, sikeresen fizetett vásárlásaid után az adott e-mail címedhez automatikusan jár állandó kedvezmény: minden ilyen rendelés +1%, maximum 8%. A hűségkedvezmény nem vonható össze más kuponnal (pl. első vásárlási vagy ajándék kuponnal).",
+    "aboutUsTitle": "Rólunk",
+    "aboutUsText": "A Gulumen célja, hogy minőségi, címkés termékeket tegyen elérhetővé kedvezőbb áron, felesleges túlárazás nélkül.",
+    "registerTitle": "Regisztrálj, és kapj 10%-os egyszeri kupont",
+    "registerDesc": "Add meg az e-mail címed; ha elfogadod a termékajánlatokat, 10%-os egyszeri kupont kapsz."
   },
   "cart": {
     "title": "Kosár",
     "empty": "A kosár jelenleg üres.",
     "subtotal": "Részösszeg",
     "discount": "5% kupon kedvezmény",
+    "discountLabel": "{percent}% kupon kedvezmény",
+    "loyaltyDiscountLabel": "{percent}% hűségkedvezmény",
     "total": "Összesen",
     "remove": "Törlés",
     "deliveryStock": "Feladás 24–48 óra",
@@ -75,13 +84,48 @@
     "decreaseQty": "Csökkentés",
     "increaseQty": "Növelés",
     "maxQuantity": "Max. kosárban: {count} db.",
-    "availableUpTo": "Elérhető: {count} db"
+    "availableUpTo": "Elérhető: {count} db",
+    "blockStockTitle": "📦 Raktáron lévő termékek",
+    "blockStockDispatch": "Feladás: 24–48 óra",
+    "blockSourcingTitle": "🔄 Egyedi beszerzésű termékek",
+    "blockSourcingDelivery": "Várható szállítás: 7–14 nap",
+    "sourcingDisclaimerAccept": "Tudomásul veszem, hogy az egyedi beszerzésű termék megrendelés után kerül beszerzésre (7–14 munkanap). A beszerzés megindulása után történő lemondás esetén a ténylegesen felmerült költségek levonásra kerülhetnek."
+  },
+  "payment": {
+    "title": "Fizetés",
+    "summary": "Rendelés összefoglalója",
+    "cardOnly": "Csak kártyás fizetés lehetséges.",
+    "payWithCard": "Fizetek kártyával",
+    "secureNote": "A fizetés biztonságos pénztári felületen történik. A kártyaadatokat soha ne add meg e-mailben vagy chatben.",
+    "backToCart": "Vissza a kosárhoz",
+    "redirecting": "Átirányítás a fizetéshez…",
+    "errorCreateSession": "A pénztár indítása sikertelen. Próbáld újra.",
+    "successTitle": "Sikeres fizetés",
+    "successMessage": "Köszönjük a vásárlást! A rendelésedet rögzítettük.",
+    "successLoading": "Rendelés betöltése…",
+    "successMissingSession": "Hiányzó fizetési munkamenet.",
+    "successLoadError": "A rendelés betöltése sikertelen.",
+    "orderId": "Rendelés azonosító",
+    "totalPaid": "Fizetett összeg",
+    "statusPaid": "Fizetve",
+    "nextSteps": "Következő lépések",
+    "nextStepsEmail": "E-mailben megküldjük a rendelés összefoglalóját és a szállítási információkat.",
+    "nextStepsShippingStock": "Készleten lévő termékek: feladás 24–48 órán belül.",
+    "nextStepsShippingProcurement": "Beszerzésre rendelt termékek: várható szállítás 7–14 nap.",
+    "cancelTitle": "Fizetés megszakítva",
+    "cancelMessage": "A fizetést megszakítottad. A kosarad változatlan.",
+    "tryAgain": "Újrapróbálás",
+    "successProcessingTitle": "Fizetés feldolgozás alatt",
+    "successProcessingMessage": "A rendelésedet rögzítettük. A fizetés visszaigazolása néhány másodpercig tarthat.",
+    "statusProcessing": "Feldolgozás alatt",
+    "successPendingTimeout": "Ha a kártyáról levonták az összeget, de még nem frissült a státusz, kérlek írj nekünk a rendelés azonosítóval."
   },
   "product": {
     "inStock": "Készleten",
     "outOfStock": "Elfogyott",
     "shipping24_48": "Feladás 24–48 óra",
     "sourcingLabel": "Beszerzésre rendelhető · Szállítás: 7–14 nap",
+    "sourcingCardLabel": "Limitált elérhetőség · 7–14 nap",
     "stockLabel": "Készleten · Feladás 24–48 óra",
     "inStockCount": "raktáron: {count} db elérhető.",
     "inCartCount": "Kosárban: {count} db.",
@@ -89,7 +133,7 @@
     "noImage": "Termék kép",
     "productsCount": "{count} termék",
     "quantity": "Mennyiség",
-    "maxInCart": "A maximális mennyiség már a kosárban van."
+    "maxInCart": "A készleten lévő mennyiséget már a kosarába rakta."
   },
   "coupon": {
     "title": "🎁 5% kedvezmény ajándékba",
@@ -113,6 +157,11 @@
     "soldoutLabel": "Elfogyott – a maximális rendelési darabszámot elértük.",
     "closedLabel": "Lejárt ajánlat – a vásárlási időszak véget ért.",
     "legal": "Ez a termék limitált külső forrásból kerül beszerzésre. Amennyiben a beszerzés a megadott áron nem megvalósítható, a teljes összeg visszatérítésre kerül."
+  },
+  "register": {
+    "intro": "Regisztrálj e-mail címed megadásával. Ha elfogadod, hogy termékajánlatokat küldünk, cserébe 10%-os egyszeri kupont kapsz az első vásárláshoz.",
+    "checkboxOffers": "Elfogadom, hogy a Gulumen termékajánlatokat és újdonságokat küldhet e-mailben; cserébe 10%-os egyszeri kupont kapok.",
+    "errorEmail": "Kérlek add meg az e-mail címed."
   },
   "profile": {
     "title": "Profil",
@@ -162,28 +211,39 @@
     "shipping": {
       "intro": "Csomagjainkat Posta, GLS, Foxpost és DPD szolgáltatókkal küldjük.",
       "freeShipping": "Ingyenes szállítás 25 000 Ft feletti rendelés esetén.",
-      "dispatch": "Feladás: a fizetés beérkezése után 24–48 órán belül.",
       "noPickup": "Személyes átvétel a raktárnál nem lehetséges.",
       "notify": "Rendelés után e-mailben értesítünk a feladásról és a nyomkövetési linkről.",
-      "sourcingNoteLabel": "Fontos:",
-      "sourcingNote": "A beszerzésre rendelhető (limitált forrásból érkező) termékek esetében a szállítási idő hosszabb lehet. Ezeknél a termékeknél a kézbesítés a beszerzést követően, várhatóan 7–14 munkanapon belül történik."
+      "importantTitle": "Fontos szállítási információ",
+      "stockInfo": "A készleten lévő termékek esetében a feladás a fizetés beérkezése után 24–48 munkanapon belül történik.",
+      "sourcingNote": "A beszerzésre rendelhető (limitált forrásból érkező) termékek esetében a szállítási idő hosszabb lehet. Ezeknél a termékeknél a kézbesítés a beszerzést követően, várhatóan 7–14 munkanapon belül történik.",
+      "mixedOrder": "Amennyiben egy rendelés készleten lévő és beszerzésre rendelhető terméket is tartalmaz, a teljes szállítás a hosszabb szállítási időhöz igazodik.",
+      "productPageNote": "A termékoldalon minden esetben feltüntetésre kerül az adott termékre vonatkozó várható szállítási idő."
     },
     "returns": {
       "intro": "Az EU visszaküldési jog érvényes (kivéve: fehérnemű, higiéniai termékek).",
+      "withdrawalParagraph": "A vásárlót a 45/2014. (II.26.) Korm. rendelet alapján 14 napos indokolás nélküli elállási jog illeti meg.",
       "costBullet": "A visszaküldési költséget a vásárló fizeti.",
-      "refundBullet": "Visszatérítés a termék visszaérkezése és ellenőrzése után, legkésőbb 3 napon belül.",
-      "noReturnBullet": "Nem fogadunk vissza: sérült, viselt, hiányos vagy címke nélküli termékeket.",
-      "contact": "Visszaküldés indításához írj a kapcsolatunkra (e-mail vagy AI chat), és megküldjük a lépéseket.",
+      "refundBullet": "A raktáron lévő termékek visszatérítése a termék visszaérkezése után 14 napon belül történik.",
+      "examinationRight": "A vásárló jogosult a terméket a szükséges mértékben megvizsgálni.",
+      "valueReductionBullet": "A termék nem rendeltetésszerű használatából eredő értékcsökkenés esetén a visszatérítendő összeg arányosan csökkenthető.",
+      "damagedRefundBullet": "Sérült, viselt, hiányos vagy címke nélküli termék esetén a visszatérítés az értékcsökkenés mértékének figyelembevételével történhet.",
+      "contact": "Visszaküldés indításához írj a kapcsolatunkra (e-mail vagy AI chat), és megküldjük a szükséges lépéseket.",
+      "sourcingTitle": "Egyedi beszerzésű (nem raktárkészleten lévő) termékek",
+      "sourcingIntro": "Egyes termékek nem raktárkészleten érhetők el, hanem a megrendelést követően kerülnek beszerzésre külső partneri forrásból.",
+      "sourcingDelivery": "Az ilyen termékeknél a várható szállítási idő 7–14 munkanap.",
+      "sourcingCancel": "Amennyiben a megrendelő az egyedi beszerzésű terméket a beszerzési folyamat megindulása után mondja le, a már igazolhatóan felmerült beszerzési és logisztikai költségek a visszatérítendő összegből levonásra kerülhetnek.",
+      "sourcingDeduction": "A levonás kizárólag a ténylegesen felmerült és dokumentálható költségekre terjed ki.",
+      "sourcingFullRefund": "Amennyiben a beszerzés a meghirdetett feltételekkel nem valósítható meg, a teljes összeg visszatérítésre kerül.",
       "legalIntro": "Jelen webáruház az Európai Unió fogyasztóvédelmi szabályainak megfelelően működik.",
-      "legalLinkLabel": "A részletes jogi feltételek angolul itt olvashatók:"
+      "legalLinkLabel": "A részletes jogi feltételek itt olvashatók:"
     }
   },
   "ai": {
     "greeting": "Szia! Miben segíthetek? Kérdezz bátran a termékekről, szállításról vagy visszaküldésről.",
     "payment": "A fizetés kártyával történik: Kosár → Pénztár → Kártyás fizetés → E-mailben megküldjük a rendelésösszefoglalót. A kártyaadatokat soha ne add meg chatben – csak a biztonságos pénztár oldalon.",
     "shipping": "24–48 órán belül feladjuk a csomagot a fizetés után. Szállítás: Posta, GLS, Foxpost, DPD. Ingyenes szállítás 25 000 Ft felett.",
-    "returns": "Visszaküldés: a szállítási költséget a vásárló fizeti. A visszatérítés 3 napon belül történik, miután a termék visszaérkezett és ellenőrizve lett. Nem fogadunk vissza sérült, viselt, hiányos vagy címke nélküli termékeket. EU visszaküldési jog érvényes (kivéve fehérnemű/higiéniai).",
-    "authenticity": "Nincs hivatalos autentikációs igazolvány. A termékek árverésekből, kedvezményes csatornából származnak, ezért nagyon jó áron kínáljuk. A fotókkal és leírással átláthatóan mutatjuk be őket.",
+    "returns": "Visszaküldés: a szállítási költséget a vásárló fizeti. A raktáron lévő termékek visszatérítése a termék visszaérkezése után 14 napon belül történik. EU visszaküldési jog érvényes (kivéve fehérnemű/higiéniai).",
+    "authenticity": "A termékeket válogatott forrásból, kis mennyiségben szerzzük, ezért kedvező áron kínáljuk. A fotókkal és leírással átláthatóan mutatjuk be őket.",
     "register": "Regisztrálj, és az első vásárláshoz kuponkódot kapsz. A jövőben e-mailben értesítünk az akciókról és újdonságokról.",
     "complaint": "Kérlek add meg a rendelés azonosítót és az e-mail címedet, valamint röviden a problémát (ha lehet, fotóval). Ezzel létrehozunk egy ügyet, és a csapatunk hamarosan válaszol.",
     "handover": "Ezt a kérdést szívesen átadom emberi ügyintézőnek. Kérlek add meg a rendelés azonosítót és az e-mail címedet, és hamarosan felvesszük veled a kapcsolatot.",

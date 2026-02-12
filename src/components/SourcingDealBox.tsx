@@ -117,6 +117,11 @@ export function SourcingDealBox({ product }: { product: Product }) {
             {reason || t('status.notAvailable')}
           </button>
         )}
+        {canAdd && maxQty === 0 && (
+          <p className="text-amber-600 dark:text-amber-400 font-medium text-sm">
+            {t('product.maxInCart')}
+          </p>
+        )}
         {canAdd && maxQty > 0 && (
           <>
             <label htmlFor="sourcing-qty" className="text-sm font-medium text-foreground">

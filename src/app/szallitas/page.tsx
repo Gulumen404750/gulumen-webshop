@@ -28,15 +28,15 @@ export default function ShippingPage() {
           <p>
             <strong className="text-white">{t('pages.shipping.freeShipping')}</strong>
           </p>
-          <p>
-            <strong className="text-white">{t('pages.shipping.dispatch')}</strong>
-          </p>
           <p>{t('pages.shipping.noPickup')}</p>
           <p>{t('pages.shipping.notify')}</p>
           <p className="pt-2 border-t border-white/20 mt-6">
-            <strong className="text-white">{t('pages.shipping.sourcingNoteLabel')}</strong>{' '}
-            {t('pages.shipping.sourcingNote')}
+            <strong className="text-white">{t('pages.shipping.importantTitle')}</strong>
           </p>
+          <p>{t('pages.shipping.stockInfo')}</p>
+          <p>{t('pages.shipping.sourcingNote')}</p>
+          <p>{t('pages.shipping.mixedOrder')}</p>
+          <p>{t('pages.shipping.productPageNote')}</p>
         </div>
       </div>
     </div>

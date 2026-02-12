@@ -1,32 +1,102 @@
+'use client'
+
+import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/context/AuthContext'
+import { useCatCoupon } from '@/context/CatCouponContext'
+import { useLocale } from '@/context/LocaleContext'
 
 export default function RegistrationPage() {
+  const { t } = useLocale()
+  const router = useRouter()
+  const { login } = useAuth()
+  const { claimRegistrationCoupon } = useCatCoupon()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [acceptOffers, setAcceptOffers] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    const trimmedEmail = email.trim()
+    if (!trimmedEmail) {
+      setError(t('register.errorEmail'))
+      return
+    }
+    login(trimmedEmail)
+    if (acceptOffers) {
+      claimRegistrationCoupon(trimmedEmail)
+    }
+    router.push('/termekek')
+  }
+
   return (
     <div className="max-w-md mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <h1 className="font-heading text-2xl font-bold text-foreground mb-6">Regisztráció</h1>
-      <p className="text-muted mb-6">
-        Regisztrálj, és az első vásárláshoz kuponkódot kapsz. E-mailben értesítünk az akciókról és újdonságokról.
-      </p>
-      <form className="space-y-4">
-        <input
-          type="email"
-          placeholder="E-mail"
-          className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
-        />
-        <input
-          type="password"
-          placeholder="Jelszó"
-          className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
-        />
+      <h1 className="font-heading text-2xl font-bold text-foreground mb-6">
+        {t('pages.registerTitle')}
+      </h1>
+      <p className="text-muted mb-6">{t('register.intro')}</p>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label htmlFor="reg-email" className="block text-sm font-medium text-foreground mb-1">
+            {t('profile.email')}
+          </label>
+          <input
+            id="reg-email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="email@pelda.hu"
+            className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
+            autoComplete="email"
+          />
+        </div>
+        <div>
+          <label htmlFor="reg-password" className="block text-sm font-medium text-foreground mb-1">
+            {t('profile.password')}
+          </label>
+          <input
+            id="reg-password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
+            autoComplete="new-password"
+          />
+        </div>
+        <div className="flex items-start gap-3">
+          <input
+            id="reg-offers"
+            type="checkbox"
+            checked={acceptOffers}
+            onChange={(e) => setAcceptOffers(e.target.checked)}
+            className="mt-1 w-4 h-4 rounded border-[var(--border)] text-accent focus:ring-accent"
+            aria-describedby="reg-offers-desc"
+          />
+          <label id="reg-offers-desc" htmlFor="reg-offers" className="text-sm text-foreground cursor-pointer">
+            {t('register.checkboxOffers')}
+          </label>
+        </div>
+        {error && (
+          <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+            {error}
+          </p>
+        )}
         <button
           type="submit"
           className="w-full py-3 bg-accent text-white font-heading font-semibold rounded-lg hover:opacity-90"
         >
-          Regisztráció
+          {t('buttons.register')}
         </button>
       </form>
       <p className="mt-4 text-sm text-muted">
-        Már van fiókod? <Link href="/profil" className="text-accent hover:underline">Bejelentkezés</Link>
+        {t('pages.registerHaveAccount')}{' '}
+        <Link href="/profil" className="text-accent hover:underline">
+          {t('buttons.login')}
+        </Link>
       </p>
     </div>
   )

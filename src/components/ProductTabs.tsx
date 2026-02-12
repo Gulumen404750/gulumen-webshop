@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { Product } from '@/lib/data'
+import { useLocale } from '@/context/LocaleContext'
 
 const tabs = [
   { id: 'leiras', label: 'Leírás' },
@@ -10,6 +11,7 @@ const tabs = [
 ] as const
 
 export function ProductTabs({ product }: { product: Product }) {
+  const { t } = useLocale()
   const [active, setActive] = useState<(typeof tabs)[number]['id']>('leiras')
 
   return (
@@ -42,10 +44,10 @@ export function ProductTabs({ product }: { product: Product }) {
         )}
         {active === 'visszakuldes' && (
           <ul className="list-disc pl-5 space-y-1">
-            <li>Visszaküldési költséget a vásárló fizeti</li>
-            <li>Visszatérítés 3 napon belül, a termék visszaérkezése és ellenőrzése után</li>
-            <li>Nem fogadunk vissza: sérült, viselt, hiányzó alkatrészes, címke nélküli termékeket</li>
-            <li>EU visszaküldési jog, kivéve: fehérnemű / higiéniai termékek</li>
+            <li>{t('pages.returns.costBullet')}</li>
+            <li>{t('pages.returns.refundBullet')}</li>
+            <li>{t('pages.returns.damagedRefundBullet')}</li>
+            <li>{t('pages.returns.intro')}</li>
           </ul>
         )}
       </div>
