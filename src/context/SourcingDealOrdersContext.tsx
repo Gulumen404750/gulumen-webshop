@@ -8,6 +8,7 @@ const SourcingDealOrdersContext = createContext<{
   getOrdersCount: (productId: string) => number
   placeOrder: (productId: string, qty?: number) => void
   cancelOrder: (productId: string, qty?: number) => void
+  syncFromCart: (items: { productId: string; qty: number }[]) => void
 } | null>(null)
 
 export function SourcingDealOrdersProvider({ children }: { children: ReactNode }) {
@@ -26,8 +27,20 @@ export function SourcingDealOrdersProvider({ children }: { children: ReactNode }
     }))
   }, [])
 
+  const syncFromCart = useCallback((items: { productId: string; qty: number }[]) => {
+    setOrders((prev) => {
+      const next = { ...prev }
+      for (const item of items) {
+        if (item.productId && item.qty > 0) {
+          next[item.productId] = item.qty
+        }
+      }
+      return next
+    })
+  }, [])
+
   return (
-    <SourcingDealOrdersContext.Provider value={{ getOrdersCount, placeOrder, cancelOrder }}>
+    <SourcingDealOrdersContext.Provider value={{ getOrdersCount, placeOrder, cancelOrder, syncFromCart }}>
       {children}
     </SourcingDealOrdersContext.Provider>
   )
@@ -35,6 +48,6 @@ export function SourcingDealOrdersProvider({ children }: { children: ReactNode }
 
 export function useSourcingDealOrders() {
   const ctx = useContext(SourcingDealOrdersContext)
-  if (!ctx) return { getOrdersCount: () => 0, placeOrder: () => {}, cancelOrder: () => {} }
+  if (!ctx) return { getOrdersCount: () => 0, placeOrder: () => {}, cancelOrder: () => {}, syncFromCart: () => {} }
   return ctx
 }

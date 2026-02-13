@@ -84,6 +84,7 @@
     "decreaseQty": "Csökkentés",
     "increaseQty": "Növelés",
     "maxQuantity": "Max. kosárban: {count} db.",
+    "allAvailableAdded": "Már az összes elérhető terméket a kosárba raktad.",
     "availableUpTo": "Elérhető: {count} db",
     "blockStockTitle": "📦 Raktáron lévő termékek",
     "blockStockDispatch": "Feladás: 24–48 óra",

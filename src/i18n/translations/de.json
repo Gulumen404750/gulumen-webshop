@@ -84,6 +84,7 @@
     "decreaseQty": "Verringern",
     "increaseQty": "Erhöhen",
     "maxQuantity": "Max. im Warenkorb: {count}.",
+    "allAvailableAdded": "Sie haben bereits alle verfügbaren Artikel in den Warenkorb gelegt.",
     "availableUpTo": "Verfügbar: {count}",
     "blockStockTitle": "📦 Lagerware",
     "blockStockDispatch": "Versand: 24–48 Stunden",

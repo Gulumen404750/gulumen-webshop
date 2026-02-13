@@ -61,28 +61,31 @@ export default function CartPage() {
     const priceHuf = product.discountPriceHuf ?? product.priceHuf
     const priceEur = product.discountPriceEur ?? product.priceEur
     const type = product.type === 'sourcing_deal' ? 'sourcing_deal' : 'stock'
-    const ordersOverride = product.type === 'sourcing_deal' ? (product.ordersCount ?? 0) + getOrdersCount(product.id) : undefined
+    const currentQty = items.find((x) => x.productId === product.id)?.qty ?? 0
+    const ordersOverride = product.type === 'sourcing_deal' ? (product.ordersCount ?? 0) + currentQty : undefined
     const { canAdd } = getAddToCartReason(product, new Date(), ordersOverride)
     if (!canAdd) return
     const maxQty =
       product.type === 'sourcing_deal'
         ? getMaxQty(product, ordersOverride)
         : getStockById(product.id)
-    const currentQty = items.find((x) => x.productId === product.id)?.qty ?? 0
     if (currentQty >= maxQty) {
-      const maxAllowed = product?.type === 'sourcing_deal'
-        ? Math.max(0, (product.maxOrders ?? 0) - (product.ordersCount ?? 0))
-        : getStockById(product.id)
-      toast(product?.type === 'sourcing_deal' ? t('sourcing.availableCount', { count: maxAllowed }) : t('product.inStockCount', { count: maxAllowed }))
+      toast(t('cart.allAvailableAdded'))
       router.replace('/kosar')
       return
     }
     processedAddIdRef.current = addId
     const requestedQty = Math.max(1, parseInt(searchParams.get('qty') || '1', 10) || 1)
     const addQty = Math.min(requestedQty, maxQty - currentQty)
+    if (product.type === 'sourcing_deal') {
+      placeOrder(product.id, addQty)
+    }
     addItem(product.id, addQty)
+    if (addQty < requestedQty) {
+      toast(t('cart.allAvailableAdded'))
+    }
     router.replace('/kosar')
-  }, [searchParams, router, addItem, getOrdersCount, items, t, toast])
+  }, [searchParams, router, addItem, placeOrder, items, t, toast])
 
   const handleCompleteOrder = () => {
     let corrected = false

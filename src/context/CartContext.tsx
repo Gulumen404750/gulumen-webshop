@@ -2,7 +2,8 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react'
 import { useCatCoupon } from './CatCouponContext'
-import { getProductById } from '@/lib/data'
+import { useSourcingDealOrders } from './SourcingDealOrdersContext'
+import { getProductById, getStockById } from '@/lib/data'
 
 const CART_STORAGE_KEY = 'gulumen-cart'
 
@@ -55,13 +56,17 @@ function saveCart(items: CartItem[]) {
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const { isDiscountActive, discountPercent } = useCatCoupon()
+  const { syncFromCart } = useSourcingDealOrders()
   const [items, setItems] = useState<CartItem[]>([])
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     setMounted(true)
-    setItems(loadCart())
-  }, [])
+    const loaded = loadCart()
+    setItems(loaded)
+    const sourcingItems = loaded.filter((item) => getProductById(item.productId)?.type === 'sourcing_deal')
+    if (sourcingItems.length > 0) syncFromCart(sourcingItems)
+  }, [syncFromCart])
 
   useEffect(() => {
     if (mounted) saveCart(items)
@@ -69,13 +74,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addItem = useCallback((productId: string, qty = 1) => {
     setItems((prev) => {
+      const product = getProductById(productId)
+      if (!product) return prev
+      const maxAllowed =
+        product.type === 'sourcing_deal'
+          ? Math.max(0, (product.maxOrders ?? 0) - (product.ordersCount ?? 0))
+          : getStockById(productId)
+      const currentQty = prev.find((x) => x.productId === productId)?.qty ?? 0
+      const toAdd = Math.min(qty, Math.max(0, maxAllowed - currentQty))
+      if (toAdd <= 0) return prev
       const i = prev.findIndex((x) => x.productId === productId)
       if (i >= 0) {
         const next = [...prev]
-        next[i] = { ...next[i], qty: next[i].qty + qty }
+        next[i] = { ...next[i], qty: next[i].qty + toAdd }
         return next
       }
-      return [...prev, { productId, qty }]
+      return [...prev, { productId, qty: toAdd }]
     })
   }, [])
 

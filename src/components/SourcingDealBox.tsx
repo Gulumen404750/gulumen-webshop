@@ -24,10 +24,11 @@ export function SourcingDealBox({ product }: { product: Product }) {
   const router = useRouter()
   const { toast } = useToast()
   const { getOrdersCount, placeOrder } = useSourcingDealOrders()
-  const { addItem } = useCart()
+  const { addItem, items } = useCart()
   const [now, setNow] = useState(() => new Date())
 
-  const effectiveCount = (product.ordersCount ?? 0) + getOrdersCount(product.id)
+  const cartQty = items.find((x) => x.productId === product.id)?.qty ?? 0
+  const effectiveCount = (product.ordersCount ?? 0) + Math.max(getOrdersCount(product.id), cartQty)
   const status = getSourcingDealStatus(product, now, effectiveCount)
   const { canAdd, reasonKey, reasonParams } = getAddToCartReason(product, now, effectiveCount)
   const reason = reasonKey ? t(reasonKey, reasonParams) : ''

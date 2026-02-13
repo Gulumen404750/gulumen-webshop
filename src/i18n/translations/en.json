@@ -84,6 +84,7 @@
     "decreaseQty": "Decrease",
     "increaseQty": "Increase",
     "maxQuantity": "Max in cart: {count}.",
+    "allAvailableAdded": "You have already added all available items to the cart.",
     "availableUpTo": "Available: {count}",
     "blockStockTitle": "📦 In-stock products",
     "blockStockDispatch": "Dispatch: 24–48 hours",
