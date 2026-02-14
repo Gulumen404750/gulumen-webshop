@@ -35,12 +35,11 @@ export function ProductTabs({ product }: { product: Product }) {
       <div className="pt-4 text-muted text-sm">
         {active === 'leiras' && <p>{product.description}</p>}
         {active === 'szallitas' && (
-          <ul className="list-disc pl-5 space-y-1">
-            <li>Posta, GLS, Foxpost, DPD</li>
-            <li>Ingyenes szállítás 25 000 Ft felett</li>
-            <li>Feladás: fizetés után 24–48 órán belül</li>
-            <li>Személyes átvétel nem lehetséges</li>
-          </ul>
+          <p className="whitespace-pre-line">
+            {product.type === 'sourcing_deal'
+              ? t('pages.shipping.sourcingFullDescription')
+              : t('pages.shipping.fullDescription')}
+          </p>
         )}
         {active === 'visszakuldes' && (
           <ul className="list-disc pl-5 space-y-1">

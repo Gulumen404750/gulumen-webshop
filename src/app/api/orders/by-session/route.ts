@@ -2,8 +2,6 @@ import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { getOrderById } from '@/lib/orders'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
-
 /**
  * GET /api/orders/by-session?session_id=cs_xxx
  * A siker oldal használja: session_id-ből Stripe-n keresztül orderId, majd rendelés.
@@ -26,6 +24,7 @@ export async function GET(request: Request) {
   }
 
   try {
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
     const session = await stripe.checkout.sessions.retrieve(sessionId)
     const orderId = session.metadata?.orderId
     if (!orderId) {

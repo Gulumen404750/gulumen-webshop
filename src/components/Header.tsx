@@ -2,30 +2,80 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
+import {
+  LayoutGrid,
+  Backpack,
+  Shirt,
+  Gem,
+  Cpu,
+  Home,
+  Box,
+  type LucideIcon,
+} from 'lucide-react'
 import { useLocale } from '@/context/LocaleContext'
+import { useCart } from '@/context/CartContext'
+import { useWishlist } from '@/context/WishlistContext'
 import { LOCALES, type Locale } from '@/i18n/locales'
-import { categories, getCategoryName } from '@/lib/data'
+import { categories, getCategoryName, getSourcingDealProducts, getEarliestSourcingExpiry } from '@/lib/data'
+import { SearchModal } from '@/components/SearchModal'
+import { CartDrawer } from '@/components/CartDrawer'
+
+/** Ikon map a Termékek dropdown kategóriáihoz (slug → komponens). */
+const categoryIconMap: Record<string, LucideIcon> = {
+  taskak: Backpack,
+  ruhazat: Shirt,
+  kiegeszitok: Gem,
+  elektronika: Cpu,
+  otthon: Home,
+  '3d-nyomtatott': Box,
+}
+const DefaultCategoryIcon = LayoutGrid
+
+/** Világos színek a kategória ikonokhoz (slug → Tailwind text osztály). */
+const categoryIconColorMap: Record<string, string> = {
+  taskak: 'text-amber-500',
+  ruhazat: 'text-rose-500',
+  kiegeszitok: 'text-violet-500',
+  elektronika: 'text-sky-500',
+  otthon: 'text-emerald-500',
+  '3d-nyomtatott': 'text-indigo-500',
+}
+const defaultCategoryIconColor = 'text-slate-600 dark:text-slate-400'
 
 const navItems: { href: string; labelKey: string }[] = [
-  { href: '/ujdonsagok', labelKey: 'nav.new' },
   { href: '/akciok', labelKey: 'nav.deals' },
+  { href: '/ujdonsagok', labelKey: 'nav.new' },
   { href: '/beszerzesre-rendelheto', labelKey: 'nav.sourcing' },
+]
+
+const helpDropdownItems: { href: string; labelKey: string }[] = [
   { href: '/szallitas', labelKey: 'nav.shipping' },
   { href: '/visszakuldes', labelKey: 'nav.returns' },
   { href: '/kapcsolat', labelKey: 'nav.contact' },
+  { href: '/gyik', labelKey: 'nav.faq' },
 ]
 
 export function Header() {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { t, locale, setLocale } = useLocale()
+  const { itemCount } = useCart()
+  const { count: wishlistCount } = useWishlist()
   const [dark, setDark] = useState(false)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
   const [productsOpen, setProductsOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [cartDrawerOpen, setCartDrawerOpen] = useState(false)
+  const [sourcingPhase, setSourcingPhase] = useState<'label' | 'countdown'>('label')
+  const [sourcingCountdown, setSourcingCountdown] = useState<string>('00:00:00')
   const langRef = useRef<HTMLDivElement>(null)
   const productsRef = useRef<HTMLDivElement>(null)
+  const helpRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setMounted(true)
@@ -51,12 +101,47 @@ export function Header() {
       const target = e.target as Node
       if (langRef.current && !langRef.current.contains(target)) setLangOpen(false)
       if (productsRef.current && !productsRef.current.contains(target)) setProductsOpen(false)
+      if (helpRef.current && !helpRef.current.contains(target)) setHelpOpen(false)
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  /* Beszerzésre rendelhető: váltakozás címke ↔ piros visszaszámláló (valódi legkorábbi lejárat) */
+  useEffect(() => {
+    const products = getSourcingDealProducts()
+    const tick = () => {
+      const now = new Date()
+      const expiry = getEarliestSourcingExpiry(products, now)
+      if (!expiry || expiry.getTime() <= now.getTime()) {
+        setSourcingCountdown('00:00:00')
+        return
+      }
+      const ms = expiry.getTime() - now.getTime()
+      const sec = Math.floor((ms / 1000) % 60)
+      const min = Math.floor((ms / (1000 * 60)) % 60)
+      const hour = Math.floor((ms / (1000 * 60 * 60)) % 24)
+      const day = Math.floor(ms / (1000 * 60 * 60 * 24))
+      const pad = (n: number) => String(n).padStart(2, '0')
+      setSourcingCountdown(
+        day > 0 ? `${day}d ${pad(hour)}:${pad(min)}:${pad(sec)}` : `${pad(hour)}:${pad(min)}:${pad(sec)}`
+      )
+    }
+    const phaseInterval = setInterval(() => {
+      setSourcingPhase((p) => (p === 'label' ? 'countdown' : 'label'))
+    }, 3500)
+    const countdownInterval = setInterval(tick, 1000)
+    tick()
+    return () => {
+      clearInterval(phaseInterval)
+      clearInterval(countdownInterval)
+    }
+  }, [])
+
   return (
+    <>
+    <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+    <CartDrawer isOpen={cartDrawerOpen} onClose={() => setCartDrawerOpen(false)} />
     <header className="sticky top-0 z-50 bg-background border-b border-[var(--border)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-18">
@@ -67,12 +152,22 @@ export function Header() {
             <span className="font-heading font-bold text-xl text-foreground">Gulumen</span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-8">
-            <div className="relative" ref={productsRef}>
+          <button
+            type="button"
+            className="md:hidden p-2 rounded-lg text-muted hover:text-foreground hover:bg-[var(--border)]"
+            onClick={() => setMobileNavOpen((o) => !o)}
+            aria-expanded={mobileNavOpen}
+            aria-label={mobileNavOpen ? (t('buttons.close') || 'Menü bezárása') : (t('nav.menu') || 'Menü')}
+          >
+            {mobileNavOpen ? <CloseIcon className="w-6 h-6" /> : <HamburgerIcon className="w-6 h-6" />}
+          </button>
+
+          <nav className={`${mobileNavOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row absolute md:relative top-full left-0 right-0 md:top-0 bg-[var(--card-bg)] md:bg-transparent border-b md:border-b-0 border-[var(--border)] md:border-0 py-4 md:py-0 items-center gap-3 md:gap-4 md:flex-nowrap md:min-h-[2.5rem] shadow-lg md:shadow-none z-40`}>
+            <div className="relative flex items-center h-full" ref={productsRef}>
               <button
                 type="button"
                 onClick={() => setProductsOpen((o) => !o)}
-                className={`text-sm font-medium transition-colors flex items-center gap-1 ${
+                className={`text-sm font-medium leading-none transition-colors flex items-center gap-1 whitespace-nowrap shrink-0 h-full ${
                   pathname === '/termekek' ? 'text-accent' : 'text-foreground hover:text-accent'
                 }`}
                 aria-expanded={productsOpen}
@@ -89,47 +184,128 @@ export function Header() {
                   <li>
                     <Link
                       href="/termekek"
-                      className="block px-4 py-2.5 text-sm font-medium text-foreground hover:bg-[var(--border)] hover:text-accent"
-                      onClick={() => setProductsOpen(false)}
+                      className={`flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium transition-colors ${
+                        pathname === '/termekek' && !searchParams.get('kategoria')
+                          ? 'bg-[var(--border)] text-accent font-semibold'
+                          : 'text-foreground hover:bg-[var(--border)] hover:text-accent'
+                      }`}
+                      onClick={() => { setProductsOpen(false); setMobileNavOpen(false) }}
                     >
+                      <DefaultCategoryIcon className={`h-4 w-4 shrink-0 ${defaultCategoryIconColor}`} aria-hidden />
                       {t('nav.allProducts')}
                     </Link>
                   </li>
-                  {categories.map((cat) => (
-                    <li key={cat.slug}>
-                      <Link
-                        href={`/termekek?kategoria=${cat.slug}`}
-                        className="block px-4 py-2.5 text-sm font-medium text-foreground hover:bg-[var(--border)] hover:text-accent"
-                        onClick={() => setProductsOpen(false)}
-                      >
-                        {getCategoryName(cat, locale)}
-                      </Link>
-                    </li>
-                  ))}
+                  {categories.map((cat) => {
+                    const CategoryIcon = categoryIconMap[cat.slug] ?? DefaultCategoryIcon
+                    const iconColor = categoryIconColorMap[cat.slug] ?? defaultCategoryIconColor
+                    const isActive = pathname === '/termekek' && searchParams.get('kategoria') === cat.slug
+                    return (
+                      <li key={cat.slug}>
+                        <Link
+                          href={`/termekek?kategoria=${cat.slug}`}
+                          className={`flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium transition-colors ${
+                            isActive ? 'bg-[var(--border)] text-accent font-semibold' : 'text-foreground hover:bg-[var(--border)] hover:text-accent'
+                          }`}
+                          onClick={() => { setProductsOpen(false); setMobileNavOpen(false) }}
+                        >
+                          <CategoryIcon className={`h-4 w-4 shrink-0 ${iconColor}`} aria-hidden />
+                          {getCategoryName(cat, locale)}
+                        </Link>
+                      </li>
+                    )
+                  })}
                 </ul>
               )}
             </div>
             {navItems.map(({ href, labelKey }) => {
               const isDeals = href === '/akciok'
+              const isSourcing = href === '/beszerzesre-rendelheto'
               const link = (
                 <Link
                   key={href}
                   href={href}
-                  className={`text-sm font-medium transition-colors ${
+                  onClick={() => setMobileNavOpen(false)}
+                  className={`text-sm font-medium leading-none transition-colors whitespace-nowrap shrink-0 inline-flex items-center ${
                     pathname === href ? 'text-accent' : 'text-foreground hover:text-accent'
                   } ${isDeals ? 'relative z-10' : ''}`}
                 >
                   {t(labelKey)}
                 </Link>
               )
-              return isDeals ? (
-                <span key={href} className="nav-link-fire">
-                  {link}
-                </span>
-              ) : (
-                link
-              )
+              if (isDeals) {
+                return (
+                  <span key={href} className="nav-link-fire">
+                    {link}
+                  </span>
+                )
+              }
+              if (isSourcing) {
+                const showCountdown = sourcingPhase === 'countdown' && sourcingCountdown !== '00:00:00'
+                return (
+                  <span key={href} className="nav-link-sourcing-fomo">
+                    <Link
+                      href={href}
+                      onClick={() => setMobileNavOpen(false)}
+                      className={`nav-sourcing-link text-sm font-medium leading-none transition-colors shrink-0 inline-flex items-center justify-center h-full ${
+                        pathname === href ? 'text-accent' : 'text-foreground hover:text-accent'
+                      }`}
+                      aria-label={showCountdown ? undefined : t('nav.sourcing')}
+                    >
+                      <span
+                        className={`nav-sourcing-label ${showCountdown ? 'nav-sourcing-hidden' : 'nav-sourcing-visible'}`}
+                        aria-hidden={showCountdown}
+                      >
+                        {t('nav.sourcing')}
+                      </span>
+                      <span
+                        className={`nav-sourcing-countdown-red tabular-nums text-red-500 dark:text-red-400 ${showCountdown ? 'nav-sourcing-visible' : 'nav-sourcing-hidden'}`}
+                        aria-hidden={!showCountdown}
+                      >
+                        {sourcingCountdown}
+                      </span>
+                    </Link>
+                  </span>
+                )
+              }
+              return link
             })}
+            <div
+              className="relative flex items-center h-full"
+              ref={helpRef}
+              onMouseEnter={() => setHelpOpen(true)}
+              onMouseLeave={() => setHelpOpen(false)}
+            >
+              <button
+                type="button"
+                onClick={() => setHelpOpen((o) => !o)}
+                className={`text-sm font-medium leading-none transition-colors flex items-center gap-1 whitespace-nowrap shrink-0 h-full ${
+                  helpDropdownItems.some(({ href }) => pathname === href) ? 'text-accent' : 'text-foreground hover:text-accent'
+                }`}
+                aria-expanded={helpOpen}
+                aria-haspopup="true"
+                aria-label={t('nav.help')}
+              >
+                {t('nav.help')}
+                <svg className="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {helpOpen && (
+                <ul className="absolute left-0 top-full mt-1 py-2 min-w-[200px] rounded-xl border border-[var(--border)] bg-[var(--card-bg)] shadow-lg z-50 md:left-0">
+                  {helpDropdownItems.map(({ href, labelKey }) => (
+                    <li key={href}>
+                      <Link
+                        href={href}
+                        className="block px-4 py-2.5 text-sm font-medium text-foreground hover:bg-[var(--border)] hover:text-accent"
+                        onClick={() => { setHelpOpen(false); setMobileNavOpen(false) }}
+                      >
+                        {t(labelKey)}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-4">
@@ -173,20 +349,41 @@ export function Header() {
                 </ul>
               )}
             </div>
+            <Link
+              href="/kedvencek"
+              className="relative p-2 rounded-lg text-muted hover:text-foreground hover:bg-[var(--border)]"
+              aria-label={t('wishlist.title') || 'Kedvencek'}
+            >
+              <HeartIcon className="w-5 h-5" />
+              {wishlistCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
+                  {wishlistCount > 99 ? '99+' : wishlistCount}
+                </span>
+              )}
+            </Link>
             <button
               type="button"
+              onClick={() => { setSearchOpen(true); setMobileNavOpen(false) }}
               className="p-2 rounded-lg text-muted hover:text-foreground hover:bg-[var(--border)]"
               aria-label={t('common.search')}
+              aria-expanded={searchOpen}
             >
               <SearchIcon className="w-5 h-5" />
             </button>
-            <Link
-              href="/kosar"
-              className="p-2 rounded-lg text-muted hover:text-foreground hover:bg-[var(--border)]"
+            <button
+              type="button"
+              onClick={() => { setCartDrawerOpen(true); setMobileNavOpen(false) }}
+              className="relative p-2 rounded-lg text-muted hover:text-foreground hover:bg-[var(--border)]"
               aria-label={t('common.cart')}
+              aria-expanded={cartDrawerOpen}
             >
               <CartIcon className="w-5 h-5" />
-            </Link>
+              {itemCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-accent text-white text-xs font-bold">
+                  {itemCount > 99 ? '99+' : itemCount}
+                </span>
+              )}
+            </button>
             <Link
               href="/profil"
               className="p-2 rounded-lg text-muted hover:text-foreground hover:bg-[var(--border)]"
@@ -206,6 +403,7 @@ export function Header() {
         </div>
       </div>
     </header>
+    </>
   )
 }
 
@@ -248,3 +446,28 @@ function SunIcon({ className }: { className?: string }) {
     </svg>
   )
 }
+
+function HamburgerIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  )
+}
+
+function CloseIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  )
+}
+
+function HeartIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+    </svg>
+  )
+}
+

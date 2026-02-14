@@ -3,6 +3,7 @@ import { getResponse } from '@/lib/ai-assistant'
 import { getTranslations, t } from '@/i18n/translations'
 import type { Locale } from '@/i18n/locales'
 import { isValidLocale } from '@/i18n/locales'
+import { rateLimit } from '@/lib/rate-limit'
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'
 
@@ -31,13 +32,7 @@ Ismerd fel a vásárlási szándékot.
 Hangsúlyozd a limitált darabszámot, de ne kelts pánikot.
 
 SZÁLLÍTÁS:
-
-Raktáron lévő termék:
-24–48 órán belül feladás.
-
-Beszerzésre rendelhető termék:
-7–14 nap szállítás.
-Limitált, külföldi partner raktárból érkezik.
+Posta, GLS, Foxpost, DPD. Ingyenes szállítás 25 000 Ft felett. Készleten lévő termékek: a fizetés után 24–48 órán belül feladásra kerül. Személyes átvétel nem lehetséges.
 
 Ne ígérj konkrét napot.
 Ne vállalj felelősséget a futár helyett.
@@ -97,6 +92,11 @@ Finoman tereld a kosár és pénztár felé.
 `
 
 export async function POST(request: Request) {
+  const limit = rateLimit(request)
+  if (!limit.ok) {
+    return NextResponse.json({ error: 'Túl sok kérés. Próbáld újra később.' }, { status: 429 })
+  }
+  const MAX_MESSAGE_LENGTH = 2000
   try {
     const body = await request.json()
     const message = typeof body?.message === 'string' ? body.message.trim() : ''
@@ -104,6 +104,9 @@ export async function POST(request: Request) {
 
     if (!message) {
       return NextResponse.json({ error: 'Üzenet kötelező' }, { status: 400 })
+    }
+    if (message.length > MAX_MESSAGE_LENGTH) {
+      return NextResponse.json({ error: 'Túl hosszú üzenet' }, { status: 400 })
     }
 
     const apiKey = process.env.OPENAI_API_KEY?.trim()

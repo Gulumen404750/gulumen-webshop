@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { z } from 'zod'
-import { getProductById } from '@/lib/data'
+import { getProductById, getTimedPurchaseStatus } from '@/lib/data'
 import { createOrder, type OrderItem } from '@/lib/orders'
 import { getLoyaltyByEmail } from '@/lib/loyalty'
+import { rateLimit } from '@/lib/rate-limit'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -55,6 +56,10 @@ function computeTotals(
 }
 
 export async function POST(request: Request) {
+  const limit = rateLimit(request)
+  if (!limit.ok) {
+    return NextResponse.json({ error: 'Túl sok kérés. Próbáld újra később.' }, { status: 429 })
+  }
   if (!process.env.STRIPE_SECRET_KEY) {
     return NextResponse.json(
       { error: 'Stripe is not configured' },
@@ -93,12 +98,23 @@ export async function POST(request: Request) {
     }
   }
 
+  const now = new Date()
   for (const item of items) {
-    if (!getProductById(item.productId)) {
+    const product = getProductById(item.productId)
+    if (!product) {
       return NextResponse.json(
         { error: 'Invalid or unknown productId' },
         { status: 400 }
       )
+    }
+    if (product.type === 'sourcing_deal') {
+      const timedStatus = getTimedPurchaseStatus(product, now)
+      if (timedStatus !== 'ACTIVE') {
+        return NextResponse.json(
+          { error: 'One or more timed offers are no longer available (not started or expired). Please update your cart.' },
+          { status: 400 }
+        )
+      }
     }
   }
 

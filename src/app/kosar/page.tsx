@@ -11,6 +11,7 @@ import { useSourcingDealOrders } from '@/context/SourcingDealOrdersContext'
 import { useLocale } from '@/context/LocaleContext'
 import { useToast } from '@/context/ToastContext'
 import { useEuroRate } from '@/context/EuroRateContext'
+import { CheckoutSourcingModal } from '@/components/CheckoutSourcingModal'
 
 export default function CartPage() {
   const searchParams = useSearchParams()
@@ -22,9 +23,7 @@ export default function CartPage() {
   const { markUsed, discountPercent } = useCatCoupon()
   const { getOrdersCount, placeOrder, cancelOrder } = useSourcingDealOrders()
   const processedAddIdRef = useRef<string | null>(null)
-  const [showSourcingDisclaimer, setShowSourcingDisclaimer] = useState(false)
-  const [acceptedSourcingDisclaimer, setAcceptedSourcingDisclaimer] = useState(false)
-  const disclaimerRef = useRef<HTMLDivElement>(null)
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false)
 
   const { stockItems, sourcingItems } = useMemo(() => {
     const stock: typeof items = []
@@ -106,9 +105,8 @@ export default function CartPage() {
   }
 
   const handleCheckoutClick = () => {
-    if (hasSourcingItems && !showSourcingDisclaimer) {
-      setShowSourcingDisclaimer(true)
-      setTimeout(() => disclaimerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100)
+    if (hasSourcingItems) {
+      setShowCheckoutModal(true)
       return
     }
     handleCompleteOrder()
@@ -194,7 +192,7 @@ export default function CartPage() {
       {sourcingItems.length > 0 && (
         <section className="mb-8">
           <h2 className="font-heading text-lg font-semibold text-foreground mb-1">{t('cart.blockSourcingTitle')}</h2>
-          <p className="text-sm text-muted mb-3">{t('cart.blockSourcingDelivery')}</p>
+          <p className="text-sm text-muted mb-3 whitespace-pre-line">{t('pages.shipping.sourcingFullDescription')}</p>
           <ul className="space-y-4">
             {sourcingItems.map((item) => {
               const product = getProductById(item.productId)
@@ -247,23 +245,44 @@ export default function CartPage() {
         </section>
       )}
 
-      <p className="text-sm text-muted mb-4">{t('cart.deliveryNote')}</p>
-      {hasSourcingItems && showSourcingDisclaimer && (
-        <div ref={disclaimerRef} className="mb-6 p-4 rounded-xl border-2 border-amber-400 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-600">
-          <label className="flex gap-3 cursor-pointer items-start">
-            <input
-              type="checkbox"
-              checked={acceptedSourcingDisclaimer}
-              onChange={(e) => setAcceptedSourcingDisclaimer(e.target.checked)}
-              className="mt-1 w-4 h-4 rounded border-[var(--border)] text-accent focus:ring-accent"
-              aria-describedby="sourcing-disclaimer-text"
-            />
-            <span id="sourcing-disclaimer-text" className="text-sm text-foreground">
-              {t('cart.sourcingDisclaimerAccept')}
-            </span>
-          </label>
-        </div>
-      )}
+      <p className="text-sm text-muted mb-4 whitespace-pre-line">{t('pages.shipping.fullDescription')}</p>
+
+      {(() => {
+        const FREE_SHIPPING_THRESHOLD = 25000
+        const remaining = Math.max(0, FREE_SHIPPING_THRESHOLD - totalHuf)
+        const reached = remaining === 0
+        return (
+          <div className="mb-6 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
+            {reached ? (
+              <p className="text-foreground font-medium flex items-center gap-2">
+                <span className="text-green-600 dark:text-green-400">✓</span>
+                {t('cart.freeShippingReached') || 'Ingyenes szállítás elérve'}
+              </p>
+            ) : (
+              <p className="text-muted text-sm">
+                {t('cart.freeShippingProgress', { amount: remaining.toLocaleString('hu-HU') }) || `Még ${remaining.toLocaleString('hu-HU')} Ft és ingyenes a szállítás`}
+              </p>
+            )}
+          </div>
+        )
+      })()}
+
+      <div className="mb-6 flex flex-wrap items-center gap-4 text-sm text-muted">
+        <span className="flex items-center gap-1">
+          <CardIcon className="w-5 h-5" />
+          {t('home.trustPayment')}
+        </span>
+        <span className="flex items-center gap-1">
+          <LockIcon className="w-5 h-5" />
+          {t('payment.securePayment') || 'Biztonságos fizetés'}
+        </span>
+      </div>
+
+      <CheckoutSourcingModal
+        isOpen={showCheckoutModal}
+        onClose={() => setShowCheckoutModal(false)}
+        onConfirm={handleCompleteOrder}
+      />
       <div className="border-t border-[var(--border)] pt-6 space-y-2">
         <div className="flex justify-between text-foreground">
           <span>{t('cart.subtotal')}</span>
@@ -284,7 +303,7 @@ export default function CartPage() {
         <button
           type="button"
           onClick={handleCheckoutClick}
-          disabled={hasSourcingItems && showSourcingDisclaimer && !acceptedSourcingDisclaimer}
+          disabled={false}
           className="py-3 px-6 bg-accent text-white font-heading font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {t('buttons.checkout')}
@@ -297,5 +316,20 @@ export default function CartPage() {
         </Link>
       </div>
     </div>
+  )
+}
+
+function CardIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+    </svg>
+  )
+}
+function LockIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+    </svg>
   )
 }

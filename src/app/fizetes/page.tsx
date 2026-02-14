@@ -8,6 +8,8 @@ import { useCatCoupon } from '@/context/CatCouponContext'
 import { useAuth } from '@/context/AuthContext'
 import { useLocale } from '@/context/LocaleContext'
 import { useEuroRate } from '@/context/EuroRateContext'
+import { trackBeginCheckout } from '@/lib/analytics'
+import { getProductById, getTimedPurchaseStatus } from '@/lib/data'
 
 export default function PaymentPage() {
   const router = useRouter()
@@ -19,6 +21,7 @@ export default function PaymentPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loyaltyPercent, setLoyaltyPercent] = useState(0)
+  const [guestEmail, setGuestEmail] = useState('')
 
   useEffect(() => {
     if (!couponActive && userId) {
@@ -43,35 +46,74 @@ export default function PaymentPage() {
     }
   }, [items.length, router])
 
+  const [checkoutResult, setCheckoutResult] = useState<{
+    orderGroupId: string
+    payments: Array<{ orderType: 'in_stock' | 'sourcing'; type: string; url?: string; clientSecret?: string; message?: string }>
+  } | null>(null)
+
   const handlePayByCard = async () => {
     setError(null)
+    setCheckoutResult(null)
+    if (!userId && !guestEmail.trim()) {
+      setError(t('payment.emailRequired') || 'E-mail cím kötelező a rendeléshez.')
+      return
+    }
+    const email = userId || guestEmail.trim()
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError(t('payment.emailInvalid') || 'Érvényes e-mail címet adj meg.')
+      return
+    }
+    const now = new Date()
+    for (const item of items) {
+      const product = getProductById(item.productId)
+      if (product?.type === 'sourcing_deal' && getTimedPurchaseStatus(product, now) !== 'ACTIVE') {
+        setError(t('payment.timedOfferNoLongerAvailable'))
+        return
+      }
+    }
     setLoading(true)
+    trackBeginCheckout(displayTotalHuf)
     try {
-      const res = await fetch('/api/stripe/create-checkout-session', {
+      const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           items: items.map(({ productId, qty }) => ({ productId, qty })),
+          customer: { email },
           isDiscountActive: couponActive,
           discountPercent: couponActive ? discountPercent : undefined,
-          customer_email: userId ?? undefined,
         }),
       })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.error || t('payment.errorCreateSession'))
+        const isTimedOfferError = res.status === 400 && data.error?.includes('timed')
+        setError(isTimedOfferError ? t('payment.timedOfferNoLongerAvailable') : (data.error || t('payment.errorCreateSession')))
         setLoading(false)
         return
       }
-      if (data.url) {
-        window.location.href = data.url
+      const redirectPayment = data.payments?.find((p: { type: string }) => p.type === 'redirect')
+      if (redirectPayment?.url) {
+        window.location.href = redirectPayment.url
         return
       }
-      setError(t('payment.errorCreateSession'))
+      const clientSecretPayment = data.payments?.find((p: { type: string }) => p.type === 'client_secret')
+      if (clientSecretPayment?.clientSecret) {
+        setCheckoutResult({ orderGroupId: data.orderGroupId, payments: data.payments })
+        setLoading(false)
+        setTimeout(() => {
+          router.push(`/fizetes/siker?order_group_id=${encodeURIComponent(data.orderGroupId)}`)
+        }, 2000)
+        return
+      }
+      setCheckoutResult({ orderGroupId: data.orderGroupId, payments: data.payments || [] })
+      setLoading(false)
+      setTimeout(() => {
+        router.push(`/fizetes/siker?order_group_id=${encodeURIComponent(data.orderGroupId)}`)
+      }, 2500)
     } catch {
       setError(t('payment.errorCreateSession'))
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   if (items.length === 0) {
@@ -115,21 +157,60 @@ export default function PaymentPage() {
         </div>
       </section>
 
+      {!userId && (
+        <section className="mb-8 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
+          <h2 className="font-heading text-lg font-semibold text-foreground mb-2">{t('payment.guestCheckout') || 'Vendég vásárlás'}</h2>
+          <label htmlFor="guest-email" className="block text-sm font-medium text-foreground mb-1">
+            E-mail <span className="text-muted">(a rendeléshez kötelező)</span>
+          </label>
+          <input
+            id="guest-email"
+            type="email"
+            value={guestEmail}
+            onChange={(e) => setGuestEmail(e.target.value)}
+            placeholder="pelda@email.hu"
+            className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground mb-2"
+          />
+          <p className="text-xs text-muted">{t('payment.guestCheckoutNote') || 'Regisztráció opcionális. A rendeléshez add meg az e-mail címed.'}</p>
+        </section>
+      )}
+
       <section className="mb-8 p-4 rounded-xl border-2 border-[var(--border)] bg-[var(--card-bg)]">
         <p className="text-sm text-muted mb-3">{t('payment.cardOnly')}</p>
         <p className="text-xs text-muted mb-4">{t('payment.secureNote')}</p>
+        <p className="flex items-center gap-2 text-sm text-foreground mb-4">
+          <LockIcon className="w-5 h-5 text-accent shrink-0" />
+          {t('payment.securePayment') || 'Biztonságos fizetés'}
+        </p>
         {error && (
           <p className="text-red-600 dark:text-red-400 text-sm mb-4" role="alert">
             {error}
           </p>
         )}
+        {checkoutResult && (
+          <div className="mb-4 p-4 rounded-lg bg-[var(--border)]/50 space-y-2" role="status">
+            {checkoutResult.payments.some((p) => p.orderType === 'in_stock') && (
+              <p className="text-sm text-foreground">
+                {t('checkout.statusStock') || 'Raktári termékek: fizetés feldolgozása…'}
+              </p>
+            )}
+            {checkoutResult.payments.some((p) => p.orderType === 'sourcing') && (
+              <p className="text-sm text-foreground">
+                {t('checkout.statusSourcing') || 'Limitált beszerzés: fizetés zárolása…'}
+              </p>
+            )}
+            <p className="text-xs text-muted mt-2">
+              {t('checkout.redirectToSummary') || 'Átirányítás a rendelés összefoglalóhoz…'}
+            </p>
+          </div>
+        )}
         <button
           type="button"
           onClick={handlePayByCard}
-          disabled={loading}
+          disabled={loading || !!checkoutResult}
           className="w-full py-3 px-6 bg-accent text-white font-heading font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? t('payment.redirecting') : t('payment.payWithCard')}
+          {loading ? t('payment.redirecting') : checkoutResult ? (t('checkout.redirecting') || 'Átirányítás…') : t('payment.payWithCard')}
         </button>
       </section>
 
@@ -140,5 +221,13 @@ export default function PaymentPage() {
         ← {t('payment.backToCart')}
       </Link>
     </div>
+  )
+}
+
+function LockIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+    </svg>
   )
 }

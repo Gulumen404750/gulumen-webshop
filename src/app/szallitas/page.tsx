@@ -23,20 +23,12 @@ export default function ShippingPage() {
         <h1 className="font-heading text-2xl sm:text-3xl font-bold text-white mb-6">
           {t('pages.shippingTitle')}
         </h1>
-        <div className="text-gray-200 space-y-4 max-w-2xl">
-          <p>{t('pages.shipping.intro')}</p>
-          <p>
-            <strong className="text-white">{t('pages.shipping.freeShipping')}</strong>
-          </p>
-          <p>{t('pages.shipping.noPickup')}</p>
-          <p>{t('pages.shipping.notify')}</p>
-          <p className="pt-2 border-t border-white/20 mt-6">
-            <strong className="text-white">{t('pages.shipping.importantTitle')}</strong>
-          </p>
-          <p>{t('pages.shipping.stockInfo')}</p>
-          <p>{t('pages.shipping.sourcingNote')}</p>
-          <p>{t('pages.shipping.mixedOrder')}</p>
-          <p>{t('pages.shipping.productPageNote')}</p>
+        <div className="text-gray-200 max-w-2xl space-y-6">
+          <p className="whitespace-pre-line">{t('pages.shipping.fullDescription')}</p>
+          <div>
+            <p className="font-semibold text-white mb-1">{t('cart.blockSourcingTitle')}</p>
+            <p className="whitespace-pre-line">{t('pages.shipping.sourcingFullDescription')}</p>
+          </div>
         </div>
       </div>
     </div>

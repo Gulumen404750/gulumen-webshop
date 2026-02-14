@@ -1,13 +1,17 @@
 {
   "nav": {
+    "menu": "Menü",
     "products": "Termékek",
     "allProducts": "Az összes termék",
     "new": "Újdonságok",
     "deals": "Akciók",
     "sourcing": "Beszerzésre rendelhető",
+    "sourcingExpires": "Lejár: 00:00",
     "shipping": "Szállítás",
     "returns": "Visszaküldés",
-    "contact": "Kapcsolat"
+    "contact": "Kapcsolat",
+    "help": "Segítség & Információk",
+    "faq": "GYIK"
   },
   "buttons": {
     "viewProducts": "Böngéssz a kínálatban",
@@ -21,6 +25,7 @@
     "activateCoupon": "5% kupon aktiválása",
     "goToCart": "Ugrás a kosárhoz",
     "openCart": "Kosár megnyitása",
+    "openCartLabel": "Kosár megnyitása",
     "ok": "OK",
     "checkout": "Rendelés véglegesítése",
     "continueShopping": "Vásárlás folytatása",
@@ -75,7 +80,7 @@
     "remove": "Törlés",
     "deliveryStock": "Feladás 24–48 óra",
     "deliverySourcing": "Beszerzés + szállítás 7–14 nap",
-    "deliveryNote": "Készleten lévő termékek: Feladás 24–48 óra. Beszerzésre rendelhető termékek: Beszerzés + szállítás 7–14 nap.",
+    "deliveryNote": "Készleten lévő termékek: Feladás 24–48 óra.",
     "thanksOrder": "Köszönjük a rendelést!",
     "toastNoMoreStock": "Nincs több készleten.",
     "toastSourcingLimit": "Elfogyott a rendelhető mennyiség.",
@@ -85,12 +90,16 @@
     "increaseQty": "Növelés",
     "maxQuantity": "Max. kosárban: {count} db.",
     "allAvailableAdded": "Már az összes elérhető terméket a kosárba raktad.",
+    "toastAdded": "Termék a kosárban",
     "availableUpTo": "Elérhető: {count} db",
     "blockStockTitle": "📦 Raktáron lévő termékek",
-    "blockStockDispatch": "Feladás: 24–48 óra",
+    "blockStockDispatch": "A fizetés után 24–48 órán belül feladásra kerül",
     "blockSourcingTitle": "🔄 Egyedi beszerzésű termékek",
     "blockSourcingDelivery": "Várható szállítás: 7–14 nap",
-    "sourcingDisclaimerAccept": "Tudomásul veszem, hogy az egyedi beszerzésű termék megrendelés után kerül beszerzésre (7–14 munkanap). A beszerzés megindulása után történő lemondás esetén a ténylegesen felmerült költségek levonásra kerülhetnek."
+    "sourcingDisclaimerAccept": "Tudomásul veszem, hogy az egyedi beszerzésű termék megrendelés után kerül beszerzésre (7–14 munkanap). A beszerzés megindulása után történő lemondás esetén a ténylegesen felmerült költségek levonásra kerülhetnek.",
+    "checkoutConfirmButton": "Tovább a fizetéshez",
+    "freeShippingProgress": "Még {amount} Ft és ingyenes a szállítás",
+    "freeShippingReached": "Ingyenes szállítás elérve"
   },
   "payment": {
     "title": "Fizetés",
@@ -98,9 +107,15 @@
     "cardOnly": "Csak kártyás fizetés lehetséges.",
     "payWithCard": "Fizetek kártyával",
     "secureNote": "A fizetés biztonságos pénztári felületen történik. A kártyaadatokat soha ne add meg e-mailben vagy chatben.",
+    "securePayment": "Biztonságos fizetés",
+    "guestCheckout": "Vendég vásárlás",
+    "guestCheckoutNote": "Regisztráció opcionális. A rendeléshez add meg az e-mail címed.",
+    "emailRequired": "E-mail cím kötelező a rendeléshez.",
+    "emailInvalid": "Érvényes e-mail címet adj meg.",
     "backToCart": "Vissza a kosárhoz",
     "redirecting": "Átirányítás a fizetéshez…",
     "errorCreateSession": "A pénztár indítása sikertelen. Próbáld újra.",
+    "timedOfferNoLongerAvailable": "Egy vagy több időzített ajánlat már nem vehető (még nem indult vagy lejárt). Frissítsd a kosarat.",
     "successTitle": "Sikeres fizetés",
     "successMessage": "Köszönjük a vásárlást! A rendelésedet rögzítettük.",
     "successLoading": "Rendelés betöltése…",
@@ -121,10 +136,18 @@
     "statusProcessing": "Feldolgozás alatt",
     "successPendingTimeout": "Ha a kártyáról levonták az összeget, de még nem frissült a státusz, kérlek írj nekünk a rendelés azonosítóval."
   },
+  "checkout": {
+    "statusStock": "Raktári termékek: fizetés feldolgozása…",
+    "statusSourcing": "Limitált beszerzés: fizetés zárolása…",
+    "redirectToSummary": "Átirányítás a rendelés összefoglalóhoz…",
+    "redirecting": "Átirányítás…",
+    "orderTypeStock": "Raktári",
+    "orderTypeSourcing": "Limitált beszerzés"
+  },
   "product": {
     "inStock": "Készleten",
     "outOfStock": "Elfogyott",
-    "shipping24_48": "Feladás 24–48 óra",
+    "shipping24_48": "A fizetés után 24–48 órán belül feladásra kerül",
     "sourcingLabel": "Beszerzésre rendelhető · Szállítás: 7–14 nap",
     "sourcingCardLabel": "Limitált elérhetőség · 7–14 nap",
     "stockLabel": "Készleten · Feladás 24–48 óra",
@@ -134,7 +157,23 @@
     "noImage": "Termék kép",
     "productsCount": "{count} termék",
     "quantity": "Mennyiség",
-    "maxInCart": "A készleten lévő mennyiséget már a kosarába rakta."
+    "maxInCart": "A készleten lévő mennyiséget már a kosarába rakta.",
+    "openGallery": "Kép nagyítása / Galéria",
+    "gallery": "Képgaléria",
+    "prevImage": "Előző kép",
+    "nextImage": "Következő kép",
+    "zoomIn": "Nagyítás",
+    "zoomOut": "Kicsinyítés",
+    "zoomReset": "Eredeti méret",
+    "view360": "360° megtekintés",
+    "view360Hint": "Húzd balra-jobbra a forgatáshoz",
+    "similarProducts": "Hasonló termékek",
+    "recentlyViewed": "Utoljára megtekintett termékek",
+    "like": "Kedvelés",
+    "unlike": "Kedvelés visszavonása",
+    "likesCount": "{count} kedveli",
+    "popular": "Népszerű termék",
+    "badge3D": "3D Nyomtatott"
   },
   "coupon": {
     "title": "🎁 5% kedvezmény ajándékba",
@@ -157,7 +196,9 @@
     "saleLabel": "Most rendelhető – limitált idő és darabszám.",
     "soldoutLabel": "Elfogyott – a maximális rendelési darabszámot elértük.",
     "closedLabel": "Lejárt ajánlat – a vásárlási időszak véget ért.",
-    "legal": "Ez a termék limitált külső forrásból kerül beszerzésre. Amennyiben a beszerzés a megadott áron nem megvalósítható, a teljes összeg visszatérítésre kerül."
+    "availableFromLabel": "Ekkortól elérhető: {when}",
+    "expiredShort": "Lejárt",
+    "legal": "A rendelés leadását követően a beszerzés egyedi beszerzési csatornán keresztül történik.\n\nSikeres beszerzés esetén a termék kiszállítása 7–14 munkanapon belül történik.\n\nAmennyiben a termék a megadott árkereten belül nem biztosítható, a rendelés törlésre kerül, és a teljes összeg 1–3 munkanapon belül visszatérítésre kerül."
   },
   "register": {
     "intro": "Regisztrálj e-mail címed megadásával. Ha elfogadod, hogy termékajánlatokat küldünk, cserébe 10%-os egyszeri kupont kapsz az első vásárláshoz.",
@@ -175,6 +216,23 @@
     "noAccount": "Már nincs fiókod?",
     "registerLink": "Regisztráció"
   },
+  "newsletter": {
+    "title": "Hírlevél",
+    "desc": "Iratkozz fel a legújabb ajánlatokra.",
+    "placeholder": "e-mail címed",
+    "emailLabel": "E-mail a hírlevélhez",
+    "submit": "Feliratkozom",
+    "sending": "Küldés...",
+    "success": "Feliratkozás sikeres.",
+    "error": "Hiba történt."
+  },
+  "wishlist": {
+    "title": "Kedvencek",
+    "empty": "Még nincs kedvenc termék.",
+    "add": "Kedvencekhez",
+    "remove": "Eltávolítás a kedvencekből",
+    "loginRequired": "Jelentkezz be a kedveléshez."
+  },
   "common": {
     "language": "Nyelv",
     "lang_hu": "Magyar",
@@ -182,6 +240,8 @@
     "lang_de": "Német",
     "lang_ro": "Román",
     "search": "Keresés",
+    "searchPlaceholder": "Termék keresése...",
+    "searchHint": "A keresés a terméklistára visz.",
     "cart": "Kosár",
     "profile": "Profil",
     "darkMode": "Sötét mód",
@@ -194,7 +254,8 @@
     "filterSize": "Méret",
     "filterCondition": "Állapot",
     "allSizes": "Összes",
-    "allConditions": "Összes"
+    "allConditions": "Összes",
+    "loadMore": "Több betöltése"
   },
   "addToCartReason": {
     "previewStarts": "Előnézet – vásárlás ekkor indul: {when}",
@@ -210,6 +271,8 @@
     "registerTitle": "Regisztráció",
     "registerHaveAccount": "Már van fiókod?",
     "shipping": {
+      "fullDescription": "Posta, GLS, Foxpost, DPD\nIngyenes szállítás 25 000 Ft felett\nKészleten lévő termékek: a fizetés után 24–48 órán belül feladásra kerül.\nSzemélyes átvétel nem lehetséges",
+      "sourcingFullDescription": "Posta, GLS, Foxpost, DPD\nIngyenes szállítás 25 000 Ft felett\nSzállítási idő: 7–14 munkanap (limitált külső beszerzés esetén)\nSzemélyes átvétel nem lehetséges",
       "intro": "Csomagjainkat Posta, GLS, Foxpost és DPD szolgáltatókkal küldjük.",
       "freeShipping": "Ingyenes szállítás 25 000 Ft feletti rendelés esetén.",
       "noPickup": "Személyes átvétel a raktárnál nem lehetséges.",
@@ -242,17 +305,17 @@
   "ai": {
     "greeting": "Szia! Miben segíthetek? Kérdezz bátran a termékekről, szállításról vagy visszaküldésről.",
     "payment": "A fizetés kártyával történik: Kosár → Pénztár → Kártyás fizetés → E-mailben megküldjük a rendelésösszefoglalót. A kártyaadatokat soha ne add meg chatben – csak a biztonságos pénztár oldalon.",
-    "shipping": "24–48 órán belül feladjuk a csomagot a fizetés után. Szállítás: Posta, GLS, Foxpost, DPD. Ingyenes szállítás 25 000 Ft felett.",
+    "shipping": "Posta, GLS, Foxpost, DPD. Ingyenes szállítás 25 000 Ft felett. Készleten lévő termékek: a fizetés után 24–48 órán belül feladásra kerül. Személyes átvétel nem lehetséges.",
     "returns": "Visszaküldés: a szállítási költséget a vásárló fizeti. A raktáron lévő termékek visszatérítése a termék visszaérkezése után 14 napon belül történik. EU visszaküldési jog érvényes (kivéve fehérnemű/higiéniai).",
     "authenticity": "A termékeket válogatott forrásból, kis mennyiségben szerzzük, ezért kedvező áron kínáljuk. A fotókkal és leírással átláthatóan mutatjuk be őket.",
     "register": "Regisztrálj, és az első vásárláshoz kuponkódot kapsz. A jövőben e-mailben értesítünk az akciókról és újdonságokról.",
     "complaint": "Kérlek add meg a rendelés azonosítót és az e-mail címedet, valamint röviden a problémát (ha lehet, fotóval). Ezzel létrehozunk egy ügyet, és a csapatunk hamarosan válaszol.",
     "handover": "Ezt a kérdést szívesen átadom emberi ügyintézőnek. Kérlek add meg a rendelés azonosítót és az e-mail címedet, és hamarosan felvesszük veled a kapcsolatot.",
-    "productQuestion": "A termék állapota, mérete és ára a termékoldalon látható. Szállítás 24–48 óra, 25 000 Ft felett ingyenes. Ha kérdésed van, írj bátran.",
+    "productQuestion": "A termék állapota, mérete és ára a termékoldalon látható. Készleten lévő termék: a fizetés után 24–48 órán belül feladásra kerül; beszerzésre rendelhető: 7–14 munkanap. 25 000 Ft felett ingyenes a szállítás. Ha kérdésed van, írj bátran.",
     "noCard": "Kérlek soha ne add meg a kártyaadataidat, személyigazolványodat vagy jelszavadat itt. A fizetés csak a biztonságos pénztár oldalon történik.",
     "recommend": "Melyik kategória érdekel legjobban? (Táskák, Ruházat, Kiegészítők, Elektronika) Ajánlani tudok 3–5 terméket.",
     "thanks": "Köszönöm! Ha még van kérdésed, írj nyugodtan.",
-    "default": "Kérdezhetsz a termékekről, szállításról (24–48 h, ingyenes 25 000 Ft felett), visszaküldésről vagy a fizetésről. Miben segíthetek?",
+    "default": "Kérdezhetsz a termékekről, szállításról (Posta, GLS, Foxpost, DPD; ingyenes 25 000 Ft felett), visszaküldésről vagy a fizetésről. Miben segíthetek?",
     "title": "Gulumen – Segítség",
     "cta": "Kérdésed van? Segítek!",
     "placeholder": "Írd ide a kérdésed...",

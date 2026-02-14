@@ -19,8 +19,9 @@ function buildOrderConfirmationHtml(order: Order): string {
   const hasStock = order.items.some((i) => i.fulfillmentType === 'stock')
   const hasProcurement = order.items.some((i) => i.fulfillmentType === 'procurement')
   const fulfillment = []
-  if (hasStock) fulfillment.push('Raktáron lévő termékek: feladás 24–48 órán belül.')
-  if (hasProcurement) fulfillment.push('Beszerzésre rendelt termékek: várható szállítás 7–14 munkanap.')
+  if (hasStock) fulfillment.push('Készleten lévő termékek: a fizetés után 24–48 órán belül feladásra kerül.')
+  if (hasProcurement) fulfillment.push('Beszerzésre rendelt termékek: feladás beszerzést követően 7–14 munkanapon belül.')
+  if (fulfillment.length === 0) fulfillment.push('Szállítási információ: Posta, GLS, Foxpost, DPD.')
 
   return `
 <!DOCTYPE html>
@@ -63,7 +64,13 @@ export async function sendOrderConfirmationEmail(
   customerEmail: string | null
 ): Promise<SendOrderConfirmationResult> {
   const html = buildOrderConfirmationHtml(order)
-  const text = `Rendelés azonosító: ${order.id}\nFizetett összeg: ${order.totalHuf.toLocaleString('hu-HU')} Ft\n\nRendelt tételek:\n${order.items.map((i) => `- ${i.name || i.productId} ${i.qty} db × ${i.priceHuf} Ft`).join('\n')}\n\nVárható teljesítés: raktáron 24–48 óra, beszerzés 7–14 munkanap.\nVisszaküldés: ${RETURNS_URL}\nKapcsolat: ${CONTACT_URL}`
+  const hasStock = order.items.some((i) => i.fulfillmentType === 'stock')
+  const hasProcurement = order.items.some((i) => i.fulfillmentType === 'procurement')
+  const fulfillmentParts: string[] = []
+  if (hasStock) fulfillmentParts.push('Készleten lévő termékek: a fizetés után 24–48 órán belül feladásra kerül.')
+  if (hasProcurement) fulfillmentParts.push('Beszerzésre rendelt termékek: feladás beszerzést követően 7–14 munkanapon belül.')
+  const fulfillmentText = fulfillmentParts.length > 0 ? fulfillmentParts.join(' ') : 'Szállítás: Posta, GLS, Foxpost, DPD.'
+  const text = `Rendelés azonosító: ${order.id}\nFizetett összeg: ${order.totalHuf.toLocaleString('hu-HU')} Ft\n\nRendelt tételek:\n${order.items.map((i) => `- ${i.name || i.productId} ${i.qty} db × ${i.priceHuf} Ft`).join('\n')}\n\nVárható teljesítés: ${fulfillmentText}\nVisszaküldés: ${RETURNS_URL}\nKapcsolat: ${CONTACT_URL}`
 
   if (!customerEmail) {
     console.warn('[order-email] No customer email – skipping send. Order:', order.id)

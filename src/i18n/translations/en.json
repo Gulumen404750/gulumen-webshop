@@ -1,13 +1,17 @@
 {
   "nav": {
+    "menu": "Menu",
     "products": "Products",
     "allProducts": "All products",
     "new": "New",
     "deals": "Deals",
     "sourcing": "Order for sourcing",
+    "sourcingExpires": "Expires: 00:00",
     "shipping": "Shipping",
     "returns": "Returns",
-    "contact": "Contact"
+    "contact": "Contact",
+    "help": "Help & Information",
+    "faq": "FAQ"
   },
   "buttons": {
     "viewProducts": "View products",
@@ -21,6 +25,7 @@
     "activateCoupon": "Activate 5% coupon",
     "goToCart": "Go to cart",
     "openCart": "Open cart",
+    "openCartLabel": "Open cart",
     "ok": "OK",
     "checkout": "Place order",
     "continueShopping": "Continue shopping",
@@ -75,7 +80,7 @@
     "remove": "Remove",
     "deliveryStock": "Dispatch 24–48 hours",
     "deliverySourcing": "Sourcing + delivery 7–14 days",
-    "deliveryNote": "In-stock items: Dispatch 24–48 hours. Sourcing items: Sourcing + delivery 7–14 days.",
+    "deliveryNote": "In-stock items: Dispatch 24–48 hours.",
     "thanksOrder": "Thank you for your order!",
     "toastNoMoreStock": "No more in stock.",
     "toastSourcingLimit": "Orderable quantity has run out.",
@@ -85,12 +90,16 @@
     "increaseQty": "Increase",
     "maxQuantity": "Max in cart: {count}.",
     "allAvailableAdded": "You have already added all available items to the cart.",
+    "toastAdded": "Item added to cart",
+    "freeShippingProgress": "{amount} Ft more for free shipping",
+    "freeShippingReached": "Free shipping unlocked",
     "availableUpTo": "Available: {count}",
     "blockStockTitle": "📦 In-stock products",
-    "blockStockDispatch": "Dispatch: 24–48 hours",
+    "blockStockDispatch": "Dispatched within 24–48 hours after payment",
     "blockSourcingTitle": "🔄 Sourcing products",
     "blockSourcingDelivery": "Expected delivery: 7–14 days",
-    "sourcingDisclaimerAccept": "I acknowledge that sourcing products are sourced after the order is placed (7–14 working days). If the order is cancelled after the sourcing process has started, the actually incurred costs may be deducted."
+    "sourcingDisclaimerAccept": "I acknowledge that sourcing products are sourced after the order is placed (7–14 working days). If the order is cancelled after the sourcing process has started, the actually incurred costs may be deducted.",
+    "checkoutConfirmButton": "Proceed to payment"
   },
   "payment": {
     "title": "Payment",
@@ -98,9 +107,15 @@
     "cardOnly": "Only card payment is available.",
     "payWithCard": "Pay by card",
     "secureNote": "Payment is processed on a secure checkout page. Never share card details by email or chat.",
+    "securePayment": "Secure payment",
+    "guestCheckout": "Guest checkout",
+    "guestCheckoutNote": "Registration optional. Enter your email for the order.",
+    "emailRequired": "Email address is required.",
+    "emailInvalid": "Please enter a valid email address.",
     "backToCart": "Back to cart",
     "redirecting": "Redirecting to payment…",
     "errorCreateSession": "Could not start checkout. Please try again.",
+    "timedOfferNoLongerAvailable": "One or more timed offers are no longer available (not started or expired). Please update your cart.",
     "successTitle": "Payment successful",
     "successMessage": "Thank you for your order! We have recorded your order.",
     "successLoading": "Loading order…",
@@ -121,10 +136,18 @@
     "statusProcessing": "Processing",
     "successPendingTimeout": "If the amount was charged but the status has not updated, please contact us with your order ID."
   },
+  "checkout": {
+    "statusStock": "In-stock items: processing payment…",
+    "statusSourcing": "Limited sourcing: authorizing payment…",
+    "redirectToSummary": "Redirecting to order summary…",
+    "redirecting": "Redirecting…",
+    "orderTypeStock": "In stock",
+    "orderTypeSourcing": "Limited sourcing"
+  },
   "product": {
     "inStock": "In stock",
     "outOfStock": "Sold out",
-    "shipping24_48": "Dispatch 24–48 hours",
+    "shipping24_48": "Dispatched within 24–48 hours after payment",
     "sourcingLabel": "Order for sourcing · Delivery: 7–14 days",
     "sourcingCardLabel": "Limited availability · 7–14 days",
     "stockLabel": "In stock · Dispatch 24–48 hours",
@@ -134,7 +157,40 @@
     "noImage": "Product image",
     "productsCount": "{count} products",
     "quantity": "Quantity",
-    "maxInCart": "Maximum quantity already in cart."
+    "maxInCart": "Maximum quantity already in cart.",
+    "openGallery": "Open gallery",
+    "gallery": "Image gallery",
+    "prevImage": "Previous image",
+    "nextImage": "Next image",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "zoomReset": "Reset zoom",
+    "view360": "360° view",
+    "view360Hint": "Drag left or right to rotate",
+    "similarProducts": "Similar products",
+    "recentlyViewed": "Recently viewed",
+    "like": "Like",
+    "unlike": "Unlike",
+    "likesCount": "{count} like this",
+    "popular": "Popular product",
+    "badge3D": "3D Printed"
+  },
+  "newsletter": {
+    "title": "Newsletter",
+    "desc": "Subscribe for the latest offers.",
+    "placeholder": "your email",
+    "emailLabel": "Email for newsletter",
+    "submit": "Subscribe",
+    "sending": "Sending...",
+    "success": "Subscription successful.",
+    "error": "Something went wrong."
+  },
+  "wishlist": {
+    "title": "Wishlist",
+    "empty": "No favourite products yet.",
+    "add": "Add to wishlist",
+    "remove": "Remove from wishlist",
+    "loginRequired": "Log in to like products."
   },
   "coupon": {
     "title": "🎁 5% discount gift",
@@ -157,7 +213,9 @@
     "saleLabel": "Available now – limited time and quantity.",
     "soldoutLabel": "Sold out – maximum order quantity reached.",
     "closedLabel": "Offer expired – the purchase period has ended.",
-    "legal": "This product is sourced from limited external supply. If sourcing at the stated price cannot be fulfilled, the full amount will be refunded."
+    "availableFromLabel": "Available from: {when}",
+    "expiredShort": "Expired",
+    "legal": "After placing the order, sourcing takes place through a dedicated sourcing channel.\n\nIf sourcing is successful, the product will be delivered within 7–14 business days.\n\nIf the product cannot be secured within the given price range, the order will be cancelled and the full amount will be refunded within 1–3 business days."
   },
   "register": {
     "intro": "Register with your email. If you accept that we send you product offers, you will receive a one-time 10% coupon for your first purchase.",
@@ -182,6 +240,8 @@
     "lang_de": "German",
     "lang_ro": "Romanian",
     "search": "Search",
+    "searchPlaceholder": "Search products...",
+    "searchHint": "Search will take you to the product list.",
     "cart": "Cart",
     "profile": "Profile",
     "darkMode": "Dark mode",
@@ -194,7 +254,8 @@
     "filterSize": "Size",
     "filterCondition": "Condition",
     "allSizes": "All",
-    "allConditions": "All"
+    "allConditions": "All",
+    "loadMore": "Load more"
   },
   "addToCartReason": {
     "previewStarts": "Preview – sale starts at {when}",
@@ -210,6 +271,8 @@
     "registerTitle": "Registration",
     "registerHaveAccount": "Already have an account?",
     "shipping": {
+      "fullDescription": "Posta, GLS, Foxpost, DPD\nFree shipping over 25,000 HUF\nIn-stock items: dispatched within 24–48 hours after payment.\nPersonal pickup not available",
+      "sourcingFullDescription": "Posta, GLS, Foxpost, DPD\nFree shipping over 25,000 HUF\nDelivery time: 7–14 working days (limited external sourcing)\nPersonal pickup not available",
       "intro": "We send our parcels with Posta, GLS, Foxpost and DPD.",
       "freeShipping": "Free shipping on orders over 25,000 HUF.",
       "noPickup": "Collection at our warehouse is not available.",
@@ -242,17 +305,17 @@
   "ai": {
     "greeting": "Hi! How can I help? Ask about products, shipping or returns.",
     "payment": "Payment is by card only: Cart → Checkout → Card payment → We send the order summary by email. Never share card details in chat – only on the secure checkout page.",
-    "shipping": "We dispatch within 24–48 hours after payment. Carriers: Post, GLS, Foxpost, DPD. Free shipping over 25,000 HUF.",
+    "shipping": "Posta, GLS, Foxpost, DPD. Free shipping over 25,000 HUF. In-stock items: dispatched within 24–48 hours after payment. Personal pickup not available.",
     "returns": "Returns: the customer pays return shipping. For in-stock products, the refund is made within 14 days after the product is received. EU withdrawal rights apply (except underwear/hygiene).",
     "authenticity": "We source items in small quantities from curated suppliers, so we can offer them at good prices. We present them transparently with photos and descriptions.",
     "register": "Register and get a coupon for your first purchase. We'll email you about future deals and new arrivals.",
     "complaint": "Please share your order ID and email, and briefly describe the issue (with a photo if possible). We'll create a ticket and our team will get back to you soon.",
     "handover": "I'll pass this to a human agent. Please share your order ID and email, and we'll contact you shortly.",
-    "productQuestion": "Condition, size and price are on the product page. Shipping in 24–48 hours; free over 25,000 HUF. If you have more questions, just ask.",
+    "productQuestion": "Condition, size and price are on the product page. Dispatch: within 7–14 business days after sourcing; free shipping over 25,000 HUF. If you have more questions, just ask.",
     "noCard": "Please never share card details, ID or passwords here. Payment is only on our secure checkout page.",
     "recommend": "Which category interests you most? (Bags, Clothing, Accessories, Electronics) I can suggest 3–5 products.",
     "thanks": "Thanks! If you have more questions, just ask.",
-    "default": "You can ask about products, shipping (24–48 h, free over 25,000 HUF), returns or payment. How can I help?",
+    "default": "You can ask about products, shipping (Posta, GLS, Foxpost, DPD; free over 25,000 HUF), returns or payment. How can I help?",
     "title": "Gulumen – Help",
     "cta": "Got a question? I can help!",
     "placeholder": "Type your question here...",

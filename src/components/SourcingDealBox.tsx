@@ -3,7 +3,12 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Product } from '@/lib/data'
-import { getSourcingDealStatus, getAddToCartReason, getMaxQty } from '@/lib/data'
+import {
+  getSourcingDealStatus,
+  getTimedPurchaseStatus,
+  getAddToCartReason,
+  getMaxQty,
+} from '@/lib/data'
 import { useSourcingDealOrders } from '@/context/SourcingDealOrdersContext'
 import { useCart } from '@/context/CartContext'
 import { useLocale } from '@/context/LocaleContext'
@@ -19,21 +24,33 @@ function formatCountdown(ms: number): string {
   return `${d} nap ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
+/** SSR és első kliens render: stabil placeholder, hogy ne legyen hydration mismatch. */
+const COUNTDOWN_PLACEHOLDER = '—'
+
 export function SourcingDealBox({ product }: { product: Product }) {
   const { t } = useLocale()
   const router = useRouter()
   const { toast } = useToast()
   const { getOrdersCount, placeOrder } = useSourcingDealOrders()
   const { addItem, items } = useCart()
-  const [now, setNow] = useState(() => new Date())
+  const [mounted, setMounted] = useState(false)
+  const [now, setNow] = useState<Date | null>(null)
+
+  useEffect(() => {
+    setMounted(true)
+    setNow(new Date())
+    const id = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(id)
+  }, [])
 
   const cartQty = items.find((x) => x.productId === product.id)?.qty ?? 0
   const effectiveCount = (product.ordersCount ?? 0) + Math.max(getOrdersCount(product.id), cartQty)
-  const status = getSourcingDealStatus(product, now, effectiveCount)
-  const { canAdd, reasonKey, reasonParams } = getAddToCartReason(product, now, effectiveCount)
+  const nowOrEpoch = now ?? new Date(0)
+  const status = getSourcingDealStatus(product, nowOrEpoch, effectiveCount)
+  const timedStatus = getTimedPurchaseStatus(product, nowOrEpoch, effectiveCount)
+  const { canAdd, reasonKey, reasonParams } = getAddToCartReason(product, nowOrEpoch, effectiveCount)
   const reason = reasonKey ? t(reasonKey, reasonParams) : ''
   const maxOrders = product.maxOrders ?? 0
-  // Kijelzés: mindig a teljes rendelhető mennyiség (maxOrders - ordersCount). A kosár ne csökkentse.
   const displayAvailable = Math.max(0, maxOrders - (product.ordersCount ?? 0))
   const maxQty = getMaxQty(product, effectiveCount)
   const [addQty, setAddQty] = useState(1)
@@ -42,34 +59,40 @@ export function SourcingDealBox({ product }: { product: Product }) {
   const priceHuf = product.discountPriceHuf ?? product.priceHuf
   const priceEur = hufToEur(priceHuf)
 
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000)
-    return () => clearInterval(id)
-  }, [])
-
   if (product.type !== 'sourcing_deal') return null
 
   const previewFrom = product.previewFrom ? new Date(product.previewFrom).getTime() : 0
   const saleFrom = product.saleFrom ? new Date(product.saleFrom).getTime() : 0
   const saleTo = product.saleTo ? new Date(product.saleTo).getTime() : 0
-  const nowMs = now.getTime()
+  const nowMs = now?.getTime() ?? 0
   const countdownToPreview = previewFrom - nowMs
   const countdownToSale = saleFrom - nowMs
   const countdownToEnd = saleTo - nowMs
 
+  const showPlaceholder = !mounted || now === null
+  const countdownText = showPlaceholder
+    ? COUNTDOWN_PLACEHOLDER
+    : formatCountdown(
+        !status && countdownToPreview > 0
+          ? countdownToPreview
+          : status === 'preview' && countdownToSale > 0
+            ? countdownToSale
+            : status === 'sale' && countdownToEnd > 0
+              ? countdownToEnd
+              : 0
+      )
+
   const statusLabel =
-    !status && countdownToPreview > 0
-      ? t('sourcing.previewLabel')
-      : status === 'preview'
+    timedStatus === 'EXPIRED'
+      ? status === 'soldout'
+        ? t('sourcing.soldoutLabel')
+        : t('sourcing.closedLabel')
+      : timedStatus === 'NOT_STARTED'
         ? t('sourcing.previewLabel')
-        : status === 'sale'
-          ? t('sourcing.saleLabel')
-          : status === 'soldout'
-            ? t('sourcing.soldoutLabel')
-            : t('sourcing.closedLabel')
+        : t('sourcing.saleLabel')
 
   const handleAddToCart = () => {
-    if (!canAdd) return
+    if (!canAdd || timedStatus !== 'ACTIVE') return
     if (maxQty < 1) {
       toast(t('sourcing.availableCount', { count: displayAvailable }))
       return
@@ -79,24 +102,29 @@ export function SourcingDealBox({ product }: { product: Product }) {
     router.push('/kosar')
   }
 
+  const saleFromDate = product.saleFrom ? new Date(product.saleFrom) : null
+  const availableFromLabel =
+    saleFromDate?.toLocaleString('hu-HU', { dateStyle: 'short', timeStyle: 'short' }) ?? '—'
+
   return (
     <div className="space-y-4">
       <div className="rounded-xl border-2 border-amber-400 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-600 p-4 sm:p-5">
         <p className="font-heading font-semibold text-foreground mb-2">{statusLabel}</p>
-        {!status && countdownToPreview > 0 && (
+        {timedStatus === 'NOT_STARTED' && (
           <p className="text-sm text-muted mb-1">
-            {t('sourcing.saleStarts')} <strong className="text-foreground">{formatCountdown(countdownToPreview)}</strong>
-          </p>
-        )}
-        {status === 'preview' && countdownToSale > 0 && (
-          <p className="text-sm text-muted mb-1">
-            {t('sourcing.previewStarts')} <strong className="text-foreground">{formatCountdown(countdownToSale)}</strong>
+            {status === 'preview'
+              ? t('sourcing.previewStarts')
+              : t('sourcing.availableFromLabel', { when: availableFromLabel })}{' '}
+            <strong className="text-foreground">{countdownText}</strong>
           </p>
         )}
         {status === 'sale' && countdownToEnd > 0 && (
           <p className="text-sm text-muted mb-1">
-            {t('sourcing.remaining')} <strong className="text-foreground">{formatCountdown(countdownToEnd)}</strong>
+            {t('sourcing.remaining')} <strong className="text-foreground">{countdownText}</strong>
           </p>
+        )}
+        {timedStatus === 'EXPIRED' && (
+          <p className="text-sm text-muted mb-1 font-medium">{t('sourcing.expiredShort')}</p>
         )}
         {(status === 'sale' || status === 'soldout' || status === 'closed') && (
           <p className="text-sm text-muted">
@@ -109,7 +137,25 @@ export function SourcingDealBox({ product }: { product: Product }) {
       </div>
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        {!canAdd && (
+        {timedStatus === 'EXPIRED' && (
+          <button
+            type="button"
+            disabled
+            className="px-6 py-3 rounded-lg bg-[var(--border)] text-muted font-heading font-semibold cursor-not-allowed text-left"
+          >
+            {t('sourcing.expiredShort')}
+          </button>
+        )}
+        {timedStatus === 'NOT_STARTED' && !canAdd && (
+          <button
+            type="button"
+            disabled
+            className="px-6 py-3 rounded-lg bg-[var(--border)] text-muted font-heading font-semibold cursor-not-allowed text-left"
+          >
+            {reason || t('sourcing.availableFromLabel', { when: availableFromLabel })}
+          </button>
+        )}
+        {timedStatus === 'ACTIVE' && !canAdd && (
           <button
             type="button"
             disabled
@@ -118,12 +164,12 @@ export function SourcingDealBox({ product }: { product: Product }) {
             {reason || t('status.notAvailable')}
           </button>
         )}
-        {canAdd && maxQty === 0 && (
+        {canAdd && timedStatus === 'ACTIVE' && maxQty === 0 && (
           <p className="text-amber-600 dark:text-amber-400 font-medium text-sm">
             {t('product.maxInCart')}
           </p>
         )}
-        {canAdd && maxQty > 0 && (
+        {canAdd && timedStatus === 'ACTIVE' && maxQty > 0 && (
           <>
             <label htmlFor="sourcing-qty" className="text-sm font-medium text-foreground">
               {t('product.quantity')}:
@@ -151,7 +197,7 @@ export function SourcingDealBox({ product }: { product: Product }) {
         )}
       </div>
 
-      <p className="text-sm text-muted italic">{t('sourcing.legal')}</p>
+      <p className="text-sm text-muted italic whitespace-pre-line">{t('sourcing.legal')}</p>
     </div>
   )
 }

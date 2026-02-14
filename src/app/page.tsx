@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { getNewProducts, getDealProducts } from '@/lib/data'
 import { ProductCard } from '@/components/ProductCard'
 import { HeroCat } from '@/components/HeroCat'
+import { RecentlyViewed } from '@/components/RecentlyViewed'
+import { NewsletterSignup } from '@/components/NewsletterSignup'
 import { useLocale } from '@/context/LocaleContext'
 
 export default function HomePage() {
@@ -127,6 +129,8 @@ export default function HomePage() {
         </div>
       </section>
 
+      <RecentlyViewed />
+
       <section className="py-16">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="font-heading text-xl font-bold text-foreground">{t('home.loyaltyTitle')}</h2>
@@ -138,6 +142,16 @@ export default function HomePage() {
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="font-heading text-xl font-bold text-foreground">{t('home.aboutUsTitle')}</h2>
           <p className="mt-3 text-muted">{t('home.aboutUsText')}</p>
+        </div>
+      </section>
+
+      <section className="py-12 border-t border-[var(--border)]">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="font-heading text-xl font-bold text-foreground">{t('newsletter.title') || 'Hírlevél'}</h2>
+          <p className="mt-2 text-muted text-sm">{t('newsletter.desc') || 'Iratkozz fel a legújabb ajánlatokra.'}</p>
+          <div className="mt-6">
+            <NewsletterSignup />
+          </div>
         </div>
       </section>
     </>

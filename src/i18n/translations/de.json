@@ -1,13 +1,17 @@
 {
   "nav": {
+    "menu": "Menü",
     "products": "Produkte",
     "allProducts": "Alle Produkte",
     "new": "Neu",
     "deals": "Angebote",
     "sourcing": "Zur Beschaffung bestellbar",
+    "sourcingExpires": "Läuft ab: 00:00",
     "shipping": "Versand",
     "returns": "Rückgabe",
-    "contact": "Kontakt"
+    "contact": "Kontakt",
+    "help": "Hilfe & Informationen",
+    "faq": "FAQ"
   },
   "buttons": {
     "viewProducts": "Produkte ansehen",
@@ -21,6 +25,7 @@
     "activateCoupon": "5%-Gutschein aktivieren",
     "goToCart": "Zum Warenkorb",
     "openCart": "Warenkorb öffnen",
+    "openCartLabel": "Warenkorb öffnen",
     "ok": "OK",
     "checkout": "Bestellung abschließen",
     "continueShopping": "Weiter einkaufen",
@@ -75,7 +80,7 @@
     "remove": "Entfernen",
     "deliveryStock": "Versand 24–48 Stunden",
     "deliverySourcing": "Beschaffung + Versand 7–14 Tage",
-    "deliveryNote": "Lagerware: Versand 24–48 h. Beschaffungsartikel: Beschaffung + Versand 7–14 Tage.",
+    "deliveryNote": "Lagerware: Versand 24–48 h.",
     "thanksOrder": "Vielen Dank für Ihre Bestellung!",
     "toastNoMoreStock": "Nicht mehr auf Lager.",
     "toastSourcingLimit": "Die bestellbare Menge ist ausverkauft.",
@@ -85,12 +90,16 @@
     "increaseQty": "Erhöhen",
     "maxQuantity": "Max. im Warenkorb: {count}.",
     "allAvailableAdded": "Sie haben bereits alle verfügbaren Artikel in den Warenkorb gelegt.",
+    "toastAdded": "Artikel im Warenkorb",
+    "freeShippingProgress": "Noch {amount} Ft für kostenlosen Versand",
+    "freeShippingReached": "Kostenloser Versand erreicht",
     "availableUpTo": "Verfügbar: {count}",
     "blockStockTitle": "📦 Lagerware",
-    "blockStockDispatch": "Versand: 24–48 Stunden",
+    "blockStockDispatch": "Versand innerhalb von 24–48 Stunden nach Zahlung",
     "blockSourcingTitle": "🔄 Beschaffungsartikel",
     "blockSourcingDelivery": "Voraussichtliche Lieferung: 7–14 Tage",
-    "sourcingDisclaimerAccept": "Ich nehme zur Kenntnis, dass Beschaffungsartikel nach der Bestellung beschafft werden (7–14 Werktage). Bei Stornierung nach Beginn des Beschaffungsvorgangs können die tatsächlich entstandenen Kosten abgezogen werden."
+    "sourcingDisclaimerAccept": "Ich nehme zur Kenntnis, dass Beschaffungsartikel nach der Bestellung beschafft werden (7–14 Werktage). Bei Stornierung nach Beginn des Beschaffungsvorgangs können die tatsächlich entstandenen Kosten abgezogen werden.",
+    "checkoutConfirmButton": "Zur Kasse"
   },
   "payment": {
     "title": "Zahlung",
@@ -98,9 +107,15 @@
     "cardOnly": "Nur Kartenzahlung möglich.",
     "payWithCard": "Mit Karte zahlen",
     "secureNote": "Die Zahlung erfolgt auf einer sicheren Kassen-Seite. Gib Kartenzahlungsdaten niemals per E-Mail oder Chat an.",
+    "securePayment": "Sichere Zahlung",
+    "guestCheckout": "Gastbestellung",
+    "guestCheckoutNote": "Registrierung optional. E-Mail für die Bestellung angeben.",
+    "emailRequired": "E-Mail-Adresse ist erforderlich.",
+    "emailInvalid": "Bitte gültige E-Mail-Adresse angeben.",
     "backToCart": "Zurück zum Warenkorb",
     "redirecting": "Weiterleitung zur Zahlung…",
     "errorCreateSession": "Kasse konnte nicht gestartet werden. Bitte erneut versuchen.",
+    "timedOfferNoLongerAvailable": "Ein oder mehrere zeitgebundene Angebote sind nicht mehr verfügbar (noch nicht gestartet oder abgelaufen). Bitte aktualisiere den Warenkorb.",
     "successTitle": "Zahlung erfolgreich",
     "successMessage": "Vielen Dank für Ihre Bestellung! Wir haben Ihre Bestellung erfasst.",
     "successLoading": "Bestellung wird geladen…",
@@ -121,10 +136,18 @@
     "statusProcessing": "In Bearbeitung",
     "successPendingTimeout": "Falls der Betrag abgebucht wurde, der Status aber nicht aktualisiert ist, kontaktieren Sie uns bitte mit Ihrer Bestellnummer."
   },
+  "checkout": {
+    "statusStock": "Lagerware: Zahlung wird verarbeitet…",
+    "statusSourcing": "Limitierte Beschaffung: Zahlung wird autorisiert…",
+    "redirectToSummary": "Weiterleitung zur Bestellübersicht…",
+    "redirecting": "Weiterleitung…",
+    "orderTypeStock": "Lager",
+    "orderTypeSourcing": "Limitierte Beschaffung"
+  },
   "product": {
     "inStock": "Auf Lager",
     "outOfStock": "Ausverkauft",
-    "shipping24_48": "Versand 24–48 Stunden",
+    "shipping24_48": "Versand innerhalb von 24–48 Stunden nach Zahlung",
     "sourcingLabel": "Zur Beschaffung bestellbar · Versand: 7–14 Tage",
     "sourcingCardLabel": "Limitierte Verfügbarkeit · 7–14 Tage",
     "stockLabel": "Auf Lager · Versand 24–48 Stunden",
@@ -134,7 +157,40 @@
     "noImage": "Produktbild",
     "productsCount": "{count} Produkte",
     "quantity": "Menge",
-    "maxInCart": "Die maximale Menge ist bereits im Warenkorb."
+    "maxInCart": "Die maximale Menge ist bereits im Warenkorb.",
+    "openGallery": "Galerie öffnen",
+    "gallery": "Bildgalerie",
+    "prevImage": "Vorheriges Bild",
+    "nextImage": "Nächstes Bild",
+    "zoomIn": "Vergrößern",
+    "zoomOut": "Verkleinern",
+    "zoomReset": "Originalgröße",
+    "view360": "360°-Ansicht",
+    "view360Hint": "Ziehen zum Drehen",
+    "similarProducts": "Ähnliche Produkte",
+    "recentlyViewed": "Zuletzt angesehen",
+    "like": "Gefällt mir",
+    "unlike": "Gefällt mir nicht mehr",
+    "likesCount": "{count} gefällt das",
+    "popular": "Beliebtes Produkt",
+    "badge3D": "3D-Druck"
+  },
+  "newsletter": {
+    "title": "Newsletter",
+    "desc": "Melde dich für die neuesten Angebote an.",
+    "placeholder": "deine E-Mail",
+    "emailLabel": "E-Mail für Newsletter",
+    "submit": "Anmelden",
+    "sending": "Wird gesendet...",
+    "success": "Anmeldung erfolgreich.",
+    "error": "Etwas ist schiefgelaufen."
+  },
+  "wishlist": {
+    "title": "Wunschliste",
+    "empty": "Noch keine Favoriten.",
+    "add": "Zur Wunschliste",
+    "remove": "Aus Wunschliste entfernen",
+    "loginRequired": "Melde dich an, um zu liken."
   },
   "coupon": {
     "title": "🎁 5% Rabatt geschenkt",
@@ -157,7 +213,9 @@
     "saleLabel": "Jetzt bestellbar – begrenzte Zeit und Stückzahl.",
     "soldoutLabel": "Ausverkauft – maximale Bestellmenge erreicht.",
     "closedLabel": "Angebot abgelaufen – der Kaufzeitraum ist beendet.",
-    "legal": "Dieses Produkt wird aus begrenzter externer Quelle beschafft. Kann die Beschaffung zum angegebenen Preis nicht realisiert werden, wird der volle Betrag erstattet."
+    "availableFromLabel": "Erhältlich ab: {when}",
+    "expiredShort": "Abgelaufen",
+    "legal": "Nach Auftragserteilung erfolgt die Beschaffung über einen eigenen Beschaffungskanal.\n\nBei erfolgreicher Beschaffung erfolgt die Lieferung des Produkts innerhalb von 7–14 Werktagen.\n\nKann das Produkt innerhalb des angegebenen Preisrahmens nicht beschafft werden, wird die Bestellung storniert und der volle Betrag innerhalb von 1–3 Werktagen erstattet."
   },
   "register": {
     "intro": "Registriere dich mit deiner E-Mail. Wenn du einverstanden bist, dass wir dir Produktangebote schicken, erhältst du einen einmaligen 10-% Gutschein für deinen ersten Einkauf.",
@@ -182,6 +240,8 @@
     "lang_de": "Deutsch",
     "lang_ro": "Rumänisch",
     "search": "Suchen",
+    "searchPlaceholder": "Produkte suchen...",
+    "searchHint": "Die Suche führt zur Produktliste.",
     "cart": "Warenkorb",
     "profile": "Profil",
     "darkMode": "Dunkelmodus",
@@ -194,7 +254,8 @@
     "filterSize": "Größe",
     "filterCondition": "Zustand",
     "allSizes": "Alle",
-    "allConditions": "Alle"
+    "allConditions": "Alle",
+    "loadMore": "Mehr laden"
   },
   "addToCartReason": {
     "previewStarts": "Vorschau – Verkauf startet am {when}",
@@ -210,6 +271,8 @@
     "registerTitle": "Registrierung",
     "registerHaveAccount": "Bereits ein Konto?",
     "shipping": {
+      "fullDescription": "Posta, GLS, Foxpost, DPD\nKostenloser Versand ab 25.000 Ft\nLagerware: Versand innerhalb von 24–48 Stunden nach Zahlung.\nPersönliche Abholung nicht möglich",
+      "sourcingFullDescription": "Posta, GLS, Foxpost, DPD\nKostenloser Versand ab 25.000 Ft\nLieferzeit: 7–14 Werktage (limitierte externe Beschaffung)\nPersönliche Abholung nicht möglich",
       "intro": "Wir versenden unsere Pakete mit Posta, GLS, Foxpost und DPD.",
       "freeShipping": "Kostenloser Versand bei Bestellungen ab 25.000 Ft.",
       "noPickup": "Abholung im Lager ist nicht möglich.",
@@ -242,17 +305,17 @@
   "ai": {
     "greeting": "Hallo! Wobei kann ich helfen? Frag gern zu Produkten, Versand oder Rückgabe.",
     "payment": "Zahlung nur per Karte: Warenkorb → Kasse → Kartenzahlung → Bestellbestätigung per E-Mail. Gib niemals Kartendaten im Chat an – nur auf der sicheren Kassen-Seite.",
-    "shipping": "Wir versenden 24–48 Stunden nach Zahlung. Versand: Post, GLS, Foxpost, DPD. Kostenloser Versand ab 25.000 HUF.",
+    "shipping": "Posta, GLS, Foxpost, DPD. Kostenloser Versand ab 25.000 Ft. Lagerware: Versand innerhalb von 24–48 Stunden nach Zahlung. Persönliche Abholung nicht möglich.",
     "returns": "Rückgabe: Der Kunde trägt die Rücksendekosten. Bei Lagerware erfolgt die Erstattung innerhalb von 14 Tagen nach Rückerhalt der Ware. EU-Widerrufsrecht (außer Unterwäsche/Hygiene).",
     "authenticity": "Wir beziehen Artikel in kleinen Mengen aus ausgewählten Quellen und bieten sie daher zu günstigen Preisen an. Wir präsentieren sie transparent mit Fotos und Beschreibungen.",
     "register": "Registrier dich und erhalte einen Gutschein für deinen ersten Einkauf. Wir mailen dir zu Aktionen und Neuheiten.",
     "complaint": "Bitte nenne uns deine Bestellnummer und E-Mail sowie kurz das Problem (wenn möglich mit Foto). Wir erstellen ein Ticket und unser Team meldet sich bald.",
     "handover": "Ich gebe das an einen Mitarbeiter weiter. Bitte nenne Bestellnummer und E-Mail, wir melden uns zeitnah.",
-    "productQuestion": "Zustand, Größe und Preis stehen auf der Produktseite. Versand in 24–48 h, ab 25.000 HUF gratis. Bei weiteren Fragen einfach fragen.",
+    "productQuestion": "Zustand, Größe und Preis stehen auf der Produktseite. Versand: innerhalb von 7–14 Werktagen nach Beschaffung, ab 25.000 Ft gratis. Bei weiteren Fragen einfach fragen.",
     "noCard": "Bitte gib hier niemals Kartendaten, Ausweis oder Passwörter an. Zahlung nur auf unserer sicheren Kassen-Seite.",
     "recommend": "Welche Kategorie interessiert dich am meisten? (Taschen, Kleidung, Accessoires, Elektronik) Ich kann 3–5 Produkte vorschlagen.",
     "thanks": "Danke! Bei weiteren Fragen einfach melden.",
-    "default": "Du kannst zu Produkten, Versand (24–48 h, gratis ab 25.000 HUF), Rückgabe oder Zahlung fragen. Wobei kann ich helfen?",
+    "default": "Du kannst zu Produkten, Versand (Posta, GLS, Foxpost, DPD; gratis ab 25.000 Ft), Rückgabe oder Zahlung fragen. Wobei kann ich helfen?",
     "title": "Gulumen – Hilfe",
     "cta": "Frage? Ich helfe!",
     "placeholder": "Schreib deine Frage...",

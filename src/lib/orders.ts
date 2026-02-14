@@ -7,7 +7,19 @@
  * payments (orderId, stripeSessionId, paymentIntentId, amountPaid, currencyPaid, paidWebhookEventId).
  */
 
-export type OrderStatus = 'pending' | 'paid' | 'failed'
+export type OrderStatus =
+  | 'pending'
+  | 'paid'
+  | 'failed'
+  | 'created'
+  | 'payment_pending'
+  | 'cancelled'
+  | 'sourcing_pending'
+  | 'sourcing_failed'
+  | 'fulfilled'
+
+/** Új checkout flow: rendelés típusa (1 gomb, 2 rendelés esetén). */
+export type OrderType = 'in_stock' | 'sourcing'
 
 export type FulfillmentType = 'stock' | 'procurement'
 
@@ -30,6 +42,10 @@ export type Order = {
   totalHuf: number
   currency: string
   createdAt: string // ISO
+  /** Új checkout: közös csoport (két rendelésnél ugyanaz). */
+  orderGroupId?: string
+  /** Új checkout: in_stock (azonnali terhelés) vagy sourcing (zárolás). */
+  orderType?: OrderType
   // Stripe – webhook után
   stripeSessionId?: string
   paymentIntentId?: string
@@ -191,6 +207,92 @@ export function setOrderCountedForLoyalty(orderId: string, value = true): Order 
 export function getOrderByPaymentIntentId(paymentIntentId: string): Order | null {
   const orders = loadOrders()
   return orders.find((o) => o.paymentIntentId === paymentIntentId) ?? null
+}
+
+/** Új checkout: order_group_id generálása. */
+export function generateOrderGroupId(): string {
+  return `grp_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+}
+
+/** Új checkout: 1 vagy 2 rendelés létrehozása (order_group_id + orderType). */
+export function createCheckoutOrders(params: {
+  orderGroupId: string
+  inStock?: { items: OrderItem[]; subtotalHuf: number; discountHuf: number; totalHuf: number }
+  sourcing?: { items: OrderItem[]; subtotalHuf: number; discountHuf: number; totalHuf: number }
+  currency?: string
+}): Order[] {
+  const orders = loadOrders()
+  const result: Order[] = []
+  const currency = params.currency ?? 'huf'
+
+  if (params.inStock && params.inStock.items.length > 0) {
+    const o: Order = {
+      id: generateOrderId(),
+      status: 'payment_pending',
+      orderGroupId: params.orderGroupId,
+      orderType: 'in_stock',
+      items: params.inStock.items,
+      subtotalHuf: params.inStock.subtotalHuf,
+      discountHuf: params.inStock.discountHuf,
+      totalHuf: params.inStock.totalHuf,
+      currency,
+      createdAt: new Date().toISOString(),
+    }
+    orders.push(o)
+    result.push(o)
+  }
+
+  if (params.sourcing && params.sourcing.items.length > 0) {
+    const o: Order = {
+      id: generateOrderId(),
+      status: 'payment_pending',
+      orderGroupId: params.orderGroupId,
+      orderType: 'sourcing',
+      items: params.sourcing.items,
+      subtotalHuf: params.sourcing.subtotalHuf,
+      discountHuf: params.sourcing.discountHuf,
+      totalHuf: params.sourcing.totalHuf,
+      currency,
+      createdAt: new Date().toISOString(),
+    }
+    orders.push(o)
+    result.push(o)
+  }
+
+  memoryStore = orders
+  saveOrders()
+  console.debug('[orders] createCheckoutOrders', { orderGroupId: params.orderGroupId, count: result.length })
+  return result
+}
+
+export function getOrdersByGroupId(orderGroupId: string): Order[] {
+  const orders = loadOrders()
+  return orders.filter((o) => o.orderGroupId === orderGroupId)
+}
+
+/** Új checkout / webhook: rendelés státusz frissítése. */
+export function setOrderStatus(orderId: string, status: OrderStatus): Order | null {
+  const orders = loadOrders()
+  const idx = orders.findIndex((o) => o.id === orderId)
+  if (idx < 0) return null
+  orders[idx].status = status
+  if (status === 'paid') {
+    orders[idx].paidAt = new Date().toISOString()
+  }
+  memoryStore = orders
+  saveOrders()
+  console.debug('[orders] setOrderStatus', { orderId, status })
+  return orders[idx]
+}
+
+export function setOrderCustomerEmail(orderId: string, email: string): Order | null {
+  const orders = loadOrders()
+  const idx = orders.findIndex((o) => o.id === orderId)
+  if (idx < 0) return null
+  orders[idx].customerEmail = email
+  memoryStore = orders
+  saveOrders()
+  return orders[idx]
 }
 
 export { COUPON_PERCENT }

@@ -4,6 +4,9 @@ export type ProductType = 'stock' | 'sourcing_deal'
 
 export type SourcingDealStatus = 'preview' | 'sale' | 'soldout' | 'closed'
 
+/** Időzített vásárlás egységes státusza: gombok és checkout logikához. */
+export type TimedPurchaseStatus = 'NOT_STARTED' | 'ACTIVE' | 'EXPIRED'
+
 /** Új termék: töltsd ki a name (magyar) mezőt; opcionálisan nameEn, nameDe, nameRo. Ha csak name van, minden nyelven az jelenik meg (getProductName fallback). */
 export interface Product {
   id: string
@@ -19,7 +22,10 @@ export interface Product {
   condition: Condition
   category: string
   image: string
+  /** Több kép: tömb feltöltése, a lapozás és galéria ezekkel működik. */
   images: string[]
+  /** Opcionális 360° megtekintés: képkockák URL-jei (körbe húzva lapozható). */
+  images360?: string[]
   stock: number
   variants?: { size?: string; color?: string }[]
   description: string
@@ -31,6 +37,8 @@ export interface Product {
   saleTo?: string
   maxOrders?: number
   ordersCount?: number
+  /** Kedvelések száma (FOMO) – csak stock és sourcing_deal termékeknél. */
+  likesCount?: number
 }
 
 /**
@@ -69,6 +77,23 @@ export function getSourcingDealStatus(
   if (t > saleTo) return 'closed'
   if (t >= saleFrom) return 'sale'
   return 'preview'
+}
+
+/**
+ * Időzített vásárlás státusza: availableFrom = saleFrom (indul), availableUntil = saleTo (lejár).
+ * NOT_STARTED = még nem vehető, ACTIVE = vehető, EXPIRED = lejárt vagy elfogyott.
+ */
+export function getTimedPurchaseStatus(
+  product: Product,
+  now: Date = new Date(),
+  ordersCountOverride?: number
+): TimedPurchaseStatus | null {
+  if (product.type !== 'sourcing_deal' || !product.saleFrom || !product.saleTo) return null
+  const detail = getSourcingDealStatus(product, now, ordersCountOverride)
+  if (detail === 'soldout' || detail === 'closed') return 'EXPIRED'
+  if (detail === 'sale') return 'ACTIVE'
+  if (detail === 'preview' || detail === null) return 'NOT_STARTED'
+  return 'NOT_STARTED'
 }
 
 /** Beszerzésre rendelhető listán megjelenítendő rövid név: csak az időzítés (pl. "8 nap múlva vásárolható", "3 napig rendelhető"). */
@@ -170,7 +195,26 @@ export const categories = [
   { slug: 'kiegeszitok', name: 'Kiegészítők', nameEn: 'Accessories', nameDe: 'Accessoires', nameRo: 'Accesorii' },
   { slug: 'elektronika', name: 'Elektronika / Egyéb', nameEn: 'Electronics & More', nameDe: 'Elektronik & Mehr', nameRo: 'Electronică și altele' },
   { slug: 'otthon', name: 'Otthon', nameEn: 'Home', nameDe: 'Zuhause', nameRo: 'Casă' },
+  { slug: '3d-nyomtatott', name: '3D Nyomtatott Termékek', nameEn: '3D Printed Products', nameDe: '3D-Druck Produkte', nameRo: 'Produse printate 3D' },
 ] as const
+
+/** 3D nyomtatott alkategóriák (fülek) – slug = product.category érték. */
+export const threeDSubcategories = [
+  { slug: '3d-konyha', name: 'Konyha', nameEn: 'Kitchen', nameDe: 'Küche', nameRo: 'Bucătărie', icon: '🍳' },
+  { slug: '3d-jatek', name: 'Játék', nameEn: 'Toys', nameDe: 'Spielzeug', nameRo: 'Jocuri', icon: '🧸' },
+  { slug: '3d-kert', name: 'Kert', nameEn: 'Garden', nameDe: 'Garten', nameRo: 'Grădină', icon: '🌿' },
+  { slug: '3d-lakasdekor', name: 'Lakásdekor', nameEn: 'Home decor', nameDe: 'Wohndekor', nameRo: 'Decor interior', icon: '🏠' },
+  { slug: '3d-eszkozok', name: 'Eszközök', nameEn: 'Tools', nameDe: 'Werkzeuge', nameRo: 'Unelte', icon: '🔧' },
+  { slug: '3d-kreativ', name: 'Kreatív', nameEn: 'Creative', nameDe: 'Kreativ', nameRo: 'Creativ', icon: '🧩' },
+  { slug: '3d-ajandek', name: 'Ajándék', nameEn: 'Gift', nameDe: 'Geschenk', nameRo: 'Cadou', icon: '🎁' },
+] as const
+
+export type ThreeDSubcategorySlug = (typeof threeDSubcategories)[number]['slug']
+
+/** Termék 3D nyomtatott, ha category 3d- prefixű. */
+export function is3DProduct(product: Product): boolean {
+  return (product.category?.startsWith?.('3d-') ?? false)
+}
 
 /** Kategória neve a kiválasztott nyelv szerint. */
 export function getCategoryName(
@@ -218,7 +262,8 @@ export const mockProducts: Product[] = [
     condition: 'Új',
     category: 'taskak',
     image: '/img/rolltop-fekete-2.png',
-    images: ['/img/rolltop-fekete-2.png'],
+    images: ['/img/rolltop-fekete-2.png', '/img/rolltop-fekete-1.png', '/img/rolltop-fekete-3.png'],
+    images360: ['/img/rolltop-fekete-2.png', '/img/rolltop-fekete-1.png', '/img/rolltop-fekete-3.png'],
     stock: 1,
     variants: [{ size: 'One size', color: 'Fekete' }],
     description: 'Stílusos fekete roll-top hátizsák, oldalsó cipzáras és nyitott zseb. Erősített fekete alj, ENJOY márka.',
@@ -476,11 +521,19 @@ export const mockProducts: Product[] = [
     onSale: true,
   },
   ...getSourcingDealMockProducts(),
+  // 3D nyomtatott termékek (kategória = 3d-*)
+  ...get3DMockProducts(),
 ]
 
 function addDays(d: Date, days: number): string {
   const out = new Date(d)
   out.setDate(out.getDate() + days)
+  return out.toISOString()
+}
+
+function addMinutes(d: Date, minutes: number): string {
+  const out = new Date(d)
+  out.setMinutes(out.getMinutes() + minutes)
   return out.toISOString()
 }
 
@@ -528,6 +581,27 @@ function getSourcingDealMockProducts(): Product[] {
       previewFrom: addDays(now, -20),
       saleFrom: addDays(now, -1),
       saleTo: addDays(now, 2),
+      maxOrders: 5,
+      ordersCount: 0,
+    },
+    /* Teszt termék: indul 2 perc múlva, lejár 5 perc múlva (a szerver indulásától). Dev szerver újraindítás után 2–5 percig aktív. */
+    {
+      id: 'sd-test-timer',
+      name: 'Teszt időzített ajánlat (2–5 perc)',
+      nameEn: 'Test timed offer (2–5 min)',
+      slug: 'beszerzes-teszt-idozitett',
+      priceHuf: 1000,
+      priceEur: 3,
+      condition: 'Új',
+      category: 'taskak',
+      image: '/img/rolltop-fekete-1.png',
+      images: ['/img/rolltop-fekete-1.png'],
+      stock: 0,
+      description: 'Csak teszt: vásárlás 2 perc múlva indul, 5 perc múlva jár le.',
+      type: 'sourcing_deal',
+      previewFrom: addMinutes(now, -1),
+      saleFrom: addMinutes(now, 2),
+      saleTo: addMinutes(now, 5),
       maxOrders: 5,
       ordersCount: 0,
     },
@@ -797,6 +871,20 @@ function getSourcingDealMockProducts(): Product[] {
   ]
 }
 
+function get3DMockProducts(): Product[] {
+  return [
+    { id: '3d-1', name: '3D konyhai tartó – fűszerek', nameEn: '3D kitchen holder – spices', slug: '3d-konyhai-tarto-fuszer', priceHuf: 2490, priceEur: 6, condition: 'Új', category: '3d-konyha', image: '/img/rolltop-fekete-1.png', images: ['/img/rolltop-fekete-1.png'], stock: 5, description: '3D nyomtatott fűszertartó, PLA anyag.', type: 'stock' },
+    { id: '3d-2', name: '3D konyhai kanál tartó', nameEn: '3D kitchen spoon holder', slug: '3d-konyhai-kanal-tarto', priceHuf: 1890, priceEur: 5, condition: 'Új', category: '3d-konyha', image: '/img/rolltop-szurke-1.png', images: ['/img/rolltop-szurke-1.png'], stock: 8, description: '3D nyomtatott kanál- és spatulatartó.', type: 'stock' },
+    { id: '3d-3', name: '3D játék figura – dinó', nameEn: '3D toy figure – dinosaur', slug: '3d-jatek-dino', priceHuf: 1290, priceEur: 3, condition: 'Új', category: '3d-jatek', image: '/img/rolltop-sarga.png', images: ['/img/rolltop-sarga.png'], stock: 12, description: '3D nyomtatott játék figura, gyerekbiztos anyag.', type: 'stock' },
+    { id: '3d-4', name: '3D játék kocka – puzzle', nameEn: '3D puzzle cube', slug: '3d-jatek-puzzle-kocka', priceHuf: 2990, priceEur: 8, condition: 'Új', category: '3d-jatek', image: '/img/rolltop-piros-1.png', images: ['/img/rolltop-piros-1.png'], stock: 6, description: '3D nyomtatott logikai játék.', type: 'stock' },
+    { id: '3d-5', name: '3D kerti cserép tartó', nameEn: '3D garden pot holder', slug: '3d-kert-cserep-tarto', priceHuf: 3490, priceEur: 9, condition: 'Új', category: '3d-kert', image: '/img/rolltop-olajzold-1.png', images: ['/img/rolltop-olajzold-1.png'], stock: 4, description: '3D nyomtatott kerti cserép alátét, időjárásálló.', type: 'stock' },
+    { id: '3d-6', name: '3D lakásdekor – váza', nameEn: '3D home decor – vase', slug: '3d-lakasdekor-vaza', priceHuf: 4490, priceEur: 12, condition: 'Új', category: '3d-lakasdekor', image: '/img/sendia-pled-1.png', images: ['/img/sendia-pled-1.png'], stock: 3, description: 'Minimal 3D nyomtatott dekoratív váza.', type: 'stock' },
+    { id: '3d-7', name: '3D eszköz tartó – asztal', nameEn: '3D desk tool organizer', slug: '3d-eszkoz-tarto', priceHuf: 3990, priceEur: 10, condition: 'Új', category: '3d-eszkozok', image: '/img/rolltop-szurke-2.png', images: ['/img/rolltop-szurke-2.png'], stock: 7, description: '3D nyomtatott asztali szerszám- és tolltartó.', type: 'stock' },
+    { id: '3d-8', name: '3D kreatív tolltartó', nameEn: '3D creative pen holder', slug: '3d-kreativ-tolltarto', priceHuf: 2190, priceEur: 6, condition: 'Új', category: '3d-kreativ', image: '/img/rolltop-tan-1.png', images: ['/img/rolltop-tan-1.png'], stock: 10, description: '3D nyomtatott kreatív tolltartó, egyedi formák.', type: 'stock' },
+    { id: '3d-9', name: '3D ajándék doboz – szív', nameEn: '3D gift box – heart', slug: '3d-ajandek-doboz-sziv', priceHuf: 2790, priceEur: 7, condition: 'Új', category: '3d-ajandek', image: '/img/rolltop-piros-2.png', images: ['/img/rolltop-piros-2.png'], stock: 9, description: '3D nyomtatott ajándék doboz szív formában.', type: 'stock' },
+  ]
+}
+
 /** Termék slug alapján. Készlet/kijelzés: mindig a canonical listából (getStockById / product.stock a visszaadott másolaton). A kosár nem módosíthatja a készletet. */
 export function getProductBySlug(slug: string): Product | undefined {
   const p = mockProducts.find((x) => x.slug === slug)
@@ -823,4 +911,22 @@ export function getDealProducts(): Product[] {
 
 export function getSourcingDealProducts(): Product[] {
   return mockProducts.filter((p) => p.type === 'sourcing_deal')
+}
+
+/**
+ * Legkorábbi lejárati idő a beszerzésre rendelhető ajánlatok közül (jelenleg „sale” státuszúak).
+ * A nav countdown FOMO-hoz: ehhez képest számol vissza a menü.
+ */
+export function getEarliestSourcingExpiry(products: Product[], now: Date = new Date()): Date | null {
+  const t = now.getTime()
+  let earliest: number | null = null
+  for (const p of products) {
+    if (p.type !== 'sourcing_deal' || !p.saleTo) continue
+    const status = getSourcingDealStatus(p, now)
+    if (status !== 'sale') continue
+    const saleTo = new Date(p.saleTo).getTime()
+    if (saleTo <= t) continue
+    if (earliest == null || saleTo < earliest) earliest = saleTo
+  }
+  return earliest != null ? new Date(earliest) : null
 }
