@@ -96,6 +96,307 @@
   }
 }
 
+/* Piros telefon ikon – rezgés (Hívj minket) */
+@keyframes phone-vibrate {
+  0%, 100% { transform: rotate(0deg); }
+  10% { transform: rotate(-8deg); }
+  20% { transform: rotate(8deg); }
+  30% { transform: rotate(-6deg); }
+  40% { transform: rotate(6deg); }
+  50% { transform: rotate(-4deg); }
+  60% { transform: rotate(4deg); }
+  70% { transform: rotate(-2deg); }
+  80% { transform: rotate(2deg); }
+  90% { transform: rotate(-1deg); }
+}
+.phone-vibrate {
+  animation: phone-vibrate 0.6s ease-in-out infinite;
+}
+
+/* Régi telefon – hoverra cseng (csörög) */
+@keyframes phone-ring {
+  0%, 100% { transform: rotate(0deg); }
+  5% { transform: rotate(-12deg); }
+  15% { transform: rotate(12deg); }
+  25% { transform: rotate(-10deg); }
+  35% { transform: rotate(10deg); }
+  45% { transform: rotate(-6deg); }
+  55% { transform: rotate(6deg); }
+  65% { transform: rotate(-3deg); }
+  75% { transform: rotate(3deg); }
+  85% { transform: rotate(-1deg); }
+  95% { transform: rotate(1deg); }
+}
+.phone-ring-hover:hover {
+  animation: phone-ring 0.5s ease-in-out infinite;
+}
+.group:hover .phone-ring-hover {
+  animation: phone-ring 0.5s ease-in-out infinite;
+}
+
+/* ========== Lejárt ajánlat – drámai többfázisú animáció (összesen ~7,5 s) ========== */
+
+/* Overlay: sötétítés + finom blur */
+.sold-impact-backdrop {
+  animation: sold-impact-backdrop 7.5s ease-out forwards;
+}
+@keyframes sold-impact-backdrop {
+  0% {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+  6% {
+    opacity: 1;
+    backdrop-filter: blur(6px);
+  }
+  72% {
+    opacity: 1;
+    backdrop-filter: blur(6px);
+  }
+  100% {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+}
+
+/* „Lejárt” felirat – megjelenik, majd a robbanás előtt eltűnik */
+.sold-impact-label {
+  animation: sold-impact-label-in 0.5s ease-out 0.3s forwards,
+    sold-impact-label-out 0.4s ease-in 3.9s forwards;
+}
+@keyframes sold-impact-label-in {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes sold-impact-label-out {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Logó 1. fázis: először a logó jelenik meg a képen (drámai + fényvillanás), utána forog */
+@keyframes sold-logo-flash {
+  0% {
+    transform: scale(0.25);
+    opacity: 0;
+    filter: brightness(0.3);
+  }
+  20% {
+    filter: brightness(2.2);
+  }
+  45% {
+    transform: scale(1.12);
+    opacity: 1;
+    filter: brightness(1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    filter: brightness(1);
+  }
+}
+
+/* Logó 2. fázis: intenzív pulzálás – méret + fényglow + lüktető árnyék */
+@keyframes sold-logo-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow:
+      0 0 20px 2px rgba(255, 255, 255, 0.4),
+      0 0 40px 8px rgba(59, 130, 246, 0.5),
+      0 8px 24px rgba(0, 0, 0, 0.25);
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow:
+      0 0 28px 6px rgba(255, 255, 255, 0.6),
+      0 0 56px 16px rgba(59, 130, 246, 0.75),
+      0 12px 32px rgba(0, 0, 0, 0.35);
+  }
+}
+
+/* Logó 3. fázis: gyors, dinamikus forgás – sok keyframe = sima interpoláció, gyorsuló ütem */
+@keyframes sold-logo-spin-lift {
+  0% {
+    transform: rotate(0deg) translateZ(0) scale(1);
+    box-shadow:
+      0 0 24px 4px rgba(255, 255, 255, 0.5),
+      0 0 48px 12px rgba(59, 130, 246, 0.6),
+      0 10px 28px rgba(0, 0, 0, 0.28);
+  }
+  8% {
+    transform: rotate(72deg) translateZ(6px) scale(1.02);
+  }
+  18% {
+    transform: rotate(216deg) translateZ(12px) scale(1.04);
+  }
+  32% {
+    transform: rotate(432deg) translateZ(16px) scale(1.05);
+  }
+  50% {
+    transform: rotate(720deg) translateZ(20px) scale(1.06);
+  }
+  70% {
+    transform: rotate(936deg) translateZ(24px) scale(1.07);
+  }
+  85% {
+    transform: rotate(1026deg) translateZ(24px) scale(1.08);
+  }
+  100% {
+    transform: rotate(1080deg) translateZ(24px) scale(1.08);
+    box-shadow:
+      0 0 40px 12px rgba(255, 255, 255, 0.8),
+      0 0 80px 24px rgba(59, 130, 246, 0.95),
+      0 18px 40px rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* Logó 4. fázis: összezsugorodás + koncentrált fénygyűrű → energia-robbanás */
+@keyframes sold-logo-explode {
+  0% {
+    transform: scale(1) rotate(1080deg);
+    opacity: 1;
+    filter: brightness(1);
+    box-shadow:
+      0 0 40px 12px rgba(255, 255, 255, 0.8),
+      0 0 80px 24px rgba(59, 130, 246, 0.95);
+  }
+  40% {
+    transform: scale(0.5) rotate(1170deg);
+    box-shadow:
+      0 0 0 4px rgba(255, 255, 255, 0.9),
+      0 0 0 12px rgba(59, 130, 246, 0.6),
+      0 0 60px 20px rgba(255, 255, 255, 0.9);
+  }
+  70% {
+    filter: brightness(2.5);
+  }
+  100% {
+    transform: scale(0) rotate(1260deg);
+    opacity: 0;
+    filter: brightness(4);
+    box-shadow: 0 0 100px 40px rgba(255, 255, 255, 0.95);
+  }
+}
+
+/* Sorrend: logó megjelenik → pulzál → gyors, sima forgás (GPU-barát) → robbanás */
+.sold-impact-logo-wrap {
+  position: relative;
+  border-radius: 50%;
+  overflow: visible;
+  transform-style: preserve-3d;
+  perspective: 400px;
+  will-change: transform;
+  animation:
+    sold-logo-flash 0.7s ease-out forwards,
+    sold-logo-pulse 1.2s ease-in-out 0.7s 2 forwards,
+    sold-logo-spin-lift 1.05s cubic-bezier(0.22, 0.61, 0.36, 1) 3.1s forwards,
+    sold-logo-explode 0.6s ease-in 4.2s forwards;
+}
+
+/* Robbanás fényrészecskék – mindegyik más irányba repül */
+.sold-impact-particle {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 8px 2px rgba(255, 255, 255, 0.8);
+  pointer-events: none;
+  opacity: 0;
+  left: 50%;
+  top: 50%;
+  margin-left: -3px;
+  margin-top: -3px;
+}
+.sold-impact-particle:nth-child(1) { animation: sold-particle-burst 0.5s ease-out 4.2s forwards; --sold-dx: 45px; --sold-dy: -30px; }
+.sold-impact-particle:nth-child(2) { animation: sold-particle-burst 0.5s ease-out 4.2s forwards; --sold-dx: -40px; --sold-dy: -35px; }
+.sold-impact-particle:nth-child(3) { animation: sold-particle-burst 0.5s ease-out 4.2s forwards; --sold-dx: 35px; --sold-dy: 40px; }
+.sold-impact-particle:nth-child(4) { animation: sold-particle-burst 0.5s ease-out 4.2s forwards; --sold-dx: -50px; --sold-dy: 25px; }
+.sold-impact-particle:nth-child(5) { animation: sold-particle-burst 0.5s ease-out 4.2s forwards; --sold-dx: 0; --sold-dy: -50px; }
+.sold-impact-particle:nth-child(6) { animation: sold-particle-burst 0.5s ease-out 4.2s forwards; --sold-dx: 48px; --sold-dy: 0; }
+.sold-impact-particle:nth-child(7) { animation: sold-particle-burst 0.5s ease-out 4.2s forwards; --sold-dx: -45px; --sold-dy: 0; }
+.sold-impact-particle:nth-child(8) { animation: sold-particle-burst 0.5s ease-out 4.2s forwards; --sold-dx: 0; --sold-dy: 48px; }
+@keyframes sold-particle-burst {
+  0% {
+    opacity: 0;
+    transform: scale(0) translate(0, 0);
+  }
+  15% {
+    opacity: 1;
+    transform: scale(1) translate(0, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.3) translate(var(--sold-dx), var(--sold-dy));
+  }
+}
+
+/* Kártya: remegés → zsugorodik + fade (NEM forog a tengelye körül – csak a logó forog) */
+.sold-impact-card-wrapper {
+  perspective: 1200px;
+  transform-style: preserve-3d;
+}
+
+.sold-impact-card-vanish {
+  transform-origin: center center;
+  transform-style: preserve-3d;
+  animation:
+    sold-card-tremble 0.45s ease-in-out 4.85s forwards,
+    sold-card-vanish-3d 1.6s cubic-bezier(0.4, 0, 0.5, 1) 5.3s forwards;
+}
+
+@keyframes sold-card-tremble {
+  0%,
+  100% {
+    transform: translateZ(0) rotateY(0deg) rotateX(0deg) scale(1);
+  }
+  25% {
+    transform: translateZ(0) rotateY(-1.5deg) rotateX(0.5deg) scale(1);
+  }
+  50% {
+    transform: translateZ(0) rotateY(1.5deg) rotateX(-0.5deg) scale(1);
+  }
+  75% {
+    transform: translateZ(0) rotateY(-1deg) rotateX(0.3deg) scale(1);
+  }
+}
+
+/* Kártya nem pörög – csak enyhe távolodás + zsugorodás + villanás + fade */
+@keyframes sold-card-vanish-3d {
+  0% {
+    transform: translateZ(0) rotateY(0deg) rotateX(0deg) scale(1);
+    opacity: 1;
+    filter: brightness(1);
+  }
+  40% {
+    transform: translateZ(-30px) rotateY(5deg) rotateX(2deg) scale(0.85);
+    opacity: 1;
+    filter: brightness(1);
+  }
+  80% {
+    transform: translateZ(-80px) rotateY(8deg) rotateX(3deg) scale(0.2);
+    opacity: 1;
+    filter: brightness(1.15);
+  }
+  95% {
+    filter: brightness(2.2);
+  }
+  100% {
+    transform: translateZ(-120px) rotateY(10deg) rotateX(4deg) scale(0);
+    opacity: 0;
+    filter: brightness(2.5);
+  }
+}
+
 .nav-link-fire {
   position: relative;
   display: inline-flex;
@@ -140,7 +441,7 @@
   }
 }
 
-/* Beszerzésre rendelhető: diszkrét FOMO (limitált – ne maradj le), enyhébb mint az Akciók */
+/* Beszerzésre rendelhető: arany szikrák időszakos hullása, diszkrét FOMO */
 .nav-link-sourcing-fomo {
   position: relative;
   display: inline-flex;
@@ -161,7 +462,7 @@
     110deg,
     transparent 0%,
     transparent 40%,
-    rgba(14, 165, 233, 0.12) 50%,
+    rgba(212, 175, 55, 0.08) 50%,
     transparent 60%,
     transparent 100%
   );
@@ -176,7 +477,7 @@
     box-shadow: 0 0 0 1px transparent;
   }
   50% {
-    box-shadow: 0 0 0 1px rgba(14, 165, 233, 0.25), 0 0 12px rgba(14, 165, 233, 0.08);
+    box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.2), 0 0 12px rgba(212, 175, 55, 0.06);
   }
 }
 
@@ -192,8 +493,46 @@
   }
 }
 
-/* Beszerzésre rendelhető: piros visszaszámláló a valódi legkorábbi lejáratig */
-/* Címke in-flow (megadja a szélességet, olvasható), countdown ráhelyezkedik; szöveg a shimmere fölött */
+/* Arany szikrák: lefelé hullás, időszakosan */
+.nav-sourcing-sparks {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.nav-sourcing-spark {
+  position: absolute;
+  width: 3px;
+  height: 6px;
+  left: calc(15% + (var(--spark-i) * 12%) + (var(--spark-i) * 2%));
+  top: -15%;
+  background: linear-gradient(180deg, rgba(212, 175, 55, 0.9) 0%, rgba(212, 175, 55, 0.4) 100%);
+  border-radius: 2px;
+  box-shadow: 0 0 6px rgba(212, 175, 55, 0.6);
+  animation: nav-sourcing-spark-fall 2.8s ease-in infinite;
+  animation-delay: calc(var(--spark-i) * 0.35s);
+}
+
+@keyframes nav-sourcing-spark-fall {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  8% {
+    opacity: 0.9;
+  }
+  85% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translateY(120%);
+    opacity: 0;
+  }
+}
+
 .nav-sourcing-link {
   position: relative;
   z-index: 1;
@@ -201,54 +540,8 @@
   align-items: center;
   justify-content: center;
   line-height: 1.25rem;
-  min-width: 12rem;
   min-height: 1.5rem;
-}
-
-.nav-sourcing-link .nav-sourcing-label {
-  transition: opacity 0.5s ease;
   white-space: nowrap;
-}
-
-.nav-sourcing-link .nav-sourcing-countdown-red {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  transition: opacity 0.5s ease;
-  white-space: nowrap;
-  z-index: 2;
-}
-
-.nav-sourcing-link .nav-sourcing-visible {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.nav-sourcing-link .nav-sourcing-hidden {
-  opacity: 0;
-  pointer-events: none;
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  visibility: hidden;
-}
-
-.nav-sourcing-link .nav-sourcing-label.nav-sourcing-hidden {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  visibility: hidden;
-}
-
-.nav-sourcing-countdown-red {
-  font-size: 0.9375rem;
-  letter-spacing: 0.04em;
-  font-weight: 600;
-  white-space: nowrap;
-  text-shadow: 0 0 1px rgba(0, 0, 0, 0.1);
 }
 
 /* Kapcsolat oldal: ugráló béka */

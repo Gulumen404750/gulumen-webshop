@@ -72,8 +72,9 @@ export function CartDrawer({ isOpen, onClose }: Props) {
                 const name = product ? getProductName(product, locale) : item.productId
                 const priceHuf = product ? (product.discountPriceHuf ?? product.priceHuf) : 0
                 const img = product?.image?.startsWith('/') ? product.image : ''
+                const lineKey = `${item.productId}-${item.options?.colorHex ?? item.options?.colorName ?? ''}-${item.options?.materialName ?? ''}`
                 return (
-                  <li key={item.productId} className="flex gap-3 p-3 rounded-lg border border-[var(--border)]">
+                  <li key={lineKey} className="flex gap-3 p-3 rounded-lg border border-[var(--border)]">
                     <div className="w-14 h-14 shrink-0 rounded-lg bg-[var(--border)] relative overflow-hidden">
                       {img ? (
                         <Image src={img} alt="" fill className="object-cover" sizes="56px" />
@@ -81,12 +82,19 @@ export function CartDrawer({ isOpen, onClose }: Props) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-foreground text-sm line-clamp-2">{name}</p>
+                      {(item.options?.colorName || item.options?.materialName) && (
+                        <p className="text-foreground text-xs">
+                          {item.options?.materialName && <span>{t('product.material') || 'Anyag'}: {item.options.materialName}</span>}
+                          {item.options?.materialName && item.options?.colorName && ' · '}
+                          {item.options?.colorName && <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>}
+                        </p>
+                      )}
                       <p className="text-muted text-xs">{priceHuf.toLocaleString('hu-HU')} Ft × {item.qty}</p>
                     </div>
                     <div className="flex flex-col items-end gap-1">
                       <button
                         type="button"
-                        onClick={() => removeItem(item.productId)}
+                        onClick={() => removeItem(item.productId, item.options)}
                         className="text-xs text-muted hover:text-red-600"
                       >
                         {t('cart.remove')}

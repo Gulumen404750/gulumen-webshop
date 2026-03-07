@@ -26,6 +26,8 @@ export interface Product {
   images: string[]
   /** Opcionális 360° megtekintés: képkockák URL-jei (körbe húzva lapozható). */
   images360?: string[]
+  /** 3D termék: GLB modell URL (pl. /models/noveny-kotozo.glb), körbe forgatható megjelenítéshez. */
+  modelUrl?: string
   stock: number
   variants?: { size?: string; color?: string }[]
   description: string
@@ -39,7 +41,21 @@ export interface Product {
   ordersCount?: number
   /** Kedvelések száma (FOMO) – csak stock és sourcing_deal termékeknél. */
   likesCount?: number
+  /** 3D termék színezhető (filament színválasztó megjelenik, kosárba megy a kiválasztott szín). */
+  isColorable?: boolean
 }
+
+/** Mock mód: egyetlen időpont a sourcing deal saleFrom/saleTo generáláshoz; node folyamat életében stabil (első hívásnál rögzítve). */
+const GLOBAL_SEED_KEY = '__gulumen_sourcing_seed_now__'
+function getSeedNow(): Date {
+  if (typeof globalThis !== 'undefined' && (globalThis as Record<string, unknown>)[GLOBAL_SEED_KEY] instanceof Date) {
+    return (globalThis as unknown as Record<string, Date>)[GLOBAL_SEED_KEY]
+  }
+  const now = new Date()
+  if (typeof globalThis !== 'undefined') (globalThis as unknown as Record<string, Date>)[GLOBAL_SEED_KEY] = now
+  return now
+}
+let SEED_NOW: Date | null = null
 
 /**
  * Terméknév a kiválasztott nyelv szerint.
@@ -77,6 +93,20 @@ export function getSourcingDealStatus(
   if (t > saleTo) return 'closed'
   if (t >= saleFrom) return 'sale'
   return 'preview'
+}
+
+/** Kliens–szerver óra eltérés miatt: ha saleTo már ennyi ms-n belül van, „lejártnak” tekintjük (nem jelenik meg aktív listán, de megjelenik a Lejárt termékeknél). Generózus buffer. */
+export const SOURCING_EXPIRED_BUFFER_MS = 30_000
+
+/** Igaz, ha az ajánlat már lejártnak tekintendő (lejárt vagy a buffer miatt „már majdnem lejárt”). Így frissítéskor a termék nem marad a Beszerzésre rendelhetőn, hanem a Lejárt termékek közé kerül. */
+export function isSourcingConsideredExpired(
+  product: Product,
+  serverNow: number,
+  _ordersCount?: number
+): boolean {
+  if (product.type !== 'sourcing_deal' || !product.saleTo) return false
+  const saleToMs = new Date(product.saleTo).getTime()
+  return saleToMs <= serverNow + SOURCING_EXPIRED_BUFFER_MS
 }
 
 /**
@@ -162,9 +192,14 @@ export function getAddToCartReason(
  * - Cart Quantity (kosárban lévő): külön, pl. "Kosárban: X db".
  * - Max in cart (max. kosárban): getMaxQty(product) = getStockById(id) készletes terméknél; validáció: cartQty + addQty <= getMaxQty.
  */
+/** 3D nyomtatott termékeknél nincs készletlimit – ennyi db-ig lehet egyszerre választani (gyakorlatilag bármennyit). */
+const UNLIMITED_STOCK_CAP = 999
+
 export function getStockById(productId: string): number {
   const p = mockProducts.find((x) => x.id === productId)
-  return p ? Math.max(0, p.stock ?? 0) : 0
+  if (!p) return 0
+  if (is3DProduct(p)) return UNLIMITED_STOCK_CAP
+  return Math.max(0, p.stock ?? 0)
 }
 
 /**
@@ -538,7 +573,8 @@ function addMinutes(d: Date, minutes: number): string {
 }
 
 function getSourcingDealMockProducts(): Product[] {
-  const now = new Date()
+  if (SEED_NOW === null) SEED_NOW = getSeedNow()
+  const now = SEED_NOW
   return [
   {
     id: 'sd-1',
@@ -582,6 +618,27 @@ function getSourcingDealMockProducts(): Product[] {
       saleFrom: addDays(now, -1),
       saleTo: addDays(now, 2),
       maxOrders: 5,
+      ordersCount: 0,
+    },
+    /* Teszt: maxOrders=1 – race condition / oversell teszthez (scripts/test-2-sourcing-race.ps1). */
+    {
+      id: 'sd-race-1',
+      name: 'Teszt 1 slot (race teszt)',
+      nameEn: 'Test 1 slot (race test)',
+      slug: 'beszerzes-teszt-1-slot',
+      priceHuf: 1000,
+      priceEur: 3,
+      condition: 'Új',
+      category: 'taskak',
+      image: '/img/rolltop-fekete-1.png',
+      images: ['/img/rolltop-fekete-1.png'],
+      stock: 0,
+      description: 'Csak teszt: maxOrders=1, oversell teszt.',
+      type: 'sourcing_deal',
+      previewFrom: addDays(now, -1),
+      saleFrom: addDays(now, -1),
+      saleTo: addDays(now, 2),
+      maxOrders: 1,
       ordersCount: 0,
     },
     /* Teszt termék: indul 2 perc múlva, lejár 5 perc múlva (a szerver indulásától). Dev szerver újraindítás után 2–5 percig aktív. */
@@ -871,17 +928,47 @@ function getSourcingDealMockProducts(): Product[] {
   ]
 }
 
+/** Csak a 2 ellenőrzött 3D termék: Növény kötöző (plantssupportstrapl80.stl), Szalvéta tartó (krouzek stromecek.stl). */
 function get3DMockProducts(): Product[] {
   return [
-    { id: '3d-1', name: '3D konyhai tartó – fűszerek', nameEn: '3D kitchen holder – spices', slug: '3d-konyhai-tarto-fuszer', priceHuf: 2490, priceEur: 6, condition: 'Új', category: '3d-konyha', image: '/img/rolltop-fekete-1.png', images: ['/img/rolltop-fekete-1.png'], stock: 5, description: '3D nyomtatott fűszertartó, PLA anyag.', type: 'stock' },
-    { id: '3d-2', name: '3D konyhai kanál tartó', nameEn: '3D kitchen spoon holder', slug: '3d-konyhai-kanal-tarto', priceHuf: 1890, priceEur: 5, condition: 'Új', category: '3d-konyha', image: '/img/rolltop-szurke-1.png', images: ['/img/rolltop-szurke-1.png'], stock: 8, description: '3D nyomtatott kanál- és spatulatartó.', type: 'stock' },
-    { id: '3d-3', name: '3D játék figura – dinó', nameEn: '3D toy figure – dinosaur', slug: '3d-jatek-dino', priceHuf: 1290, priceEur: 3, condition: 'Új', category: '3d-jatek', image: '/img/rolltop-sarga.png', images: ['/img/rolltop-sarga.png'], stock: 12, description: '3D nyomtatott játék figura, gyerekbiztos anyag.', type: 'stock' },
-    { id: '3d-4', name: '3D játék kocka – puzzle', nameEn: '3D puzzle cube', slug: '3d-jatek-puzzle-kocka', priceHuf: 2990, priceEur: 8, condition: 'Új', category: '3d-jatek', image: '/img/rolltop-piros-1.png', images: ['/img/rolltop-piros-1.png'], stock: 6, description: '3D nyomtatott logikai játék.', type: 'stock' },
-    { id: '3d-5', name: '3D kerti cserép tartó', nameEn: '3D garden pot holder', slug: '3d-kert-cserep-tarto', priceHuf: 3490, priceEur: 9, condition: 'Új', category: '3d-kert', image: '/img/rolltop-olajzold-1.png', images: ['/img/rolltop-olajzold-1.png'], stock: 4, description: '3D nyomtatott kerti cserép alátét, időjárásálló.', type: 'stock' },
-    { id: '3d-6', name: '3D lakásdekor – váza', nameEn: '3D home decor – vase', slug: '3d-lakasdekor-vaza', priceHuf: 4490, priceEur: 12, condition: 'Új', category: '3d-lakasdekor', image: '/img/sendia-pled-1.png', images: ['/img/sendia-pled-1.png'], stock: 3, description: 'Minimal 3D nyomtatott dekoratív váza.', type: 'stock' },
-    { id: '3d-7', name: '3D eszköz tartó – asztal', nameEn: '3D desk tool organizer', slug: '3d-eszkoz-tarto', priceHuf: 3990, priceEur: 10, condition: 'Új', category: '3d-eszkozok', image: '/img/rolltop-szurke-2.png', images: ['/img/rolltop-szurke-2.png'], stock: 7, description: '3D nyomtatott asztali szerszám- és tolltartó.', type: 'stock' },
-    { id: '3d-8', name: '3D kreatív tolltartó', nameEn: '3D creative pen holder', slug: '3d-kreativ-tolltarto', priceHuf: 2190, priceEur: 6, condition: 'Új', category: '3d-kreativ', image: '/img/rolltop-tan-1.png', images: ['/img/rolltop-tan-1.png'], stock: 10, description: '3D nyomtatott kreatív tolltartó, egyedi formák.', type: 'stock' },
-    { id: '3d-9', name: '3D ajándék doboz – szív', nameEn: '3D gift box – heart', slug: '3d-ajandek-doboz-sziv', priceHuf: 2790, priceEur: 7, condition: 'Új', category: '3d-ajandek', image: '/img/rolltop-piros-2.png', images: ['/img/rolltop-piros-2.png'], stock: 9, description: '3D nyomtatott ajándék doboz szív formában.', type: 'stock' },
+    {
+      id: '3d-1',
+      name: 'Növény kötöző',
+      nameEn: 'Plant support strap',
+      nameDe: 'Pflanzenstütze',
+      nameRo: 'Suport plante',
+      slug: 'noveny-kotozo',
+      priceHuf: 2490,
+      priceEur: 6,
+      condition: 'Új',
+      category: '3d-kert',
+      image: '/img/3d-noveny-kotozo.png',
+      images: ['/img/3d-noveny-kotozo.png'],
+      modelUrl: '/models/noveny-kotozo.glb',
+      stock: 10,
+      isColorable: true,
+      description: '3D nyomtatott növénykötöző (PLA), strap 80 mm. Ellenőrzött, saját tervezés. Ideális kerti és benti növényekhez.',
+      type: 'stock',
+    },
+    {
+      id: '3d-2',
+      name: 'Szalvéta tartó – körök',
+      nameEn: 'Napkin holder – rings',
+      nameDe: 'Serviettenhalter – Ringe',
+      nameRo: 'Suport șervețele – inele',
+      slug: 'szalveta-tarto-korok',
+      priceHuf: 1890,
+      priceEur: 5,
+      condition: 'Új',
+      category: '3d-konyha',
+      image: '/img/3d-szalveta-tarto.png',
+      images: ['/img/3d-szalveta-tarto.png'],
+      modelUrl: '/models/szalveta-tarto-korok.glb',
+      stock: 10,
+      isColorable: true,
+      description: '3D nyomtatott szalvétatartó, fa stílusú körök (PLA). Ellenőrzött, saját tervezés. Asztalra, konyhába.',
+      type: 'stock',
+    },
   ]
 }
 
@@ -909,6 +996,7 @@ export function getDealProducts(): Product[] {
   return mockProducts.filter((p) => p.onSale).slice(0, 6)
 }
 
+/** Beszerzésre rendelhető lista – ugyanabból a canonical mockProducts-ból, mint getProductBySlug/getProductById (egyértelmű státusz listán és termékoldalon). */
 export function getSourcingDealProducts(): Product[] {
   return mockProducts.filter((p) => p.type === 'sourcing_deal')
 }
@@ -929,4 +1017,47 @@ export function getEarliestSourcingExpiry(products: Product[], now: Date = new D
     if (earliest == null || saleTo < earliest) earliest = saleTo
   }
   return earliest != null ? new Date(earliest) : null
+}
+
+// --- Async: DB-ből jönnek a termékek, ha konfigurált; különben mock (sync) fallback. ---
+async function getProductsSource(): Promise<Product[]> {
+  const { isDbConfigured } = await import('@/lib/prisma')
+  const { getAllProductsFromDb } = await import('@/lib/products')
+  if (isDbConfigured()) return getAllProductsFromDb()
+  return mockProducts
+}
+
+/** Async: termék slug alapján (DB vagy mock). */
+export async function getProductBySlugAsync(slug: string): Promise<Product | undefined> {
+  const { isDbConfigured } = await import('@/lib/prisma')
+  const { getProductBySlugFromDb } = await import('@/lib/products')
+  if (isDbConfigured()) {
+    const p = await getProductBySlugFromDb(slug)
+    return p ?? undefined
+  }
+  return getProductBySlug(slug)
+}
+
+/** Async: termék id alapján (DB vagy mock). */
+export async function getProductByIdAsync(id: string): Promise<Product | undefined> {
+  const { isDbConfigured } = await import('@/lib/prisma')
+  const { getProductByIdFromDb } = await import('@/lib/products')
+  if (isDbConfigured()) {
+    const p = await getProductByIdFromDb(id)
+    return p ?? undefined
+  }
+  return getProductById(id)
+}
+
+/** Async: összes termék (DB vagy mock). */
+export async function getAllProductsAsync(): Promise<Product[]> {
+  return getProductsSource()
+}
+
+/** Async: beszerzésre rendelhető termékek (DB vagy mock). */
+export async function getSourcingDealProductsAsync(): Promise<Product[]> {
+  const { isDbConfigured } = await import('@/lib/prisma')
+  const { getSourcingDealProductsFromDb } = await import('@/lib/products')
+  if (isDbConfigured()) return getSourcingDealProductsFromDb()
+  return getSourcingDealProducts()
 }

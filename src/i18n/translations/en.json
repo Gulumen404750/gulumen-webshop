@@ -152,6 +152,7 @@
     "sourcingCardLabel": "Limited availability · 7–14 days",
     "stockLabel": "In stock · Dispatch 24–48 hours",
     "inStockCount": "in stock: {count} available.",
+    "inStockUnlimited": "order any quantity",
     "inCartCount": "In cart: {count}.",
     "shippingNote": "Delivery:",
     "noImage": "Product image",
@@ -167,13 +168,25 @@
     "zoomReset": "Reset zoom",
     "view360": "360° view",
     "view360Hint": "Drag left or right to rotate",
+    "loadingModel": "Loading 3D model…",
+    "view3D": "Rotate 3D view",
+    "backToImage": "Back to image",
+    "color": "Color",
+    "fullscreen3D": "Zoom / Fullscreen",
     "similarProducts": "Similar products",
     "recentlyViewed": "Recently viewed",
     "like": "Like",
     "unlike": "Unlike",
     "likesCount": "{count} like this",
     "popular": "Popular product",
-    "badge3D": "3D Printed"
+    "badge3D": "3D Printed",
+    "selectColorToAdd": "Select colour and material (PLA/PETG) before adding to cart.",
+    "selectColorHint": "The selected colour will be added to the cart; the product photo is for illustration only.",
+    "material": "Material",
+    "materialInfoTitle": "PLA and PETG – properties",
+    "materialPla": "Bio-based. Ideal for indoor and garden use. Less heat and impact resistant.",
+    "materialPetg": "Stronger, more flexible, better resistance to heat and impact. Kitchen, durable use.",
+    "selectMaterialAndColorToAdd": "Select colour and material (PLA/PETG) before adding to cart."
   },
   "newsletter": {
     "title": "Newsletter",
@@ -215,6 +228,7 @@
     "closedLabel": "Offer expired – the purchase period has ended.",
     "availableFromLabel": "Available from: {when}",
     "expiredShort": "Expired",
+    "archivingSoon": "Will be archived soon",
     "legal": "After placing the order, sourcing takes place through a dedicated sourcing channel.\n\nIf sourcing is successful, the product will be delivered within 7–14 business days.\n\nIf the product cannot be secured within the given price range, the order will be cancelled and the full amount will be refunded within 1–3 business days."
   },
   "register": {
@@ -263,6 +277,7 @@
   },
   "pages": {
     "productsTitle": "Products",
+    "products3DSubtitle": "Hungarian made, made-to-order products",
     "newTitle": "New",
     "dealsTitle": "Deals",
     "shippingTitle": "Shipping information",
@@ -301,6 +316,41 @@
       "legalIntro": "This webshop operates in line with European Union consumer protection rules.",
       "legalLinkLabel": "Detailed legal terms can be read here:"
     }
+  },
+  "callUs": {
+    "title": "Call us",
+    "tabCall": "Phone number",
+    "tabCallback": "Request callback",
+    "desktopHint": "From desktop, use your phone to call, or scan the QR code.",
+    "callNumber": "Call this number",
+    "qrHint": "Scan the QR code on your phone – one tap to call support.",
+    "recordingNotice": "Calls may be recorded or transcribed. Details:",
+    "recordingNoticeLink": "Phone data protection",
+    "callbackName": "Name",
+    "callbackNamePlaceholder": "Your name",
+    "callbackPhone": "Phone number",
+    "callbackPhonePlaceholder": "+36...",
+    "callbackTopic": "Topic (brief)",
+    "callbackTopicPlaceholder": "e.g. order, shipping, business enquiry",
+    "callbackTime": "When should we call back?",
+    "callbackTimePlaceholder": "When should we call back?",
+    "callbackOptionImmediate": "Within 5–10 minutes",
+    "callbackOptionLater": "Later (pick date and time)",
+    "callbackDate": "Date",
+    "callbackHour": "Time",
+    "callbackSubmit": "Request callback",
+    "callbackSending": "Sending...",
+    "callbackSuccess": "Thank you! We will call you back soon.",
+    "callbackError": "Request failed. Try again or email us.",
+    "callbackErrorRequired": "Name and phone number are required."
+  },
+  "callUsDataProtection": {
+    "title": "Phone support – recording and transcription",
+    "why": "Calls may be recorded or automatically transcribed for quality and support purposes (with the caller’s consent).",
+    "storage": "Transcripts and recordings are kept only as long as necessary, in line with legal retention requirements.",
+    "access": "Access is limited to customer support and authorised staff to the extent needed for handling your case.",
+    "deletion": "To request deletion or restriction, email the address below with your request and reason; we will process it accordingly.",
+    "contact": "Contact (data protection, deletion):"
   },
   "ai": {
     "greeting": "Hi! How can I help? Ask about products, shipping or returns.",

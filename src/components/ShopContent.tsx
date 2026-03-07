@@ -2,17 +2,20 @@
 
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useMemo, useCallback, useState, useEffect } from 'react'
-import { categories, mockProducts, getCategoryName, getProductName, threeDSubcategories } from '@/lib/data'
+import { categories, mockProducts, getCategoryName, getProductName, threeDSubcategories, is3DProduct } from '@/lib/data'
+import type { Product } from '@/lib/data'
 import { ProductCard } from '@/components/ProductCard'
+import { HungarianFlagIcon } from '@/components/HungarianFlagIcon'
 import { useLocale } from '@/context/LocaleContext'
 
-const stockProducts = mockProducts.filter((p) => p.type !== 'sourcing_deal')
+const defaultStockProducts = mockProducts.filter((p) => p.type !== 'sourcing_deal')
+/** Összes termék és a többi kategória: csak nem 3D termékek. 3D kategória: csak 3D termékek – külön "doboz". */
 const threeDSlugs = threeDSubcategories.map((c) => c.slug)
 
 type SortOption = 'newest' | 'price-asc' | 'price-desc'
 
 /** Közelítő egyezés: tartalmazza a szöveget (normalizált, kisbetűs) vagy 1–2 karakter eltérés */
-function matchesSearch(product: typeof stockProducts[0], search: string, locale: string): boolean {
+function matchesSearch(product: Product, search: string, locale: string): boolean {
   if (!search.trim()) return true
   const q = search.trim().toLowerCase().replace(/\s+/g, ' ')
   const name = getProductName(product, locale).toLowerCase()
@@ -24,7 +27,13 @@ function matchesSearch(product: typeof stockProducts[0], search: string, locale:
   return false
 }
 
-export function ShopContent() {
+type ShopContentProps = {
+  /** Szerverről betöltött stock termékek (DB vagy mock). Ha nincs megadva, mockProducts-ból szűr. */
+  initialProducts?: Product[]
+}
+
+export function ShopContent({ initialProducts }: ShopContentProps = {}) {
+  const stockProducts = initialProducts ?? defaultStockProducts
   const { t, locale } = useLocale()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -55,10 +64,17 @@ export function ShopContent() {
     [setParams]
   )
 
-  const filtered = useMemo(() => {
-    let list = [...stockProducts]
+  /** Az aktuális nézet alap listája: összes/többi kategória = NEM 3D; 3D oldal = csak 3D termékek. */
+  const productsForView = useMemo(() => {
     if (categoryParam === '3d-nyomtatott') {
-      list = list.filter((p) => threeDSlugs.includes(p.category as typeof threeDSlugs[number]))
+      return stockProducts.filter((p) => is3DProduct(p))
+    }
+    return stockProducts.filter((p) => !is3DProduct(p))
+  }, [categoryParam, stockProducts])
+
+  const filtered = useMemo(() => {
+    let list = [...productsForView]
+    if (categoryParam === '3d-nyomtatott') {
       if (subParam && threeDSlugs.includes(subParam as typeof threeDSlugs[number])) {
         list = list.filter((p) => p.category === subParam)
       }
@@ -84,11 +100,11 @@ export function ShopContent() {
     if (sort === 'price-asc') list.sort((a, b) => (a.discountPriceHuf ?? a.priceHuf) - (b.discountPriceHuf ?? b.priceHuf))
     if (sort === 'price-desc') list.sort((a, b) => (b.discountPriceHuf ?? b.priceHuf) - (a.discountPriceHuf ?? a.priceHuf))
     return list
-  }, [categoryParam, subParam, searchQuery, sizeFilter, priceMin, priceMax, conditionFilter, sort, locale])
+  }, [productsForView, categoryParam, subParam, searchQuery, sizeFilter, priceMin, priceMax, conditionFilter, sort, locale])
 
-  const conditions = Array.from(new Set(stockProducts.map((p) => p.condition)))
+  const conditions = Array.from(new Set(productsForView.map((p) => p.condition)))
   const sizes = Array.from(
-    new Set(stockProducts.flatMap((p) => p.variants?.map((v) => v.size).filter(Boolean) ?? []))
+    new Set(productsForView.flatMap((p) => p.variants?.map((v) => v.size).filter(Boolean) ?? []))
   ).filter(Boolean) as string[]
   const cat = categoryParam ? categories.find((c) => c.slug === categoryParam) : null
   const pageTitle = cat ? getCategoryName(cat, locale) : t('pages.productsTitle')
@@ -111,6 +127,12 @@ export function ShopContent() {
   return (
     <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 ${is3DPage ? 'three-d-page' : ''}`}>
       <h1 className="font-heading text-2xl font-bold text-foreground mb-2">{pageTitle}</h1>
+      {is3DPage && (
+        <p className="text-muted text-sm mb-2 flex items-center gap-2">
+          <HungarianFlagIcon />
+          {t('pages.products3DSubtitle')}
+        </p>
+      )}
       {searchQuery && (
         <p className="text-muted text-sm mb-6">
           {t('common.search')}: &quot;{searchQuery}&quot;

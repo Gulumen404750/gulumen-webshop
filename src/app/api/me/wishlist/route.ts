@@ -1,18 +1,10 @@
 import { NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rate-limit'
 import * as ProductLikes from '@/lib/product-likes'
-
-const MAX_USER_ID_LENGTH = 128
-
-function getUserIdFromRequest(request: Request): string | null {
-  const id = request.headers.get('X-User-Id')?.trim()
-  if (id && id.length > MAX_USER_ID_LENGTH) return null
-  return id || null
-}
+import { getSession } from '@/lib/auth'
 
 /**
- * GET /api/me/wishlist – user kedvencei (privát), csak bejelentkezve.
- * Header: X-User-Id (kötelező; hiány → 401). userId max 128 karakter.
+ * GET /api/me/wishlist – user kedvencei (privát), session alapján.
  * Rate limit: 60/perc/IP. Vissza: { productIds: string[] }.
  */
 export async function GET(request: Request) {
@@ -24,12 +16,12 @@ export async function GET(request: Request) {
     )
   }
   try {
-    const userId = getUserIdFromRequest(request)
-    if (!userId) {
+    const session = await getSession(request)
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const productIds = ProductLikes.getLikedProductIdsByUser(userId)
+    const productIds = ProductLikes.getLikedProductIdsByUser(session.userId)
     return NextResponse.json({ productIds })
   } catch (e) {
     console.error('[api/me/wishlist] GET', e)

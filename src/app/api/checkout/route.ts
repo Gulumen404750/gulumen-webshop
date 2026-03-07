@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { getProductById, getTimedPurchaseStatus } from '@/lib/data'
+import { getProductByIdAsync, getTimedPurchaseStatus } from '@/lib/data'
+import type { Product } from '@/lib/data'
 import {
   generateOrderGroupId,
   createCheckoutOrders,
   setOrderCustomerEmail,
+  getProductOrdersCount,
   type OrderItem,
 } from '@/lib/orders'
 import {
@@ -14,6 +16,17 @@ import {
 import { getPaymentProvider } from '@/lib/payment-provider'
 import { getLoyaltyByEmail } from '@/lib/loyalty'
 import { rateLimit } from '@/lib/rate-limit'
+import {
+  getIdempotencyKey,
+  getIdempotentResponse,
+  setIdempotentResponse,
+} from '@/lib/idempotency'
+import { logger } from '@/lib/logger'
+import {
+  reserveSourcingSlots,
+  linkReservationsToOrder,
+  SoldOutError,
+} from '@/lib/reservations'
 
 const checkoutBodySchema = z.object({
   items: z
@@ -21,6 +34,13 @@ const checkoutBodySchema = z.object({
       z.object({
         productId: z.string().min(1),
         qty: z.number().int().min(1).max(99),
+        options: z
+          .object({
+            colorName: z.string().optional(),
+            colorHex: z.string().optional(),
+            materialName: z.string().optional(),
+          })
+          .optional(),
       })
     )
     .min(1),
@@ -36,7 +56,8 @@ type CartItemInput = z.infer<typeof checkoutBodySchema>['items'][number]
 
 function splitCartAndComputeTotals(
   items: CartItemInput[],
-  discountPercent: number
+  discountPercent: number,
+  productMap: Map<string, Product>
 ): {
   inStock: { items: OrderItem[]; subtotalHuf: number; discountHuf: number; totalHuf: number }
   sourcing: { items: OrderItem[]; subtotalHuf: number; discountHuf: number; totalHuf: number }
@@ -47,7 +68,7 @@ function splitCartAndComputeTotals(
   let sourcingSubtotal = 0
 
   for (const { productId, qty } of items) {
-    const product = getProductById(productId)
+    const product = productMap.get(productId)
     if (!product || qty < 1) continue
     const priceHuf = product.discountPriceHuf ?? product.priceHuf
     const lineTotal = priceHuf * qty
@@ -86,6 +107,17 @@ function splitCartAndComputeTotals(
 }
 
 export async function POST(request: Request) {
+  const idemKey = getIdempotencyKey(request)
+  if (idemKey) {
+    const cached = getIdempotentResponse(idemKey)
+    if (cached) {
+      return NextResponse.json(cached.body, {
+        status: cached.status,
+        headers: cached.headers,
+      })
+    }
+  }
+
   const limit = rateLimit(request)
   if (!limit.ok) {
     return NextResponse.json(
@@ -98,13 +130,13 @@ export async function POST(request: Request) {
   try {
     raw = await request.json()
   } catch {
-    console.debug('[checkout] Invalid JSON')
+    logger.debug('checkout Invalid JSON')
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
   const parsed = checkoutBodySchema.safeParse(raw)
   if (!parsed.success) {
-    console.debug('[checkout] Validation failed', parsed.error.flatten())
+    logger.debug({ details: parsed.error.flatten() }, 'checkout Validation failed')
     return NextResponse.json(
       { error: 'Validation failed', details: parsed.error.flatten() },
       { status: 400 }
@@ -112,6 +144,13 @@ export async function POST(request: Request) {
   }
 
   const { items, customer, isDiscountActive, discountPercent: bodyPercent } = parsed.data
+
+  const productIds = Array.from(new Set(items.map((i) => i.productId)))
+  const productMap = new Map<string, Product>()
+  for (const id of productIds) {
+    const p = await getProductByIdAsync(id)
+    if (p) productMap.set(id, p)
+  }
 
   let effectiveDiscountPercent = 0
   if (isDiscountActive && bodyPercent != null && bodyPercent > 0) {
@@ -125,7 +164,7 @@ export async function POST(request: Request) {
 
   const now = new Date()
   for (const item of items) {
-    const product = getProductById(item.productId)
+    const product = productMap.get(item.productId)
     if (!product) {
       return NextResponse.json(
         { error: 'Invalid or unknown productId', productId: item.productId },
@@ -133,10 +172,12 @@ export async function POST(request: Request) {
       )
     }
     if (product.type === 'sourcing_deal') {
-      const timedStatus = getTimedPurchaseStatus(product, now)
+      const ordersCount = await getProductOrdersCount(item.productId)
+      const timedStatus = getTimedPurchaseStatus(product, now, ordersCount)
       if (timedStatus !== 'ACTIVE') {
         return NextResponse.json(
           {
+            code: 'timed_offer_unavailable',
             error: 'One or more timed offers are no longer available. Please update your cart.',
           },
           { status: 400 }
@@ -145,7 +186,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const { inStock, sourcing } = splitCartAndComputeTotals(items, effectiveDiscountPercent)
+  const { inStock, sourcing } = splitCartAndComputeTotals(items, effectiveDiscountPercent, productMap)
 
   const hasInStock = inStock.items.length > 0 && inStock.totalHuf > 0
   const hasSourcing = sourcing.items.length > 0 && sourcing.totalHuf > 0
@@ -157,11 +198,26 @@ export async function POST(request: Request) {
     )
   }
 
+  let reservationIds: string[] = []
+  if (hasSourcing && sourcing.items.length > 0) {
+    try {
+      reservationIds = await reserveSourcingSlots(
+        sourcing.items.map((i) => ({ productId: i.productId, qty: i.qty })),
+        (productId) => productMap.get(productId)?.maxOrders ?? 0
+      )
+    } catch (err) {
+      if (err instanceof SoldOutError) {
+        return NextResponse.json({ error: 'Sold out' }, { status: 409 })
+      }
+      throw err
+    }
+  }
+
   const orderGroupId = generateOrderGroupId()
   const provider = getPaymentProvider()
   const currency = 'huf'
 
-  const createdOrders = createCheckoutOrders({
+  const createdOrders = await createCheckoutOrders({
     orderGroupId,
     inStock: hasInStock ? inStock : undefined,
     sourcing: hasSourcing ? sourcing : undefined,
@@ -169,7 +225,12 @@ export async function POST(request: Request) {
   })
 
   for (const order of createdOrders) {
-    setOrderCustomerEmail(order.id, customer.email)
+    await setOrderCustomerEmail(order.id, customer.email)
+  }
+
+  const sourcingOrder = createdOrders.find((o) => o.orderType === 'sourcing')
+  if (sourcingOrder && reservationIds.length > 0) {
+    await linkReservationsToOrder(reservationIds, sourcingOrder.id)
   }
 
   const paymentResults: Array<{
@@ -241,14 +302,14 @@ export async function POST(request: Request) {
     }
   }
 
-  console.debug('[checkout] completed', {
-    orderGroupId,
-    orderCount: createdOrders.length,
-    paymentCount: paymentResults.length,
-  })
+  logger.debug(
+    { orderGroupId, orderCount: createdOrders.length, paymentCount: paymentResults.length },
+    'checkout completed'
+  )
 
-  return NextResponse.json({
-    orderGroupId,
-    payments: paymentResults,
-  })
+  const payload = { orderGroupId, payments: paymentResults }
+  if (idemKey) {
+    setIdempotentResponse(idemKey, payload, 200)
+  }
+  return NextResponse.json(payload)
 }

@@ -15,6 +15,6 @@ export async function GET(request: Request) {
     )
   }
 
-  const orders = getOrdersByGroupId(orderGroupId)
+  const orders = await getOrdersByGroupId(orderGroupId)
   return NextResponse.json(orders)
 }

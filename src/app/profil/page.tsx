@@ -12,13 +12,15 @@ export default function ProfilePage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [loginError, setLoginError] = useState<string | null>(null)
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
+    setLoginError(null)
     if (!email.trim()) return
-    const id = `user-${email.trim().toLowerCase().replace(/\s/g, '-')}`
-    login(id)
-    router.push('/')
+    const result = await login(email.trim(), password)
+    if (result.ok) router.push('/')
+    else setLoginError(result.error ?? 'Bejelentkezés sikertelen')
   }
 
   if (isLoggedIn) {
@@ -28,8 +30,8 @@ export default function ProfilePage() {
         <p className="text-muted mb-4">{t('profile.loggedInAs')} {userId}</p>
         <button
           type="button"
-          onClick={() => {
-            logout()
+          onClick={async () => {
+            await logout()
             router.push('/')
           }}
           className="px-4 py-2 bg-accent text-white font-medium rounded-lg hover:opacity-90"
@@ -72,6 +74,9 @@ export default function ProfilePage() {
             placeholder="••••••••"
           />
         </div>
+        {loginError && (
+          <p className="text-red-600 text-sm">{loginError}</p>
+        )}
         <button
           type="submit"
           className="w-full py-3 px-4 bg-accent text-white font-heading font-semibold rounded-lg hover:opacity-90 transition-opacity"

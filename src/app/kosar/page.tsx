@@ -96,7 +96,7 @@ export default function CartPage() {
         : getStockById(item.productId)
       if (item.qty > maxAllowedInCart) {
         corrected = true
-        updateQty(item.productId, maxAllowedInCart)
+        updateQty(item.productId, maxAllowedInCart, item.options)
         toast(t('cart.stockChangedAvailable', { count: maxAllowedInCart }))
       }
     }
@@ -144,8 +144,9 @@ export default function CartPage() {
               const priceHuf = product ? (product.discountPriceHuf ?? product.priceHuf) : 0
               const priceEur = hufToEur(priceHuf)
               const img = product?.image?.startsWith('/') ? product.image : ''
+              const lineKey = `${item.productId}-${item.options?.colorHex ?? item.options?.colorName ?? ''}-${item.options?.materialName ?? ''}`
               return (
-                <li key={item.productId} className="flex gap-4 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
+                <li key={lineKey} className="flex gap-4 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
                   <div className="w-20 h-20 shrink-0 rounded-lg bg-[var(--border)] relative overflow-hidden">
                     {img ? (
                       <Image src={img} alt={product ? getProductName(product, locale) : ''} fill className="object-cover" sizes="80px" />
@@ -159,13 +160,20 @@ export default function CartPage() {
                       {priceHuf.toLocaleString('hu-HU')} Ft × {item.qty}
                       {priceEur > 0 && <span className="ml-1">(€{formatEur(priceEur)})</span>}
                     </p>
+                    {(item.options?.colorName || item.options?.materialName) && (
+                      <p className="text-foreground text-sm mt-0.5">
+                        {item.options?.materialName && <span>{t('product.material') || 'Anyag'}: {item.options.materialName}</span>}
+                        {item.options?.materialName && item.options?.colorName && ' · '}
+                        {item.options?.colorName && <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>}
+                      </p>
+                    )}
                     <p className="text-foreground text-sm font-medium mt-1">{t('cart.availableUpTo', { count: maxAllowedInCart })}</p>
                   </div>
                   <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                     <div className="flex items-center border border-[var(--border)] rounded-lg overflow-hidden bg-[var(--card-bg)]">
                       <button
                         type="button"
-                        onClick={() => { if (item.qty <= 1) return; updateQty(item.productId, item.qty - 1) }}
+                        onClick={() => { if (item.qty <= 1) return; updateQty(item.productId, item.qty - 1, item.options) }}
                         disabled={item.qty <= 1}
                         className="w-9 h-9 flex items-center justify-center text-foreground hover:bg-[var(--border)] disabled:opacity-40 disabled:cursor-not-allowed"
                         aria-label={t('cart.decreaseQty')}
@@ -173,14 +181,14 @@ export default function CartPage() {
                       <span className="w-10 h-9 flex items-center justify-center text-sm font-medium text-foreground border-x border-[var(--border)]">{item.qty}</span>
                       <button
                         type="button"
-                        onClick={() => { if (item.qty >= maxAllowedInCart) return; updateQty(item.productId, item.qty + 1) }}
+                        onClick={() => { if (item.qty >= maxAllowedInCart) return; updateQty(item.productId, item.qty + 1, item.options) }}
                         disabled={item.qty >= maxAllowedInCart}
                         className="w-9 h-9 flex items-center justify-center text-foreground hover:bg-[var(--border)] disabled:opacity-40 disabled:cursor-not-allowed"
                         aria-label={t('cart.increaseQty')}
                       >+</button>
                     </div>
                     <span className="text-muted text-sm whitespace-nowrap">{item.qty} db</span>
-                    <button type="button" onClick={() => removeItem(item.productId)} className="text-muted hover:text-red-600 text-sm font-medium">{t('cart.remove')}</button>
+                    <button type="button" onClick={() => removeItem(item.productId, item.options)} className="text-muted hover:text-red-600 text-sm font-medium">{t('cart.remove')}</button>
                   </div>
                 </li>
               )
@@ -215,6 +223,13 @@ export default function CartPage() {
                       {priceHuf.toLocaleString('hu-HU')} Ft × {item.qty}
                       {priceEur > 0 && <span className="ml-1">(€{formatEur(priceEur)})</span>}
                     </p>
+                    {(item.options?.colorName || item.options?.materialName) && (
+                      <p className="text-foreground text-sm mt-0.5">
+                        {item.options?.materialName && <span>{t('product.material') || 'Anyag'}: {item.options.materialName}</span>}
+                        {item.options?.materialName && item.options?.colorName && ' · '}
+                        {item.options?.colorName && <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>}
+                      </p>
+                    )}
                     <p className="text-foreground text-sm font-medium mt-1">{t('cart.availableUpTo', { count: maxAllowedInCart })}</p>
                   </div>
                   <div className="flex items-center gap-2 sm:gap-3 flex-wrap">

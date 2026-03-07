@@ -1,11 +1,9 @@
 /**
- * Rendelés tárolás. Fejlesztéshez fájl alapú (data/orders.json).
- *
- * ÉLESBEN TILOS fájl tárolás: használj Prisma + Postgres (Supabase, Neon, Railway).
- * Táblák: order (id, status, totalHuf, stripeSessionId, paidAt, refundedAmount, refundStatus, cancelRequestedAt, …),
- * order_items (orderId, productId, qty, fulfillmentType, priceHuf, name),
- * payments (orderId, stripeSessionId, paymentIntentId, amountPaid, currencyPaid, paidWebhookEventId).
+ * Rendelés tárolás. PROD (DATABASE_URL): Prisma + Postgres. DEV (nincs URL): JSON fallback (data/orders.json).
  */
+
+import { logger } from '@/lib/logger'
+import { prisma, isDbConfigured } from '@/lib/prisma'
 
 export type OrderStatus =
   | 'pending'
@@ -18,7 +16,6 @@ export type OrderStatus =
   | 'sourcing_failed'
   | 'fulfilled'
 
-/** Új checkout flow: rendelés típusa (1 gomb, 2 rendelés esetén). */
 export type OrderType = 'in_stock' | 'sourcing'
 
 export type FulfillmentType = 'stock' | 'procurement'
@@ -41,26 +38,20 @@ export type Order = {
   discountHuf: number
   totalHuf: number
   currency: string
-  createdAt: string // ISO
-  /** Új checkout: közös csoport (két rendelésnél ugyanaz). */
+  createdAt: string
   orderGroupId?: string
-  /** Új checkout: in_stock (azonnali terhelés) vagy sourcing (zárolás). */
   orderType?: OrderType
-  // Stripe – webhook után
   stripeSessionId?: string
   paymentIntentId?: string
   amountPaid?: number
   currencyPaid?: string
-  paidAt?: string // ISO
-  paidWebhookEventId?: string // idempotencia: már feldolgozott event
-  /** Hűség: ez a rendelés már beleszámított a minősített vásárlásszámba (idempotencia). */
+  paidAt?: string
+  paidWebhookEventId?: string
   countedForLoyalty?: boolean
-  /** Hűség / refund: e-mail, amivel a vásárló fizetett (webhookból). */
   customerEmail?: string
-  // Visszatérítés / lemondás (későbbi UI-hoz)
   refundedAmount?: number
   refundStatus?: RefundStatus
-  cancelRequestedAt?: string // ISO
+  cancelRequestedAt?: string
 }
 
 const COUPON_PERCENT = 0.05
@@ -74,6 +65,7 @@ function getOrdersPath(): string {
   return path.join(process.cwd(), ORDERS_FILE)
 }
 
+/** Dev: cache-el; JSON szerkesztés után node (dev server) restart kell a friss adathoz. */
 function loadOrders(): Order[] {
   if (loaded) return memoryStore
   try {
@@ -104,7 +96,7 @@ function saveOrders(): void {
     }
     fs.writeFileSync(p, JSON.stringify(memoryStore, null, 2), 'utf-8')
   } catch {
-    // Élesben használj DB-t; fájl írás pl. Vercel-en nem megbízható
+    // Élesben használj DB-t
   }
 }
 
@@ -112,14 +104,101 @@ function generateOrderId(): string {
   return `ord_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
 }
 
+function dbOrderToOrder(row: {
+  id: string
+  status: string
+  orderGroupId: string | null
+  orderType: string | null
+  subtotalHuf: number
+  discountHuf: number
+  totalHuf: number
+  currency: string
+  createdAt: Date
+  customerEmail: string | null
+  stripeSessionId: string | null
+  paymentIntentId: string | null
+  amountPaid: number | null
+  currencyPaid: string | null
+  paidAt: Date | null
+  paidWebhookEventId: string | null
+  countedForLoyalty: boolean
+  refundedAmount: number | null
+  refundStatus: string | null
+  cancelRequestedAt: Date | null
+  items: { productId: string; qty: number; fulfillmentType: string; priceHuf: number; name: string | null }[]
+}): Order {
+  return {
+    id: row.id,
+    status: row.status as OrderStatus,
+    orderGroupId: row.orderGroupId ?? undefined,
+    orderType: (row.orderType as OrderType) ?? undefined,
+    subtotalHuf: row.subtotalHuf,
+    discountHuf: row.discountHuf,
+    totalHuf: row.totalHuf,
+    currency: row.currency,
+    createdAt: row.createdAt.toISOString(),
+    customerEmail: row.customerEmail ?? undefined,
+    stripeSessionId: row.stripeSessionId ?? undefined,
+    paymentIntentId: row.paymentIntentId ?? undefined,
+    amountPaid: row.amountPaid ?? undefined,
+    currencyPaid: row.currencyPaid ?? undefined,
+    paidAt: row.paidAt?.toISOString(),
+    paidWebhookEventId: row.paidWebhookEventId ?? undefined,
+    countedForLoyalty: row.countedForLoyalty,
+    refundedAmount: row.refundedAmount ?? undefined,
+    refundStatus: (row.refundStatus as RefundStatus) ?? undefined,
+    cancelRequestedAt: row.cancelRequestedAt?.toISOString(),
+    items: row.items.map((i) => ({
+      productId: i.productId,
+      qty: i.qty,
+      fulfillmentType: i.fulfillmentType as FulfillmentType,
+      priceHuf: i.priceHuf,
+      name: i.name ?? undefined,
+    })),
+  }
+}
+
 /** Új rendelés létrehozása (pending). */
-export function createOrder(params: {
+export async function createOrder(params: {
   items: OrderItem[]
   subtotalHuf: number
   discountHuf: number
   totalHuf: number
   currency?: string
-}): Order {
+}): Promise<Order> {
+  if (isDbConfigured()) {
+    const id = generateOrderId()
+    await prisma.order.create({
+      data: {
+        id,
+        status: 'pending',
+        subtotalHuf: params.subtotalHuf,
+        discountHuf: params.discountHuf,
+        totalHuf: params.totalHuf,
+        currency: params.currency ?? 'huf',
+        items: {
+          create: params.items.map((i) => ({
+            productId: i.productId,
+            qty: i.qty,
+            fulfillmentType: i.fulfillmentType,
+            priceHuf: i.priceHuf,
+            name: i.name ?? null,
+          })),
+        },
+      },
+      include: { items: true },
+    })
+    return {
+      id,
+      status: 'pending',
+      items: params.items,
+      subtotalHuf: params.subtotalHuf,
+      discountHuf: params.discountHuf,
+      totalHuf: params.totalHuf,
+      currency: params.currency ?? 'huf',
+      createdAt: new Date().toISOString(),
+    }
+  }
   const orders = loadOrders()
   const order: Order = {
     id: generateOrderId(),
@@ -137,18 +216,31 @@ export function createOrder(params: {
   return order
 }
 
-export function getOrderById(orderId: string): Order | null {
+export async function getOrderById(orderId: string): Promise<Order | null> {
+  if (isDbConfigured()) {
+    const row = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: true },
+    })
+    return row ? dbOrderToOrder(row) : null
+  }
   const orders = loadOrders()
   return orders.find((o) => o.id === orderId) ?? null
 }
 
-export function getOrderByStripeSessionId(sessionId: string): Order | null {
+export async function getOrderByStripeSessionId(sessionId: string): Promise<Order | null> {
+  if (isDbConfigured()) {
+    const row = await prisma.order.findFirst({
+      where: { stripeSessionId: sessionId },
+      include: { items: true },
+    })
+    return row ? dbOrderToOrder(row) : null
+  }
   const orders = loadOrders()
   return orders.find((o) => o.stripeSessionId === sessionId) ?? null
 }
 
-/** Webhook: checkout.session.completed – paid státusz és Stripe adatok mentése. Idempotens: ha már paid, nem írja felül. */
-export function setOrderPaid(params: {
+export async function setOrderPaid(params: {
   orderId: string
   stripeSessionId: string
   paymentIntentId?: string
@@ -156,17 +248,35 @@ export function setOrderPaid(params: {
   currencyPaid: string
   webhookEventId?: string
   customerEmail?: string
-}): Order | null {
+}): Promise<Order | null> {
+  if (isDbConfigured()) {
+    const existing = await prisma.order.findUnique({ where: { id: params.orderId }, include: { items: true } })
+    if (!existing) return null
+    if (existing.status === 'paid') return dbOrderToOrder(existing)
+    if (existing.paidWebhookEventId === params.webhookEventId) return dbOrderToOrder(existing)
+    await prisma.order.update({
+      where: { id: params.orderId },
+      data: {
+        status: 'paid',
+        stripeSessionId: params.stripeSessionId,
+        paymentIntentId: params.paymentIntentId ?? null,
+        amountPaid: params.amountPaid,
+        currencyPaid: params.currencyPaid,
+        paidAt: new Date(),
+        paidWebhookEventId: params.webhookEventId ?? null,
+        customerEmail: params.customerEmail ?? existing.customerEmail,
+        refundStatus: existing.refundStatus ?? 'none',
+        refundedAmount: existing.refundedAmount ?? 0,
+      },
+    })
+    return getOrderById(params.orderId)
+  }
   const orders = loadOrders()
   const idx = orders.findIndex((o) => o.id === params.orderId)
   if (idx < 0) return null
   const order = orders[idx]
-  if (order.status === 'paid') {
-    return order
-  }
-  if (order.paidWebhookEventId && order.paidWebhookEventId === params.webhookEventId) {
-    return order
-  }
+  if (order.status === 'paid') return order
+  if (order.paidWebhookEventId && order.paidWebhookEventId === params.webhookEventId) return order
   order.status = 'paid'
   order.stripeSessionId = params.stripeSessionId
   order.paymentIntentId = params.paymentIntentId
@@ -182,8 +292,11 @@ export function setOrderPaid(params: {
   return order
 }
 
-/** payment_intent.payment_failed – opcionális. */
-export function setOrderFailed(orderId: string): Order | null {
+export async function setOrderFailed(orderId: string): Promise<Order | null> {
+  if (isDbConfigured()) {
+    await prisma.order.update({ where: { id: orderId }, data: { status: 'failed' } })
+    return getOrderById(orderId)
+  }
   const orders = loadOrders()
   const idx = orders.findIndex((o) => o.id === orderId)
   if (idx < 0) return null
@@ -193,8 +306,11 @@ export function setOrderFailed(orderId: string): Order | null {
   return orders[idx]
 }
 
-/** Hűség idempotencia: megjelöljük, hogy ez a rendelés már beleszámított (vagy refund esetén false). */
-export function setOrderCountedForLoyalty(orderId: string, value = true): Order | null {
+export async function setOrderCountedForLoyalty(orderId: string, value = true): Promise<Order | null> {
+  if (isDbConfigured()) {
+    await prisma.order.update({ where: { id: orderId }, data: { countedForLoyalty: value } })
+    return getOrderById(orderId)
+  }
   const orders = loadOrders()
   const idx = orders.findIndex((o) => o.id === orderId)
   if (idx < 0) return null
@@ -204,27 +320,108 @@ export function setOrderCountedForLoyalty(orderId: string, value = true): Order 
   return orders[idx]
 }
 
-export function getOrderByPaymentIntentId(paymentIntentId: string): Order | null {
+export async function getOrderByPaymentIntentId(paymentIntentId: string): Promise<Order | null> {
+  if (isDbConfigured()) {
+    const row = await prisma.order.findFirst({
+      where: { paymentIntentId },
+      include: { items: true },
+    })
+    return row ? dbOrderToOrder(row) : null
+  }
   const orders = loadOrders()
   return orders.find((o) => o.paymentIntentId === paymentIntentId) ?? null
 }
 
-/** Új checkout: order_group_id generálása. */
 export function generateOrderGroupId(): string {
   return `grp_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
 }
 
-/** Új checkout: 1 vagy 2 rendelés létrehozása (order_group_id + orderType). */
-export function createCheckoutOrders(params: {
+export async function createCheckoutOrders(params: {
   orderGroupId: string
   inStock?: { items: OrderItem[]; subtotalHuf: number; discountHuf: number; totalHuf: number }
   sourcing?: { items: OrderItem[]; subtotalHuf: number; discountHuf: number; totalHuf: number }
   currency?: string
-}): Order[] {
-  const orders = loadOrders()
-  const result: Order[] = []
+}): Promise<Order[]> {
   const currency = params.currency ?? 'huf'
+  const result: Order[] = []
 
+  if (isDbConfigured()) {
+    if (params.inStock && params.inStock.items.length > 0) {
+      const id = generateOrderId()
+      await prisma.order.create({
+        data: {
+          id,
+          status: 'payment_pending',
+          orderGroupId: params.orderGroupId,
+          orderType: 'in_stock',
+          subtotalHuf: params.inStock.subtotalHuf,
+          discountHuf: params.inStock.discountHuf,
+          totalHuf: params.inStock.totalHuf,
+          currency,
+          items: {
+            create: params.inStock.items.map((i) => ({
+              productId: i.productId,
+              qty: i.qty,
+              fulfillmentType: i.fulfillmentType,
+              priceHuf: i.priceHuf,
+              name: i.name ?? null,
+            })),
+          },
+        },
+      })
+      result.push({
+        id,
+        status: 'payment_pending',
+        orderGroupId: params.orderGroupId,
+        orderType: 'in_stock',
+        items: params.inStock.items,
+        subtotalHuf: params.inStock.subtotalHuf,
+        discountHuf: params.inStock.discountHuf,
+        totalHuf: params.inStock.totalHuf,
+        currency,
+        createdAt: new Date().toISOString(),
+      })
+    }
+    if (params.sourcing && params.sourcing.items.length > 0) {
+      const id = generateOrderId()
+      await prisma.order.create({
+        data: {
+          id,
+          status: 'payment_pending',
+          orderGroupId: params.orderGroupId,
+          orderType: 'sourcing',
+          subtotalHuf: params.sourcing.subtotalHuf,
+          discountHuf: params.sourcing.discountHuf,
+          totalHuf: params.sourcing.totalHuf,
+          currency,
+          items: {
+            create: params.sourcing.items.map((i) => ({
+              productId: i.productId,
+              qty: i.qty,
+              fulfillmentType: i.fulfillmentType,
+              priceHuf: i.priceHuf,
+              name: i.name ?? null,
+            })),
+          },
+        },
+      })
+      result.push({
+        id,
+        status: 'payment_pending',
+        orderGroupId: params.orderGroupId,
+        orderType: 'sourcing',
+        items: params.sourcing.items,
+        subtotalHuf: params.sourcing.subtotalHuf,
+        discountHuf: params.sourcing.discountHuf,
+        totalHuf: params.sourcing.totalHuf,
+        currency,
+        createdAt: new Date().toISOString(),
+      })
+    }
+    return result
+  }
+
+  const orders = loadOrders()
   if (params.inStock && params.inStock.items.length > 0) {
     const o: Order = {
       id: generateOrderId(),
@@ -241,7 +438,6 @@ export function createCheckoutOrders(params: {
     orders.push(o)
     result.push(o)
   }
-
   if (params.sourcing && params.sourcing.items.length > 0) {
     const o: Order = {
       id: generateOrderId(),
@@ -258,34 +454,50 @@ export function createCheckoutOrders(params: {
     orders.push(o)
     result.push(o)
   }
-
   memoryStore = orders
   saveOrders()
-  console.debug('[orders] createCheckoutOrders', { orderGroupId: params.orderGroupId, count: result.length })
   return result
 }
 
-export function getOrdersByGroupId(orderGroupId: string): Order[] {
+export async function getOrdersByGroupId(orderGroupId: string): Promise<Order[]> {
+  if (isDbConfigured()) {
+    const rows = await prisma.order.findMany({
+      where: { orderGroupId },
+      include: { items: true },
+      orderBy: { createdAt: 'asc' },
+    })
+    return rows.map(dbOrderToOrder)
+  }
   const orders = loadOrders()
   return orders.filter((o) => o.orderGroupId === orderGroupId)
 }
 
-/** Új checkout / webhook: rendelés státusz frissítése. */
-export function setOrderStatus(orderId: string, status: OrderStatus): Order | null {
+export async function setOrderStatus(orderId: string, status: OrderStatus): Promise<Order | null> {
+  if (isDbConfigured()) {
+    await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status,
+        ...(status === 'paid' ? { paidAt: new Date() } : {}),
+      },
+    })
+    return getOrderById(orderId)
+  }
   const orders = loadOrders()
   const idx = orders.findIndex((o) => o.id === orderId)
   if (idx < 0) return null
   orders[idx].status = status
-  if (status === 'paid') {
-    orders[idx].paidAt = new Date().toISOString()
-  }
+  if (status === 'paid') orders[idx].paidAt = new Date().toISOString()
   memoryStore = orders
   saveOrders()
-  console.debug('[orders] setOrderStatus', { orderId, status })
   return orders[idx]
 }
 
-export function setOrderCustomerEmail(orderId: string, email: string): Order | null {
+export async function setOrderCustomerEmail(orderId: string, email: string): Promise<Order | null> {
+  if (isDbConfigured()) {
+    await prisma.order.update({ where: { id: orderId }, data: { customerEmail: email } })
+    return getOrderById(orderId)
+  }
   const orders = loadOrders()
   const idx = orders.findIndex((o) => o.id === orderId)
   if (idx < 0) return null
@@ -293,6 +505,86 @@ export function setOrderCustomerEmail(orderId: string, email: string): Order | n
   memoryStore = orders
   saveOrders()
   return orders[idx]
+}
+
+const SOURCING_COUNT_STATUSES = ['payment_pending', 'sourcing_pending', 'fulfilled', 'paid'] as const
+
+/** JSON alapú ordersCount egy termékre (loadOrders + aggregáció). Server componentben a fájl elérhető (Node fs). */
+function getProductOrdersCountFromJson(productId: string): number {
+  const orders = loadOrders()
+  const statuses = new Set<string>(SOURCING_COUNT_STATUSES)
+  let sum = 0
+  for (const order of orders) {
+    if (!statuses.has(order.status)) continue
+    for (const item of order.items) {
+      if (item.productId === productId) sum += item.qty
+    }
+  }
+  return sum
+}
+
+/** Több termék ordersCount-ja JSON-ból egy ciklusban. */
+function getProductOrdersCountsFromJson(productIds: string[]): Record<string, number> {
+  const result: Record<string, number> = {}
+  for (const id of productIds) result[id] = 0
+  const orders = loadOrders()
+  const statuses = new Set<string>(SOURCING_COUNT_STATUSES)
+  for (const order of orders) {
+    if (!statuses.has(order.status)) continue
+    for (const item of order.items) {
+      if (result[item.productId] !== undefined) result[item.productId] += item.qty
+    }
+  }
+  return result
+}
+
+/**
+ * Sourcing deal: egy termékre a rendelt mennyiség (DB vagy JSON).
+ * DB elérhetetlenség esetén fallback JSON-ra (vagy 0), ne dobjon.
+ */
+export async function getProductOrdersCount(productId: string): Promise<number> {
+  if (!isDbConfigured()) return getProductOrdersCountFromJson(productId)
+  try {
+    const agg = await prisma.orderItem.aggregate({
+      where: {
+        productId,
+        order: { status: { in: [...SOURCING_COUNT_STATUSES] } },
+      },
+      _sum: { qty: true },
+    })
+    return agg._sum.qty ?? 0
+  } catch (err) {
+    logger.warn({ err, productId }, 'DB unreachable for orders count, falling back to JSON')
+    return getProductOrdersCountFromJson(productId)
+  }
+}
+
+/**
+ * Több termék ordersCount-ja egy batch queryvel (groupBy). DB hiba esetén JSON fallback.
+ */
+export async function getProductOrdersCounts(productIds: string[]): Promise<Record<string, number>> {
+  const empty = productIds.length === 0
+  const result: Record<string, number> = {}
+  for (const id of productIds) result[id] = 0
+  if (empty) return result
+  if (!isDbConfigured()) return getProductOrdersCountsFromJson(productIds)
+  try {
+    const rows = await prisma.orderItem.groupBy({
+      by: ['productId'],
+      _sum: { qty: true },
+      where: {
+        productId: { in: productIds },
+        order: { status: { in: [...SOURCING_COUNT_STATUSES] } },
+      },
+    })
+    for (const row of rows) {
+      if (result[row.productId] !== undefined) result[row.productId] = row._sum.qty ?? 0
+    }
+    return result
+  } catch (err) {
+    logger.warn({ err, productIds }, 'DB unreachable for orders counts batch, falling back to JSON')
+    return getProductOrdersCountsFromJson(productIds)
+  }
 }
 
 export { COUPON_PERCENT }

@@ -6,16 +6,18 @@ import { useCallback, useEffect, useState } from 'react'
 import type { Product } from '@/lib/data'
 import { getSourcingDealStatus, getProductName, getStockById, is3DProduct } from '@/lib/data'
 import { SourcingDealCardCountdown } from '@/components/SourcingDealCardCountdown'
+import { SoldImpactOverlay } from '@/components/SoldImpactOverlay'
 import { useLocale } from '@/context/LocaleContext'
 import { useEuroRate } from '@/context/EuroRateContext'
 import { useAuth } from '@/context/AuthContext'
 import { useToast } from '@/context/ToastContext'
 import { useWishlist } from '@/context/WishlistContext'
 
-/** Elérhető készlet: stock = getStockById; sourcing_deal = maxOrders - ordersCount (0 ha nem vehető). */
-function getAvailableStock(product: Product): number {
+/** Elérhető készlet: stock = getStockById; sourcing_deal = maxOrders - ordersCount (0 ha nem vehető). serverNow = hydration egyezés listán. */
+function getAvailableStock(product: Product, serverNow?: number): number {
   if (product.type === 'sourcing_deal') {
-    const status = getSourcingDealStatus(product)
+    const now = serverNow != null ? new Date(serverNow) : new Date()
+    const status = getSourcingDealStatus(product, now, product.ordersCount)
     if (status === 'sale' && product.maxOrders != null) {
       return Math.max(0, product.maxOrders - (product.ordersCount ?? 0))
     }
@@ -24,9 +26,18 @@ function getAvailableStock(product: Product): number {
   return getStockById(product.id)
 }
 
-function SourcingDealBadge({ product, t }: { product: Product; t: (k: string) => string }) {
+function SourcingDealBadge({
+  product,
+  t,
+  serverNow,
+}: {
+  product: Product
+  t: (k: string) => string
+  serverNow?: number
+}) {
   if (product.type !== 'sourcing_deal') return null
-  const status = getSourcingDealStatus(product)
+  const now = serverNow != null ? new Date(serverNow) : new Date()
+  const status = getSourcingDealStatus(product, now, product.ordersCount)
   const labels: Record<string, string> = {
     preview: t('status.badgePreview'),
     sale: t('status.badgeSale'),
@@ -47,13 +58,26 @@ const showLikesForProduct = (product: Product): boolean => {
   return type === 'stock' || type === 'sourcing_deal'
 }
 
-function getLikeHeaders(userId: string | null): Record<string, string> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (userId) headers['X-User-Id'] = userId
-  return headers
-}
+const likeFetchOpts: RequestInit = { credentials: 'include' }
 
-export function ProductCard({ product, sourcingListMode }: { product: Product; sourcingListMode?: boolean }) {
+export function ProductCard({
+  product,
+  sourcingListMode,
+  serverNow,
+  expiredListMode,
+  showSoldImpact,
+  onExpired,
+}: {
+  product: Product
+  sourcingListMode?: boolean
+  serverNow?: number
+  /** Lejárt termékek oldal: mindig "Hamarosan archiválásra kerül", nincs visszaszámláló. */
+  expiredListMode?: boolean
+  /** Elkelt/lejárt: kalapácsütés animáció a kép fölött. */
+  showSoldImpact?: boolean
+  /** Ha a visszaszámláló lejár (closed/soldout), egyszer meghívódik – lista elrejtheti a kártyát. */
+  onExpired?: (productId: string) => void
+}) {
   const { t, locale } = useLocale()
   const { hufToEur, formatEur } = useEuroRate()
   const { userId } = useAuth()
@@ -64,21 +88,20 @@ export function ProductCard({ product, sourcingListMode }: { product: Product; s
   const [likesCount, setLikesCount] = useState(() => Math.max(0, product.likesCount ?? 0))
   const [likePulse, setLikePulse] = useState(false)
   const showLikes = showLikesForProduct(product)
-  const availableStock = getAvailableStock(product)
+  const availableStock = getAvailableStock(product, serverNow)
   const showFomoBadge = showLikes && likesCount > 20 && availableStock < 10
 
   // Like állapot és számláló csak API-ból (user-specifikus liked, publikus likesCount)
   useEffect(() => {
     if (!showLikes) return
-    const headers = getLikeHeaders(userId ?? null)
-    fetch(`/api/products/${product.id}/like`, { headers })
+    fetch(`/api/products/${product.id}/like`, likeFetchOpts)
       .then((r) => r.ok && r.json())
       .then((data) => {
         if (data?.likesCount != null) setLikesCount(data.likesCount)
         if (typeof data?.liked === 'boolean') setLiked(data.liked)
       })
       .catch(() => {})
-  }, [product.id, showLikes, userId])
+  }, [product.id, showLikes])
 
   const onWishlistLikeClick = useCallback(
     (e: React.MouseEvent) => {
@@ -100,7 +123,7 @@ export function ProductCard({ product, sourcingListMode }: { product: Product; s
 
       fetch(`/api/products/${product.id}/like`, {
         method: 'POST',
-        headers: getLikeHeaders(userId),
+        ...likeFetchOpts,
       })
         .then((r) => {
           if (r.status === 401) {
@@ -133,11 +156,24 @@ export function ProductCard({ product, sourcingListMode }: { product: Product; s
   const likesGlow = likesCount > 25 ? 'product-likes-glow-strong' : likesCount > 10 ? 'product-likes-glow' : ''
 
   return (
-    <Link href={`/termek/${product.slug}`} className="group block">
-      <article className="bg-[var(--card-bg)] rounded-xl border border-[var(--border)] overflow-hidden transition-shadow hover:shadow-lg">
+    <Link
+      href={`/termek/${product.slug}`}
+      className={`group block ${showSoldImpact ? 'pointer-events-none sold-impact-card-wrapper' : ''}`}
+      aria-disabled={showSoldImpact}
+    >
+      <article
+        className={`bg-[var(--card-bg)] rounded-xl border border-[var(--border)] overflow-hidden transition-shadow hover:shadow-lg ${showSoldImpact ? 'sold-impact-card-vanish' : ''}`}
+      >
         <div className="aspect-square bg-[var(--border)] relative overflow-hidden">
           {hasImage ? (
-            <Image src={product.image} alt={displayName} fill className="object-cover" sizes="(max-width: 768px) 100vw, 33vw" />
+            <Image
+              src={product.image}
+              alt={displayName}
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, 33vw"
+              unoptimized={is3DProduct(product)}
+            />
           ) : (
             <div className="absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-muted text-sm">
               {t('product.noImage')}
@@ -157,7 +193,7 @@ export function ProductCard({ product, sourcingListMode }: { product: Product; s
               )}
             </button>
           </div>
-          {product.type === 'sourcing_deal' && <SourcingDealBadge product={product} t={t} />}
+          {product.type === 'sourcing_deal' && <SourcingDealBadge product={product} t={t} serverNow={serverNow} />}
           {is3DProduct(product) && (
             <span className="absolute top-3 left-3 px-2 py-1 text-xs font-medium bg-indigo-600/90 text-white rounded shadow-sm">
               🖨 {t('product.badge3D') || '3D Nyomtatott'}
@@ -178,9 +214,15 @@ export function ProductCard({ product, sourcingListMode }: { product: Product; s
               {t('status.new')}
             </span>
           )}
+          {showSoldImpact && <SoldImpactOverlay label={t('status.expired')} />}
         </div>
         {product.type === 'sourcing_deal' && (
-          <SourcingDealCardCountdown product={product} />
+          <SourcingDealCardCountdown
+            product={product}
+            serverNow={serverNow}
+            forceArchivingSoon={expiredListMode}
+            onExpired={onExpired}
+          />
         )}
         <div className="p-4">
           <h3 className="font-heading font-semibold text-foreground group-hover:text-accent transition-colors line-clamp-2">
@@ -200,11 +242,11 @@ export function ProductCard({ product, sourcingListMode }: { product: Product; s
             </span>
           </div>
           <p className="mt-1 text-sm text-muted">{product.condition}</p>
-          {product.type === 'sourcing_deal' ? (
+          {product.type === 'sourcing_deal' && !sourcingListMode ? (
             <p className="mt-0.5 text-xs text-muted">{t('product.sourcingCardLabel')}</p>
-          ) : (
+          ) : product.type !== 'sourcing_deal' ? (
             <p className="mt-0.5 text-xs text-muted">{t('product.stockLabel')}</p>
-          )}
+          ) : null}
         </div>
       </article>
     </Link>

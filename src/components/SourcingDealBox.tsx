@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Product } from '@/lib/data'
 import {
@@ -27,31 +27,54 @@ function formatCountdown(ms: number): string {
 /** SSR és első kliens render: stabil placeholder, hogy ne legyen hydration mismatch. */
 const COUNTDOWN_PLACEHOLDER = '—'
 
-export function SourcingDealBox({ product }: { product: Product }) {
+/** Ha a termék lejár/elfogy (EXPIRED), onExpired egyszer meghívódik – pl. termékoldalon animáció a kép fölött. */
+export function SourcingDealBox({
+  product,
+  serverNow,
+  onExpired,
+}: {
+  product: Product
+  serverNow?: number
+  onExpired?: () => void
+}) {
   const { t } = useLocale()
   const router = useRouter()
   const { toast } = useToast()
-  const { getOrdersCount, placeOrder } = useSourcingDealOrders()
+  const { placeOrder } = useSourcingDealOrders()
   const { addItem, items } = useCart()
   const [mounted, setMounted] = useState(false)
   const [now, setNow] = useState<Date | null>(null)
+  const offsetMsRef = useRef<number | null>(null)
+  const initializedRef = useRef(false)
+  const onExpiredFiredRef = useRef(false)
 
   useEffect(() => {
+    if (!initializedRef.current && serverNow != null) {
+      offsetMsRef.current = serverNow - Date.now()
+      initializedRef.current = true
+    }
+    if (offsetMsRef.current === null) {
+      offsetMsRef.current = 0
+    }
+    const getAdjustedNow = () => new Date(Date.now() + (offsetMsRef.current ?? 0))
     setMounted(true)
-    setNow(new Date())
-    const id = setInterval(() => setNow(new Date()), 1000)
+    setNow(getAdjustedNow())
+    const id = setInterval(() => setNow(getAdjustedNow()), 1000)
     return () => clearInterval(id)
   }, [])
 
   const cartQty = items.find((x) => x.productId === product.id)?.qty ?? 0
-  const effectiveCount = (product.ordersCount ?? 0) + Math.max(getOrdersCount(product.id), cartQty)
+  /** Szerveren már rendelt + kosárban lévő (dupla számolás nélkül). */
+  const serverOrdersCount = product.ordersCount ?? 0
+  const effectiveCount = serverOrdersCount + cartQty
   const nowOrEpoch = now ?? new Date(0)
   const status = getSourcingDealStatus(product, nowOrEpoch, effectiveCount)
   const timedStatus = getTimedPurchaseStatus(product, nowOrEpoch, effectiveCount)
   const { canAdd, reasonKey, reasonParams } = getAddToCartReason(product, nowOrEpoch, effectiveCount)
   const reason = reasonKey ? t(reasonKey, reasonParams) : ''
   const maxOrders = product.maxOrders ?? 0
-  const displayAvailable = Math.max(0, maxOrders - (product.ordersCount ?? 0))
+  /** Rendelhető még (szerver alapján); kosár mennyisége külön jelzés. */
+  const displayAvailable = Math.max(0, maxOrders - serverOrdersCount)
   const maxQty = getMaxQty(product, effectiveCount)
   const [addQty, setAddQty] = useState(1)
   const safeAddQty = maxQty > 0 ? Math.min(Math.max(1, addQty), maxQty) : 1
@@ -81,6 +104,11 @@ export function SourcingDealBox({ product }: { product: Product }) {
               ? countdownToEnd
               : 0
       )
+
+  if (timedStatus === 'EXPIRED' && onExpired && !onExpiredFiredRef.current) {
+    onExpiredFiredRef.current = true
+    onExpired()
+  }
 
   const statusLabel =
     timedStatus === 'EXPIRED'
@@ -129,6 +157,9 @@ export function SourcingDealBox({ product }: { product: Product }) {
         {(status === 'sale' || status === 'soldout' || status === 'closed') && (
           <p className="text-sm text-muted">
             {t('sourcing.availableCount', { count: displayAvailable })}
+            {cartQty > 0 && (
+              <span className="ml-1">({t('product.inCartCount', { count: cartQty })})</span>
+            )}
           </p>
         )}
         <p className="text-sm text-muted mt-2">

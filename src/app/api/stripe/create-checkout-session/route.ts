@@ -1,12 +1,16 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { z } from 'zod'
-import { getProductById, getTimedPurchaseStatus } from '@/lib/data'
+import { getProductByIdAsync, getTimedPurchaseStatus } from '@/lib/data'
+import type { Product } from '@/lib/data'
 import { createOrder, type OrderItem } from '@/lib/orders'
 import { getLoyaltyByEmail } from '@/lib/loyalty'
 import { rateLimit } from '@/lib/rate-limit'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
+function getStripe(): Stripe | null {
+  const key = process.env.STRIPE_SECRET_KEY
+  return key ? new Stripe(key) : null
+}
 
 const DEFAULT_DISCOUNT_PERCENT = 0.05
 
@@ -30,13 +34,14 @@ type CartItemInput = z.infer<typeof createCheckoutBodySchema>['items'][number]
 function computeTotals(
   items: CartItemInput[],
   isDiscountActive: boolean,
-  discountPercent: number
+  discountPercent: number,
+  productMap: Map<string, Product>
 ): { orderItems: OrderItem[]; subtotalHuf: number; discountHuf: number; totalHuf: number } {
   let subtotalHuf = 0
   const orderItems: OrderItem[] = []
 
   for (const { productId, qty } of items) {
-    const product = getProductById(productId)
+    const product = productMap.get(productId)
     if (!product || qty < 1) continue
     const priceHuf = product.discountPriceHuf ?? product.priceHuf
     const lineTotal = priceHuf * qty
@@ -60,10 +65,11 @@ export async function POST(request: Request) {
   if (!limit.ok) {
     return NextResponse.json({ error: 'Túl sok kérés. Próbáld újra később.' }, { status: 429 })
   }
-  if (!process.env.STRIPE_SECRET_KEY) {
+  const stripe = getStripe()
+  if (!stripe) {
     return NextResponse.json(
       { error: 'Stripe is not configured' },
-      { status: 500 }
+      { status: 501 }
     )
   }
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
@@ -84,6 +90,13 @@ export async function POST(request: Request) {
   }
 
   const { items, isDiscountActive, discountPercent: bodyPercent, customer_email } = parsed.data
+  const productIds = Array.from(new Set(items.map((i) => i.productId)))
+  const productMap = new Map<string, Product>()
+  for (const id of productIds) {
+    const p = await getProductByIdAsync(id)
+    if (p) productMap.set(id, p)
+  }
+
   // Kupon elsőbbség; ha nincs kupon, hűségkedvezmény email alapján (nem összevonható)
   let effectiveDiscountActive = false
   let effectiveDiscountPercent = 0
@@ -100,7 +113,7 @@ export async function POST(request: Request) {
 
   const now = new Date()
   for (const item of items) {
-    const product = getProductById(item.productId)
+    const product = productMap.get(item.productId)
     if (!product) {
       return NextResponse.json(
         { error: 'Invalid or unknown productId' },
@@ -121,7 +134,8 @@ export async function POST(request: Request) {
   const { orderItems, subtotalHuf, discountHuf, totalHuf } = computeTotals(
     items,
     effectiveDiscountActive,
-    effectiveDiscountPercent
+    effectiveDiscountPercent,
+    productMap
   )
   if (orderItems.length === 0 || totalHuf <= 0) {
     return NextResponse.json(
@@ -130,7 +144,7 @@ export async function POST(request: Request) {
     )
   }
 
-  const order = createOrder({
+  const order = await createOrder({
     items: orderItems,
     subtotalHuf,
     discountHuf,

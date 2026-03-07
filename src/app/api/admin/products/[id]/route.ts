@@ -1,0 +1,127 @@
+import { NextResponse } from 'next/server'
+import { prisma, isDbConfigured } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
+import { requireAdmin } from '@/lib/admin-auth'
+import { z } from 'zod'
+
+const updateProductSchema = z.object({
+  slug: z.string().min(1).optional(),
+  name: z.string().min(1).optional(),
+  nameEn: z.string().optional(),
+  nameDe: z.string().optional(),
+  nameRo: z.string().optional(),
+  description: z.string().optional(),
+  condition: z.string().optional(),
+  category: z.string().min(1).optional(),
+  image: z.string().optional(),
+  images: z.array(z.string()).optional(),
+  images360: z.array(z.string()).optional(),
+  modelUrl: z.string().optional().nullable(),
+  priceHuf: z.number().int().min(0).optional(),
+  priceEur: z.number().int().min(0).optional(),
+  discountPriceHuf: z.number().int().min(0).optional().nullable(),
+  discountPriceEur: z.number().int().min(0).optional().nullable(),
+  stock: z.number().int().min(0).optional(),
+  variants: z.unknown().optional().nullable(),
+  isNew: z.boolean().optional(),
+  onSale: z.boolean().optional(),
+  active: z.boolean().optional(),
+  isColorable: z.boolean().optional(),
+  type: z.enum(['stock', 'sourcing_deal']).optional(),
+  sourcingEnabled: z.boolean().optional(),
+  dealStartAt: z.string().datetime().optional().nullable(),
+  dealEndAt: z.string().datetime().optional().nullable(),
+  previewFrom: z.string().datetime().optional().nullable(),
+  maxOrders: z.number().int().min(0).optional().nullable(),
+})
+
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const ok = await requireAdmin()
+  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!isDbConfigured()) return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
+
+  const { id } = await params
+  const product = await prisma.product.findUnique({ where: { id } })
+  if (!product) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  return NextResponse.json({ product })
+}
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const ok = await requireAdmin()
+  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!isDbConfigured()) return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
+
+  const { id } = await params
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+
+  const parsed = updateProductSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Validation failed', details: parsed.error.flatten() }, { status: 400 })
+  }
+
+  const d = parsed.data
+  if (d.slug) {
+    const existing = await prisma.product.findFirst({ where: { slug: d.slug, NOT: { id } } })
+    if (existing) return NextResponse.json({ error: 'Slug already in use' }, { status: 409 })
+  }
+
+  const product = await prisma.product.update({
+    where: { id },
+    data: {
+      ...(d.slug !== undefined && { slug: d.slug }),
+      ...(d.name !== undefined && { name: d.name }),
+      ...(d.nameEn !== undefined && { nameEn: d.nameEn }),
+      ...(d.nameDe !== undefined && { nameDe: d.nameDe }),
+      ...(d.nameRo !== undefined && { nameRo: d.nameRo }),
+      ...(d.description !== undefined && { description: d.description }),
+      ...(d.condition !== undefined && { condition: d.condition }),
+      ...(d.category !== undefined && { category: d.category }),
+      ...(d.image !== undefined && { image: d.image }),
+      ...(d.images !== undefined && { images: d.images }),
+      ...(d.images360 !== undefined && { images360: d.images360 }),
+      ...(d.modelUrl !== undefined && { modelUrl: d.modelUrl }),
+      ...(d.priceHuf !== undefined && { priceHuf: d.priceHuf }),
+      ...(d.priceEur !== undefined && { priceEur: d.priceEur }),
+      ...(d.discountPriceHuf !== undefined && { discountPriceHuf: d.discountPriceHuf }),
+      ...(d.discountPriceEur !== undefined && { discountPriceEur: d.discountPriceEur }),
+      ...(d.stock !== undefined && { stock: d.stock }),
+      ...(d.variants !== undefined && { variants: d.variants === null ? Prisma.JsonNull : d.variants }),
+      ...(d.isNew !== undefined && { isNew: d.isNew }),
+      ...(d.onSale !== undefined && { onSale: d.onSale }),
+      ...(d.active !== undefined && { active: d.active }),
+      ...(d.isColorable !== undefined && { isColorable: d.isColorable }),
+      ...(d.type !== undefined && { type: d.type }),
+      ...(d.sourcingEnabled !== undefined && { sourcingEnabled: d.sourcingEnabled }),
+      ...(d.dealStartAt !== undefined && { dealStartAt: d.dealStartAt ? new Date(d.dealStartAt) : null }),
+      ...(d.dealEndAt !== undefined && { dealEndAt: d.dealEndAt ? new Date(d.dealEndAt) : null }),
+      ...(d.previewFrom !== undefined && { previewFrom: d.previewFrom ? new Date(d.previewFrom) : null }),
+      ...(d.maxOrders !== undefined && { maxOrders: d.maxOrders }),
+    },
+  })
+
+  return NextResponse.json({ product })
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const ok = await requireAdmin()
+  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!isDbConfigured()) return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
+
+  const { id } = await params
+  await prisma.product.delete({ where: { id } })
+  return NextResponse.json({ ok: true })
+}

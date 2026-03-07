@@ -7,22 +7,53 @@ import { getProductById, getStockById } from '@/lib/data'
 
 const CART_STORAGE_KEY = 'gulumen-cart'
 
+/** Opcionális termék opciók (pl. 3D: filament szín + anyag PLA/PETG). */
+export type CartItemOptions = {
+  colorName?: string
+  colorHex?: string
+  materialName?: string
+}
+
+function hasOptions(opts: CartItemOptions | undefined): boolean {
+  return Boolean(
+    opts &&
+      (opts.colorName != null || opts.colorHex != null || opts.materialName != null)
+  )
+}
+
+/** Két kosár sor ugyanaz, ha productId és options (szín + anyag) is egyezik. */
+function optionsEqual(a: CartItemOptions | undefined, b: CartItemOptions | undefined): boolean {
+  if (a === b) return true
+  if (!a || !b) return !hasOptions(a) && !hasOptions(b)
+  const colorA = a.colorHex ?? a.colorName ?? ''
+  const colorB = b.colorHex ?? b.colorName ?? ''
+  const matA = a.materialName ?? ''
+  const matB = b.materialName ?? ''
+  return colorA === colorB && matA === matB
+}
+
+/** Egyezik a kosár sor (ugyanaz a termék + ugyanaz a szín/változat). */
+function sameCartLine(item: CartItem, productId: string, options?: CartItemOptions): boolean {
+  return item.productId === productId && optionsEqual(item.options, options)
+}
+
 /**
  * A kosár NEM foglal készletet. A termék product.stock értéke SOHA nem változik
- * kosár művelet miatt. Csak productId + qty tárolunk; a termék adatot mindig
+ * kosár művelet miatt. Csak productId + qty (+ opcionális options) tárolunk; a termék adatot mindig
  * a product listából (getProductById) kell lookupolni rendereléskor.
  * A kosár semmilyen körülmények között nem tárolhat Product referenciát.
  */
 export type CartItem = {
   productId: string
   qty: number
+  options?: CartItemOptions
 }
 
 type CartContextValue = {
   items: CartItem[]
-  addItem: (productId: string, qty?: number) => void
-  removeItem: (productId: string) => void
-  updateQty: (productId: string, qty: number) => void
+  addItem: (productId: string, qty?: number, options?: CartItemOptions) => void
+  removeItem: (productId: string, options?: CartItemOptions) => void
+  updateQty: (productId: string, qty: number, options?: CartItemOptions) => void
   clearCart: () => void
   subtotalHuf: number
   discountHuf: number
@@ -40,10 +71,21 @@ function loadCart(): CartItem[] {
     if (!raw) return []
     const parsed = JSON.parse(raw)
     if (!Array.isArray(parsed)) return []
-    return parsed.map((x: Record<string, unknown>) => ({
-      productId: String(x.productId ?? ''),
-      qty: Math.max(1, Number(x.qty) || 1),
-    })).filter((x: CartItem) => x.productId !== '')
+    return parsed.map((x: Record<string, unknown>) => {
+      const opts = x.options as Record<string, unknown> | undefined
+      return {
+        productId: String(x.productId ?? ''),
+        qty: Math.max(1, Number(x.qty) || 1),
+        options:
+          opts && (opts.colorName != null || opts.colorHex != null || opts.materialName != null)
+            ? {
+                colorName: opts.colorName != null ? String(opts.colorName) : undefined,
+                colorHex: opts.colorHex != null ? String(opts.colorHex) : undefined,
+                materialName: opts.materialName != null ? String(opts.materialName) : undefined,
+              }
+            : undefined,
+      }
+    }).filter((x: CartItem) => x.productId !== '')
   } catch {
     return []
   }
@@ -72,38 +114,50 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (mounted) saveCart(items)
   }, [items, mounted])
 
-  const addItem = useCallback((productId: string, qty = 1) => {
+  const addItem = useCallback((productId: string, qty = 1, options?: CartItemOptions) => {
     setItems((prev) => {
       const product = getProductById(productId)
       if (!product) return prev
+      const normalizedOptions = hasOptions(options) ? options : undefined
+      const existingLine = prev.find((x) => sameCartLine(x, productId, normalizedOptions))
+      const currentQty = existingLine?.qty ?? 0
       const maxAllowed =
         product.type === 'sourcing_deal'
           ? Math.max(0, (product.maxOrders ?? 0) - (product.ordersCount ?? 0))
           : getStockById(productId)
-      const currentQty = prev.find((x) => x.productId === productId)?.qty ?? 0
       const toAdd = Math.min(qty, Math.max(0, maxAllowed - currentQty))
       if (toAdd <= 0) return prev
-      const i = prev.findIndex((x) => x.productId === productId)
+      const i = prev.findIndex((x) => sameCartLine(x, productId, normalizedOptions))
       if (i >= 0) {
         const next = [...prev]
         next[i] = { ...next[i], qty: next[i].qty + toAdd }
         return next
       }
-      return [...prev, { productId, qty: toAdd }]
+      return [...prev, { productId, qty: toAdd, options: normalizedOptions }]
     })
   }, [])
 
-  const removeItem = useCallback((productId: string) => {
-    setItems((prev) => prev.filter((x) => x.productId !== productId))
+  const removeItem = useCallback((productId: string, options?: CartItemOptions) => {
+    setItems((prev) => {
+      if (options != null && hasOptions(options)) {
+        return prev.filter((x) => !sameCartLine(x, productId, options))
+      }
+      return prev.filter((x) => x.productId !== productId)
+    })
   }, [])
 
-  const updateQty = useCallback((productId: string, qty: number) => {
+  const updateQty = useCallback((productId: string, qty: number, options?: CartItemOptions) => {
     if (qty < 1) {
-      setItems((prev) => prev.filter((x) => x.productId !== productId))
+      setItems((prev) => {
+        if (options != null && hasOptions(options)) {
+          return prev.filter((x) => !sameCartLine(x, productId, options))
+        }
+        return prev.filter((x) => x.productId !== productId)
+      })
       return
     }
     setItems((prev) =>
-      prev.map((x) => (x.productId === productId ? { ...x, qty } : x))
+      prev.map((x) => (sameCartLine(x, productId, options) ? { ...x, qty } : x))
     )
   }, [])
 

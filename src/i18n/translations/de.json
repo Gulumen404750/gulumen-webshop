@@ -152,6 +152,7 @@
     "sourcingCardLabel": "Limitierte Verfügbarkeit · 7–14 Tage",
     "stockLabel": "Auf Lager · Versand 24–48 Stunden",
     "inStockCount": "auf Lager: {count} verfügbar.",
+    "inStockUnlimited": "beliebige Menge bestellbar",
     "inCartCount": "Im Warenkorb: {count}.",
     "shippingNote": "Versand:",
     "noImage": "Produktbild",
@@ -167,13 +168,25 @@
     "zoomReset": "Originalgröße",
     "view360": "360°-Ansicht",
     "view360Hint": "Ziehen zum Drehen",
+    "loadingModel": "3D-Modell wird geladen…",
+    "view3D": "3D-Ansicht drehen",
+    "backToImage": "Zurück zum Bild",
+    "color": "Farbe",
+    "fullscreen3D": "Vergrößern / Vollbild",
     "similarProducts": "Ähnliche Produkte",
     "recentlyViewed": "Zuletzt angesehen",
     "like": "Gefällt mir",
     "unlike": "Gefällt mir nicht mehr",
     "likesCount": "{count} gefällt das",
     "popular": "Beliebtes Produkt",
-    "badge3D": "3D-Druck"
+    "badge3D": "3D-Druck",
+    "selectColorToAdd": "Wähle Farbe und Material (PLA/PETG) vor dem Hinzufügen zum Warenkorb.",
+    "selectColorHint": "Die gewählte Farbe kommt in den Warenkorb; das Produktfoto dient nur zur Illustration.",
+    "material": "Material",
+    "materialInfoTitle": "PLA und PETG – Eigenschaften",
+    "materialPla": "Biobasiert. Ideal für Innen- und Gartenbereich. Weniger hitze- und schlagfest.",
+    "materialPetg": "Fester, flexibler, beständiger gegen Hitze und Schlag. Küche, dauerhafte Nutzung.",
+    "selectMaterialAndColorToAdd": "Wähle Farbe und Material (PLA/PETG) vor dem Hinzufügen zum Warenkorb."
   },
   "newsletter": {
     "title": "Newsletter",
@@ -215,6 +228,7 @@
     "closedLabel": "Angebot abgelaufen – der Kaufzeitraum ist beendet.",
     "availableFromLabel": "Erhältlich ab: {when}",
     "expiredShort": "Abgelaufen",
+    "archivingSoon": "Wird bald archiviert",
     "legal": "Nach Auftragserteilung erfolgt die Beschaffung über einen eigenen Beschaffungskanal.\n\nBei erfolgreicher Beschaffung erfolgt die Lieferung des Produkts innerhalb von 7–14 Werktagen.\n\nKann das Produkt innerhalb des angegebenen Preisrahmens nicht beschafft werden, wird die Bestellung storniert und der volle Betrag innerhalb von 1–3 Werktagen erstattet."
   },
   "register": {
@@ -263,6 +277,7 @@
   },
   "pages": {
     "productsTitle": "Produkte",
+    "products3DSubtitle": "Ungarische Fertigung, auf Bestellung gefertigte Produkte",
     "newTitle": "Neu",
     "dealsTitle": "Angebote",
     "shippingTitle": "Versandinformationen",
@@ -301,6 +316,41 @@
       "legalIntro": "Dieser Onlineshop entspricht den EU-Verbraucherschutzregeln.",
       "legalLinkLabel": "Die ausführlichen rechtlichen Bedingungen finden Sie hier:"
     }
+  },
+  "callUs": {
+    "title": "Ruf uns an",
+    "tabCall": "Telefonnummer",
+    "tabCallback": "Rückruf anfordern",
+    "desktopHint": "Am Desktop: Nutze dein Handy zum Anrufen oder scanne den QR-Code.",
+    "callNumber": "Diese Nummer anrufen",
+    "qrHint": "QR-Code mit dem Handy scannen – ein Tipp zum Anrufen.",
+    "recordingNotice": "Gespräche können aufgezeichnet oder transkribiert werden. Details:",
+    "recordingNoticeLink": "Datenschutz Telefon",
+    "callbackName": "Name",
+    "callbackNamePlaceholder": "Dein Name",
+    "callbackPhone": "Telefonnummer",
+    "callbackPhonePlaceholder": "+36...",
+    "callbackTopic": "Thema (kurz)",
+    "callbackTopicPlaceholder": "z. B. Bestellung, Versand, Geschäftsanfrage",
+    "callbackTime": "Wann sollen wir zurückrufen?",
+    "callbackTimePlaceholder": "Wann sollen wir zurückrufen?",
+    "callbackOptionImmediate": "Sofort (innerhalb 5–10 Min.)",
+    "callbackOptionLater": "Später (Datum und Uhrzeit wählen)",
+    "callbackDate": "Datum",
+    "callbackHour": "Uhrzeit",
+    "callbackSubmit": "Rückruf anfordern",
+    "callbackSending": "Wird gesendet...",
+    "callbackSuccess": "Danke! Wir rufen bald zurück.",
+    "callbackError": "Anfrage fehlgeschlagen. Erneut versuchen oder per E-Mail.",
+    "callbackErrorRequired": "Name und Telefonnummer sind Pflicht."
+  },
+  "callUsDataProtection": {
+    "title": "Telefon-Support – Aufzeichnung und Transkription",
+    "why": "Gespräche können zu Qualitäts- und Supportzwecken aufgezeichnet oder transkribiert werden (mit Einwilligung des Anrufers).",
+    "storage": "Transkripte und Aufzeichnungen werden nur so lange aufbewahrt, wie nötig, im Einklang mit gesetzlichen Aufbewahrungsfristen.",
+    "access": "Zugriff haben Kundenservice und berechtigte Mitarbeiter im für die Bearbeitung erforderlichen Umfang.",
+    "deletion": "Für Lösch- oder Einschränkungswünsche schreibe an die unten genannte E-Mail; wir bearbeiten deine Anfrage.",
+    "contact": "Kontakt (Datenschutz, Löschung):"
   },
   "ai": {
     "greeting": "Hallo! Wobei kann ich helfen? Frag gern zu Produkten, Versand oder Rückgabe.",

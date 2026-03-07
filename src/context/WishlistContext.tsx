@@ -16,10 +16,9 @@ type WishlistContextValue = {
 
 const WishlistContext = createContext<WishlistContextValue | null>(null)
 
-function getLikeHeaders(userId: string | null): Record<string, string> {
-  const headers: Record<string, string> = {}
-  if (userId) headers['X-User-Id'] = userId
-  return headers
+/** Session cookie automatikusan megy; csak credentials kell. */
+function getFetchOpts(): RequestInit {
+  return { credentials: 'include' }
 }
 
 export function WishlistProvider({ children }: { children: ReactNode }) {
@@ -31,7 +30,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
       setProductIds([])
       return
     }
-    fetch('/api/me/wishlist', { headers: getLikeHeaders(userId) })
+    fetch('/api/me/wishlist', getFetchOpts())
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         const ids = Array.isArray(data?.productIds) ? data.productIds : []

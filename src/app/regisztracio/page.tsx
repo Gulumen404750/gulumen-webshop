@@ -10,14 +10,14 @@ import { useLocale } from '@/context/LocaleContext'
 export default function RegistrationPage() {
   const { t } = useLocale()
   const router = useRouter()
-  const { login } = useAuth()
+  const { register } = useAuth()
   const { claimRegistrationCoupon } = useCatCoupon()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [acceptOffers, setAcceptOffers] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     const trimmedEmail = email.trim()
@@ -25,7 +25,15 @@ export default function RegistrationPage() {
       setError(t('register.errorEmail'))
       return
     }
-    login(trimmedEmail)
+    if (!password || password.length < 8) {
+      setError(t('register.errorPassword') || 'A jelszónak legalább 8 karakter hosszúnak kell lennie.')
+      return
+    }
+    const result = await register(trimmedEmail, password)
+    if (!result.ok) {
+      setError(result.error ?? 'Regisztráció sikertelen')
+      return
+    }
     if (acceptOffers) {
       claimRegistrationCoupon(trimmedEmail)
     }

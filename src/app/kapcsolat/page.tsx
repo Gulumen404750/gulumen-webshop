@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Image from 'next/image'
+import { useLocale } from '@/context/LocaleContext'
 
 const FROG_SIZE = 64
 const FROG_SPEED = 1.2
@@ -14,7 +15,10 @@ function getGroundY() {
   return window.innerHeight - BOTTOM_OFFSET - FROG_SIZE / 2
 }
 
+const DATA_PROTECTION_EMAIL = 'info@gulumen.hu'
+
 export default function ContactPage() {
+  const { t } = useLocale()
   const [frogPos, setFrogPos] = useState<{ x: number; y: number } | null>(null)
   const [facingLeft, setFacingLeft] = useState(true)
   const [dragging, setDragging] = useState(false)
@@ -177,8 +181,24 @@ export default function ContactPage() {
             Ha emberi ügyintézőt szeretnél (pl. panasz, jogi ügy), a chatben kérj ügy átadását – add meg a rendelés azonosítót és e-mail címedet.
           </p>
           <p>
-            E-mail: <a href="mailto:info@gulumen.hu" className="text-accent hover:underline font-medium">info@gulumen.hu</a>
+            E-mail: <a href={`mailto:${DATA_PROTECTION_EMAIL}`} className="text-accent hover:underline font-medium">{DATA_PROTECTION_EMAIL}</a>
           </p>
+
+          <section id="telefonos-adatkezeles" className="mt-12 pt-8 border-t border-white/30">
+            <h2 className="font-heading text-xl font-bold text-white mb-4 drop-shadow-lg">
+              {t('callUsDataProtection.title')}
+            </h2>
+            <ul className="text-gray-200 space-y-3 list-disc list-inside drop-shadow max-w-2xl">
+              <li>{t('callUsDataProtection.why')}</li>
+              <li>{t('callUsDataProtection.storage')}</li>
+              <li>{t('callUsDataProtection.access')}</li>
+              <li>{t('callUsDataProtection.deletion')}</li>
+            </ul>
+            <p className="mt-4 text-gray-200 drop-shadow">
+              {t('callUsDataProtection.contact')}{' '}
+              <a href={`mailto:${DATA_PROTECTION_EMAIL}`} className="text-accent hover:underline font-medium">{DATA_PROTECTION_EMAIL}</a>
+            </p>
+          </section>
         </div>
       </div>
     </div>

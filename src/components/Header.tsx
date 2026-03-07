@@ -18,9 +18,11 @@ import { useLocale } from '@/context/LocaleContext'
 import { useCart } from '@/context/CartContext'
 import { useWishlist } from '@/context/WishlistContext'
 import { LOCALES, type Locale } from '@/i18n/locales'
-import { categories, getCategoryName, getSourcingDealProducts, getEarliestSourcingExpiry } from '@/lib/data'
+import { categories, getCategoryName } from '@/lib/data'
 import { SearchModal } from '@/components/SearchModal'
 import { CartDrawer } from '@/components/CartDrawer'
+import { CallUsModal } from '@/components/CallUsModal'
+import { Phone } from 'lucide-react'
 
 /** Ikon map a Termékek dropdown kategóriáihoz (slug → komponens). */
 const categoryIconMap: Record<string, LucideIcon> = {
@@ -71,8 +73,7 @@ export function Header() {
   const [helpOpen, setHelpOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false)
-  const [sourcingPhase, setSourcingPhase] = useState<'label' | 'countdown'>('label')
-  const [sourcingCountdown, setSourcingCountdown] = useState<string>('00:00:00')
+  const [callUsModalOpen, setCallUsModalOpen] = useState(false)
   const langRef = useRef<HTMLDivElement>(null)
   const productsRef = useRef<HTMLDivElement>(null)
   const helpRef = useRef<HTMLDivElement>(null)
@@ -107,41 +108,17 @@ export function Header() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  /* Beszerzésre rendelhető: váltakozás címke ↔ piros visszaszámláló (valódi legkorábbi lejárat) */
   useEffect(() => {
-    const products = getSourcingDealProducts()
-    const tick = () => {
-      const now = new Date()
-      const expiry = getEarliestSourcingExpiry(products, now)
-      if (!expiry || expiry.getTime() <= now.getTime()) {
-        setSourcingCountdown('00:00:00')
-        return
-      }
-      const ms = expiry.getTime() - now.getTime()
-      const sec = Math.floor((ms / 1000) % 60)
-      const min = Math.floor((ms / (1000 * 60)) % 60)
-      const hour = Math.floor((ms / (1000 * 60 * 60)) % 24)
-      const day = Math.floor(ms / (1000 * 60 * 60 * 24))
-      const pad = (n: number) => String(n).padStart(2, '0')
-      setSourcingCountdown(
-        day > 0 ? `${day}d ${pad(hour)}:${pad(min)}:${pad(sec)}` : `${pad(hour)}:${pad(min)}:${pad(sec)}`
-      )
-    }
-    const phaseInterval = setInterval(() => {
-      setSourcingPhase((p) => (p === 'label' ? 'countdown' : 'label'))
-    }, 3500)
-    const countdownInterval = setInterval(tick, 1000)
-    tick()
-    return () => {
-      clearInterval(phaseInterval)
-      clearInterval(countdownInterval)
-    }
+    const openModal = () => setCallUsModalOpen(true)
+    window.addEventListener('openCallUsModal', openModal)
+    return () => window.removeEventListener('openCallUsModal', openModal)
   }, [])
 
   return (
     <>
     <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
     <CartDrawer isOpen={cartDrawerOpen} onClose={() => setCartDrawerOpen(false)} />
+    <CallUsModal isOpen={callUsModalOpen} onClose={() => setCallUsModalOpen(false)} />
     <header className="sticky top-0 z-50 bg-background border-b border-[var(--border)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-18">
@@ -240,29 +217,22 @@ export function Header() {
                 )
               }
               if (isSourcing) {
-                const showCountdown = sourcingPhase === 'countdown' && sourcingCountdown !== '00:00:00'
                 return (
                   <span key={href} className="nav-link-sourcing-fomo">
+                    <span className="nav-sourcing-sparks" aria-hidden>
+                      {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+                        <span key={i} className="nav-sourcing-spark" style={{ '--spark-i': i } as React.CSSProperties} />
+                      ))}
+                    </span>
                     <Link
                       href={href}
                       onClick={() => setMobileNavOpen(false)}
-                      className={`nav-sourcing-link text-sm font-medium leading-none transition-colors shrink-0 inline-flex items-center justify-center h-full ${
+                      className={`nav-sourcing-link text-sm font-medium leading-none transition-colors shrink-0 inline-flex items-center justify-center h-full relative z-10 ${
                         pathname === href ? 'text-accent' : 'text-foreground hover:text-accent'
                       }`}
-                      aria-label={showCountdown ? undefined : t('nav.sourcing')}
+                      aria-label={t('nav.sourcing')}
                     >
-                      <span
-                        className={`nav-sourcing-label ${showCountdown ? 'nav-sourcing-hidden' : 'nav-sourcing-visible'}`}
-                        aria-hidden={showCountdown}
-                      >
-                        {t('nav.sourcing')}
-                      </span>
-                      <span
-                        className={`nav-sourcing-countdown-red tabular-nums text-red-500 dark:text-red-400 ${showCountdown ? 'nav-sourcing-visible' : 'nav-sourcing-hidden'}`}
-                        aria-hidden={!showCountdown}
-                      >
-                        {sourcingCountdown}
-                      </span>
+                      {t('nav.sourcing')}
                     </Link>
                   </span>
                 )
@@ -303,6 +273,24 @@ export function Header() {
                       </Link>
                     </li>
                   ))}
+                  <li className="border-t border-[var(--border)] mt-1 pt-1">
+                    <a
+                      href={`tel:${(process.env.NEXT_PUBLIC_SUPPORT_PHONE || '+36301234567').replace(/\s/g, '')}`}
+                      className="md:hidden flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-foreground hover:bg-[var(--border)] hover:text-accent"
+                      onClick={() => { setHelpOpen(false); setMobileNavOpen(false) }}
+                    >
+                      <Phone className="w-4 h-4" />
+                      {t('callUs.title')}
+                    </a>
+                    <button
+                      type="button"
+                      className="hidden md:flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-foreground hover:bg-[var(--border)] hover:text-accent"
+                      onClick={() => { setHelpOpen(false); setCallUsModalOpen(true) }}
+                    >
+                      <Phone className="w-4 h-4" />
+                      {t('callUs.title')}
+                    </button>
+                  </li>
                 </ul>
               )}
             </div>

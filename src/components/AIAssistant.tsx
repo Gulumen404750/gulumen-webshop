@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import Image from 'next/image'
 import { getResponse } from '@/lib/ai-assistant'
 import { useLocale } from '@/context/LocaleContext'
 
@@ -47,17 +48,44 @@ export function AIAssistant() {
     }
   }
 
+  const openCallUs = () => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('openCallUsModal'))
+    }
+  }
+
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-3 rounded-full shadow-lg bg-accent text-white font-heading font-semibold hover:opacity-90 transition-opacity"
-        aria-label={t('ai.title')}
-      >
-        <span className="hidden sm:inline">{t('ai.cta')}</span>
-        <ChatBubbleIcon className="w-5 h-5" />
-      </button>
+      <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3">
+        {/* Hívj minket – piros tárcsázós telefon kép, hoverra cseng és rezeg */}
+        <button
+          type="button"
+          onClick={openCallUs}
+          className="group flex items-center gap-2 rounded-full pl-2 pr-4 py-2.5 shadow-lg bg-black/80 hover:bg-black/90 text-white font-heading font-semibold transition-colors border-2 border-red-500/60"
+          aria-label={t('callUs.title')}
+        >
+          <span className="flex items-center justify-center w-12 h-12 rounded-full overflow-hidden bg-red-900/30 phone-ring-hover shrink-0">
+            <Image
+              src="/img/rotary-phone.png"
+              alt=""
+              width={48}
+              height={48}
+              className="w-full h-full object-contain"
+              unoptimized
+            />
+          </span>
+          <span className="text-sm whitespace-nowrap">{t('callUs.title')}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="flex items-center gap-2 px-4 py-3 rounded-full shadow-lg bg-accent text-white font-heading font-semibold hover:opacity-90 transition-opacity"
+          aria-label={t('ai.title')}
+        >
+          <span className="hidden sm:inline">{t('ai.cta')}</span>
+          <ChatBubbleIcon className="w-5 h-5" />
+        </button>
+      </div>
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-end justify-end p-4 sm:p-6">

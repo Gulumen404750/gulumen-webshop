@@ -7,24 +7,36 @@ import {
   setOrderFailed,
   setOrderCountedForLoyalty,
 } from '@/lib/orders'
+import { markReservationsPaidByOrderId } from '@/lib/reservations'
 import { sendOrderConfirmationEmail } from '@/lib/order-email'
 import { qualifiesForLoyalty, incrementQualifyingOrder, decrementQualifyingOrder } from '@/lib/loyalty'
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
+import { logger } from '@/lib/logger'
 
 /** Stripe HUF: zero-decimal – amount_total forintban (egész), nem fillér. */
 function expectedAmountTotalHuf(orderTotalHuf: number): number {
   return Math.round(orderTotalHuf)
 }
 
+/** Lazy init: ne modul betöltéskor inicializáljuk, hogy hiányzó STRIPE_SECRET_KEY ne törje a buildet. */
+function getStripe(): { stripe: Stripe; webhookSecret: string } | null {
+  const secretKey = process.env.STRIPE_SECRET_KEY
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
+  if (!secretKey || !webhookSecret) return null
+  return {
+    stripe: new Stripe(secretKey),
+    webhookSecret,
+  }
+}
+
 export async function POST(request: Request) {
-  if (!webhookSecret) {
+  const stripeConfig = getStripe()
+  if (!stripeConfig) {
     return NextResponse.json(
-      { error: 'Webhook secret not configured' },
-      { status: 500 }
+      { error: 'Stripe not configured' },
+      { status: 501 }
     )
   }
+  const { stripe, webhookSecret } = stripeConfig
 
   // Kötelező: constructEvent-hez raw body kell – request.text(), nem request.json()
   let body: string
@@ -45,7 +57,7 @@ export async function POST(request: Request) {
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
-    console.error('Stripe webhook signature verification failed:', message)
+    logger.error({ err: message }, 'Stripe webhook signature verification failed')
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
@@ -54,13 +66,13 @@ export async function POST(request: Request) {
       const session = event.data.object as Stripe.Checkout.Session
       const orderId = session.metadata?.orderId
       if (!orderId) {
-        console.error('checkout.session.completed: missing metadata.orderId')
+        logger.error('checkout.session.completed: missing metadata.orderId')
         return NextResponse.json({ received: true })
       }
 
-      const order = getOrderById(orderId)
+      const order = await getOrderById(orderId)
       if (!order) {
-        console.error('checkout.session.completed: order not found', orderId)
+        logger.error({ orderId }, 'checkout.session.completed: order not found')
         return NextResponse.json({ received: true })
       }
 
@@ -72,10 +84,7 @@ export async function POST(request: Request) {
       }
 
       if (session.payment_status !== 'paid') {
-        console.warn('checkout.session.completed: payment_status !== paid', {
-          orderId,
-          payment_status: session.payment_status,
-        })
+        logger.warn({ orderId, payment_status: session.payment_status }, 'checkout.session.completed: payment_status !== paid')
         return NextResponse.json({ received: true })
       }
 
@@ -84,23 +93,14 @@ export async function POST(request: Request) {
       const expectedTotal = expectedAmountTotalHuf(order.totalHuf)
 
       if (currency !== 'huf') {
-        console.error('checkout.session.completed: currency mismatch', {
-          orderId,
-          currency,
-          expected: 'huf',
-        })
-        setOrderFailed(orderId)
+        logger.error({ orderId, currency, expected: 'huf' }, 'checkout.session.completed: currency mismatch')
+        await setOrderFailed(orderId)
         return NextResponse.json({ received: true })
       }
 
       if (amountTotal !== expectedTotal) {
-        console.error('checkout.session.completed: amount_total mismatch', {
-          orderId,
-          amountTotal,
-          expectedTotal,
-          orderTotalHuf: order.totalHuf,
-        })
-        setOrderFailed(orderId)
+        logger.error({ orderId, amountTotal, expectedTotal, orderTotalHuf: order.totalHuf }, 'checkout.session.completed: amount_total mismatch')
+        await setOrderFailed(orderId)
         return NextResponse.json({ received: true })
       }
 
@@ -111,7 +111,7 @@ export async function POST(request: Request) {
       const customerEmail =
         session.customer_details?.email ?? session.customer_email ?? null
 
-      setOrderPaid({
+      await setOrderPaid({
         orderId,
         stripeSessionId: session.id,
         paymentIntentId: paymentIntentId ?? undefined,
@@ -120,13 +120,14 @@ export async function POST(request: Request) {
         webhookEventId: event.id,
         customerEmail: customerEmail ?? undefined,
       })
+      await markReservationsPaidByOrderId(orderId)
 
       // Hűségkedvezmény: csak ha még nem számoltuk, és a végösszeg eléri a küszöböt (HUF/EUR)
-      const updatedOrder = getOrderById(orderId)
+      const updatedOrder = await getOrderById(orderId)
       if (updatedOrder && !updatedOrder.countedForLoyalty && customerEmail) {
         if (qualifiesForLoyalty(amountTotal, currency)) {
           incrementQualifyingOrder(customerEmail)
-          setOrderCountedForLoyalty(orderId)
+          await setOrderCountedForLoyalty(orderId)
         }
       }
 
@@ -137,11 +138,11 @@ export async function POST(request: Request) {
             customerEmail
           )
           if (!emailResult.ok) {
-            console.error('checkout.session.completed: email send failed', emailResult.error)
+            logger.error({ err: emailResult.error }, 'checkout.session.completed: email send failed')
           }
         }
       } catch (emailErr) {
-        console.error('checkout.session.completed: email error (webhook still 200)', emailErr)
+        logger.error({ err: emailErr }, 'checkout.session.completed: email error (webhook still 200)')
       }
 
       return NextResponse.json({ received: true })
@@ -151,7 +152,7 @@ export async function POST(request: Request) {
       const paymentIntent = event.data.object as Stripe.PaymentIntent
       const orderId = paymentIntent.metadata?.orderId
       if (orderId) {
-        setOrderFailed(orderId)
+        await setOrderFailed(orderId)
       }
       return NextResponse.json({ received: true })
     }
@@ -161,7 +162,7 @@ export async function POST(request: Request) {
       const paymentIntentId =
         typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id
       if (!paymentIntentId) return NextResponse.json({ received: true })
-      const order = getOrderByPaymentIntentId(paymentIntentId)
+      const order = await getOrderByPaymentIntentId(paymentIntentId)
       if (!order || !order.countedForLoyalty || !order.customerEmail) {
         return NextResponse.json({ received: true })
       }
@@ -170,7 +171,7 @@ export async function POST(request: Request) {
       const isFullRefund = amountPaid > 0 && amountRefunded >= amountPaid
       if (isFullRefund) {
         decrementQualifyingOrder(order.customerEmail)
-        setOrderCountedForLoyalty(order.id, false)
+        await setOrderCountedForLoyalty(order.id, false)
       }
       return NextResponse.json({ received: true })
     }

@@ -2,29 +2,34 @@ import { NextResponse } from 'next/server'
 import { getOrderById, setOrderStatus } from '@/lib/orders'
 import { getPaymentTransactionsByOrderId, updatePaymentTransactionStatus } from '@/lib/payment-transactions'
 import { getPaymentProvider } from '@/lib/payment-provider'
+import { logAdminAction } from '@/lib/admin-audit'
+import { logger } from '@/lib/logger'
+import { requireAdmin } from '@/lib/admin-auth'
 
 /**
  * POST /api/admin/sourcing/:orderId/success
  * Sourcing rendelés sikeres beszerzés: capture a zárolt összeg, order → paid vagy fulfilled.
+ * Auth: admin cookie vagy x-admin-key header.
  */
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ orderId: string }> }
 ) {
   const { orderId } = await params
-  console.debug('[admin/sourcing/success]', orderId)
+  logger.debug({ orderId }, 'admin/sourcing/success')
 
   const adminKey = process.env.ADMIN_API_KEY
-  if (!adminKey) {
-    console.error('[admin/sourcing/success] ADMIN_API_KEY not configured')
-    return NextResponse.json({ error: 'Admin not configured' }, { status: 503 })
-  }
-  const key = _request.headers.get('x-admin-key')
-  if (key !== adminKey) {
+  const cookieAuth = await requireAdmin()
+  const keyAuth = adminKey && request.headers.get('x-admin-key') === adminKey
+  if (!cookieAuth && !keyAuth) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  if (!adminKey && !cookieAuth) {
+    logger.error('ADMIN_API_KEY not configured')
+    return NextResponse.json({ error: 'Admin not configured' }, { status: 503 })
+  }
 
-  const order = getOrderById(orderId)
+  const order = await getOrderById(orderId)
   if (!order) {
     return NextResponse.json({ error: 'Order not found' }, { status: 404 })
   }
@@ -39,6 +44,9 @@ export async function POST(
       { error: 'Order already cancelled or failed' },
       { status: 400 }
     )
+  }
+  if (order.status === 'fulfilled' || order.status === 'paid') {
+    return NextResponse.json({ success: true, orderId, status: order.status })
   }
 
   const transactions = getPaymentTransactionsByOrderId(orderId)
@@ -56,7 +64,8 @@ export async function POST(
   })
 
   if (!result.success) {
-    console.error('[admin/sourcing/success] capture failed', result.error)
+    logger.error({ orderId, error: result.error }, 'admin/sourcing/success capture failed')
+    await logAdminAction({ action: 'sourcing_success', orderId, success: false, details: result.error })
     return NextResponse.json(
       { error: result.error || 'Capture failed' },
       { status: 500 }
@@ -64,8 +73,9 @@ export async function POST(
   }
 
   updatePaymentTransactionStatus(authTx.id, 'succeeded')
-  setOrderStatus(orderId, 'fulfilled')
+  await setOrderStatus(orderId, 'fulfilled')
+  await logAdminAction({ action: 'sourcing_success', orderId, success: true })
 
-  console.debug('[admin/sourcing/success] order fulfilled', orderId)
+  logger.debug({ orderId }, 'admin/sourcing/success order fulfilled')
   return NextResponse.json({ success: true, orderId, status: 'fulfilled' })
 }

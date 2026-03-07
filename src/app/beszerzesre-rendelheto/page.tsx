@@ -1,35 +1,36 @@
-'use client'
+import { getSourcingDealProductsAsync, getSourcingDealStatus, isSourcingConsideredExpired, SOURCING_EXPIRED_BUFFER_MS } from '@/lib/data'
+import { getProductOrdersCounts } from '@/lib/orders'
+import { BeszerzesreRendelhetoClient } from './BeszerzesreRendelhetoClient'
 
-import { getSourcingDealProducts } from '@/lib/data'
-import { ProductCard } from '@/components/ProductCard'
-import { useLocale } from '@/context/LocaleContext'
+/** Mindig friss adat: ne legyen cache, így frissítéskor sem ugrik vissza a számláló (localStorage ref marad). */
+export const revalidate = 0
+export const dynamic = 'force-dynamic'
 
-export default function BeszerzesreRendelhetoPage() {
-  const { t } = useLocale()
-  const all = getSourcingDealProducts()
-  const now = Date.now()
-  const products = [...all].sort((a, b) => {
-    const tA = new Date(a.saleTo ?? 0).getTime()
-    const tB = new Date(b.saleTo ?? 0).getTime()
-    const aExpired = tA < now
-    const bExpired = tB < now
-    if (aExpired && !bExpired) return 1
-    if (!aExpired && bExpired) return -1
-    return tA - tB
+export default async function BeszerzesreRendelhetoPage() {
+  const all = await getSourcingDealProductsAsync()
+  const productIds = all.map((p) => p.id)
+  const countsMap = await getProductOrdersCounts(productIds)
+  const products = all.map((p) => ({
+    ...p,
+    ordersCount: p.type === 'sourcing_deal' ? (countsMap[p.id] ?? 0) : 0,
+  }))
+  const serverNow = Date.now()
+
+  // Csak aktív ajánlatok: lejárt soha ne jelenjen meg (boltban lehetetlen). Dupla küszöb: buffer + szigorú saleTo <= serverNow.
+  const activeOnly = products.filter((p) => {
+    if (p.type !== 'sourcing_deal' || !p.saleTo) return true
+    const saleToMs = new Date(p.saleTo).getTime()
+    if (saleToMs <= serverNow) return false
+    if (saleToMs <= serverNow + SOURCING_EXPIRED_BUFFER_MS) return false
+    if (isSourcingConsideredExpired(p, serverNow, p.ordersCount)) return false
+    const status = getSourcingDealStatus(p, new Date(serverNow), p.ordersCount)
+    return status === 'preview' || status === 'sale'
   })
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="font-heading text-2xl font-bold text-foreground mb-2">{t('sourcing.title')}</h1>
-      <p className="text-muted mb-8">{t('sourcing.intro')}</p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {products.map((p) => (
-          <ProductCard key={p.id} product={p} sourcingListMode />
-        ))}
-      </div>
-      {products.length === 0 && (
-        <p className="text-muted text-center py-12">{t('sourcing.noOffers')}</p>
-      )}
-    </div>
-  )
+  const sorted = [...activeOnly].sort((a, b) => {
+    const tA = new Date(a.saleTo ?? 0).getTime()
+    const tB = new Date(b.saleTo ?? 0).getTime()
+    return tA - tB
+  })
+  return <BeszerzesreRendelhetoClient products={sorted} serverNow={serverNow} />
 }

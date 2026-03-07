@@ -1,0 +1,125 @@
+/**
+ * Termékek betöltése adatbázisból. A data.ts Product típusát használja; ha DB nincs konfigurálva, a data.ts mockProducts fallback-et használja.
+ */
+
+import { prisma, isDbConfigured } from '@/lib/prisma'
+import type { Product, Condition } from '@/lib/data'
+
+function mapCondition(c: string): Condition {
+  const allowed: Condition[] = ['Új', 'Új, címkés', 'Új kinézetű', 'Kiváló', 'Jó']
+  return allowed.includes(c as Condition) ? (c as Condition) : 'Új'
+}
+
+function dbProductToProduct(row: {
+  id: string
+  slug: string
+  name: string
+  nameEn: string | null
+  nameDe: string | null
+  nameRo: string | null
+  description: string
+  condition: string
+  category: string
+  image: string
+  images: string[]
+  images360: string[]
+  modelUrl: string | null
+  priceHuf: number
+  priceEur: number
+  discountPriceHuf: number | null
+  discountPriceEur: number | null
+  stock: number
+  variants: unknown
+  isNew: boolean
+  onSale: boolean
+  active: boolean
+  isColorable: boolean
+  likesCount: number
+  type: string
+  sourcingEnabled: boolean
+  dealStartAt: Date | null
+  dealEndAt: Date | null
+  previewFrom: Date | null
+  maxOrders: number | null
+  sourcingStatus: string | null
+}): Product {
+  const variants = row.variants as { size?: string; color?: string }[] | null
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    nameEn: row.nameEn ?? row.name,
+    nameDe: row.nameDe ?? undefined,
+    nameRo: row.nameRo ?? undefined,
+    description: row.description,
+    condition: mapCondition(row.condition),
+    category: row.category,
+    image: row.image,
+    images: row.images?.length ? row.images : [row.image],
+    images360: row.images360?.length ? row.images360 : undefined,
+    modelUrl: row.modelUrl ?? undefined,
+    priceHuf: row.priceHuf,
+    priceEur: row.priceEur,
+    discountPriceHuf: row.discountPriceHuf ?? undefined,
+    discountPriceEur: row.discountPriceEur ?? undefined,
+    stock: row.stock,
+    variants: variants ?? undefined,
+    isNew: row.isNew,
+    onSale: row.onSale,
+    type: row.type === 'sourcing_deal' ? 'sourcing_deal' : 'stock',
+    previewFrom: row.previewFrom?.toISOString(),
+    saleFrom: row.dealStartAt?.toISOString(),
+    saleTo: row.dealEndAt?.toISOString(),
+    maxOrders: row.maxOrders ?? undefined,
+    likesCount: row.likesCount,
+    isColorable: row.isColorable,
+  }
+}
+
+/** Összes aktív termék (a vásárlói oldalhoz). */
+export async function getAllProductsFromDb(): Promise<Product[]> {
+  if (!isDbConfigured()) return []
+  const rows = await prisma.product.findMany({
+    where: { active: true },
+    orderBy: { createdAt: 'desc' },
+  })
+  return rows.map(dbProductToProduct)
+}
+
+/** Slug alapján egy termék. */
+export async function getProductBySlugFromDb(slug: string): Promise<Product | null> {
+  if (!isDbConfigured()) return null
+  const row = await prisma.product.findUnique({
+    where: { slug, active: true },
+  })
+  return row ? dbProductToProduct(row) : null
+}
+
+/** ID alapján egy termék (aktív vagy inaktív is). */
+export async function getProductByIdFromDb(id: string): Promise<Product | null> {
+  if (!isDbConfigured()) return null
+  const row = await prisma.product.findUnique({
+    where: { id },
+  })
+  return row ? dbProductToProduct(row) : null
+}
+
+/** Csak sourcing_deal típusú, aktív termékek (beszerzésre rendelhető oldalhoz). */
+export async function getSourcingDealProductsFromDb(): Promise<Product[]> {
+  if (!isDbConfigured()) return []
+  const rows = await prisma.product.findMany({
+    where: { active: true, type: 'sourcing_deal', sourcingEnabled: true },
+    orderBy: { dealEndAt: 'asc' },
+  })
+  return rows.map(dbProductToProduct)
+}
+
+/** Stock típusú termékek (nem sourcing), pl. shop grid. */
+export async function getStockProductsFromDb(): Promise<Product[]> {
+  if (!isDbConfigured()) return []
+  const rows = await prisma.product.findMany({
+    where: { active: true, type: 'stock' },
+    orderBy: { createdAt: 'desc' },
+  })
+  return rows.map(dbProductToProduct)
+}

@@ -1,10 +1,34 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { Product } from '@/lib/data'
 import { getSourcingDealStatus } from '@/lib/data'
-import { useSourcingDealOrders } from '@/context/SourcingDealOrdersContext'
 import { useLocale } from '@/context/LocaleContext'
+
+const SOURCING_TIME_REF_KEY = 'gulumen_sourcing_time_ref'
+const REF_MAX_AGE_MS = 2 * 60 * 60 * 1000 // 2 óra
+
+/** localStorage: minden lap ugyanazt a ref-et használja, így a számláló nem csúszik el két ablak/lap között. */
+function getStoredTimeRef(): { serverRef: number; clientRef: number } | null {
+  if (typeof localStorage === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(SOURCING_TIME_REF_KEY)
+    if (!raw) return null
+    const data = JSON.parse(raw) as { serverRef: number; clientRef: number }
+    if (Date.now() - data.clientRef > REF_MAX_AGE_MS) return null
+    return data
+  } catch {
+    return null
+  }
+}
+
+function setStoredTimeRef(serverRef: number, clientRef: number): void {
+  try {
+    localStorage.setItem(SOURCING_TIME_REF_KEY, JSON.stringify({ serverRef, clientRef }))
+  } catch {
+    // ignore
+  }
+}
 
 /** Formátum: DD:HH:MM:SS */
 function formatCountdownDDHHMMSS(ms: number): string {
@@ -21,39 +45,50 @@ function formatCountdownDDHHMMSS(ms: number): string {
   ].join(':')
 }
 
-export function SourcingDealCardCountdown({ product }: { product: Product }) {
+/** forceArchivingSoon: lejárt termékek oldalon mindig "Hamarosan archiválásra kerül", nincs visszaszámláló. */
+/** onExpired: ha a kártya listán lejár/elfogy, egyszer meghívódik – animáció + eltűnés. */
+export function SourcingDealCardCountdown({
+  product,
+  serverNow: serverNowProp,
+  forceArchivingSoon,
+  onExpired,
+}: {
+  product: Product
+  serverNow?: number
+  forceArchivingSoon?: boolean
+  onExpired?: (productId: string) => void
+}) {
   const { t } = useLocale()
-  const { getOrdersCount } = useSourcingDealOrders()
-  const [now, setNow] = useState<number | null>(null)
+  const [nowMs, setNowMs] = useState<number | null>(null)
+  const getAdjustedNowMsRef = useRef<() => number>(() => Date.now())
+  const onExpiredFiredRef = useRef(false)
 
   useEffect(() => {
-    setNow(Date.now())
-    const id = setInterval(() => setNow(Date.now()), 1000)
+    if (forceArchivingSoon) return
+    // Frissítéskor mindig a szerver aktuális idejét használjuk, ne a régi localStorage ref-et –
+    // így a számláló nem indul újra és a lejárt termékek konzisztensek maradnak.
+    if (serverNowProp != null) {
+      const clientRef = Date.now()
+      setStoredTimeRef(serverNowProp, clientRef)
+      getAdjustedNowMsRef.current = () => serverNowProp + (Date.now() - clientRef)
+    } else {
+      const stored = getStoredTimeRef()
+      if (stored) {
+        getAdjustedNowMsRef.current = () => stored.serverRef + (Date.now() - stored.clientRef)
+      } else {
+        getAdjustedNowMsRef.current = () => Date.now()
+      }
+    }
+    const getAdjustedNowMs = () => getAdjustedNowMsRef.current()
+    setNowMs(getAdjustedNowMs())
+    const id = setInterval(() => setNowMs(getAdjustedNowMs()), 1000)
     return () => clearInterval(id)
   }, [])
 
   if (product.type !== 'sourcing_deal') return null
 
-  if (now === null) return null
-
-  const effectiveCount = (product.ordersCount ?? 0) + getOrdersCount(product.id)
-  const status = getSourcingDealStatus(product, new Date(now), effectiveCount)
-
-  const saleFrom = product.saleFrom ? new Date(product.saleFrom).getTime() : 0
-  const saleTo = product.saleTo ? new Date(product.saleTo).getTime() : 0
-  const nowMs = now
-
-  if (status === 'soldout') {
-    const available = Math.max(0, (product.maxOrders ?? 0) - (product.ordersCount ?? 0))
-    const label = available > 0 ? t('sourcing.availableCount', { count: available }) : t('status.soldOut')
-    return (
-      <div className="px-3 py-2.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-center text-sm font-medium rounded-b-xl">
-        {label}
-      </div>
-    )
-  }
-
-  if (status === 'closed') {
+  // Lejárt termékek oldal: "Lejárt" szöveg, nincs visszaszámláló.
+  if (forceArchivingSoon) {
     return (
       <div className="px-3 py-2.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-center text-sm font-medium rounded-b-xl">
         {t('status.expired')}
@@ -61,23 +96,63 @@ export function SourcingDealCardCountdown({ product }: { product: Product }) {
     )
   }
 
-  if (status === 'preview' && saleFrom - nowMs > 0) {
+  const effectiveCount = product.ordersCount ?? 0
+
+  // Ha a szerver szerint már lejárt (pl. refresh után), azonnal „Hamarosan archiválásra kerül” + onExpired, ne várakozzunk a tickre.
+  if (serverNowProp != null) {
+    const statusWithServer = getSourcingDealStatus(product, new Date(serverNowProp), effectiveCount)
+    if (statusWithServer === 'soldout' || statusWithServer === 'closed') {
+      if (onExpired && !onExpiredFiredRef.current) {
+        onExpiredFiredRef.current = true
+        onExpired(product.id)
+      }
+      return (
+        <div className="px-3 py-2.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-center text-sm font-medium rounded-b-xl">
+          {t('sourcing.archivingSoon')}
+        </div>
+      )
+    }
+  }
+
+  // Hydration: ha van serverNow, első renderre használjuk (szerver és kliens ugyanazt a szöveget rendereli).
+  const effectiveNowMs = nowMs ?? serverNowProp ?? null
+  if (effectiveNowMs === null) return null
+
+  const status = getSourcingDealStatus(product, new Date(effectiveNowMs), effectiveCount)
+
+  const saleFrom = product.saleFrom ? new Date(product.saleFrom).getTime() : 0
+  const saleTo = product.saleTo ? new Date(product.saleTo).getTime() : 0
+
+  // Lejárt vagy elfogyott: csak szöveg, nincs visszaszámláló; lista oldalon egyszer onExpired (animáció + eltűnés).
+  if (status === 'soldout' || status === 'closed') {
+    if (onExpired && !onExpiredFiredRef.current) {
+      onExpiredFiredRef.current = true
+      onExpired(product.id)
+    }
     return (
-      <div className="px-3 py-2.5 bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-center text-sm font-medium border-y border-blue-200 dark:border-blue-800 rounded-b-xl">
-        <span className="font-semibold">{t('status.startsIn')}:</span>{' '}
-        <span className="tabular-nums">{formatCountdownDDHHMMSS(saleFrom - nowMs)}</span>
+      <div className="px-3 py-2.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-center text-sm font-medium rounded-b-xl">
+        {t('sourcing.archivingSoon')}
       </div>
     )
   }
 
-  if (status === 'sale' && saleTo - nowMs > 0) {
+  if (status === 'preview' && saleFrom - effectiveNowMs > 0) {
+    return (
+      <div className="px-3 py-2.5 bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-center text-sm font-medium border-y border-blue-200 dark:border-blue-800 rounded-b-xl">
+        <span className="font-semibold">{t('status.startsIn')}:</span>{' '}
+        <span className="tabular-nums">{formatCountdownDDHHMMSS(saleFrom - effectiveNowMs)}</span>
+      </div>
+    )
+  }
+
+  if (status === 'sale' && saleTo - effectiveNowMs > 0) {
     // Kijelzés: mindig a teljes rendelhető mennyiség (maxOrders - ordersCount). A kosár ne csökkentse.
     const displayAvailable = Math.max(0, (product.maxOrders ?? 0) - (product.ordersCount ?? 0))
     return (
       <div className="px-3 py-2.5 bg-red-50 dark:bg-red-900/40 text-red-800 dark:text-red-200 text-center text-sm font-semibold border-y border-red-200 dark:border-red-800 rounded-b-xl">
         <div>
           <span>{t('status.endsIn')}:</span>{' '}
-          <span className="tabular-nums">{formatCountdownDDHHMMSS(saleTo - nowMs)}</span>
+          <span className="tabular-nums">{formatCountdownDDHHMMSS(saleTo - effectiveNowMs)}</span>
         </div>
         {displayAvailable >= 0 && (
           <div className="text-xs font-medium mt-0.5 opacity-90">

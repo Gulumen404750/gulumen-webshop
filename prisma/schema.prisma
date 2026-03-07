@@ -1,0 +1,238 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Webshop termékek – adminból kezelhetők. Sourcing deal időzítés itt tárolódik (deploy után nem resetelődik).
+model Product {
+  id               String   @id @default(cuid())
+  slug             String   @unique
+  name             String
+  nameEn           String?
+  nameDe           String?
+  nameRo           String?
+  description      String   @default("")
+  condition        String   @default("Új")
+  category         String
+  image            String
+  images           String[] @default([])
+  images360        String[] @default([])
+  modelUrl         String?
+  priceHuf         Int
+  priceEur         Int
+  discountPriceHuf Int?
+  discountPriceEur Int?
+  stock            Int      @default(0)
+  variants         Json?    // [{ size?, color? }]
+  isNew            Boolean  @default(false)
+  onSale           Boolean  @default(false)
+  active           Boolean  @default(true)
+  isColorable      Boolean  @default(false)
+  likesCount       Int      @default(0)
+  // Sourcing / visszaszámlálós: minden időzítés DB-ben, deploy után nem változik
+  type             String   @default("stock") // stock | sourcing_deal
+  sourcingEnabled  Boolean  @default(false)
+  dealStartAt      DateTime?
+  dealEndAt        DateTime?
+  previewFrom      DateTime?
+  maxOrders        Int?
+  sourcingStatus   String?  // optional cache: preview | sale | soldout | closed
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+/// Kuponok / kedvezmények – adminból kezelhetők.
+model Coupon {
+  id           String    @id @default(cuid())
+  code         String    @unique
+  discountType String    // percent | fixed
+  discountValue Int     // percent 0-100 or HUF
+  active       Boolean   @default(true)
+  validFrom    DateTime?
+  validUntil   DateTime?
+  minOrderHuf  Int?
+  maxUses      Int?     // null = unlimited
+  usedCount    Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+/// Admin / chatbot / webshop beállítások – key-value.
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   // JSON or plain string
+  updatedAt DateTime @updatedAt
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  passwordHash String
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orders    Order[]
+  productLikes ProductLike[]
+  loyaltyRecords LoyaltyRecord[]
+}
+
+model Order {
+  id                 String   @id
+  status             String
+  orderGroupId       String?
+  orderType          String?
+  subtotalHuf        Int
+  discountHuf         Int
+  totalHuf           Int
+  currency           String   @default("huf")
+  createdAt          DateTime @default(now())
+  customerEmail      String?
+  stripeSessionId    String?
+  paymentIntentId    String?
+  amountPaid         Int?
+  currencyPaid       String?
+  paidAt             DateTime?
+  paidWebhookEventId String?
+  countedForLoyalty  Boolean  @default(false)
+  refundedAmount    Int?
+  refundStatus      String?
+  cancelRequestedAt DateTime?
+  userId             String?
+  user              User?    @relation(fields: [userId], references: [id])
+  items             OrderItem[]
+  paymentTransactions PaymentTransaction[]
+}
+
+model OrderItem {
+  id              String   @id @default(cuid())
+  orderId         String
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId       String
+  qty             Int
+  fulfillmentType String
+  priceHuf        Int
+  name            String?
+}
+
+model PaymentTransaction {
+  id         String   @id
+  orderId    String
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  provider   String
+  mode       String
+  status     String
+  amount     Int
+  currency   String
+  providerRef String?
+  createdAt  DateTime @default(now())
+}
+
+model ProductLike {
+  id        String   @id @default(cuid())
+  productId String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  @@unique([productId, userId])
+}
+
+model LoyaltyRecord {
+  id                     String   @id @default(cuid())
+  userId                 String?
+  user                   User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email                  String   @unique
+  qualifyingPaidOrdersCount Int   @default(0)
+  loyaltyPercent         Int     @default(0)
+  lastUpdatedAt          DateTime @updatedAt
+}
+
+model AdminAction {
+  id         String   @id @default(cuid())
+  action     String
+  orderId    String?
+  success    Boolean
+  details    String?
+  createdAt  DateTime @default(now())
+}
+
+/// Sourcing slot foglalás: atomi maxOrders védelem. RESERVED = checkout indítva, 15 min; PAID = fizetve; EXPIRED/CANCELED = felszabadult.
+model ProductReservation {
+  id        String   @id @default(cuid())
+  productId String
+  orderId   String?
+  status    String   // RESERVED | PAID | EXPIRED | CANCELED
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  @@index([productId, status, expiresAt])
+}
+
+/// AI telefon hívás összefoglaló (voice agent webhook).
+model Call {
+  id            String   @id @default(cuid())
+  callId        String   @unique
+  timestamp     DateTime
+  language      String   // hu | en
+  mode          String   // b2c | b2b
+  callerNumber  String?
+  consent       Boolean  @default(false)
+  summary       String?
+  transcript    String?  // csak consent=true esetén mentjük
+  tags          String[] @default([]) // shipping, partner, callback_required, stb.
+  endReason     String?  // silence_timeout | non_responsive | max_duration_guard | normal | stb.
+  durationSec   Int?
+  lastPromptKey String?
+  createdAt     DateTime @default(now())
+  @@index([timestamp])
+  @@index([callId])
+}
+
+/// Visszahívás kérés a webes "Kérj visszahívást" űrlapból.
+model CallbackRequest {
+  id             String   @id @default(cuid())
+  name           String
+  phone          String
+  topic          String?
+  preferredTime  String?
+  status         String   @default("pending") // pending | done | cancelled
+  note           String?  // admin megjegyzés, max 200 char
+  emailSent      Boolean?
+  webhookSent    Boolean?
+  deliveryStatus String?  // ok | partial | failed
+  createdAt      DateTime @default(now())
+  @@index([status])
+  @@index([createdAt])
+}
+
+/// Napi adatmegőrzési job napló (törölt sorok száma, success/fail).
+model DataRetentionLog {
+  id                    String   @id @default(cuid())
+  runAt                 DateTime @default(now())
+  deletedCallbacks      Int      @default(0)
+  deletedCallSummaries  Int      @default(0)
+  deletedTranscripts   Int      @default(0)
+  success               Boolean
+  details               String?
+}
+
+/// Voice/API hívás napló (rate limit, consent=false események, audit).
+model VoiceApiLog {
+  id         String   @id @default(cuid())
+  endpoint   String
+  callId     String?
+  consent   Boolean?
+  success   Boolean
+  details   String?
+  createdAt  DateTime @default(now())
+  @@index([createdAt])
+}

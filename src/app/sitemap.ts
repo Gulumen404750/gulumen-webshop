@@ -1,9 +1,9 @@
 import type { MetadataRoute } from 'next'
-import { mockProducts, categories } from '@/lib/data'
+import { getAllProductsAsync, categories } from '@/lib/data'
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://gulumen.hu'
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
     { url: BASE_URL, lastModified: new Date(), changeFrequency: 'daily', priority: 1 },
     { url: `${BASE_URL}/termekek`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.9 },
@@ -23,12 +23,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.85,
   }))
 
-  const productPages: MetadataRoute.Sitemap = mockProducts.map((p) => ({
-    url: `${BASE_URL}/termek/${p.slug}`,
-    lastModified: new Date(),
-    changeFrequency: 'weekly' as const,
-    priority: 0.8,
-  }))
+  let productPages: MetadataRoute.Sitemap = []
+  try {
+    const products = await getAllProductsAsync()
+    productPages = products.map((p) => ({
+      url: `${BASE_URL}/termek/${p.slug}`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly' as const,
+      priority: 0.8,
+    }))
+  } catch {
+    // Build time or no DB: sitemap without product URLs
+  }
 
   return [...staticPages, ...categoryPages, ...productPages]
 }

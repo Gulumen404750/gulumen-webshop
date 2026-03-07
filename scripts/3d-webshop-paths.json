@@ -1,0 +1,4 @@
+[
+  { "input": "3d-source/noveny-kotozo.stl", "output": "noveny-kotozo.glb" },
+  { "input": "3d-source/szalveta-tarto-korok.stl", "output": "szalveta-tarto-korok.glb" }
+]

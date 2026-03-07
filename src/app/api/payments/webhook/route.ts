@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getPaymentTransactionById, updatePaymentTransactionStatus } from '@/lib/payment-transactions'
 import { getOrderById, setOrderStatus } from '@/lib/orders'
+import { markReservationsPaidByOrderId, markReservationsCanceledByOrderId } from '@/lib/reservations'
 import type { PaymentTransactionStatus } from '@/lib/payment-transactions'
 
 /**
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
 
     updatePaymentTransactionStatus(transactionId, newTxStatus, providerRef)
 
-    const order = getOrderById(tx.orderId)
+    const order = await getOrderById(tx.orderId)
     if (!order) {
       console.debug('[payments/webhook] Order not found for tx', tx.orderId)
       return NextResponse.json({ received: true })
@@ -81,14 +82,18 @@ export async function POST(request: Request) {
 
     if (newTxStatus === 'succeeded') {
       if (tx.mode === 'capture') {
-        setOrderStatus(order.id, 'paid')
+        await setOrderStatus(order.id, 'paid')
         console.debug('[payments/webhook] Order marked paid (capture)', order.id)
       } else {
-        setOrderStatus(order.id, 'sourcing_pending')
+        await setOrderStatus(order.id, 'sourcing_pending')
         console.debug('[payments/webhook] Order marked sourcing_pending (authorize)', order.id)
       }
+      await markReservationsPaidByOrderId(order.id)
     } else if (newTxStatus === 'failed' || newTxStatus === 'cancelled') {
-      setOrderStatus(order.id, 'cancelled')
+      if (tx.mode === 'authorize') {
+        await markReservationsCanceledByOrderId(order.id)
+      }
+      await setOrderStatus(order.id, 'cancelled')
       console.debug('[payments/webhook] Order marked cancelled', order.id)
     }
 

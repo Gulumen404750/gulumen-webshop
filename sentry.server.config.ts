@@ -1,0 +1,13 @@
+/**
+ * Sentry – szerver oldal. Csak ha SENTRY_DSN be van állítva.
+ */
+import * as Sentry from '@sentry/nextjs'
+
+const dsn = process.env.SENTRY_DSN
+if (dsn) {
+  Sentry.init({
+    dsn,
+    tracesSampleRate: 0.1,
+    environment: process.env.NODE_ENV,
+  })
+}

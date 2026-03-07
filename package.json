@@ -2,13 +2,25 @@
   "name": "gulumen-webshop",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "convert-3d": "node scripts/convert-3d.mjs",
+    "convert-3d:batch": "node scripts/convert-3d.mjs --batch",
+    "convert-3d:webshop": "node scripts/convert-3d.mjs --webshop",
+    "seed:products": "npx tsx scripts/seed-products.ts"
   },
   "dependencies": {
+    "@sentry/nextjs": "^8.0.0",
+    "pino": "^9.5.0",
+    "bcryptjs": "^2.4.3",
+    "jose": "^5.9.6",
+    "@prisma/client": "^6.0.0",
     "lucide-react": "^0.564.0",
     "next": "^14.2.0",
     "react": "^18.2.0",
@@ -17,6 +29,12 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@gltf-transform/cli": "^4.3.0",
+    "@polar3d/model-converter": "^1.1.1",
+    "prisma": "^6.0.0",
+    "three": "^0.170.0",
+    "@types/bcryptjs": "^2.4.6",
+    "pino-pretty": "^11.3.0",
     "@types/node": "^20.0.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",

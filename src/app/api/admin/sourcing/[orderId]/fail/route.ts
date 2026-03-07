@@ -2,36 +2,49 @@ import { NextResponse } from 'next/server'
 import { getOrderById, setOrderStatus } from '@/lib/orders'
 import { getPaymentTransactionsByOrderId, updatePaymentTransactionStatus } from '@/lib/payment-transactions'
 import { getPaymentProvider } from '@/lib/payment-provider'
+import { logAdminAction } from '@/lib/admin-audit'
+import { logger } from '@/lib/logger'
+import { markReservationsCanceledByOrderId } from '@/lib/reservations'
+import { requireAdmin } from '@/lib/admin-auth'
 
 /**
  * POST /api/admin/sourcing/:orderId/fail
  * Sourcing rendelés sikertelen: cancel a zárolt összeg, order → sourcing_failed.
- * TODO: automatikus értesítés (email) + kupon küldése a vásárlónak.
+ * Auth: admin cookie vagy x-admin-key header.
  */
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ orderId: string }> }
 ) {
   const { orderId } = await params
-  console.debug('[admin/sourcing/fail]', orderId)
+  logger.debug({ orderId }, 'admin/sourcing/fail')
 
   const adminKey = process.env.ADMIN_API_KEY
-  if (!adminKey) {
-    console.error('[admin/sourcing/fail] ADMIN_API_KEY not configured')
-    return NextResponse.json({ error: 'Admin not configured' }, { status: 503 })
-  }
-  const key = _request.headers.get('x-admin-key')
-  if (key !== adminKey) {
+  const cookieAuth = await requireAdmin()
+  const keyAuth = adminKey && request.headers.get('x-admin-key') === adminKey
+  if (!cookieAuth && !keyAuth) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  if (!adminKey && !cookieAuth) {
+    return NextResponse.json({ error: 'Admin not configured' }, { status: 503 })
+  }
 
-  const order = getOrderById(orderId)
+  const order = await getOrderById(orderId)
   if (!order) {
     return NextResponse.json({ error: 'Order not found' }, { status: 404 })
   }
   if (order.orderType !== 'sourcing') {
     return NextResponse.json(
       { error: 'Order is not a sourcing order' },
+      { status: 400 }
+    )
+  }
+  if (order.status === 'sourcing_failed') {
+    return NextResponse.json({ success: true, orderId, status: 'sourcing_failed' })
+  }
+  if (order.status === 'fulfilled' || order.status === 'paid') {
+    return NextResponse.json(
+      { error: 'Order already captured' },
       { status: 400 }
     )
   }
@@ -51,7 +64,8 @@ export async function POST(
   })
 
   if (!result.success) {
-    console.error('[admin/sourcing/fail] cancel failed', result.error)
+    logger.error({ orderId, error: result.error }, 'admin/sourcing/fail cancel failed')
+    await logAdminAction({ action: 'sourcing_fail', orderId, success: false, details: result.error })
     return NextResponse.json(
       { error: result.error || 'Cancel failed' },
       { status: 500 }
@@ -59,9 +73,10 @@ export async function POST(
   }
 
   updatePaymentTransactionStatus(authTx.id, 'cancelled')
-  setOrderStatus(orderId, 'sourcing_failed')
+  await markReservationsCanceledByOrderId(orderId)
+  await setOrderStatus(orderId, 'sourcing_failed')
+  await logAdminAction({ action: 'sourcing_fail', orderId, success: true })
 
-  // TODO: értesítés + kupon (pl. sendSourcingFailedNotification(order), issueCompensationCoupon(order))
-  console.debug('[admin/sourcing/fail] order sourcing_failed', orderId)
+  logger.debug({ orderId }, 'admin/sourcing/fail order sourcing_failed')
   return NextResponse.json({ success: true, orderId, status: 'sourcing_failed' })
 }

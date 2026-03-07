@@ -9,11 +9,11 @@ import { useAuth } from '@/context/AuthContext'
 import { useLocale } from '@/context/LocaleContext'
 import { useEuroRate } from '@/context/EuroRateContext'
 import { trackBeginCheckout } from '@/lib/analytics'
-import { getProductById, getTimedPurchaseStatus } from '@/lib/data'
+import { getProductById, getProductName } from '@/lib/data'
 
 export default function PaymentPage() {
   const router = useRouter()
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   const { userId } = useAuth()
   const { items, subtotalHuf, discountHuf, totalHuf, isDiscountActive } = useCart()
   const { isDiscountActive: couponActive, discountPercent } = useCatCoupon()
@@ -63,14 +63,7 @@ export default function PaymentPage() {
       setError(t('payment.emailInvalid') || 'Érvényes e-mail címet adj meg.')
       return
     }
-    const now = new Date()
-    for (const item of items) {
-      const product = getProductById(item.productId)
-      if (product?.type === 'sourcing_deal' && getTimedPurchaseStatus(product, now) !== 'ACTIVE') {
-        setError(t('payment.timedOfferNoLongerAvailable'))
-        return
-      }
-    }
+    // Timed offer validity: decided by /api/checkout (fresh ordersCount + server now). No client-side block.
     setLoading(true)
     trackBeginCheckout(displayTotalHuf)
     try {
@@ -78,7 +71,11 @@ export default function PaymentPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          items: items.map(({ productId, qty }) => ({ productId, qty })),
+          items: items.map(({ productId, qty, options }) => ({
+            productId,
+            qty,
+            ...(options && (options.colorName != null || options.colorHex != null || options.materialName != null) ? { options } : {}),
+          })),
           customer: { email },
           isDiscountActive: couponActive,
           discountPercent: couponActive ? discountPercent : undefined,
@@ -86,7 +83,7 @@ export default function PaymentPage() {
       })
       const data = await res.json()
       if (!res.ok) {
-        const isTimedOfferError = res.status === 400 && data.error?.includes('timed')
+        const isTimedOfferError = res.status === 400 && (data.code === 'timed_offer_unavailable' || data.error?.includes('timed'))
         setError(isTimedOfferError ? t('payment.timedOfferNoLongerAvailable') : (data.error || t('payment.errorCreateSession')))
         setLoading(false)
         return
@@ -133,6 +130,26 @@ export default function PaymentPage() {
 
       <section className="mb-8 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
         <h2 className="font-heading text-lg font-semibold text-foreground mb-4">{t('payment.summary')}</h2>
+        {items.length > 0 && (
+          <ul className="mb-4 space-y-1 text-sm text-muted border-b border-[var(--border)] pb-3">
+            {items.map((item) => {
+              const product = getProductById(item.productId)
+              const name = product ? getProductName(product, locale) : item.productId
+              return (
+                <li key={item.productId} className="flex justify-between gap-2">
+                  <span className="truncate">{name} × {item.qty}</span>
+                  {(item.options?.colorName || item.options?.materialName) && (
+                    <span className="shrink-0">
+                      {item.options?.materialName && <span>{t('product.material') || 'Anyag'}: {item.options.materialName}</span>}
+                      {item.options?.materialName && item.options?.colorName && ' · '}
+                      {item.options?.colorName && <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>}
+                    </span>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        )}
         <div className="space-y-2">
           <div className="flex justify-between text-foreground">
             <span>{t('cart.subtotal')}</span>

@@ -152,6 +152,7 @@
     "sourcingCardLabel": "Limitált elérhetőség · 7–14 nap",
     "stockLabel": "Készleten · Feladás 24–48 óra",
     "inStockCount": "raktáron: {count} db elérhető.",
+    "inStockUnlimited": "rendelhető bármennyi darab",
     "inCartCount": "Kosárban: {count} db.",
     "shippingNote": "Szállítás:",
     "noImage": "Termék kép",
@@ -167,13 +168,25 @@
     "zoomReset": "Eredeti méret",
     "view360": "360° megtekintés",
     "view360Hint": "Húzd balra-jobbra a forgatáshoz",
+    "loadingModel": "3D modell betöltése…",
+    "view3D": "Forgasd körbe (3D)",
+    "backToImage": "Vissza a képhez",
+    "color": "Szín",
+    "fullscreen3D": "Nagyítás / Teljes képernyő",
     "similarProducts": "Hasonló termékek",
     "recentlyViewed": "Utoljára megtekintett termékek",
     "like": "Kedvelés",
     "unlike": "Kedvelés visszavonása",
     "likesCount": "{count} kedveli",
     "popular": "Népszerű termék",
-    "badge3D": "3D Nyomtatott"
+    "badge3D": "3D Nyomtatott",
+    "selectColorToAdd": "Válaszd ki a színt és az anyagot (PLA/PETG) a kosárba tétel előtt.",
+    "selectColorHint": "A kosárba a kiválasztott szín kerül; a termékfotó csak illusztráció.",
+    "material": "Anyag",
+    "materialInfoTitle": "PLA és PETG – tulajdonságok",
+    "materialPla": "Biobázisú. Belső és kerti használatra ideális. Kevésbé hőálló, kevésbé ütésálló.",
+    "materialPetg": "Erősebb, rugalmasabb, jobban ellenáll a hőnek és az ütésnek. Konyha, tartós használat.",
+    "selectMaterialAndColorToAdd": "Válaszd ki a színt és az anyagot (PLA/PETG) a kosárba tétel előtt."
   },
   "coupon": {
     "title": "🎁 5% kedvezmény ajándékba",
@@ -198,6 +211,7 @@
     "closedLabel": "Lejárt ajánlat – a vásárlási időszak véget ért.",
     "availableFromLabel": "Ekkortól elérhető: {when}",
     "expiredShort": "Lejárt",
+    "archivingSoon": "Hamarosan archiválásra kerül",
     "legal": "A rendelés leadását követően a beszerzés egyedi beszerzési csatornán keresztül történik.\n\nSikeres beszerzés esetén a termék kiszállítása 7–14 munkanapon belül történik.\n\nAmennyiben a termék a megadott árkereten belül nem biztosítható, a rendelés törlésre kerül, és a teljes összeg 1–3 munkanapon belül visszatérítésre kerül."
   },
   "register": {
@@ -263,6 +277,7 @@
   },
   "pages": {
     "productsTitle": "Termékek",
+    "products3DSubtitle": "Magyar gyártású, rendelésre készülő termékek",
     "newTitle": "Újdonságok",
     "dealsTitle": "Akciók",
     "shippingTitle": "Szállítási információk",
@@ -301,6 +316,41 @@
       "legalIntro": "Jelen webáruház az Európai Unió fogyasztóvédelmi szabályainak megfelelően működik.",
       "legalLinkLabel": "A részletes jogi feltételek itt olvashatók:"
     }
+  },
+  "callUs": {
+    "title": "Hívj minket",
+    "tabCall": "Telefonszám",
+    "tabCallback": "Kérj visszahívást",
+    "desktopHint": "Asztali gépről a híváshoz használd a mobilodat, vagy olvasd be a QR kódot.",
+    "callNumber": "Hívás ezen a számon",
+    "qrHint": "Olvasd be a QR kódot mobilról – egy kattintással felhívod az ügyfélszolgálatot.",
+    "recordingNotice": "A hívás rögzítésre vagy átiratozásra kerülhet. Részletek:",
+    "recordingNoticeLink": "Telefonos adatkezelés",
+    "callbackName": "Név",
+    "callbackNamePlaceholder": "Add meg a neved",
+    "callbackPhone": "Telefonszám",
+    "callbackPhonePlaceholder": "+36...",
+    "callbackTopic": "Téma (röviden)",
+    "callbackTopicPlaceholder": "Pl. rendelés, szállítás, partneri megkeresés",
+    "callbackTime": "Mikor hívjunk vissza?",
+    "callbackTimePlaceholder": "Mikor hívjunk vissza?",
+    "callbackOptionImmediate": "Azonnali (5–10 percen belül)",
+    "callbackOptionLater": "Később (válassz dátumot és órát)",
+    "callbackDate": "Dátum",
+    "callbackHour": "Óra",
+    "callbackSubmit": "Visszahívás kérése",
+    "callbackSending": "Küldés...",
+    "callbackSuccess": "Köszönjük! Hamarosan visszahívunk.",
+    "callbackError": "A kérés sikertelen. Próbáld újra vagy írj e-mailt.",
+    "callbackErrorRequired": "Név és telefonszám kötelező."
+  },
+  "callUsDataProtection": {
+    "title": "Telefonos ügyfélszolgálat – rögzítés és átirat",
+    "why": "A hívások minőségbiztosítás és ügyintézés céljából rögzítésre vagy automatikus átiratozásra kerülhetnek (ha a hívó hozzájárul).",
+    "storage": "Az átirat és a rögzítés a szükséges ideig, legfeljebb a jogi megtartási kötelezettségnek megfelelően tároljuk.",
+    "access": "Hozzáférnek: az ügyfélszolgálat és a jogosult munkatársak a ügyintézéshez szükséges mértékben.",
+    "deletion": "Törlés vagy korlátozás kéréséhez írj a megadott e-mail címre; kérésedet indoklással kezeljük.",
+    "contact": "Elérhetőség (adatkezelés, törlés):"
   },
   "ai": {
     "greeting": "Szia! Miben segíthetek? Kérdezz bátran a termékekről, szállításról vagy visszaküldésről.",

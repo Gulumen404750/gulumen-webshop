@@ -1,14 +1,15 @@
 import type { Metadata } from 'next'
-import { getProductBySlug } from '@/lib/data'
+import { getProductBySlugAsync } from '@/lib/data'
 import { categories } from '@/lib/data'
 
 const SITE_NAME = 'Gulumen'
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://gulumen.hu'
 
-type Props = { params: { slug: string }; children: React.ReactNode }
+type Props = { params: Promise<{ slug: string }>; children: React.ReactNode }
 
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const product = getProductBySlug(params.slug)
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params
+  const product = await getProductBySlugAsync(slug)
   if (!product) {
     return { title: 'Termék nem található – ' + SITE_NAME }
   }
@@ -45,6 +46,6 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   }
 }
 
-export default function ProductLayout({ params, children }: Props) {
+export default async function ProductLayout({ params, children }: Props) {
   return <>{children}</>
 }

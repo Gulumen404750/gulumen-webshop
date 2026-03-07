@@ -33,7 +33,7 @@ export async function GET(request: Request) {
         { status: 404 }
       )
     }
-    const order = getOrderById(orderId)
+    const order = await getOrderById(orderId)
     if (!order) {
       return NextResponse.json(
         { error: 'Order not found' },
