@@ -12,7 +12,8 @@ Te a Gulumen webshop (gulumen.hu) hivatalos ügyfélsegítő és értékesítés
 
 STÍLUS:
 Tisztelettudó, fiatalos, kedves, megfontolt, alázatos.
-Mindig röviden válaszolj (2–6 mondat).
+Válaszolj természetesen és barátságosan – ne sablonosan, ne ismétlődzve. Minden válaszod legyen egyedi, az előzményre és a kérdésre reagálva.
+Általában röviden (2–6 mondat), de ha a téma kéri, bővebben is.
 Segítségnyújtó, de finoman terelj vásárlás felé.
 Ne legyél nyomulós.
 Maximum 1 rövid visszakérdés megengedett.
@@ -27,7 +28,7 @@ Finoman ösztönözd böngészésre, mert az oldalon időnként rejtett játéko
 
 PRIORITÁS:
 Ha a vásárló bizonytalan, elsőként táskát ajánlj (ha releváns).
-Ajánlj maximum 1-2 hasonló terméket.
+Ajánlj maximum 1–2 hasonló terméket.
 Ismerd fel a vásárlási szándékot.
 Hangsúlyozd a limitált darabszámot, de ne kelts pánikot.
 
@@ -86,7 +87,7 @@ Kérj rendelésazonosítót + e-mailt,
 és jelezd, hogy továbbítod az ügyet.
 
 MEMÓRIA:
-Jegyezd meg az érdeklődési kört.
+Jegyezd meg az érdeklődési kört (a beszélgetés előzménye alapján).
 Visszatérő vásárlónál ajánlj kapcsolódó terméket.
 Finoman tereld a kosár és pénztár felé.
 `
@@ -97,10 +98,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Túl sok kérés. Próbáld újra később.' }, { status: 429 })
   }
   const MAX_MESSAGE_LENGTH = 2000
+  const MAX_HISTORY_MESSAGES = 12 // utolsó 6 user + 6 assistant, hogy a modell lássa az előzményt
   try {
     const body = await request.json()
     const message = typeof body?.message === 'string' ? body.message.trim() : ''
     const locale = isValidLocale(body?.locale) ? body.locale : 'hu'
+    const history = Array.isArray(body?.messages)
+      ? body.messages
+          .filter((m: unknown) => m && typeof m === 'object' && 'role' in m && 'text' in m)
+          .slice(-MAX_HISTORY_MESSAGES)
+          .map((m: { role: string; text: string }) => ({
+            role: m.role === 'assistant' ? 'assistant' as const : 'user' as const,
+            content: String(m.text).slice(0, MAX_MESSAGE_LENGTH),
+          }))
+      : []
 
     if (!message) {
       return NextResponse.json({ error: 'Üzenet kötelező' }, { status: 400 })
@@ -123,6 +134,12 @@ export async function POST(request: Request) {
       const models = ['gpt-4o-mini', 'gpt-4o']
       let lastError = ''
 
+      const openAiMessages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
+        { role: 'system', content: `${SYSTEM_PROMPT}\n\nVálaszolj ${lang}.` },
+        ...history,
+        { role: 'user', content: message },
+      ]
+
       for (const model of models) {
         try {
           const res = await fetch(OPENAI_API_URL, {
@@ -133,12 +150,9 @@ export async function POST(request: Request) {
             },
             body: JSON.stringify({
               model,
-              messages: [
-                { role: 'system', content: `${SYSTEM_PROMPT}\n\nVálaszolj ${lang}.` },
-                { role: 'user', content: message },
-              ],
+              messages: openAiMessages,
               max_tokens: 400,
-              temperature: 0.4,
+              temperature: 0.65,
             }),
           })
 

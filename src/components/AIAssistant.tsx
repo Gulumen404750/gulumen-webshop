@@ -25,11 +25,12 @@ export function AIAssistant() {
     setInput('')
     setMessages((m) => [...m, { role: 'user', text }])
     setLoading(true)
+    const previousMessages = messages.map((m) => ({ role: m.role, text: m.text }))
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, locale }),
+        body: JSON.stringify({ message: text, locale, messages: previousMessages }),
       })
       const data = await res.json().catch(() => ({}))
       if (res.ok && typeof data?.text === 'string') {

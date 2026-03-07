@@ -3,7 +3,7 @@ import Stripe from 'stripe'
 import { z } from 'zod'
 import { getProductByIdAsync, getTimedPurchaseStatus } from '@/lib/data'
 import type { Product } from '@/lib/data'
-import { createOrder, type OrderItem } from '@/lib/orders'
+import { createOrder, getProductOrdersCount, type OrderItem } from '@/lib/orders'
 import { getLoyaltyByEmail } from '@/lib/loyalty'
 import { rateLimit } from '@/lib/rate-limit'
 
@@ -121,7 +121,8 @@ export async function POST(request: Request) {
       )
     }
     if (product.type === 'sourcing_deal') {
-      const timedStatus = getTimedPurchaseStatus(product, now)
+      const ordersCount = await getProductOrdersCount(item.productId)
+      const timedStatus = getTimedPurchaseStatus(product, now, ordersCount)
       if (timedStatus !== 'ACTIVE') {
         return NextResponse.json(
           { error: 'One or more timed offers are no longer available (not started or expired). Please update your cart.' },
