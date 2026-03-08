@@ -11,7 +11,7 @@ Ezeket a változókat állítsd be a **Railway → Project → Variables** felü
 | **NODE_ENV** | `production` (Railway gyakran automatikusan beállítja) |
 | **DATABASE_URL** | Postgres connection string. Pl. Railway Postgres: `postgresql://user:pass@host:5432/railway?sslmode=require` |
 | **JWT_SECRET** | Legalább 16 karakter. Pl. generálás: `openssl rand -hex 32` |
-| **ADMIN_API_KEY** | Titkos kulcs az admin belépéshez (x-admin-key header). Pl. `openssl rand -hex 32` |
+| **ADMIN_API_KEY** | **Név (Railway Name):** `ADMIN_API_KEY` – ne töröld. **Érték (Value – hova írod):** a generált titkos kulcs (pl. `openssl rand -hex 32`). Részletesen: [Admin API kulcs beállítása](ADMIN-API-KULCS-BEALLITAS.md) |
 | **NEXT_PUBLIC_APP_URL** | Az alkalmazás publikus URL-je. Pl. `https://www.gulumen.com` |
 
 ---

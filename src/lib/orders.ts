@@ -538,29 +538,66 @@ function getProductOrdersCountsFromJson(productIds: string[]): Record<string, nu
   return result
 }
 
-/**
- * Sourcing deal: egy termékre a rendelt mennyiség (DB vagy JSON).
- * DB elérhetetlenség esetén fallback JSON-ra (vagy 0), ne dobjon.
- */
-export async function getProductOrdersCount(productId: string): Promise<number> {
-  if (!isDbConfigured()) return getProductOrdersCountFromJson(productId)
+const ORDERS_COUNT_RETRY_ATTEMPTS = 4
+const ORDERS_COUNT_RETRY_DELAY_MS = 400
+const ORDERS_COUNT_LAST_RETRY_DELAY_MS = 2000
+
+/** DB lekérdezés újrapróbálása deploy / átmeneti kapcsolat után, ne nullázzon a számolás. */
+async function withRetry<T>(fn: () => Promise<T>, attempt = 1): Promise<T> {
   try {
-    const agg = await prisma.orderItem.aggregate({
-      where: {
-        productId,
-        order: { status: { in: [...SOURCING_COUNT_STATUSES] } },
-      },
-      _sum: { qty: true },
-    })
-    return agg._sum.qty ?? 0
+    return await fn()
   } catch (err) {
-    logger.warn({ err, productId }, 'DB unreachable for orders count, falling back to JSON')
-    return getProductOrdersCountFromJson(productId)
+    const isLast = attempt >= ORDERS_COUNT_RETRY_ATTEMPTS
+    const isProduction = process.env.NODE_ENV === 'production'
+    const delay = isLast && isProduction ? ORDERS_COUNT_LAST_RETRY_DELAY_MS : ORDERS_COUNT_RETRY_DELAY_MS * attempt
+    if (isLast) throw err
+    await new Promise((r) => setTimeout(r, delay))
+    return withRetry(fn, attempt + 1)
   }
 }
 
 /**
- * Több termék ordersCount-ja egy batch queryvel (groupBy). DB hiba esetén JSON fallback.
+ * Sourcing deal: egy termékre a rendelt mennyiség (DB vagy JSON).
+ * DB esetén újrapróbálkozás deploy/refresh után, hogy ne nullázzon a számolás. Ne dobjon.
+ */
+export async function getProductOrdersCount(productId: string): Promise<number> {
+  if (!isDbConfigured()) return getProductOrdersCountFromJson(productId)
+  try {
+    return await withRetry(async () => {
+      const agg = await prisma.orderItem.aggregate({
+        where: {
+          productId,
+          order: { status: { in: [...SOURCING_COUNT_STATUSES] } },
+        },
+        _sum: { qty: true },
+      })
+      return agg._sum.qty ?? 0
+    })
+  } catch (err) {
+    logger.warn({ err, productId }, 'DB unreachable for orders count after retries, falling back to JSON')
+    const jsonCount = getProductOrdersCountFromJson(productId)
+    if (process.env.NODE_ENV === 'production' && jsonCount === 0) {
+      await new Promise((r) => setTimeout(r, 3000))
+      try {
+        const agg = await prisma.orderItem.aggregate({
+          where: {
+            productId,
+            order: { status: { in: [...SOURCING_COUNT_STATUSES] } },
+          },
+          _sum: { qty: true },
+        })
+        return agg._sum.qty ?? 0
+      } catch {
+        // marad 0, de legalább nem dob
+      }
+    }
+    return jsonCount
+  }
+}
+
+/**
+ * Több termék ordersCount-ja egy batch queryvel (groupBy).
+ * DB esetén újrapróbálkozás deploy/refresh után; élesben üres JSON fallbackot kerüljük, ne nullázzon.
  */
 export async function getProductOrdersCounts(productIds: string[]): Promise<Record<string, number>> {
   const empty = productIds.length === 0
@@ -569,21 +606,44 @@ export async function getProductOrdersCounts(productIds: string[]): Promise<Reco
   if (empty) return result
   if (!isDbConfigured()) return getProductOrdersCountsFromJson(productIds)
   try {
-    const rows = await prisma.orderItem.groupBy({
-      by: ['productId'],
-      _sum: { qty: true },
-      where: {
-        productId: { in: productIds },
-        order: { status: { in: [...SOURCING_COUNT_STATUSES] } },
-      },
-    })
+    const rows = await withRetry(async () =>
+      prisma.orderItem.groupBy({
+        by: ['productId'],
+        _sum: { qty: true },
+        where: {
+          productId: { in: productIds },
+          order: { status: { in: [...SOURCING_COUNT_STATUSES] } },
+        },
+      })
+    )
     for (const row of rows) {
       if (result[row.productId] !== undefined) result[row.productId] = row._sum.qty ?? 0
     }
     return result
   } catch (err) {
-    logger.warn({ err, productIds }, 'DB unreachable for orders counts batch, falling back to JSON')
-    return getProductOrdersCountsFromJson(productIds)
+    logger.warn({ err, productIds }, 'DB unreachable for orders counts batch after retries, falling back to JSON')
+    const jsonResult = getProductOrdersCountsFromJson(productIds)
+    const jsonIsEmpty = Object.values(jsonResult).every((c) => c === 0)
+    if (process.env.NODE_ENV === 'production' && jsonIsEmpty) {
+      await new Promise((r) => setTimeout(r, 3000))
+      try {
+        const rows = await prisma.orderItem.groupBy({
+          by: ['productId'],
+          _sum: { qty: true },
+          where: {
+            productId: { in: productIds },
+            order: { status: { in: [...SOURCING_COUNT_STATUSES] } },
+          },
+        })
+        for (const row of rows) {
+          if (result[row.productId] !== undefined) result[row.productId] = row._sum.qty ?? 0
+        }
+        return result
+      } catch {
+        // marad 0, ne dobjon
+      }
+    }
+    return jsonResult
   }
 }
 

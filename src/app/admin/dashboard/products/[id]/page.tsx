@@ -48,11 +48,23 @@ export default function AdminProductEditPage() {
 
   useEffect(() => {
     if (isNew) return
-    fetch(`/api/admin/products/${id}`)
-      .then((r) => r.json())
+    setLoading(true)
+    fetch(`/api/admin/products/${id}`, { credentials: 'include' })
+      .then((r) => {
+        if (r.status === 401) {
+          setMessage({ type: 'error', text: 'Nincs jogosultság. Jelentkezz be: Admin belépés (API kulcs).' })
+          return {}
+        }
+        if (r.status === 503) {
+          setMessage({ type: 'error', text: 'Adatbázis nincs beállítva (DATABASE_URL a Railway-en).' })
+          return {}
+        }
+        return r.json()
+      })
       .then((data) => {
         if (data.product) setProduct(data.product)
       })
+      .catch(() => setMessage({ type: 'error', text: 'Hálózati hiba.' }))
       .finally(() => setLoading(false))
   }, [id, isNew])
 
@@ -126,10 +138,19 @@ export default function AdminProductEditPage() {
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(body),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
+        if (res.status === 401) {
+          setMessage({ type: 'error', text: 'Nincs jogosultság. Jelentkezz be újra az admin kulccsal.' })
+          return
+        }
+        if (res.status === 503) {
+          setMessage({ type: 'error', text: 'Adatbázis nincs beállítva (DATABASE_URL).' })
+          return
+        }
         setMessage({ type: 'error', text: data?.error || 'Hiba történt' })
         return
       }

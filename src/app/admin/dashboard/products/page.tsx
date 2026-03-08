@@ -21,16 +21,29 @@ export default function AdminProductsPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    setError(null)
     const params = new URLSearchParams()
     if (search) params.set('search', search)
     if (typeFilter) params.set('type', typeFilter)
-    fetch(`/api/admin/products?${params}`)
-      .then((r) => r.json())
+    fetch(`/api/admin/products?${params}`, { credentials: 'include' })
+      .then((r) => {
+        if (r.status === 401) {
+          setError('Nincs jogosultság. Jelentkezz be: Admin belépés (API kulcs).')
+          return { products: [] }
+        }
+        if (r.status === 503) {
+          setError('Adatbázis nincs beállítva. Railway: DATABASE_URL változó kötelező a termékekhez.')
+          return { products: [] }
+        }
+        return r.json()
+      })
       .then((data) => {
         if (data.products) setProducts(data.products)
       })
+      .catch(() => setError('Hálózati hiba. Próbáld újra.'))
       .finally(() => setLoading(false))
   }, [search, typeFilter])
 
@@ -45,6 +58,16 @@ export default function AdminProductsPage() {
           Új termék
         </Link>
       </div>
+
+      {error && (
+        <div className="rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-amber-700 dark:text-amber-400">
+          <p className="font-medium">Hiba</p>
+          <p className="text-sm mt-1">{error}</p>
+          {error.includes('Jelentkezz be') && (
+            <a href="/admin/login" className="text-sm underline mt-2 inline-block">→ Admin belépés</a>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-4">
         <input
