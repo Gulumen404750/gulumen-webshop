@@ -68,6 +68,16 @@ export default function AdminLayout({
         </div>
       </aside>
       <main className="flex-1 min-w-0 p-6 text-foreground overflow-auto">
+        {pathname !== '/admin/dashboard' && (
+          <div className="mb-4">
+            <Link
+              href="/admin/dashboard"
+              className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-[var(--border)]/30"
+            >
+              ← Admin (Áttekintés)
+            </Link>
+          </div>
+        )}
         {children}
       </main>
     </div>
