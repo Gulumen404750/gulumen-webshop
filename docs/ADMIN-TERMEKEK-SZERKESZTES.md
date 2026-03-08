@@ -1,5 +1,7 @@
 # Admin: termékek szerkesztése (képek, árak, új termék)
 
+**Minden módosítás csak a www.gulumen.com/admin felületen történik** – a főoldal, Termékek, Akciók, Újdonságok és a termékoldalak automatikusan az adminban (illetve az adatbázisban) beállított adatokat mutatják. Nem kell kódot írni: amit az adminban mentesz, az megjelenik mindenhol.
+
 Ha az admin felületen **nem tudod módosítani a képeket, árakat**, vagy **felrakni új termékeket**, általában két dolog egyike hiányzik.
 
 ---
