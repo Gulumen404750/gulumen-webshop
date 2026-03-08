@@ -75,5 +75,5 @@ export async function POST(request: Request) {
     )
   }
 
-  return NextResponse.json({ url: `/uploads/${filename}` })
+  return NextResponse.json({ success: true, url: `/uploads/${filename}` })
 }

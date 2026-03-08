@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { categories, threeDSubcategories } from '@/lib/data'
+import { ProductImageUploader } from '@/components/ProductImageUploader'
 
 type Product = {
   id: string
@@ -51,8 +52,6 @@ export default function AdminProductEditPage() {
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null)
-  const mainImageInputRef = useRef<HTMLInputElement>(null)
-  const galleryImageInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (isNew) return
@@ -486,55 +485,17 @@ export default function AdminProductEditPage() {
               className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Fő kép URL</label>
-            <p className="text-xs text-muted mb-1">
-              <strong>Gépről feltöltés</strong> (ajánlott): kattints a „Feltöltés (gépről)” gombra – elfogadott formátumok: <strong>JPEG, PNG, WebP, GIF</strong> (max 25 MB). A kép automatikusan megjelenik. Élesben (pl. Railway) a feltöltött fájlok deploy után törlődhetnek – külső tároló ajánlott.
+          <div className="sm:col-span-2">
+            <ProductImageUploader
+              label="Fő kép"
+              value={product?.image ?? ''}
+              onChange={(url) => setProduct((p) => (p ? { ...p, image: url } : p))}
+              showUrlInput={true}
+              urlPlaceholder="https://… vagy húzd ide / kattints a feltöltéshez"
+            />
+            <p className="text-xs text-muted mt-2">
+              Gépről: húzd a képet vagy kattints — JPEG, PNG, WebP, GIF (max 25 MB). Külső link: pl. Google Drive közvetlen képlink.
             </p>
-            <p className="text-xs text-muted mb-1">
-              <strong>Külső link (Google Drive):</strong> a normál „Megosztás” link nem jeleníti meg a képet. Használd a közvetlen képlinket: Drive-ban nyisd meg a fájlt → Megosztás → „Link birtokosa bárki” → másold a linket (pl. <code className="bg-[var(--border)] px-1 rounded">…/d/ABC123XYZ/view</code>). A képlink: <code className="bg-[var(--border)] px-1 rounded">https://drive.google.com/uc?export=view&amp;id=ABC123XYZ</code> – az <code className="bg-[var(--border)] px-1 rounded">id=</code> után lévő részt illeszd be. Imgur, Cloudinary stb. esetén a közvetlen kép URL-t add meg.
-            </p>
-            <div className="flex flex-wrap gap-2 items-center">
-              <input
-                value={product?.image ?? ''}
-                onChange={(e) => setProduct((p) => ({ ...p, image: e.target.value }))}
-                placeholder="https://… vagy kattints a Feltöltés gombra"
-                className="flex-1 min-w-[200px] rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
-              />
-              <input
-                ref={mainImageInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                className="hidden"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0]
-                  if (!file) return
-                  const form = new FormData()
-                  form.append('file', file)
-                  setMessage(null)
-                  try {
-                    const res = await fetch('/api/admin/upload', { method: 'POST', credentials: 'include', body: form })
-                    const data = await res.json().catch(() => ({}))
-                    if (res.ok && data.url) {
-                      setProduct((p) => ({ ...p, image: data.url }))
-                      setMessage({ type: 'ok', text: 'Fő kép feltöltve.' })
-                    } else {
-                      setMessage({ type: 'error', text: data?.error || 'Feltöltés sikertelen. (Ellenőrizd a bejelentkezést és a fájlméretet.)' })
-                    }
-                  } catch {
-                    setMessage({ type: 'error', text: 'Feltöltés hiba. (Hálózat vagy szerver.)' })
-                  }
-                  e.target.value = ''
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => mainImageInputRef.current?.click()}
-                className="shrink-0 rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-[var(--border)]/30"
-              >
-                Feltöltés (gépről)
-              </button>
-            </div>
           </div>
         </div>
 
@@ -566,37 +527,15 @@ export default function AdminProductEditPage() {
                 </button>
               </div>
             ))}
-            <div className="flex flex-wrap gap-2">
-              <input
-                ref={galleryImageInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                className="hidden"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0]
-                  if (!file) return
-                  const form = new FormData()
-                  form.append('file', file)
-                  try {
-                    const res = await fetch('/api/admin/upload', { method: 'POST', credentials: 'include', body: form })
-                    const data = await res.json().catch(() => ({}))
-                    if (res.ok && data.url) {
-                      setProduct((p) => ({ ...p, images: [...(p?.images ?? []), data.url] }))
-                      setMessage({ type: 'ok', text: 'Galéria kép hozzáadva.' })
-                    } else setMessage({ type: 'error', text: data?.error || 'Feltöltés sikertelen.' })
-                  } catch {
-                    setMessage({ type: 'error', text: 'Feltöltés hiba.' })
-                  }
-                  e.target.value = ''
-                }}
+            <div className="flex flex-wrap gap-2 items-start">
+              <ProductImageUploader
+                label="+ Kép feltöltése a gépről (húzd ide vagy kattints)"
+                value=""
+                onChange={() => {}}
+                showUrlInput={false}
+                mode="add"
+                onAddUrl={(url) => setProduct((p) => (p ? { ...p, images: [...(p?.images ?? []), url] } : p))}
               />
-              <button
-                type="button"
-                onClick={() => galleryImageInputRef.current?.click()}
-                className="rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-sm text-muted hover:bg-[var(--border)]/20"
-              >
-                + Kép feltöltése a gépről
-              </button>
               <button
                 type="button"
                 onClick={() => setProduct((p) => ({ ...p, images: [...(p?.images ?? []), ''] }))}
