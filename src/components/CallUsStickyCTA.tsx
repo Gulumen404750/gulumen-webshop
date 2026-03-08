@@ -13,7 +13,7 @@ export function CallUsStickyCTA() {
   const { t } = useLocale()
 
   return (
-    <div className="fixed bottom-4 right-4 z-40 md:hidden" aria-label={t('callUs.title')}>
+    <div className="fixed bottom-4 right-4 z-40 md:hidden" style={{ right: 'max(1rem, env(safe-area-inset-right))', bottom: 'max(1rem, env(safe-area-inset-bottom))' }} aria-label={t('callUs.title')}>
       <a
         href={TEL_LINK}
         className="flex items-center justify-center w-14 h-14 rounded-full bg-accent text-white shadow-lg hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent"
@@ -23,4 +23,3 @@ export function CallUsStickyCTA() {
       </a>
     </div>
   )
-}

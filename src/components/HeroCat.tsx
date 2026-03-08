@@ -214,7 +214,7 @@ export function HeroCat() {
           cursor-pointer
           transition-[left,top,transform] duration-500
           hover:scale-110 active:scale-95
-          z-[5]
+          z-[25]
         `}
         onClick={handleCatClick}
         onKeyDown={(e) => e.key === 'Enter' && handleCatClick()}

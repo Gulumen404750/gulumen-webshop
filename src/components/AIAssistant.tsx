@@ -57,7 +57,10 @@ export function AIAssistant() {
 
   return (
     <>
-      <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3">
+      <div
+        className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3 max-md:hidden"
+        style={{ right: 'max(1rem, env(safe-area-inset-right, 1rem))', bottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))' }}
+      >
         {/* Hívj minket – piros tárcsázós telefon kép, hoverra cseng és rezeg */}
         <button
           type="button"
