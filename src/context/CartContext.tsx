@@ -5,6 +5,7 @@ import { useCatCoupon } from './CatCouponContext'
 import { useSourcingDealOrders } from './SourcingDealOrdersContext'
 import { useProducts } from './ProductsContext'
 import { getProductById as getProductByIdFromData, getMaxQty } from '@/lib/data'
+import type { Product } from '@/lib/data'
 
 const CART_STORAGE_KEY = 'gulumen-cart'
 
@@ -52,7 +53,8 @@ export type CartItem = {
 
 type CartContextValue = {
   items: CartItem[]
-  addItem: (productId: string, qty?: number, options?: CartItemOptions) => void
+  /** productSnapshot: ha a termékoldalról hívod, add át a product-ot, így a kosárba tétel nem függ a ProductsContext betöltésétől. */
+  addItem: (productId: string, qty?: number, options?: CartItemOptions, productSnapshot?: Product) => void
   removeItem: (productId: string, options?: CartItemOptions) => void
   updateQty: (productId: string, qty: number, options?: CartItemOptions) => void
   clearCart: () => void
@@ -122,9 +124,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [items, mounted])
 
   const addItem = useCallback(
-    (productId: string, qty = 1, options?: CartItemOptions) => {
+    (productId: string, qty = 1, options?: CartItemOptions, productSnapshot?: Product) => {
     setItems((prev) => {
-      const product = getProductById(productId)
+      const product = productSnapshot ?? getProductById(productId)
       if (!product) return prev
       const normalizedOptions = hasOptions(options) ? options : undefined
       const existingLine = prev.find((x) => sameCartLine(x, productId, normalizedOptions))

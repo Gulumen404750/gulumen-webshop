@@ -79,7 +79,7 @@ export default function CartPage() {
     if (product.type === 'sourcing_deal') {
       placeOrder(product.id, addQty)
     }
-    addItem(product.id, addQty)
+    addItem(product.id, addQty, undefined, product)
     if (addQty < requestedQty) {
       toast(t('cart.allAvailableAdded'))
     }

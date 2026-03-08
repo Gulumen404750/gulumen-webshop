@@ -126,7 +126,7 @@ export function SourcingDealBox({
       return
     }
     placeOrder(product.id, safeAddQty)
-    addItem(product.id, safeAddQty)
+    addItem(product.id, safeAddQty, undefined, product)
     router.push('/kosar')
   }
 

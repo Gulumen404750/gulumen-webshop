@@ -118,7 +118,7 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
               : {}),
           }
         : undefined
-    addItem(product.id, safeAddQty, options)
+    addItem(product.id, safeAddQty, options, product)
     trackAddToCart(product.id, priceHuf * safeAddQty)
     toast(t('cart.toastAdded') || 'Termék a kosárban', {
       action: { label: t('buttons.openCart') || 'Kosár megnyitása', href: '/kosar' },
