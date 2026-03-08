@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { getProductBySlugAsync } from '@/lib/data'
 import { getProductOrdersCount } from '@/lib/orders'
+import { getServerTimeMs } from '@/lib/server-time'
 import { ProductPageContent } from './ProductPageContent'
 
 /** Timed oldal: rövid revalidate a saleFrom/saleTo boundary környékén. */
@@ -19,6 +20,6 @@ export default async function ProductPage({ params }: PageProps) {
     productWithCount = { ...product, ordersCount: serverOrdersCount }
   }
 
-  const serverNow = Date.now()
+  const serverNow = await getServerTimeMs()
   return <ProductPageContent product={productWithCount} slug={slug} serverNow={serverNow} />
 }

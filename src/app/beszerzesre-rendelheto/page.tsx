@@ -1,5 +1,6 @@
 import { getSourcingDealProductsAsync, getSourcingDealStatus, isSourcingConsideredExpired, SOURCING_EXPIRED_BUFFER_MS } from '@/lib/data'
 import { getProductOrdersCounts } from '@/lib/orders'
+import { getServerTimeMs } from '@/lib/server-time'
 import { BeszerzesreRendelhetoClient } from './BeszerzesreRendelhetoClient'
 
 /** Mindig friss adat: ne legyen cache, így frissítéskor sem ugrik vissza a számláló (localStorage ref marad). */
@@ -14,7 +15,7 @@ export default async function BeszerzesreRendelhetoPage() {
     ...p,
     ordersCount: p.type === 'sourcing_deal' ? (countsMap[p.id] ?? 0) : 0,
   }))
-  const serverNow = Date.now()
+  const serverNow = await getServerTimeMs()
 
   // Csak aktív ajánlatok: lejárt soha ne jelenjen meg (boltban lehetetlen). Dupla küszöb: buffer + szigorú saleTo <= serverNow.
   const activeOnly = products.filter((p) => {

@@ -1,5 +1,6 @@
 import { getSourcingDealProductsAsync, getSourcingDealStatus, isSourcingConsideredExpired } from '@/lib/data'
 import { getProductOrdersCounts } from '@/lib/orders'
+import { getServerTimeMs } from '@/lib/server-time'
 import { LejartTermekekClient } from './LejartTermekekClient'
 
 const EXPIRED_WINDOW_MS = 5 * 24 * 60 * 60 * 1000 // 5 nap
@@ -21,7 +22,7 @@ export default async function LejartTermekekPage() {
     ordersCount: countsMap[p.id] ?? 0,
   }))
 
-  const serverNow = Date.now()
+  const serverNow = await getServerTimeMs()
   const cutoff = serverNow - EXPIRED_WINDOW_MS
 
   // Lejárt + „már lejártnak tekintett” (buffer): ugyanazzal a küszöbbel, mint az aktív lista, így a termék nem „sehol” nem lesz, hanem itt megjelenik.
