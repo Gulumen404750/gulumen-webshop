@@ -151,7 +151,8 @@ export function ProductCard({
   const priceHuf = product.discountPriceHuf ?? product.priceHuf
   const priceEur = hufToEur(priceHuf)
   const hasDiscount = !!product.discountPriceHuf
-  const hasImage = product.image?.startsWith('/')
+  const hasImage = Boolean(product.image?.trim())
+  const isLocalImage = product.image?.startsWith('/')
   const displayName = getProductName(product, locale)
   const likesGlow = likesCount > 25 ? 'product-likes-glow-strong' : likesCount > 10 ? 'product-likes-glow' : ''
 
@@ -166,14 +167,23 @@ export function ProductCard({
       >
         <div className="aspect-square bg-[var(--border)] relative overflow-hidden">
           {hasImage ? (
-            <Image
-              src={product.image}
-              alt={displayName}
-              fill
-              className="object-cover"
-              sizes="(max-width: 768px) 100vw, 33vw"
-              unoptimized={is3DProduct(product)}
-            />
+            isLocalImage ? (
+              <Image
+                src={product.image}
+                alt={displayName}
+                fill
+                className="object-cover"
+                sizes="(max-width: 768px) 100vw, 33vw"
+                unoptimized={is3DProduct(product)}
+              />
+            ) : (
+              <img
+                src={product.image}
+                alt={displayName}
+                className="absolute inset-0 w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            )
           ) : (
             <div className="absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-muted text-sm">
               {t('product.noImage')}

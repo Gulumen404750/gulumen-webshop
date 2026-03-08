@@ -178,25 +178,35 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
                 onKeyDown={(e) => e.key === 'Enter' && setLightboxOpen(true)}
                 aria-label={t('product.openGallery') || 'Kép nagyítása / Galéria'}
               >
-                {mainImage?.startsWith('/') && !mainImageError ? (
-                  has3DModel ? (
+                {mainImage && !mainImageError ? (
+                  mainImage.startsWith('/') ? (
+                    has3DModel ? (
+                      <img
+                        src={mainImage}
+                        alt={productName}
+                        className="absolute inset-0 w-full h-full object-contain"
+                        onError={() => setMainImageError(true)}
+                      />
+                    ) : (
+                      <Image
+                        src={mainImage}
+                        alt={productName}
+                        fill
+                        className="object-contain"
+                        sizes="(max-width: 1024px) 100vw, 50vw"
+                        priority
+                        onError={() => setMainImageError(true)}
+                      />
+                    )
+                  ) : mainImage.startsWith('http') ? (
                     <img
                       src={mainImage}
                       alt={productName}
                       className="absolute inset-0 w-full h-full object-contain"
+                      referrerPolicy="no-referrer"
                       onError={() => setMainImageError(true)}
                     />
-                  ) : (
-                    <Image
-                      src={mainImage}
-                      alt={productName}
-                      fill
-                      className="object-contain"
-                      sizes="(max-width: 1024px) 100vw, 50vw"
-                      priority
-                      onError={() => setMainImageError(true)}
-                    />
-                  )
+                  ) : null
                 ) : (
                   <div className="absolute inset-0 flex items-center justify-center text-muted">
                     {mainImageError ? (t('product.noImage') || 'Kép nem tölthető') : (t('product.noImage') || 'Nincs kép')}
@@ -229,12 +239,15 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
                   aria-label={`${productName} ${i + 1}`}
                   aria-pressed={mainImageIndex === i}
                 >
-                  {img.startsWith('/') &&
-                  (has3DModel ? (
-                    <img src={img} alt="" className="absolute inset-0 w-full h-full object-cover" />
-                  ) : (
-                    <Image src={img} alt="" fill className="object-cover" sizes="80px" />
-                  ))}
+                  {img.startsWith('/') ? (
+                    has3DModel ? (
+                      <img src={img} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                    ) : (
+                      <Image src={img} alt="" fill className="object-cover" sizes="80px" />
+                    )
+                  ) : img.startsWith('http') ? (
+                    <img src={img} alt="" className="absolute inset-0 w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  ) : null}
                 </button>
               ))}
               {has360 && (

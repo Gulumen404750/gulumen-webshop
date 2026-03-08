@@ -11,6 +11,7 @@ const nav = [
   { href: '/admin/dashboard/users', label: 'Felhasználók' },
   { href: '/admin/dashboard/chat', label: 'Chat / AI' },
   { href: '/admin/dashboard/calls', label: 'Hívások' },
+  { href: '/admin/dashboard/deal-popup', label: 'Akciós popup' },
   { href: '/admin/dashboard/settings', label: 'Beállítások' },
 ]
 

@@ -3,15 +3,24 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { getDealProducts, getProductName } from '@/lib/data'
+import { getProductName } from '@/lib/data'
 import { useLocale } from '@/context/LocaleContext'
+import type { Product } from '@/lib/data'
 
 const STORAGE_KEY = 'gulumen-deal-popup-closed'
+
+type PopupConfig = {
+  enabled: boolean
+  title: string
+  description: string
+}
 
 export function DealPopup() {
   const { locale, t } = useLocale()
   const [visible, setVisible] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [config, setConfig] = useState<PopupConfig | null>(null)
+  const [products, setProducts] = useState<Product[]>([])
 
   useEffect(() => {
     setMounted(true)
@@ -23,14 +32,34 @@ export function DealPopup() {
     if (closed !== 'true') setVisible(true)
   }, [mounted])
 
+  useEffect(() => {
+    let cancelled = false
+    async function fetchPopup() {
+      try {
+        const res = await fetch('/api/deal-popup')
+        const data = await res.json()
+        if (cancelled) return
+        setConfig(data.config ?? { enabled: false, title: '', description: '' })
+        setProducts(Array.isArray(data.products) ? data.products : [])
+      } catch {
+        if (!cancelled) {
+          setConfig({ enabled: false, title: '', description: '' })
+          setProducts([])
+        }
+      }
+    }
+    fetchPopup()
+    return () => { cancelled = true }
+  }, [])
+
   const close = () => {
     setVisible(false)
     if (typeof window !== 'undefined') sessionStorage.setItem(STORAGE_KEY, 'true')
   }
 
-  const dealProducts = getDealProducts().slice(0, 3)
+  const show = visible && config?.enabled && products.length > 0
 
-  if (!visible || dealProducts.length === 0) return null
+  if (!show) return null
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -48,36 +77,51 @@ export function DealPopup() {
         </button>
         <div className="p-6 pt-12">
           <h2 className="font-heading text-xl font-bold text-foreground mb-4 text-center">
-            Akciók most
+            {config?.title || 'Akciók most'}
           </h2>
           <p className="text-muted text-sm text-center mb-6">
-            Válogatás az aktuális akcióinkból – mindig meglepően jó áron.
+            {config?.description || 'Válogatás az aktuális akcióinkból – mindig meglepően jó áron.'}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {dealProducts.map((product) => {
+            {products.map((product) => {
               const priceHuf = product.discountPriceHuf ?? product.priceHuf
-              const hasImage = product.image?.startsWith('/')
+              const hasImage = product.image?.startsWith('/') || product.image?.startsWith('http')
+              const isLocalImage = product.image?.startsWith('/')
               const productName = getProductName(product, locale)
               return (
                 <Link
                   key={product.id}
                   href={`/termek/${product.slug}`}
                   onClick={close}
-                  className="block rounded-xl border border-[var(--border)] overflow-hidden hover:border-accent transition-colors"
+                  className="block rounded-xl border border-[var(--border)] overflow-hidden hover:border-accent transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-[var(--card-bg)]"
                 >
                   <div className="aspect-square bg-[var(--border)] relative">
                     {hasImage ? (
-                      <Image
-                        src={product.image}
-                        alt={productName}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 640px) 100vw, 33vw"
-                      />
+                      isLocalImage ? (
+                        <Image
+                          src={product.image}
+                          alt={productName}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 640px) 100vw, 33vw"
+                        />
+                      ) : (
+                        <img
+                          src={product.image}
+                          alt={productName}
+                          className="absolute inset-0 w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      )
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center text-muted text-xs">
                         {t('product.noImage')}
                       </div>
+                    )}
+                    {product.onSale && (
+                      <span className="absolute top-2 left-2 rounded bg-discount text-white text-xs font-semibold px-2 py-0.5">
+                        Akció
+                      </span>
                     )}
                   </div>
                   <div className="p-3">

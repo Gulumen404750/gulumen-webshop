@@ -275,6 +275,76 @@ export default function AdminProductEditPage() {
           </div>
         </div>
 
+        {!isNew && (product?.name ?? '').trim() && (
+          <div className="flex flex-wrap items-center gap-2 p-3 rounded-lg border border-[var(--border)] bg-[var(--border)]/20">
+            <span className="text-sm font-medium text-foreground">AI fordítás (nevek):</span>
+            <p className="text-xs text-muted">A magyar név alapján kitölti az EN, RO, DE mezőket (üres mezők; opcionálisan felülírás).</p>
+            <button
+              type="button"
+              onClick={async () => {
+                setMessage(null)
+                try {
+                  const res = await fetch(`/api/admin/products/${id}/translate-names`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ overwriteExisting: false }),
+                  })
+                  const data = await res.json().catch(() => ({}))
+                  if (res.ok && data.product) {
+                    setProduct((p) => (p ? {
+                      ...p,
+                      nameEn: data.product.nameEn ?? '',
+                      nameDe: data.product.nameDe ?? '',
+                      nameRo: data.product.nameRo ?? '',
+                    } : p))
+                    setMessage({ type: 'ok', text: data.message || 'Névfordítás kész.' })
+                  } else {
+                    setMessage({ type: 'error', text: data?.error || 'Fordítás sikertelen.' })
+                  }
+                } catch {
+                  setMessage({ type: 'error', text: 'Hálózati hiba.' })
+                }
+              }}
+              className="rounded-lg bg-accent/90 text-white px-4 py-2 text-sm font-medium hover:opacity-90"
+            >
+              AI fordítás nevek (EN, RO, DE)
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!confirm('Felülírod a meglévő EN, RO, DE neveket?')) return
+                setMessage(null)
+                try {
+                  const res = await fetch(`/api/admin/products/${id}/translate-names`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ overwriteExisting: true }),
+                  })
+                  const data = await res.json().catch(() => ({}))
+                  if (res.ok && data.product) {
+                    setProduct((p) => (p ? {
+                      ...p,
+                      nameEn: data.product.nameEn ?? '',
+                      nameDe: data.product.nameDe ?? '',
+                      nameRo: data.product.nameRo ?? '',
+                    } : p))
+                    setMessage({ type: 'ok', text: data.message || 'Névfordítás felülírva.' })
+                  } else {
+                    setMessage({ type: 'error', text: data?.error || 'Fordítás sikertelen.' })
+                  }
+                } catch {
+                  setMessage({ type: 'error', text: 'Hálózati hiba.' })
+                }
+              }}
+              className="rounded-lg border border-amber-500/60 text-amber-700 dark:text-amber-400 px-4 py-2 text-sm font-medium hover:bg-amber-500/10"
+            >
+              AI fordítás nevek (felülírás)
+            </button>
+          </div>
+        )}
+
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1">Leírás (HU)</label>
@@ -316,7 +386,7 @@ export default function AdminProductEditPage() {
 
         {!isNew && (product?.description_hu ?? '').trim() && (
           <div className="flex flex-wrap items-center gap-2 p-3 rounded-lg border border-[var(--border)] bg-[var(--border)]/20">
-            <span className="text-sm font-medium text-foreground">AI fordítás:</span>
+            <span className="text-sm font-medium text-foreground">AI fordítás (leírás):</span>
             <p className="text-xs text-muted">A magyar leírás alapján kitölti az EN, RO, DE mezőket (üres mezők; opcionálisan felülírás).</p>
             <button
               type="button"
@@ -418,7 +488,12 @@ export default function AdminProductEditPage() {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Fő kép URL</label>
-            <p className="text-xs text-muted mb-1">Írd be az URL-t vagy tölts fel képet a gépről (JPEG, PNG, WebP, GIF, max 25 MB). A feltöltött kép automatikusan webre optimalizálódik (WebP). Élesben (Railway) a feltöltött fájlok deploy után eltűnhetnek – külső tároló (pl. Cloudinary) URL-je ajánlott.</p>
+            <p className="text-xs text-muted mb-1">
+              <strong>Gépről feltöltés</strong> (ajánlott): kattints a „Feltöltés (gépről)” gombra – elfogadott formátumok: <strong>JPEG, PNG, WebP, GIF</strong> (max 25 MB). A kép automatikusan megjelenik. Élesben (pl. Railway) a feltöltött fájlok deploy után törlődhetnek – külső tároló ajánlott.
+            </p>
+            <p className="text-xs text-muted mb-1">
+              <strong>Külső link (Google Drive):</strong> a normál „Megosztás” link nem jeleníti meg a képet. Használd a közvetlen képlinket: Drive-ban nyisd meg a fájlt → Megosztás → „Link birtokosa bárki” → másold a linket (pl. <code className="bg-[var(--border)] px-1 rounded">…/d/ABC123XYZ/view</code>). A képlink: <code className="bg-[var(--border)] px-1 rounded">https://drive.google.com/uc?export=view&amp;id=ABC123XYZ</code> – az <code className="bg-[var(--border)] px-1 rounded">id=</code> után lévő részt illeszd be. Imgur, Cloudinary stb. esetén a közvetlen kép URL-t add meg.
+            </p>
             <div className="flex flex-wrap gap-2 items-center">
               <input
                 value={product?.image ?? ''}

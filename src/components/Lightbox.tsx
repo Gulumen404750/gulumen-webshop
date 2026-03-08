@@ -189,22 +189,32 @@ export function Lightbox({ images, productName, currentIndex, onClose, onIndexCh
         onMouseDown={handleMouseDown}
         style={{ cursor: isDragging ? 'grabbing' : scale > 1 ? 'grab' : 'zoom-in' }}
       >
-        {src?.startsWith('/') ? (
+        {src && (src.startsWith('/') || src.startsWith('http')) ? (
           <div
             className="transition-transform duration-150 select-none"
             style={{
               transform: `scale(${scale}) translate(${translate.x}px, ${translate.y}px)`,
             }}
           >
-            <Image
-              src={src}
-              alt={`${productName} – ${currentIndex + 1}. kép`}
-              width={1200}
-              height={1200}
-              className="max-h-[85vh] w-auto object-contain pointer-events-none"
-              unoptimized={false}
-              draggable={false}
-            />
+            {src.startsWith('/') ? (
+              <Image
+                src={src}
+                alt={`${productName} – ${currentIndex + 1}. kép`}
+                width={1200}
+                height={1200}
+                className="max-h-[85vh] w-auto object-contain pointer-events-none"
+                unoptimized={false}
+                draggable={false}
+              />
+            ) : (
+              <img
+                src={src}
+                alt={`${productName} – ${currentIndex + 1}. kép`}
+                className="max-h-[85vh] w-auto object-contain pointer-events-none"
+                draggable={false}
+                referrerPolicy="no-referrer"
+              />
+            )}
           </div>
         ) : null}
       </div>

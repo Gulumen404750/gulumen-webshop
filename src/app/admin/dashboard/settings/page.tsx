@@ -1,3 +1,5 @@
+import DealPopupSettings from './DealPopupSettings'
+
 export default function AdminSettingsPage() {
   const envStatus = [
     { key: 'DATABASE_URL', label: 'Adatbázis', value: process.env.DATABASE_URL ? '✓ beállítva' : '– nincs' },
@@ -21,6 +23,7 @@ export default function AdminSettingsPage() {
           ))}
         </ul>
       </section>
+      <DealPopupSettings />
       <p className="text-sm text-muted">
         Webshop alapadatok, email, support, szállítási infó és feature flag-ek a <code className="rounded bg-[var(--border)] px-1">Setting</code> táblából
         szerkeszthetők lesznek (következő iteráció).

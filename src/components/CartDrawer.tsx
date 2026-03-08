@@ -74,13 +74,18 @@ export function CartDrawer({ isOpen, onClose }: Props) {
                 const product = getProductById(item.productId)
                 const name = product ? getProductName(product, locale) : item.productId
                 const priceHuf = product ? (product.discountPriceHuf ?? product.priceHuf) : 0
-                const img = product?.image?.startsWith('/') ? product.image : ''
+                const img = product?.image?.trim() ? product.image : ''
+                const isLocalImg = img?.startsWith('/')
                 const lineKey = `${item.productId}-${item.options?.colorHex ?? item.options?.colorName ?? ''}-${item.options?.materialName ?? ''}`
                 return (
                   <li key={lineKey} className="flex gap-3 p-3 rounded-lg border border-[var(--border)]">
                     <div className="w-14 h-14 shrink-0 rounded-lg bg-[var(--border)] relative overflow-hidden">
                       {img ? (
-                        <Image src={img} alt="" fill className="object-cover" sizes="56px" />
+                        isLocalImg ? (
+                          <Image src={img} alt="" fill className="object-cover" sizes="56px" />
+                        ) : (
+                          <img src={img} alt="" className="absolute inset-0 w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        )
                       ) : null}
                     </div>
                     <div className="flex-1 min-w-0">
