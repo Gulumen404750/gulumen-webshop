@@ -7,8 +7,8 @@
   },
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "build": "prisma generate && next build",
+    "start": "node scripts/start.js",
     "lint": "next lint",
     "convert-3d": "node scripts/convert-3d.mjs",
     "convert-3d:batch": "node scripts/convert-3d.mjs --batch",
