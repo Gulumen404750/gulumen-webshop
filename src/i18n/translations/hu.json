@@ -94,6 +94,8 @@
     "availableUpTo": "Elérhető: {count} db",
     "blockStockTitle": "📦 Raktáron lévő termékek",
     "blockStockDispatch": "A fizetés után 24–48 órán belül feladásra kerül",
+    "block3DTitle": "🖨️ 3D nyomtatott termékek",
+    "block3DDispatch": "Nyomtatás a megrendelés után, szállítás várhatóan 5–10 munkanap.",
     "blockSourcingTitle": "🔄 Egyedi beszerzésű termékek",
     "blockSourcingDelivery": "Várható szállítás: 7–14 nap",
     "sourcingDisclaimerAccept": "Tudomásul veszem, hogy az egyedi beszerzésű termék megrendelés után kerül beszerzésre (7–14 munkanap). A beszerzés megindulása után történő lemondás esetén a ténylegesen felmerült költségek levonásra kerülhetnek.",

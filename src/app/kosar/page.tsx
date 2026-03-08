@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useEffect, useRef, useMemo, useState } from 'react'
-import { getProductById as getProductByIdFromData, getAddToCartReason, getMaxQty, getProductName } from '@/lib/data'
+import { getProductById as getProductByIdFromData, getAddToCartReason, getMaxQty, getProductName, is3DProduct } from '@/lib/data'
 import { useCart } from '@/context/CartContext'
 import { useProducts } from '@/context/ProductsContext'
 import { useCatCoupon } from '@/context/CatCouponContext'
@@ -18,7 +18,7 @@ export default function CartPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const { items, addItem, removeItem, updateQty, clearCart, subtotalHuf, discountHuf, totalHuf, isDiscountActive } = useCart()
-  const { getProductById: getProductByIdFromContext, products } = useProducts()
+  const { getProductById: getProductByIdFromContext, products, productsLoaded } = useProducts()
   const getProductById = (id: string) => getProductByIdFromContext(id) ?? getProductByIdFromData(id)
   const { t, locale } = useLocale()
   const { toast } = useToast()
@@ -28,15 +28,21 @@ export default function CartPage() {
   const processedAddIdRef = useRef<string | null>(null)
   const [showCheckoutModal, setShowCheckoutModal] = useState(false)
 
-  const { stockItems, sourcingItems } = useMemo(() => {
+  const { stockItems, threeDItems, sourcingItems } = useMemo(() => {
     const stock: typeof items = []
+    const threeD: typeof items = []
     const sourcing: typeof items = []
     for (const item of items) {
       const product = getProductById(item.productId)
-      if (product?.type === 'sourcing_deal') sourcing.push(item)
-      else stock.push(item)
+      if (product?.type === 'sourcing_deal') {
+        sourcing.push(item)
+      } else if (product && is3DProduct(product)) {
+        threeD.push(item)
+      } else {
+        stock.push(item)
+      }
     }
-    return { stockItems: stock, sourcingItems: sourcing }
+    return { stockItems: stock, threeDItems: threeD, sourcingItems: sourcing }
   }, [items, products])
 
   const hasSourcingItems = sourcingItems.length > 0
@@ -133,12 +139,80 @@ export default function CartPage() {
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <h1 className="font-heading text-2xl font-bold text-foreground mb-6">{t('cart.title')}</h1>
 
+      {!productsLoaded && items.length > 0 && (
+        <p className="text-muted text-sm mb-4">Betöltés…</p>
+      )}
+
       {stockItems.length > 0 && (
         <section className="mb-8">
           <h2 className="font-heading text-lg font-semibold text-foreground mb-1">{t('cart.blockStockTitle')}</h2>
           <p className="text-sm text-muted mb-3">{t('cart.blockStockDispatch')}</p>
           <ul className="space-y-4">
             {stockItems.map((item) => {
+              const product = getProductById(item.productId)
+              const maxAllowedInCart = product ? getMaxQty(product) : 0
+              const priceHuf = product ? (product.discountPriceHuf ?? product.priceHuf) : 0
+              const priceEur = hufToEur(priceHuf)
+              const img = product?.image?.startsWith('/') ? product.image : ''
+              const lineKey = `${item.productId}-${item.options?.colorHex ?? item.options?.colorName ?? ''}-${item.options?.materialName ?? ''}`
+              return (
+                <li key={lineKey} className="flex gap-4 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
+                  <div className="w-20 h-20 shrink-0 rounded-lg bg-[var(--border)] relative overflow-hidden">
+                    {img ? (
+                      <Image src={img} alt={product ? getProductName(product, locale) : ''} fill className="object-cover" sizes="80px" />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center text-muted text-xs">{t('product.noImage')}</div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-foreground truncate">{product ? getProductName(product, locale) : item.productId}</p>
+                    <p className="text-muted text-sm">
+                      {priceHuf.toLocaleString('hu-HU')} Ft × {item.qty}
+                      {priceEur > 0 && <span className="ml-1">(€{formatEur(priceEur)})</span>}
+                    </p>
+                    {(item.options?.colorName || item.options?.materialName) && (
+                      <p className="text-foreground text-sm mt-0.5">
+                        {item.options?.materialName && <span>{t('product.material') || 'Anyag'}: {item.options.materialName}</span>}
+                        {item.options?.materialName && item.options?.colorName && ' · '}
+                        {item.options?.colorName && <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>}
+                      </p>
+                    )}
+                    <p className="text-foreground text-sm font-medium mt-1">{t('cart.availableUpTo', { count: maxAllowedInCart })}</p>
+                  </div>
+                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                    <div className="flex items-center border border-[var(--border)] rounded-lg overflow-hidden bg-[var(--card-bg)]">
+                      <button
+                        type="button"
+                        onClick={() => { if (item.qty <= 1) return; updateQty(item.productId, item.qty - 1, item.options) }}
+                        disabled={item.qty <= 1}
+                        className="w-9 h-9 flex items-center justify-center text-foreground hover:bg-[var(--border)] disabled:opacity-40 disabled:cursor-not-allowed"
+                        aria-label={t('cart.decreaseQty')}
+                      >−</button>
+                      <span className="w-10 h-9 flex items-center justify-center text-sm font-medium text-foreground border-x border-[var(--border)]">{item.qty}</span>
+                      <button
+                        type="button"
+                        onClick={() => { if (item.qty >= maxAllowedInCart) return; updateQty(item.productId, item.qty + 1, item.options) }}
+                        disabled={item.qty >= maxAllowedInCart}
+                        className="w-9 h-9 flex items-center justify-center text-foreground hover:bg-[var(--border)] disabled:opacity-40 disabled:cursor-not-allowed"
+                        aria-label={t('cart.increaseQty')}
+                      >+</button>
+                    </div>
+                    <span className="text-muted text-sm whitespace-nowrap">{item.qty} db</span>
+                    <button type="button" onClick={() => removeItem(item.productId, item.options)} className="text-muted hover:text-red-600 text-sm font-medium">{t('cart.remove')}</button>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      )}
+
+      {threeDItems.length > 0 && (
+        <section className="mb-8">
+          <h2 className="font-heading text-lg font-semibold text-foreground mb-1">{t('cart.block3DTitle')}</h2>
+          <p className="text-sm text-muted mb-3">{t('cart.block3DDispatch')}</p>
+          <ul className="space-y-4">
+            {threeDItems.map((item) => {
               const product = getProductById(item.productId)
               const maxAllowedInCart = product ? getMaxQty(product) : 0
               const priceHuf = product ? (product.discountPriceHuf ?? product.priceHuf) : 0
@@ -318,7 +392,7 @@ export default function CartPage() {
         <button
           type="button"
           onClick={handleCheckoutClick}
-          disabled={false}
+          disabled={items.length === 0 || (productsLoaded && totalHuf <= 0)}
           className="py-3 px-6 bg-accent text-white font-heading font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {t('buttons.checkout')}

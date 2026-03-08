@@ -69,18 +69,24 @@ let SEED_NOW: Date | null = null
  * így magyarul felvitt termékek minden nyelven látszanak, amíg nincs külön fordítás.
  */
 export function getProductName(product: Product, locale: string): string {
+  let name = ''
   switch (locale) {
     case 'hu':
-      return product.name
+      name = product.name
+      break
     case 'en':
-      return product.nameEn ?? product.name
+      name = product.nameEn ?? product.name
+      break
     case 'de':
-      return product.nameDe ?? product.nameEn ?? product.name
+      name = product.nameDe ?? product.nameEn ?? product.name
+      break
     case 'ro':
-      return product.nameRo ?? product.nameEn ?? product.name
+      name = product.nameRo ?? product.nameEn ?? product.name
+      break
     default:
-      return product.nameEn ?? product.name
+      name = product.nameEn ?? product.name
   }
+  return (name && name.trim()) ? name : (product.slug || product.id)
 }
 
 /**

@@ -96,6 +96,8 @@
     "availableUpTo": "Available: {count}",
     "blockStockTitle": "📦 In-stock products",
     "blockStockDispatch": "Dispatched within 24–48 hours after payment",
+    "block3DTitle": "🖨️ 3D printed products",
+    "block3DDispatch": "Printed to order; delivery typically 5–10 working days.",
     "blockSourcingTitle": "🔄 Sourcing products",
     "blockSourcingDelivery": "Expected delivery: 7–14 days",
     "sourcingDisclaimerAccept": "I acknowledge that sourcing products are sourced after the order is placed (7–14 working days). If the order is cancelled after the sourcing process has started, the actually incurred costs may be deducted.",

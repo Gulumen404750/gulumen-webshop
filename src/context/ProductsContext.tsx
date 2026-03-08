@@ -5,6 +5,7 @@ import type { Product } from '@/lib/data'
 
 type ProductsContextValue = {
   products: Product[]
+  productsLoaded: boolean
   getProductById: (id: string) => Product | undefined
 }
 
@@ -12,6 +13,7 @@ const ProductsContext = createContext<ProductsContextValue | null>(null)
 
 export function ProductsProvider({ children }: { children: ReactNode }) {
   const [products, setProducts] = useState<Product[]>([])
+  const [productsLoaded, setProductsLoaded] = useState(false)
 
   useEffect(() => {
     fetch('/api/products', { credentials: 'include' })
@@ -20,6 +22,7 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
         if (Array.isArray(data)) setProducts(data)
       })
       .catch(() => setProducts([]))
+      .finally(() => setProductsLoaded(true))
   }, [])
 
   const getProductById = useCallback(
@@ -28,8 +31,8 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
   )
 
   const value = useMemo<ProductsContextValue>(
-    () => ({ products, getProductById }),
-    [products, getProductById]
+    () => ({ products, productsLoaded, getProductById }),
+    [products, productsLoaded, getProductById]
   )
 
   return <ProductsContext.Provider value={value}>{children}</ProductsContext.Provider>

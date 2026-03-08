@@ -96,6 +96,8 @@
     "availableUpTo": "Verfügbar: {count}",
     "blockStockTitle": "📦 Lagerware",
     "blockStockDispatch": "Versand innerhalb von 24–48 Stunden nach Zahlung",
+    "block3DTitle": "🖨️ 3D-gedruckte Produkte",
+    "block3DDispatch": "Auf Bestellung gedruckt; Lieferung in der Regel 5–10 Werktage.",
     "blockSourcingTitle": "🔄 Beschaffungsartikel",
     "blockSourcingDelivery": "Voraussichtliche Lieferung: 7–14 Tage",
     "sourcingDisclaimerAccept": "Ich nehme zur Kenntnis, dass Beschaffungsartikel nach der Bestellung beschafft werden (7–14 Werktage). Bei Stornierung nach Beginn des Beschaffungsvorgangs können die tatsächlich entstandenen Kosten abgezogen werden.",
