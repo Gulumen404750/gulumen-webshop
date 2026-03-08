@@ -203,7 +203,7 @@ export function Lightbox({ images, productName, currentIndex, onClose, onIndexCh
                 width={1200}
                 height={1200}
                 className="max-h-[85vh] w-auto object-contain pointer-events-none"
-                unoptimized={false}
+                unoptimized={src.startsWith('/uploads/')}
                 draggable={false}
               />
             ) : (

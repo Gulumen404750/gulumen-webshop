@@ -195,6 +195,7 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
                         className="object-contain"
                         sizes="(max-width: 1024px) 100vw, 50vw"
                         priority
+                        unoptimized={mainImage.startsWith('/uploads/')}
                         onError={() => setMainImageError(true)}
                       />
                     )
@@ -243,7 +244,7 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
                     has3DModel ? (
                       <img src={img} alt="" className="absolute inset-0 w-full h-full object-cover" />
                     ) : (
-                      <Image src={img} alt="" fill className="object-cover" sizes="80px" />
+                      <Image src={img} alt="" fill className="object-cover" sizes="80px" unoptimized={img.startsWith('/uploads/')} />
                     )
                   ) : img.startsWith('http') ? (
                     <img src={img} alt="" className="absolute inset-0 w-full h-full object-cover" referrerPolicy="no-referrer" />

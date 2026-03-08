@@ -174,7 +174,7 @@ export function ProductCard({
                 fill
                 className="object-cover"
                 sizes="(max-width: 768px) 100vw, 33vw"
-                unoptimized={is3DProduct(product)}
+                unoptimized={is3DProduct(product) || product.image.startsWith('/uploads/')}
               />
             ) : (
               <img
