@@ -1,9 +1,10 @@
 /**
- * Auth: httpOnly session cookie (JWT). localStorage userId megszüntetve.
- * getSession(request) – szerver oldali auth middleware / helper.
+ * Auth: NextAuth (Google) + httpOnly session cookie (JWT, email/jelszó).
+ * getSession(request) – először NextAuth session, majd saját JWT.
  */
 import { SignJWT, jwtVerify } from 'jose'
-import { prisma, isDbConfigured } from '@/lib/prisma'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth-options'
 
 const COOKIE_NAME = 'gulumen-session'
 const JWT_ISSUER = 'gulumen'
@@ -27,7 +28,11 @@ export function isJwtConfigured(): boolean {
 }
 
 export async function getSession(request: Request): Promise<SessionUser | null> {
-  if (!isDbConfigured()) return null
+  const nextSession = await getServerSession(authOptions)
+  if (nextSession?.user?.email) {
+    const id = (nextSession.user as { id?: string }).id
+    if (id) return { userId: id, email: nextSession.user.email }
+  }
   const secret = getSecret()
   if (!secret) return null
   const cookie = request.headers.get('cookie')

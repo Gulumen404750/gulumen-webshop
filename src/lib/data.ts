@@ -32,10 +32,11 @@ export interface Product {
   variants?: { size?: string; color?: string }[]
   /** Leírás (mock: egyetlen mező; DB: getProductDescription használja a _hu/_en/_de mezőket). */
   description: string
-  /** Többnyelvű leírás (DB). Fallback: hu → en → de. */
+  /** Többnyelvű leírás (DB). Fallback: hu → en → de → ro. */
   description_hu?: string
   description_en?: string
   description_de?: string
+  description_ro?: string
   isNew?: boolean
   onSale?: boolean
   type?: ProductType
@@ -84,29 +85,16 @@ export function getProductName(product: Product, locale: string): string {
 
 /**
  * Termékleírás a kiválasztott nyelv szerint.
- * hu → description_hu, en → description_en, de → description_de.
- * Fallback: ha a kiválasztott nyelv üres, akkor description_en, majd description_hu, description_de.
- * Mock mód: product.description (egyetlen mező).
+ * Fallback megjelenítés: 1. aktuális nyelv 2. angol 3. magyar.
  */
 export function getProductDescription(product: Product, locale: string): string {
   const hu = product.description_hu ?? product.description ?? ''
   const en = product.description_en ?? product.description ?? ''
   const de = product.description_de ?? product.description ?? ''
-  let out = ''
-  switch (locale) {
-    case 'hu':
-      out = hu || en || de
-      break
-    case 'de':
-      out = de || en || hu
-      break
-    case 'en':
-    case 'ro':
-    default:
-      out = en || hu || de
-      break
-  }
-  return out
+  const ro = product.description_ro ?? product.description ?? ''
+  const byLocale: Record<string, string> = { hu, en, de, ro }
+  const current = byLocale[locale] || en
+  return current || en || hu
 }
 
 export function getSourcingDealStatus(

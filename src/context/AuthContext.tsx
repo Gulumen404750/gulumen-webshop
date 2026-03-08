@@ -6,6 +6,7 @@ type AuthContextValue = {
   userId: string | null
   isLoggedIn: boolean
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>
+  loginWithGoogle: () => void
   register: (email: string, password: string, name?: string) => Promise<{ ok: boolean; error?: string }>
   logout: () => Promise<void>
 }
@@ -57,15 +58,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { ok: false, error: data.error || 'Regisztráció sikertelen' }
   }, [])
 
+  const loginWithGoogle = useCallback(() => {
+    const base = typeof window !== 'undefined' ? window.location.origin : ''
+    window.location.href = `${base}/api/auth/signin/google?callbackUrl=${encodeURIComponent(base + '/profil')}`
+  }, [])
+
   const logout = useCallback(async () => {
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
     setUserId(null)
+    const base = typeof window !== 'undefined' ? window.location.origin : ''
+    window.location.href = `${base}/api/auth/signout?callbackUrl=${encodeURIComponent(base + '/')}`
   }, [])
 
   const value: AuthContextValue = {
     userId: mounted ? userId : null,
     isLoggedIn: !!userId,
     login,
+    loginWithGoogle,
     register,
     logout,
   }

@@ -244,6 +244,8 @@
     "email": "E-Mail",
     "password": "Passwort",
     "loginCta": "Anmelden",
+    "or": "oder",
+    "loginWithGoogle": "Mit Google anmelden",
     "noAccount": "Noch kein Konto?",
     "registerLink": "Registrieren"
   },

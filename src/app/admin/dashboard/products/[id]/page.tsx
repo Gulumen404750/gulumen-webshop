@@ -16,6 +16,7 @@ type Product = {
   description_hu: string | null
   description_en: string | null
   description_de: string | null
+  description_ro: string | null
   condition: string
   category: string
   image: string
@@ -93,6 +94,7 @@ export default function AdminProductEditPage() {
             description_hu: product.description_hu ?? product.description ?? '',
             description_en: product.description_en ?? product.description ?? '',
             description_de: product.description_de ?? product.description ?? '',
+            description_ro: product.description_ro ?? product.description ?? '',
             condition: product.condition || 'Új',
             category: product.category || 'taskak',
             image: product.image || '',
@@ -124,6 +126,7 @@ export default function AdminProductEditPage() {
             description_hu: product.description_hu ?? product.description ?? '',
             description_en: product.description_en ?? product.description ?? '',
             description_de: product.description_de ?? product.description ?? '',
+            description_ro: product.description_ro ?? product.description ?? '',
             condition: product.condition ?? 'Új',
             category: product.category ?? 'taskak',
             image: product.image ?? '',
@@ -300,7 +303,86 @@ export default function AdminProductEditPage() {
               className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Leírás (RO)</label>
+            <textarea
+              value={product?.description_ro ?? ''}
+              onChange={(e) => setProduct((p) => ({ ...p, description_ro: e.target.value }))}
+              rows={3}
+              className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
+            />
+          </div>
         </div>
+
+        {!isNew && (product?.description_hu ?? '').trim() && (
+          <div className="flex flex-wrap items-center gap-2 p-3 rounded-lg border border-[var(--border)] bg-[var(--border)]/20">
+            <span className="text-sm font-medium text-foreground">AI fordítás:</span>
+            <p className="text-xs text-muted">A magyar leírás alapján kitölti az EN, RO, DE mezőket (üres mezők; opcionálisan felülírás).</p>
+            <button
+              type="button"
+              onClick={async () => {
+                setMessage(null)
+                try {
+                  const res = await fetch(`/api/admin/products/${id}/translate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ overwriteExisting: false }),
+                  })
+                  const data = await res.json().catch(() => ({}))
+                  if (res.ok && data.product) {
+                    setProduct((p) => (p ? {
+                      ...p,
+                      description_en: data.product.description_en ?? p.description_en,
+                      description_de: data.product.description_de ?? p.description_de,
+                      description_ro: data.product.description_ro ?? p.description_ro,
+                    } : p))
+                    setMessage({ type: 'ok', text: data.message || 'Fordítás kész.' })
+                  } else {
+                    setMessage({ type: 'error', text: data?.error || 'Fordítás sikertelen.' })
+                  }
+                } catch {
+                  setMessage({ type: 'error', text: 'Hálózati hiba.' })
+                }
+              }}
+              className="rounded-lg bg-accent/90 text-white px-4 py-2 text-sm font-medium hover:opacity-90"
+            >
+              AI fordítás (EN, RO, DE)
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (!confirm('Felülírod a meglévő EN, RO, DE szövegeket?')) return
+                setMessage(null)
+                try {
+                  const res = await fetch(`/api/admin/products/${id}/translate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ overwriteExisting: true }),
+                  })
+                  const data = await res.json().catch(() => ({}))
+                  if (res.ok && data.product) {
+                    setProduct((p) => (p ? {
+                      ...p,
+                      description_en: data.product.description_en ?? '',
+                      description_de: data.product.description_de ?? '',
+                      description_ro: data.product.description_ro ?? '',
+                    } : p))
+                    setMessage({ type: 'ok', text: data.message || 'Fordítás felülírva.' })
+                  } else {
+                    setMessage({ type: 'error', text: data?.error || 'Fordítás sikertelen.' })
+                  }
+                } catch {
+                  setMessage({ type: 'error', text: 'Hálózati hiba.' })
+                }
+              }}
+              className="rounded-lg border border-amber-500/60 text-amber-700 dark:text-amber-400 px-4 py-2 text-sm font-medium hover:bg-amber-500/10"
+            >
+              AI fordítás (felülírás)
+            </button>
+          </div>
+        )}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -336,7 +418,7 @@ export default function AdminProductEditPage() {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Fő kép URL</label>
-            <p className="text-xs text-muted mb-1">Írd be az URL-t vagy tölts fel képet a gépről (JPEG, PNG, max 5 MB). Élesben (Railway) a feltöltött fájlok deploy után eltűnhetnek – külső tároló (pl. Google Drive, Cloudinary) URL-je ajánlott.</p>
+            <p className="text-xs text-muted mb-1">Írd be az URL-t vagy tölts fel képet a gépről (JPEG, PNG, WebP, GIF, max 25 MB). A feltöltött kép automatikusan webre optimalizálódik (WebP). Élesben (Railway) a feltöltött fájlok deploy után eltűnhetnek – külső tároló (pl. Cloudinary) URL-je ajánlott.</p>
             <div className="flex flex-wrap gap-2 items-center">
               <input
                 value={product?.image ?? ''}

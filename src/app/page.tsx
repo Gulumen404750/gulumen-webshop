@@ -3,9 +3,9 @@ import HomePageClient from './HomePageClient'
 
 /**
  * Főoldal: Újdonságok és Akciók blokk az adatbázisból (adminban beállított termékek).
- * Csak az admin felületen (www.gulumen.com/admin) lehet módosítani; a főoldal automatikusan ezt mutatja.
+ * Rövid revalidate (10 s), hogy a készletváltozás gyorsan megjelenjen.
  */
-export const revalidate = 60
+export const revalidate = 10
 
 export default async function HomePage() {
   const all = await getAllProductsAsync()

@@ -4,8 +4,8 @@ import { getProductOrdersCount } from '@/lib/orders'
 import { getServerTimeMs } from '@/lib/server-time'
 import { ProductPageContent } from './ProductPageContent'
 
-/** Timed oldal: rövid revalidate a saleFrom/saleTo boundary környékén. */
-export const revalidate = 5
+/** Timed oldal: rövid revalidate a készlet és a sale boundary konzisztenciájához. */
+export const revalidate = 10
 
 type PageProps = { params: Promise<{ slug: string }> }
 

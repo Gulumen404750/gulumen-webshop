@@ -227,6 +227,8 @@
     "email": "E-mail",
     "password": "Jelszó",
     "loginCta": "Bejelentkezés",
+    "or": "vagy",
+    "loginWithGoogle": "Bejelentkezés Google-lel",
     "noAccount": "Már nincs fiókod?",
     "registerLink": "Regisztráció"
   },

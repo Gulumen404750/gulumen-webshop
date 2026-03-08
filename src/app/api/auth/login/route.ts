@@ -51,6 +51,13 @@ export async function POST(request: Request) {
       { status: 401 }
     )
   }
+  if (!user.passwordHash) {
+    loginRateLimitRecordFailure(request)
+    return NextResponse.json(
+      { error: 'Ehhez a fiókhoz Google-lel jelentkezz be.' },
+      { status: 401 }
+    )
+  }
 
   const ok = await bcrypt.compare(password, user.passwordHash)
   if (!ok) {

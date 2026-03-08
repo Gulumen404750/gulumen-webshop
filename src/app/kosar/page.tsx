@@ -84,7 +84,7 @@ export default function CartPage() {
       toast(t('cart.allAvailableAdded'))
     }
     router.replace('/kosar')
-  }, [searchParams, router, addItem, placeOrder, items, t, toast])
+  }, [searchParams, router, addItem, placeOrder, items, t, toast, getProductById, products])
 
   const handleCompleteOrder = () => {
     let corrected = false

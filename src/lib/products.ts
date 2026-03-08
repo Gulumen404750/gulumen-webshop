@@ -20,6 +20,7 @@ function dbProductToProduct(row: {
   description_hu: string
   description_en: string
   description_de: string
+  description_ro: string
   condition: string
   category: string
   image: string
@@ -46,7 +47,7 @@ function dbProductToProduct(row: {
   sourcingStatus: string | null
 }): Product {
   const variants = row.variants as { size?: string; color?: string }[] | null
-  const descEn = row.description_en || row.description_hu || row.description_de
+  const descEn = row.description_en || row.description_hu || row.description_de || row.description_ro
   return {
     id: row.id,
     slug: row.slug,
@@ -58,6 +59,7 @@ function dbProductToProduct(row: {
     description_hu: row.description_hu || undefined,
     description_en: row.description_en || undefined,
     description_de: row.description_de || undefined,
+    description_ro: row.description_ro || undefined,
     condition: mapCondition(row.condition),
     category: row.category,
     image: row.image,

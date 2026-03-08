@@ -1,7 +1,7 @@
 import { getAllProductsAsync } from '@/lib/data'
 import { ProductCard } from '@/components/ProductCard'
 
-export const revalidate = 60
+export const revalidate = 10
 
 export default async function DealsPage() {
   const allProducts = await getAllProductsAsync()
