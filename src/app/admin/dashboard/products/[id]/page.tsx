@@ -61,7 +61,7 @@ export default function AdminProductEditPage() {
         }
         return r.json()
       })
-      .then((data) => {
+      .then((data: { product?: Product }) => {
         if (data.product) setProduct(data.product)
       })
       .catch(() => setMessage({ type: 'error', text: 'Hálózati hiba.' }))
@@ -282,12 +282,76 @@ export default function AdminProductEditPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Kép URL</label>
-            <input
-              value={product?.image ?? ''}
-              onChange={(e) => setProduct((p) => ({ ...p, image: e.target.value }))}
-              className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
-            />
+            <label className="block text-sm font-medium mb-1">Fő kép URL</label>
+            <div className="flex gap-2">
+              <input
+                value={product?.image ?? ''}
+                onChange={(e) => setProduct((p) => ({ ...p, image: e.target.value }))}
+                placeholder="https://… vagy feltöltés"
+                className="flex-1 rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
+              />
+              <label className="shrink-0 rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-medium cursor-pointer hover:bg-[var(--border)]/30">
+                Feltöltés
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0]
+                    if (!file) return
+                    const form = new FormData()
+                    form.append('file', file)
+                    try {
+                      const res = await fetch('/api/admin/upload', { method: 'POST', credentials: 'include', body: form })
+                      const data = await res.json().catch(() => ({}))
+                      if (res.ok && data.url) setProduct((p) => ({ ...p, image: data.url }))
+                      else setMessage({ type: 'error', text: data?.error || 'Feltöltés sikertelen.' })
+                    } catch {
+                      setMessage({ type: 'error', text: 'Feltöltés hiba.' })
+                    }
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Galéria (több kép URL)</label>
+          <p className="text-xs text-muted mb-2">A fő kép alatt megjelenő képek. Add hozzá az URL-eket vagy töröld őket.</p>
+          <div className="space-y-2">
+            {(product?.images?.length ? product.images : []).map((url, i) => (
+              <div key={i} className="flex gap-2">
+                <input
+                  value={url}
+                  onChange={(e) => {
+                    const next = [...(product?.images ?? [])]
+                    next[i] = e.target.value
+                    setProduct((p) => ({ ...p, images: next }))
+                  }}
+                  className="flex-1 rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground text-sm"
+                  placeholder="Kép URL"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = (product?.images ?? []).filter((_, j) => j !== i)
+                    setProduct((p) => ({ ...p, images: next }))
+                  }}
+                  className="shrink-0 rounded-lg border border-red-500/50 px-3 py-2 text-red-600 text-sm hover:bg-red-500/10"
+                >
+                  Törlés
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setProduct((p) => ({ ...p, images: [...(p?.images ?? []), ''] }))}
+              className="rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-sm text-muted hover:bg-[var(--border)]/20"
+            >
+              + Kép URL hozzáadása
+            </button>
           </div>
         </div>
 
@@ -390,12 +454,39 @@ export default function AdminProductEditPage() {
             {saving ? 'Mentés…' : 'Mentés'}
           </button>
           {!isNew && (
-            <Link
-              href="/admin/dashboard/products"
-              className="rounded-lg border border-[var(--border)] px-4 py-2 font-medium hover:bg-[var(--border)]"
-            >
-              Mégse
-            </Link>
+            <>
+              <Link
+                href="/admin/dashboard/products"
+                className="rounded-lg border border-[var(--border)] px-4 py-2 font-medium hover:bg-[var(--border)]"
+              >
+                Mégse
+              </Link>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!confirm('Törlöd ezt a terméket? Ez visszavonhatatlan.')) return
+                  setSaving(true)
+                  try {
+                    const res = await fetch(`/api/admin/products/${id}`, { method: 'DELETE', credentials: 'include' })
+                    if (res.ok) {
+                      router.push('/admin/dashboard/products')
+                      router.refresh()
+                    } else {
+                      const d = await res.json().catch(() => ({}))
+                      setMessage({ type: 'error', text: d?.error || 'Törlés sikertelen.' })
+                    }
+                  } catch {
+                    setMessage({ type: 'error', text: 'Hálózati hiba.' })
+                  } finally {
+                    setSaving(false)
+                  }
+                }}
+                disabled={saving}
+                className="rounded-lg border border-red-500/50 px-4 py-2 text-red-600 font-medium hover:bg-red-500/10 disabled:opacity-60"
+              >
+                Termék törlése
+              </button>
+            </>
           )}
         </div>
       </form>

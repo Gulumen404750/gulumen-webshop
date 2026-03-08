@@ -30,9 +30,9 @@ A termékek az **adatbázisban** (Postgres) vannak. Ha a Railway-en **nincs** **
 ## Mit tud az admin termékfelület?
 
 - **Termékek** lista: keresés, típus szűrő, **Új termék** gomb.
-- **Szerkesztés** (vagy új termék): slug, név (HU/EN/DE/RO), leírás, **ár (Ft)**, akciós ár, **kép URL**, többi kép, 3D model URL, készlet, aktív/újdonság/akciós, beszerzéses deal (lejárat, max rendelések).
-
-A **képek** jelenleg **URL-ként** adhatók meg (fő kép: **Kép URL**, többi: tömb). Fájlfeltöltés (upload) nincs az alkalmazásban; a képeket máshol tartsd (CDN, Storage), és az URL-t illeszd be az adminban.
+- **Szerkesztés** (vagy új termék): slug, név (HU/EN/DE/RO), leírás, **ár (Ft)**, akciós ár, **fő kép** (URL vagy **Feltöltés** gombbal), **galéria** (több kép URL – hozzáadás/törlés), 3D model URL, készlet, aktív/újdonság/akciós, beszerzéses deal (lejárat, max rendelések).
+- **Termék törlése:** a szerkesztő oldalon a „Termék törlése” gomb (megerősítéssel).
+- **Képfeltöltés:** a fő kép mellett a „Feltöltés” gomb; élesben (Railway) a feltöltött fájlok deploy-kor elveszhetnek – tartós tároláshoz használj külső szolgáltatót (pl. Cloudinary) és írd be az URL-t.
 
 ---
 
@@ -42,4 +42,4 @@ A **képek** jelenleg **URL-ként** adhatók meg (fő kép: **Kép URL**, többi
 |----------|----------|
 | Nem listázódnak a termékek / „Nincs jogosultság” | Jelentkezz be: **/admin/login** → API kulcs (ADMIN_API_KEY). |
 | „Adatbázis nincs beállítva” | Railway **Variables** → **DATABASE_URL** = Postgres connection string. |
-| Képet nem tudok feltölteni | Képfeltöltés nincs; használj külső tárolót és add meg a **Kép URL**-t. |
+| Képet nem tudok feltölteni | Használd a **Feltöltés** gombot a fő kép mellett, vagy külső tároló (Cloudinary stb.) + URL. |
