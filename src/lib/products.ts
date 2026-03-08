@@ -17,7 +17,9 @@ function dbProductToProduct(row: {
   nameEn: string | null
   nameDe: string | null
   nameRo: string | null
-  description: string
+  description_hu: string
+  description_en: string
+  description_de: string
   condition: string
   category: string
   image: string
@@ -44,6 +46,7 @@ function dbProductToProduct(row: {
   sourcingStatus: string | null
 }): Product {
   const variants = row.variants as { size?: string; color?: string }[] | null
+  const descEn = row.description_en || row.description_hu || row.description_de
   return {
     id: row.id,
     slug: row.slug,
@@ -51,7 +54,10 @@ function dbProductToProduct(row: {
     nameEn: row.nameEn ?? row.name,
     nameDe: row.nameDe ?? undefined,
     nameRo: row.nameRo ?? undefined,
-    description: row.description,
+    description: descEn,
+    description_hu: row.description_hu || undefined,
+    description_en: row.description_en || undefined,
+    description_de: row.description_de || undefined,
     condition: mapCondition(row.condition),
     category: row.category,
     image: row.image,
@@ -104,12 +110,12 @@ export async function getProductByIdFromDb(id: string): Promise<Product | null> 
   return row ? dbProductToProduct(row) : null
 }
 
-/** Csak sourcing_deal típusú, aktív termékek (beszerzésre rendelhető oldalhoz). */
+/** Csak sourcing_deal típusú, aktív termékek (beszerzésre rendelhető oldalhoz). sortOrder szerint, majd dealEndAt. */
 export async function getSourcingDealProductsFromDb(): Promise<Product[]> {
   if (!isDbConfigured()) return []
   const rows = await prisma.product.findMany({
     where: { active: true, type: 'sourcing_deal', sourcingEnabled: true },
-    orderBy: { dealEndAt: 'asc' },
+    orderBy: [{ sortOrder: { sort: 'asc', nulls: 'last' } }, { dealEndAt: 'asc' }],
   })
   return rows.map(dbProductToProduct)
 }

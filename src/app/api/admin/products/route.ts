@@ -47,7 +47,9 @@ const createProductSchema = z.object({
   nameEn: z.string().optional(),
   nameDe: z.string().optional(),
   nameRo: z.string().optional(),
-  description: z.string().optional(),
+  description_hu: z.string().optional(),
+  description_en: z.string().optional(),
+  description_de: z.string().optional(),
   condition: z.string().optional(),
   category: z.string().min(1),
   image: z.string().optional(),
@@ -70,6 +72,7 @@ const createProductSchema = z.object({
   dealEndAt: z.string().datetime().optional(),
   previewFrom: z.string().datetime().optional(),
   maxOrders: z.number().int().min(0).optional(),
+  sortOrder: z.number().int().optional().nullable(),
 })
 
 /**
@@ -105,7 +108,9 @@ export async function POST(request: Request) {
       nameEn: d.nameEn ?? null,
       nameDe: d.nameDe ?? null,
       nameRo: d.nameRo ?? null,
-      description: d.description ?? '',
+      description_hu: d.description_hu ?? '',
+      description_en: d.description_en ?? '',
+      description_de: d.description_de ?? '',
       condition: d.condition ?? 'Új',
       category: d.category,
       image: d.image ?? '',
@@ -128,6 +133,7 @@ export async function POST(request: Request) {
       dealEndAt: d.dealEndAt ? new Date(d.dealEndAt) : null,
       previewFrom: d.previewFrom ? new Date(d.previewFrom) : null,
       maxOrders: d.maxOrders ?? null,
+      sortOrder: d.sortOrder ?? null,
     },
   })
 

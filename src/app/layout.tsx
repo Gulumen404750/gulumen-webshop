@@ -8,6 +8,7 @@ import { LocaleProvider } from '@/context/LocaleContext'
 import { SourcingDealOrdersProvider } from '@/context/SourcingDealOrdersContext'
 import { AuthProvider } from '@/context/AuthContext'
 import { CatCouponProvider } from '@/context/CatCouponContext'
+import { ProductsProvider } from '@/context/ProductsContext'
 import { CartProvider } from '@/context/CartContext'
 import { WishlistProvider } from '@/context/WishlistContext'
 import { ToastProvider } from '@/context/ToastContext'
@@ -72,6 +73,7 @@ export default function RootLayout({
           <SourcingDealOrdersProvider>
             <AuthProvider>
               <CatCouponProvider>
+                <ProductsProvider>
                 <CartProvider>
                   <WishlistProvider>
                   <ToastProvider>
@@ -84,6 +86,7 @@ export default function RootLayout({
                   </ToastProvider>
                   </WishlistProvider>
                 </CartProvider>
+                </ProductsProvider>
               </CatCouponProvider>
             </AuthProvider>
           </SourcingDealOrdersProvider>

@@ -10,7 +10,9 @@ const updateProductSchema = z.object({
   nameEn: z.string().optional(),
   nameDe: z.string().optional(),
   nameRo: z.string().optional(),
-  description: z.string().optional(),
+  description_hu: z.string().optional(),
+  description_en: z.string().optional(),
+  description_de: z.string().optional(),
   condition: z.string().optional(),
   category: z.string().min(1).optional(),
   image: z.string().optional(),
@@ -33,6 +35,7 @@ const updateProductSchema = z.object({
   dealEndAt: z.string().datetime().optional().nullable(),
   previewFrom: z.string().datetime().optional().nullable(),
   maxOrders: z.number().int().min(0).optional().nullable(),
+  sortOrder: z.number().int().optional().nullable(),
 })
 
 export async function GET(
@@ -84,7 +87,9 @@ export async function PATCH(
       ...(d.nameEn !== undefined && { nameEn: d.nameEn }),
       ...(d.nameDe !== undefined && { nameDe: d.nameDe }),
       ...(d.nameRo !== undefined && { nameRo: d.nameRo }),
-      ...(d.description !== undefined && { description: d.description }),
+      ...(d.description_hu !== undefined && { description_hu: d.description_hu }),
+      ...(d.description_en !== undefined && { description_en: d.description_en }),
+      ...(d.description_de !== undefined && { description_de: d.description_de }),
       ...(d.condition !== undefined && { condition: d.condition }),
       ...(d.category !== undefined && { category: d.category }),
       ...(d.image !== undefined && { image: d.image }),
@@ -107,6 +112,7 @@ export async function PATCH(
       ...(d.dealEndAt !== undefined && { dealEndAt: d.dealEndAt ? new Date(d.dealEndAt) : null }),
       ...(d.previewFrom !== undefined && { previewFrom: d.previewFrom ? new Date(d.previewFrom) : null }),
       ...(d.maxOrders !== undefined && { maxOrders: d.maxOrders }),
+      ...(d.sortOrder !== undefined && { sortOrder: d.sortOrder }),
     },
   })
 

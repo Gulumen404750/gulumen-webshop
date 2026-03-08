@@ -2,7 +2,7 @@
 
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useMemo, useCallback, useState, useEffect } from 'react'
-import { categories, mockProducts, getCategoryName, getProductName, threeDSubcategories, is3DProduct } from '@/lib/data'
+import { categories, mockProducts, getCategoryName, getProductName, getProductDescription, threeDSubcategories, is3DProduct } from '@/lib/data'
 import type { Product } from '@/lib/data'
 import { ProductCard } from '@/components/ProductCard'
 import { HungarianFlagIcon } from '@/components/HungarianFlagIcon'
@@ -19,7 +19,7 @@ function matchesSearch(product: Product, search: string, locale: string): boolea
   if (!search.trim()) return true
   const q = search.trim().toLowerCase().replace(/\s+/g, ' ')
   const name = getProductName(product, locale).toLowerCase()
-  const desc = (product.description || '').toLowerCase()
+  const desc = (getProductDescription(product, locale) || '').toLowerCase()
   if (name.includes(q) || desc.includes(q)) return true
   const words = q.split(' ')
   if (words.every((w) => name.includes(w) || desc.includes(w))) return true

@@ -9,13 +9,16 @@ import { useAuth } from '@/context/AuthContext'
 import { useLocale } from '@/context/LocaleContext'
 import { useEuroRate } from '@/context/EuroRateContext'
 import { trackBeginCheckout } from '@/lib/analytics'
-import { getProductById, getProductName } from '@/lib/data'
+import { getProductById as getProductByIdFromData, getProductName } from '@/lib/data'
+import { useProducts } from '@/context/ProductsContext'
 
 export default function PaymentPage() {
   const router = useRouter()
   const { t, locale } = useLocale()
   const { userId } = useAuth()
   const { items, subtotalHuf, discountHuf, totalHuf, isDiscountActive } = useCart()
+  const { getProductById: getProductByIdFromContext } = useProducts()
+  const getProductById = (id: string) => getProductByIdFromContext(id) ?? getProductByIdFromData(id)
   const { isDiscountActive: couponActive, discountPercent } = useCatCoupon()
   const { hufToEur, formatEur } = useEuroRate()
   const [loading, setLoading] = useState(false)

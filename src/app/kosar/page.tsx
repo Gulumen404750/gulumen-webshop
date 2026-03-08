@@ -4,8 +4,9 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useEffect, useRef, useMemo, useState } from 'react'
-import { getProductById, getAddToCartReason, getMaxQty, getStockById, getProductName } from '@/lib/data'
+import { getProductById as getProductByIdFromData, getAddToCartReason, getMaxQty, getProductName } from '@/lib/data'
 import { useCart } from '@/context/CartContext'
+import { useProducts } from '@/context/ProductsContext'
 import { useCatCoupon } from '@/context/CatCouponContext'
 import { useSourcingDealOrders } from '@/context/SourcingDealOrdersContext'
 import { useLocale } from '@/context/LocaleContext'
@@ -17,6 +18,8 @@ export default function CartPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const { items, addItem, removeItem, updateQty, clearCart, subtotalHuf, discountHuf, totalHuf, isDiscountActive } = useCart()
+  const { getProductById: getProductByIdFromContext, products } = useProducts()
+  const getProductById = (id: string) => getProductByIdFromContext(id) ?? getProductByIdFromData(id)
   const { t, locale } = useLocale()
   const { toast } = useToast()
   const { hufToEur, formatEur } = useEuroRate()
@@ -34,7 +37,7 @@ export default function CartPage() {
       else stock.push(item)
     }
     return { stockItems: stock, sourcingItems: sourcing }
-  }, [items])
+  }, [items, products])
 
   const hasSourcingItems = sourcingItems.length > 0
 
@@ -64,10 +67,7 @@ export default function CartPage() {
     const ordersOverride = product.type === 'sourcing_deal' ? (product.ordersCount ?? 0) + currentQty : undefined
     const { canAdd } = getAddToCartReason(product, new Date(), ordersOverride)
     if (!canAdd) return
-    const maxQty =
-      product.type === 'sourcing_deal'
-        ? getMaxQty(product, ordersOverride)
-        : getStockById(product.id)
+    const maxQty = getMaxQty(product, ordersOverride)
     if (currentQty >= maxQty) {
       toast(t('cart.allAvailableAdded'))
       router.replace('/kosar')
@@ -93,7 +93,7 @@ export default function CartPage() {
       const isSourcingOrder = product?.type === 'sourcing_deal'
       const maxAllowedInCart = isSourcingOrder && product
         ? Math.max(0, (product.maxOrders ?? 0) - (product.ordersCount ?? 0))
-        : getStockById(item.productId)
+        : (product ? getMaxQty(product) : 0)
       if (item.qty > maxAllowedInCart) {
         corrected = true
         updateQty(item.productId, maxAllowedInCart, item.options)
@@ -140,7 +140,7 @@ export default function CartPage() {
           <ul className="space-y-4">
             {stockItems.map((item) => {
               const product = getProductById(item.productId)
-              const maxAllowedInCart = getStockById(item.productId)
+              const maxAllowedInCart = product ? getMaxQty(product) : 0
               const priceHuf = product ? (product.discountPriceHuf ?? product.priceHuf) : 0
               const priceEur = hufToEur(priceHuf)
               const img = product?.image?.startsWith('/') ? product.image : ''

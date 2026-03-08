@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useCallback, useEffect, useState } from 'react'
 import type { Product } from '@/lib/data'
-import { getSourcingDealStatus, getProductName, getStockById, is3DProduct } from '@/lib/data'
+import { getSourcingDealStatus, getProductName, getDisplayStock, is3DProduct } from '@/lib/data'
 import { SourcingDealCardCountdown } from '@/components/SourcingDealCardCountdown'
 import { SoldImpactOverlay } from '@/components/SoldImpactOverlay'
 import { useLocale } from '@/context/LocaleContext'
@@ -13,7 +13,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useToast } from '@/context/ToastContext'
 import { useWishlist } from '@/context/WishlistContext'
 
-/** Elérhető készlet: stock = getStockById; sourcing_deal = maxOrders - ordersCount (0 ha nem vehető). serverNow = hydration egyezés listán. */
+/** Elérhető készlet: stock = product.stock (getDisplayStock); sourcing_deal = maxOrders - ordersCount (0 ha nem vehető). serverNow = hydration egyezés listán. */
 function getAvailableStock(product: Product, serverNow?: number): number {
   if (product.type === 'sourcing_deal') {
     const now = serverNow != null ? new Date(serverNow) : new Date()
@@ -23,7 +23,7 @@ function getAvailableStock(product: Product, serverNow?: number): number {
     }
     return 0
   }
-  return getStockById(product.id)
+  return getDisplayStock(product)
 }
 
 function SourcingDealBadge({

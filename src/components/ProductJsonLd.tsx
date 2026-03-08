@@ -1,5 +1,5 @@
 import type { Product } from '@/lib/data'
-import { categories } from '@/lib/data'
+import { categories, getProductDescription } from '@/lib/data'
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://gulumen.hu'
 
@@ -10,7 +10,7 @@ export function ProductJsonLd({ product }: { product: Product }) {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: product.name,
-    description: product.description || product.name,
+    description: getProductDescription(product, 'hu') || product.name,
     image: product.image?.startsWith('/') ? `${BASE_URL}${product.image}` : undefined,
     sku: product.id,
     ...(cat && { category: cat.name }),

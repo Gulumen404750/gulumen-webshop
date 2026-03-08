@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useState, useEffect } from 'react'
-import { getProductBySlug, getStockById, getProductName, getSourcingDealStatus, mockProducts } from '@/lib/data'
+import { getDisplayStock, getProductName, getSourcingDealStatus, mockProducts } from '@/lib/data'
 import { ProductTabs } from '@/components/ProductTabs'
 import { SourcingDealBox } from '@/components/SourcingDealBox'
 import { Breadcrumbs, productBreadcrumbs } from '@/components/Breadcrumbs'
@@ -63,8 +63,9 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
   useRecentlyViewed(product.id, product.slug)
   const productName = getProductName(product, locale)
   const cartQty = items.find((x) => x.productId === product.id)?.qty ?? 0
-  const stockFromSource = product.type !== 'sourcing_deal' ? getStockById(product.id) : 0
-  const maxAddable = Math.max(0, stockFromSource - cartQty)
+  const effectiveOrdersCount = (product.ordersCount ?? 0) + cartQty
+  const stockFromSource = product.type === 'sourcing_deal' ? getDisplayStock(product, effectiveOrdersCount) : getDisplayStock(product)
+  const maxAddable = product.type === 'sourcing_deal' ? stockFromSource : Math.max(0, stockFromSource - cartQty)
   const [addQty, setAddQty] = useState(1)
   const [mainImageIndex, setMainImageIndex] = useState(0)
   const [lightboxOpen, setLightboxOpen] = useState(false)
@@ -77,7 +78,6 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
   const [selectedColor, setSelectedColor] = useState<FilamentColor | null>(null)
   /** 3D termék: PLA vagy PETG anyag választása (nincs alapértelmezett). */
   const [selectedMaterial, setSelectedMaterial] = useState<'PLA' | 'PETG' | null>(null)
-  const effectiveOrdersCount = (product.ordersCount ?? 0) + cartQty
   const sourcingStatus =
     product.type === 'sourcing_deal'
       ? getSourcingDealStatus(product, new Date(serverNow ?? Date.now()), effectiveOrdersCount)

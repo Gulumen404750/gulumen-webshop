@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { Product } from '@/lib/data'
 import { useLocale } from '@/context/LocaleContext'
+import { getProductDescription } from '@/lib/data'
 
 const tabs = [
   { id: 'leiras', label: 'Leírás' },
@@ -11,7 +12,7 @@ const tabs = [
 ] as const
 
 export function ProductTabs({ product }: { product: Product }) {
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   const [active, setActive] = useState<(typeof tabs)[number]['id']>('leiras')
 
   return (
@@ -33,7 +34,7 @@ export function ProductTabs({ product }: { product: Product }) {
         ))}
       </div>
       <div className="pt-4 text-muted text-sm">
-        {active === 'leiras' && <p>{product.description}</p>}
+        {active === 'leiras' && <p>{getProductDescription(product, locale)}</p>}
         {active === 'szallitas' && (
           <p className="whitespace-pre-line">
             {product.type === 'sourcing_deal'

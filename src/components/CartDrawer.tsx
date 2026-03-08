@@ -4,8 +4,9 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useEffect, useRef, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { getProductById, getProductName } from '@/lib/data'
+import { getProductName } from '@/lib/data'
 import { useCart } from '@/context/CartContext'
+import { useProducts } from '@/context/ProductsContext'
 import { useLocale } from '@/context/LocaleContext'
 import { CheckoutSourcingModal } from '@/components/CheckoutSourcingModal'
 
@@ -15,6 +16,7 @@ export function CartDrawer({ isOpen, onClose }: Props) {
   const { t, locale } = useLocale()
   const router = useRouter()
   const { items, subtotalHuf, removeItem } = useCart()
+  const { getProductById } = useProducts()
   const drawerRef = useRef<HTMLDivElement>(null)
   const [showCheckoutModal, setShowCheckoutModal] = useState(false)
 

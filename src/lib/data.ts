@@ -30,7 +30,12 @@ export interface Product {
   modelUrl?: string
   stock: number
   variants?: { size?: string; color?: string }[]
+  /** Leírás (mock: egyetlen mező; DB: getProductDescription használja a _hu/_en/_de mezőket). */
   description: string
+  /** Többnyelvű leírás (DB). Fallback: hu → en → de. */
+  description_hu?: string
+  description_en?: string
+  description_de?: string
   isNew?: boolean
   onSale?: boolean
   type?: ProductType
@@ -75,6 +80,33 @@ export function getProductName(product: Product, locale: string): string {
     default:
       return product.nameEn ?? product.name
   }
+}
+
+/**
+ * Termékleírás a kiválasztott nyelv szerint.
+ * hu → description_hu, en → description_en, de → description_de.
+ * Fallback: ha a kiválasztott nyelv üres, akkor description_en, majd description_hu, description_de.
+ * Mock mód: product.description (egyetlen mező).
+ */
+export function getProductDescription(product: Product, locale: string): string {
+  const hu = product.description_hu ?? product.description ?? ''
+  const en = product.description_en ?? product.description ?? ''
+  const de = product.description_de ?? product.description ?? ''
+  let out = ''
+  switch (locale) {
+    case 'hu':
+      out = hu || en || de
+      break
+    case 'de':
+      out = de || en || hu
+      break
+    case 'en':
+    case 'ro':
+    default:
+      out = en || hu || de
+      break
+  }
+  return out
 }
 
 export function getSourcingDealStatus(
@@ -179,9 +211,23 @@ export function getAddToCartReason(
     if (status === 'closed') return { canAdd: false, reasonKey: 'status.expired' }
     return { canAdd: false, reasonKey: 'addToCartReason.previewNotStarted' }
   }
-  const stock = getStockById(product.id)
+  const stock = is3DProduct(product) ? UNLIMITED_STOCK_CAP : Math.max(0, product.stock ?? 0)
   if (stock <= 0) return { canAdd: false, reasonKey: 'status.soldOut' }
   return { canAdd: true }
+}
+
+/**
+ * Kijelzett készlet a termék típusa szerint.
+ * - stock: product.stock
+ * - sourcing_deal: maxOrders - ordersCount (rendelhető maradék)
+ */
+export function getDisplayStock(product: Product, ordersCountOverride?: number): number {
+  if (product.type === 'sourcing_deal') {
+    const maxOrders = product.maxOrders ?? 0
+    const count = ordersCountOverride ?? product.ordersCount ?? 0
+    return Math.max(0, maxOrders - count)
+  }
+  return Math.max(0, product.stock ?? 0)
 }
 
 /**
@@ -221,7 +267,8 @@ export function getMaxQty(
     const count = ordersCountOverride ?? product.ordersCount ?? 0
     return Math.max(0, maxOrders - count)
   }
-  return getStockById(product.id)
+  if (is3DProduct(product)) return UNLIMITED_STOCK_CAP
+  return Math.max(0, product.stock ?? 0)
 }
 
 export const categories = [

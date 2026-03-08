@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { getProductBySlugAsync } from '@/lib/data'
+import { getProductBySlugAsync, getProductDescription } from '@/lib/data'
 import { categories } from '@/lib/data'
 
 const SITE_NAME = 'Gulumen'
@@ -16,8 +16,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const title = `${product.name} – ${SITE_NAME}`
   const cat = categories.find((c) => c.slug === product.category)
   const categoryName = cat?.name ?? product.category
+  const descText = getProductDescription(product, 'hu') || ''
   const description =
-    product.description?.slice(0, 155) ||
+    descText.slice(0, 155) ||
     `${product.name}. ${categoryName}. ${product.condition}. ${(product.discountPriceHuf ?? product.priceHuf).toLocaleString('hu-HU')} Ft.`
   const canonical = `${BASE_URL}/termek/${product.slug}`
   const imagePath = product.image?.startsWith('/') ? product.image : '/img/logo.png'

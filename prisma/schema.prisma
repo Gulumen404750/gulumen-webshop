@@ -21,7 +21,9 @@ model Product {
   nameEn           String?
   nameDe           String?
   nameRo           String?
-  description      String   @default("")
+  description_hu    String   @default("")
+  description_en   String   @default("")
+  description_de   String   @default("")
   condition        String   @default("Új")
   category         String
   image            String
@@ -47,6 +49,8 @@ model Product {
   previewFrom      DateTime?
   maxOrders        Int?
   sourcingStatus   String?  // optional cache: preview | sale | soldout | closed
+  /// Sorrend: kisebb = előrébb (pl. beszerzésre rendelhető listán, kategórián belül).
+  sortOrder        Int?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }

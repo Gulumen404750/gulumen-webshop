@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
+import { categories, threeDSubcategories } from '@/lib/data'
 
 type Product = {
   id: string
@@ -12,6 +13,9 @@ type Product = {
   nameDe: string | null
   nameRo: string | null
   description: string
+  description_hu: string | null
+  description_en: string | null
+  description_de: string | null
   condition: string
   category: string
   image: string
@@ -34,6 +38,7 @@ type Product = {
   dealEndAt: string | null
   previewFrom: string | null
   maxOrders: number | null
+  sortOrder: number | null
 }
 
 export default function AdminProductEditPage() {
@@ -45,6 +50,8 @@ export default function AdminProductEditPage() {
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null)
+  const mainImageInputRef = useRef<HTMLInputElement>(null)
+  const galleryImageInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (isNew) return
@@ -83,7 +90,9 @@ export default function AdminProductEditPage() {
             nameEn: product.nameEn || undefined,
             nameDe: product.nameDe || undefined,
             nameRo: product.nameRo || undefined,
-            description: product.description || '',
+            description_hu: product.description_hu ?? product.description ?? '',
+            description_en: product.description_en ?? product.description ?? '',
+            description_de: product.description_de ?? product.description ?? '',
             condition: product.condition || 'Új',
             category: product.category || 'taskak',
             image: product.image || '',
@@ -105,14 +114,16 @@ export default function AdminProductEditPage() {
             dealEndAt: product.dealEndAt || undefined,
             previewFrom: product.previewFrom || undefined,
             maxOrders: product.maxOrders ?? undefined,
+            sortOrder: product.sortOrder ?? undefined,
           }
         : {
-            ...(product.slug && { slug: product.slug }),
             ...(product.name && { name: product.name }),
             nameEn: product.nameEn ?? undefined,
             nameDe: product.nameDe ?? undefined,
             nameRo: product.nameRo ?? undefined,
-            description: product.description ?? '',
+            description_hu: product.description_hu ?? product.description ?? '',
+            description_en: product.description_en ?? product.description ?? '',
+            description_de: product.description_de ?? product.description ?? '',
             condition: product.condition ?? 'Új',
             category: product.category ?? 'taskak',
             image: product.image ?? '',
@@ -134,6 +145,7 @@ export default function AdminProductEditPage() {
             dealEndAt: product.dealEndAt || undefined,
             previewFrom: product.previewFrom || undefined,
             maxOrders: product.maxOrders ?? undefined,
+            sortOrder: product.sortOrder ?? undefined,
           }
       const res = await fetch(url, {
         method,
@@ -195,11 +207,32 @@ export default function AdminProductEditPage() {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Kategória</label>
-            <input
-              value={product?.category ?? ''}
-              onChange={(e) => setProduct((p) => ({ ...p, category: e.target.value }))}
-              className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
-            />
+            <div className="space-y-2">
+              <select
+                value={product?.category?.startsWith('3d-') ? '3d-nyomtatott' : (product?.category || 'taskak')}
+                onChange={(e) => {
+                  const main = e.target.value
+                  if (main !== '3d-nyomtatott') setProduct((p) => ({ ...p, category: main }))
+                  else setProduct((p) => ({ ...p, category: '3d-konyha' }))
+                }}
+                className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
+              >
+                {categories.map((c) => (
+                  <option key={c.slug} value={c.slug}>{c.name}</option>
+                ))}
+              </select>
+              {(product?.category?.startsWith('3d-') || (product?.category || 'taskak') === '3d-nyomtatott') && (
+                <select
+                  value={product?.category?.startsWith('3d-') ? product.category : '3d-konyha'}
+                  onChange={(e) => setProduct((p) => ({ ...p, category: e.target.value }))}
+                  className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
+                >
+                  {threeDSubcategories.map((s) => (
+                    <option key={s.slug} value={s.slug}>{s.icon} {s.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
           </div>
         </div>
 
@@ -239,14 +272,34 @@ export default function AdminProductEditPage() {
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-1">Leírás</label>
-          <textarea
-            value={product?.description ?? ''}
-            onChange={(e) => setProduct((p) => ({ ...p, description: e.target.value }))}
-            rows={3}
-            className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
-          />
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Leírás (HU)</label>
+            <textarea
+              value={product?.description_hu ?? product?.description ?? ''}
+              onChange={(e) => setProduct((p) => ({ ...p, description_hu: e.target.value }))}
+              rows={3}
+              className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Leírás (EN) – fallback</label>
+            <textarea
+              value={product?.description_en ?? ''}
+              onChange={(e) => setProduct((p) => ({ ...p, description_en: e.target.value }))}
+              rows={3}
+              className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Leírás (DE)</label>
+            <textarea
+              value={product?.description_de ?? ''}
+              onChange={(e) => setProduct((p) => ({ ...p, description_de: e.target.value }))}
+              rows={3}
+              className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
+            />
+          </div>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -283,43 +336,54 @@ export default function AdminProductEditPage() {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Fő kép URL</label>
-            <div className="flex gap-2">
+            <p className="text-xs text-muted mb-1">Írd be az URL-t vagy tölts fel képet a gépről (JPEG, PNG, max 5 MB). Élesben (Railway) a feltöltött fájlok deploy után eltűnhetnek – külső tároló (pl. Google Drive, Cloudinary) URL-je ajánlott.</p>
+            <div className="flex flex-wrap gap-2 items-center">
               <input
                 value={product?.image ?? ''}
                 onChange={(e) => setProduct((p) => ({ ...p, image: e.target.value }))}
-                placeholder="https://… vagy feltöltés"
-                className="flex-1 rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
+                placeholder="https://… vagy kattints a Feltöltés gombra"
+                className="flex-1 min-w-[200px] rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
               />
-              <label className="shrink-0 rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-medium cursor-pointer hover:bg-[var(--border)]/30">
-                Feltöltés
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0]
-                    if (!file) return
-                    const form = new FormData()
-                    form.append('file', file)
-                    try {
-                      const res = await fetch('/api/admin/upload', { method: 'POST', credentials: 'include', body: form })
-                      const data = await res.json().catch(() => ({}))
-                      if (res.ok && data.url) setProduct((p) => ({ ...p, image: data.url }))
-                      else setMessage({ type: 'error', text: data?.error || 'Feltöltés sikertelen.' })
-                    } catch {
-                      setMessage({ type: 'error', text: 'Feltöltés hiba.' })
+              <input
+                ref={mainImageInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  const form = new FormData()
+                  form.append('file', file)
+                  setMessage(null)
+                  try {
+                    const res = await fetch('/api/admin/upload', { method: 'POST', credentials: 'include', body: form })
+                    const data = await res.json().catch(() => ({}))
+                    if (res.ok && data.url) {
+                      setProduct((p) => ({ ...p, image: data.url }))
+                      setMessage({ type: 'ok', text: 'Fő kép feltöltve.' })
+                    } else {
+                      setMessage({ type: 'error', text: data?.error || 'Feltöltés sikertelen. (Ellenőrizd a bejelentkezést és a fájlméretet.)' })
                     }
-                    e.target.value = ''
-                  }}
-                />
-              </label>
+                  } catch {
+                    setMessage({ type: 'error', text: 'Feltöltés hiba. (Hálózat vagy szerver.)' })
+                  }
+                  e.target.value = ''
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => mainImageInputRef.current?.click()}
+                className="shrink-0 rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-[var(--border)]/30"
+              >
+                Feltöltés (gépről)
+              </button>
             </div>
           </div>
         </div>
 
         <div>
           <label className="block text-sm font-medium mb-1">Galéria (több kép URL)</label>
-          <p className="text-xs text-muted mb-2">A fő kép alatt megjelenő képek. Add hozzá az URL-eket vagy töröld őket.</p>
+          <p className="text-xs text-muted mb-2">A fő kép alatt megjelenő képek. Add hozzá az URL-eket, tölts fel a gépről, vagy töröld őket.</p>
           <div className="space-y-2">
             {(product?.images?.length ? product.images : []).map((url, i) => (
               <div key={i} className="flex gap-2">
@@ -345,13 +409,45 @@ export default function AdminProductEditPage() {
                 </button>
               </div>
             ))}
-            <button
-              type="button"
-              onClick={() => setProduct((p) => ({ ...p, images: [...(p?.images ?? []), ''] }))}
-              className="rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-sm text-muted hover:bg-[var(--border)]/20"
-            >
-              + Kép URL hozzáadása
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <input
+                ref={galleryImageInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  const form = new FormData()
+                  form.append('file', file)
+                  try {
+                    const res = await fetch('/api/admin/upload', { method: 'POST', credentials: 'include', body: form })
+                    const data = await res.json().catch(() => ({}))
+                    if (res.ok && data.url) {
+                      setProduct((p) => ({ ...p, images: [...(p?.images ?? []), data.url] }))
+                      setMessage({ type: 'ok', text: 'Galéria kép hozzáadva.' })
+                    } else setMessage({ type: 'error', text: data?.error || 'Feltöltés sikertelen.' })
+                  } catch {
+                    setMessage({ type: 'error', text: 'Feltöltés hiba.' })
+                  }
+                  e.target.value = ''
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => galleryImageInputRef.current?.click()}
+                className="rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-sm text-muted hover:bg-[var(--border)]/20"
+              >
+                + Kép feltöltése a gépről
+              </button>
+              <button
+                type="button"
+                onClick={() => setProduct((p) => ({ ...p, images: [...(p?.images ?? []), ''] }))}
+                className="rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-sm text-muted hover:bg-[var(--border)]/20"
+              >
+                + Kép URL hozzáadása
+              </button>
+            </div>
           </div>
         </div>
 
@@ -415,6 +511,17 @@ export default function AdminProductEditPage() {
 
         {product?.type === 'sourcing_deal' && (
           <div className="grid gap-4 sm:grid-cols-2 border-t border-[var(--border)] pt-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Sorrend (beszerzésre rendelhető listán)</label>
+              <input
+                type="number"
+                value={product?.sortOrder ?? ''}
+                onChange={(e) => setProduct((p) => ({ ...p, sortOrder: e.target.value === '' ? null : Number(e.target.value) }))}
+                placeholder="Üres = automatikus (lejárat szerint)"
+                className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
+              />
+              <p className="text-xs text-muted mt-1">Kisebb szám = előrébb. Pl. 1, 2, 3.</p>
+            </div>
             <div>
               <label className="block text-sm font-medium mb-1">Vásárlás indul (ISO)</label>
               <input
