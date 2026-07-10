@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { categories, threeDSubcategories } from '@/lib/data'
@@ -52,6 +52,9 @@ export default function AdminProductEditPage() {
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null)
+  const modelInputRef = useRef<HTMLInputElement>(null)
+  const [modelUploading, setModelUploading] = useState(false)
+  const [modelError, setModelError] = useState<string | null>(null)
 
   useEffect(() => {
     if (isNew) return
@@ -274,32 +277,53 @@ export default function AdminProductEditPage() {
           </div>
         </div>
 
-        {!isNew && (product?.name ?? '').trim() && (
+        {(product?.name ?? '').trim() && (
           <div className="flex flex-wrap items-center gap-2 p-3 rounded-lg border border-[var(--border)] bg-[var(--border)]/20">
             <span className="text-sm font-medium text-foreground">AI fordítás (nevek):</span>
-            <p className="text-xs text-muted">A magyar név alapján kitölti az EN, RO, DE mezőket (üres mezők; opcionálisan felülírás).</p>
+            <p className="text-xs text-muted">A magyar név alapján kitölti az EN, RO, DE mezőket (új terméknél csak a űrlapot; mentett terméknél opcionálisan felülírás).</p>
             <button
               type="button"
               onClick={async () => {
                 setMessage(null)
                 try {
-                  const res = await fetch(`/api/admin/products/${id}/translate-names`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ overwriteExisting: false }),
-                  })
-                  const data = await res.json().catch(() => ({}))
-                  if (res.ok && data.product) {
-                    setProduct((p) => (p ? {
-                      ...p,
-                      nameEn: data.product.nameEn ?? '',
-                      nameDe: data.product.nameDe ?? '',
-                      nameRo: data.product.nameRo ?? '',
-                    } : p))
-                    setMessage({ type: 'ok', text: data.message || 'Névfordítás kész.' })
+                  if (isNew) {
+                    const res = await fetch('/api/admin/translate-draft', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      credentials: 'include',
+                      body: JSON.stringify({ type: 'names', text: (product?.name ?? '').trim() }),
+                    })
+                    const data = await res.json().catch(() => ({}))
+                    if (res.ok && (data.nameEn != null || data.nameDe != null || data.nameRo != null)) {
+                      setProduct((p) => (p ? {
+                        ...p,
+                        nameEn: data.nameEn ?? p.nameEn ?? '',
+                        nameDe: data.nameDe ?? p.nameDe ?? '',
+                        nameRo: data.nameRo ?? p.nameRo ?? '',
+                      } : p))
+                      setMessage({ type: 'ok', text: 'Névfordítás kész (űrlap).' })
+                    } else {
+                      setMessage({ type: 'error', text: data?.error || 'Fordítás sikertelen.' })
+                    }
                   } else {
-                    setMessage({ type: 'error', text: data?.error || 'Fordítás sikertelen.' })
+                    const res = await fetch(`/api/admin/products/${id}/translate-names`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      credentials: 'include',
+                      body: JSON.stringify({ overwriteExisting: false }),
+                    })
+                    const data = await res.json().catch(() => ({}))
+                    if (res.ok && data.product) {
+                      setProduct((p) => (p ? {
+                        ...p,
+                        nameEn: data.product.nameEn ?? '',
+                        nameDe: data.product.nameDe ?? '',
+                        nameRo: data.product.nameRo ?? '',
+                      } : p))
+                      setMessage({ type: 'ok', text: data.message || 'Névfordítás kész.' })
+                    } else {
+                      setMessage({ type: 'error', text: data?.error || 'Fordítás sikertelen.' })
+                    }
                   }
                 } catch {
                   setMessage({ type: 'error', text: 'Hálózati hiba.' })
@@ -309,38 +333,40 @@ export default function AdminProductEditPage() {
             >
               AI fordítás nevek (EN, RO, DE)
             </button>
-            <button
-              type="button"
-              onClick={async () => {
-                if (!confirm('Felülírod a meglévő EN, RO, DE neveket?')) return
-                setMessage(null)
-                try {
-                  const res = await fetch(`/api/admin/products/${id}/translate-names`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ overwriteExisting: true }),
-                  })
-                  const data = await res.json().catch(() => ({}))
-                  if (res.ok && data.product) {
-                    setProduct((p) => (p ? {
-                      ...p,
-                      nameEn: data.product.nameEn ?? '',
-                      nameDe: data.product.nameDe ?? '',
-                      nameRo: data.product.nameRo ?? '',
-                    } : p))
-                    setMessage({ type: 'ok', text: data.message || 'Névfordítás felülírva.' })
-                  } else {
-                    setMessage({ type: 'error', text: data?.error || 'Fordítás sikertelen.' })
+            {!isNew && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!confirm('Felülírod a meglévő EN, RO, DE neveket?')) return
+                  setMessage(null)
+                  try {
+                    const res = await fetch(`/api/admin/products/${id}/translate-names`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      credentials: 'include',
+                      body: JSON.stringify({ overwriteExisting: true }),
+                    })
+                    const data = await res.json().catch(() => ({}))
+                    if (res.ok && data.product) {
+                      setProduct((p) => (p ? {
+                        ...p,
+                        nameEn: data.product.nameEn ?? '',
+                        nameDe: data.product.nameDe ?? '',
+                        nameRo: data.product.nameRo ?? '',
+                      } : p))
+                      setMessage({ type: 'ok', text: data.message || 'Névfordítás felülírva.' })
+                    } else {
+                      setMessage({ type: 'error', text: data?.error || 'Fordítás sikertelen.' })
+                    }
+                  } catch {
+                    setMessage({ type: 'error', text: 'Hálózati hiba.' })
                   }
-                } catch {
-                  setMessage({ type: 'error', text: 'Hálózati hiba.' })
-                }
-              }}
-              className="rounded-lg border border-amber-500/60 text-amber-700 dark:text-amber-400 px-4 py-2 text-sm font-medium hover:bg-amber-500/10"
-            >
-              AI fordítás nevek (felülírás)
-            </button>
+                }}
+                className="rounded-lg border border-amber-500/60 text-amber-700 dark:text-amber-400 px-4 py-2 text-sm font-medium hover:bg-amber-500/10"
+              >
+                AI fordítás nevek (felülírás)
+              </button>
+            )}
           </div>
         )}
 
@@ -383,32 +409,54 @@ export default function AdminProductEditPage() {
           </div>
         </div>
 
-        {!isNew && (product?.description_hu ?? '').trim() && (
+        {(product?.description_hu ?? product?.description ?? '').trim() && (
           <div className="flex flex-wrap items-center gap-2 p-3 rounded-lg border border-[var(--border)] bg-[var(--border)]/20">
             <span className="text-sm font-medium text-foreground">AI fordítás (leírás):</span>
-            <p className="text-xs text-muted">A magyar leírás alapján kitölti az EN, RO, DE mezőket (üres mezők; opcionálisan felülírás).</p>
+            <p className="text-xs text-muted">A magyar leírás alapján kitölti az EN, RO, DE mezőket (új terméknél csak a űrlapot; mentett terméknél opcionálisan felülírás).</p>
             <button
               type="button"
               onClick={async () => {
                 setMessage(null)
+                const huText = (product?.description_hu ?? product?.description ?? '').trim()
                 try {
-                  const res = await fetch(`/api/admin/products/${id}/translate`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ overwriteExisting: false }),
-                  })
-                  const data = await res.json().catch(() => ({}))
-                  if (res.ok && data.product) {
-                    setProduct((p) => (p ? {
-                      ...p,
-                      description_en: data.product.description_en ?? p.description_en,
-                      description_de: data.product.description_de ?? p.description_de,
-                      description_ro: data.product.description_ro ?? p.description_ro,
-                    } : p))
-                    setMessage({ type: 'ok', text: data.message || 'Fordítás kész.' })
+                  if (isNew) {
+                    const res = await fetch('/api/admin/translate-draft', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      credentials: 'include',
+                      body: JSON.stringify({ type: 'description', text: huText }),
+                    })
+                    const data = await res.json().catch(() => ({}))
+                    if (res.ok && (data.descriptionEn != null || data.descriptionDe != null || data.descriptionRo != null)) {
+                      setProduct((p) => (p ? {
+                        ...p,
+                        description_en: data.descriptionEn ?? p.description_en ?? '',
+                        description_de: data.descriptionDe ?? p.description_de ?? '',
+                        description_ro: data.descriptionRo ?? p.description_ro ?? '',
+                      } : p))
+                      setMessage({ type: 'ok', text: 'Leírás fordítás kész (űrlap).' })
+                    } else {
+                      setMessage({ type: 'error', text: data?.error || 'Fordítás sikertelen.' })
+                    }
                   } else {
-                    setMessage({ type: 'error', text: data?.error || 'Fordítás sikertelen.' })
+                    const res = await fetch(`/api/admin/products/${id}/translate`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      credentials: 'include',
+                      body: JSON.stringify({ overwriteExisting: false }),
+                    })
+                    const data = await res.json().catch(() => ({}))
+                    if (res.ok && data.product) {
+                      setProduct((p) => (p ? {
+                        ...p,
+                        description_en: data.product.description_en ?? p.description_en,
+                        description_de: data.product.description_de ?? p.description_de,
+                        description_ro: data.product.description_ro ?? p.description_ro,
+                      } : p))
+                      setMessage({ type: 'ok', text: data.message || 'Fordítás kész.' })
+                    } else {
+                      setMessage({ type: 'error', text: data?.error || 'Fordítás sikertelen.' })
+                    }
                   }
                 } catch {
                   setMessage({ type: 'error', text: 'Hálózati hiba.' })
@@ -418,38 +466,40 @@ export default function AdminProductEditPage() {
             >
               AI fordítás (EN, RO, DE)
             </button>
-            <button
-              type="button"
-              onClick={async () => {
-                if (!confirm('Felülírod a meglévő EN, RO, DE szövegeket?')) return
-                setMessage(null)
-                try {
-                  const res = await fetch(`/api/admin/products/${id}/translate`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ overwriteExisting: true }),
-                  })
-                  const data = await res.json().catch(() => ({}))
-                  if (res.ok && data.product) {
-                    setProduct((p) => (p ? {
-                      ...p,
-                      description_en: data.product.description_en ?? '',
-                      description_de: data.product.description_de ?? '',
-                      description_ro: data.product.description_ro ?? '',
-                    } : p))
-                    setMessage({ type: 'ok', text: data.message || 'Fordítás felülírva.' })
-                  } else {
-                    setMessage({ type: 'error', text: data?.error || 'Fordítás sikertelen.' })
+            {!isNew && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!confirm('Felülírod a meglévő EN, RO, DE szövegeket?')) return
+                  setMessage(null)
+                  try {
+                    const res = await fetch(`/api/admin/products/${id}/translate`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      credentials: 'include',
+                      body: JSON.stringify({ overwriteExisting: true }),
+                    })
+                    const data = await res.json().catch(() => ({}))
+                    if (res.ok && data.product) {
+                      setProduct((p) => (p ? {
+                        ...p,
+                        description_en: data.product.description_en ?? '',
+                        description_de: data.product.description_de ?? '',
+                        description_ro: data.product.description_ro ?? '',
+                      } : p))
+                      setMessage({ type: 'ok', text: data.message || 'Fordítás felülírva.' })
+                    } else {
+                      setMessage({ type: 'error', text: data?.error || 'Fordítás sikertelen.' })
+                    }
+                  } catch {
+                    setMessage({ type: 'error', text: 'Hálózati hiba.' })
                   }
-                } catch {
-                  setMessage({ type: 'error', text: 'Hálózati hiba.' })
-                }
-              }}
-              className="rounded-lg border border-amber-500/60 text-amber-700 dark:text-amber-400 px-4 py-2 text-sm font-medium hover:bg-amber-500/10"
-            >
-              AI fordítás (felülírás)
-            </button>
+                }}
+                className="rounded-lg border border-amber-500/60 text-amber-700 dark:text-amber-400 px-4 py-2 text-sm font-medium hover:bg-amber-500/10"
+              >
+                AI fordítás (felülírás)
+              </button>
+            )}
           </div>
         )}
 
@@ -549,12 +599,92 @@ export default function AdminProductEditPage() {
 
         <div>
           <label className="block text-sm font-medium mb-1">3D model URL</label>
-          <input
-            value={product?.modelUrl ?? ''}
-            onChange={(e) => setProduct((p) => ({ ...p, modelUrl: e.target.value || null }))}
-            placeholder="/models/xxx.glb"
-            className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
-          />
+          <p className="text-xs text-muted mb-2">
+            Add meg a modell URL-jét (pl. <code className="bg-[var(--border)] px-1 rounded">/models/xxx.glb</code>), vagy tölts fel egy .glb / .gltf fájlt.
+          </p>
+          <div className="flex flex-wrap gap-2 items-center mb-2">
+            <input
+              value={product?.modelUrl ?? ''}
+              onChange={(e) => { setModelError(null); setProduct((p) => ({ ...p, modelUrl: e.target.value || null })) }}
+              placeholder="/models/xxx.glb"
+              className="flex-1 min-w-[200px] rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
+            />
+            <input
+              ref={modelInputRef}
+              type="file"
+              accept=".glb,.gltf,model/gltf-binary,model/gltf+json"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0]
+                if (!file) return
+                if (!/\.(glb|gltf)$/i.test(file.name)) {
+                  setModelError('Csak .glb vagy .gltf fájl tölthető fel.')
+                  return
+                }
+                setModelError(null)
+                setModelUploading(true)
+                try {
+                  const form = new FormData()
+                  form.append('file', file)
+                  const res = await fetch('/api/admin/upload-model', { method: 'POST', credentials: 'include', body: form })
+                  const data = await res.json().catch(() => ({}))
+                  if (res.ok && data.url) {
+                    setProduct((p) => (p ? { ...p, modelUrl: data.url } : p))
+                    setMessage({ type: 'ok', text: '3D modell feltöltve.' })
+                  } else {
+                    setModelError(data?.error || 'Feltöltés sikertelen.')
+                  }
+                } catch {
+                  setModelError('Hálózati hiba.')
+                } finally {
+                  setModelUploading(false)
+                  e.target.value = ''
+                }
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => modelInputRef.current?.click()}
+              disabled={modelUploading}
+              className="shrink-0 rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-[var(--border)]/30 disabled:opacity-60"
+            >
+              {modelUploading ? 'Feltöltés…' : 'Fájl feltöltése (.glb / .gltf)'}
+            </button>
+          </div>
+          <div
+            className="border-2 border-dashed border-[var(--border)] rounded-lg p-4 text-center text-sm text-muted hover:border-accent/50 hover:bg-[var(--border)]/10 transition-colors cursor-pointer"
+            onClick={() => !modelUploading && modelInputRef.current?.click()}
+            onDragOver={(e) => { e.preventDefault(); e.stopPropagation() }}
+            onDrop={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              const file = e.dataTransfer?.files?.[0]
+              if (!file || modelUploading) return
+              if (!/\.(glb|gltf)$/i.test(file.name)) {
+                setModelError('Csak .glb vagy .gltf fájl.')
+                return
+              }
+              setModelError(null)
+              setModelUploading(true)
+              const form = new FormData()
+              form.append('file', file)
+              fetch('/api/admin/upload-model', { method: 'POST', credentials: 'include', body: form })
+                .then((r) => r.json().catch(() => ({})))
+                .then((data) => {
+                  if (data?.url) {
+                    setProduct((p) => (p ? { ...p, modelUrl: data.url } : p))
+                    setMessage({ type: 'ok', text: '3D modell feltöltve.' })
+                  } else {
+                    setModelError(data?.error || 'Feltöltés sikertelen.')
+                  }
+                })
+                .catch(() => setModelError('Hálózati hiba.'))
+                .finally(() => { setModelUploading(false) })
+            }}
+          >
+            {modelUploading ? 'Feltöltés…' : 'Húzd ide a .glb / .gltf fájlt, vagy kattints a feltöltéshez'}
+          </div>
+          {modelError && <p className="text-sm text-red-600 dark:text-red-400 mt-1">{modelError}</p>}
         </div>
 
         <div className="flex flex-wrap gap-4">

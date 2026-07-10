@@ -1092,7 +1092,11 @@ export async function getProductByIdAsync(id: string): Promise<Product | undefin
 
 /** Async: összes termék (DB vagy mock). */
 export async function getAllProductsAsync(): Promise<Product[]> {
-  return getProductsSource()
+  try {
+    return await getProductsSource()
+  } catch {
+    return mockProducts
+  }
 }
 
 /** Async: beszerzésre rendelhető termékek (DB vagy mock). */

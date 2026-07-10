@@ -55,10 +55,14 @@ export function ProductImageUploader({
 
   const validateFile = useCallback(
     (file: File): string | null => {
-      const type = file.type?.toLowerCase()
-      const allowed = ALLOWED_TYPES.some((t) => t === type || (type === 'image/jpeg' && t === 'image/jpg'))
-      if (!allowed) {
-        return 'Csak JPG, JPEG, PNG, WebP vagy GIF formátum tölthető fel.'
+      const type = (file.type || '').toLowerCase()
+      const allowedByType = ALLOWED_TYPES.some((t) => t === type || (type === 'image/jpeg' && t === 'image/jpg'))
+      const allowedByExt =
+        !type || type === 'application/octet-stream'
+          ? /\.(jpe?g|png|webp|gif)$/i.test(file.name || '')
+          : false
+      if (!allowedByType && !allowedByExt) {
+        return 'Csak JPG, JPEG, PNG, WebP vagy GIF tölthető fel. ChatGPT/Gemini képet mentsd PNG-ként, majd töltsd fel.'
       }
       if (file.size > maxSize) {
         return `A fájl mérete legfeljebb ${Math.round(maxSize / 1024 / 1024)} MB lehet.`
@@ -90,7 +94,15 @@ export function ProductImageUploader({
         setUploadProgress(100)
 
         if (!res.ok) {
-          setError(data?.error || 'Feltöltés sikertelen.')
+          const msg = data?.error || 'Feltöltés sikertelen.'
+          let hint = ''
+          if (res.status === 401) {
+            hint = ' Jelentkezz be az adminba: Gulumen Admin → belépés API kulccsal.'
+          } else if (res.status === 400 || res.status === 500) {
+            hint =
+              ' Lehet Windows blokk (Tulajdonságok → Engedélyezés), vagy rossz formátum – csak JPG/PNG/WebP/GIF.'
+          }
+          setError(msg + hint)
           setPreviewUrl(null)
           return
         }

@@ -19,7 +19,12 @@ const WEBP_QUALITY = 85
 
 export async function POST(request: Request) {
   const ok = await requireAdmin()
-  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!ok) {
+    return NextResponse.json(
+      { error: 'Nincs admin jogosultság. Jelentkezz be az Admin belépés oldalon (API kulcs).' },
+      { status: 401 }
+    )
+  }
 
   let formData: FormData
   try {
@@ -41,9 +46,15 @@ export async function POST(request: Request) {
       { status: 400 }
     )
   }
-  if (!ALLOWED_TYPES.includes(file.type)) {
+  const mime = (file.type || '').toLowerCase()
+  const allowByMime = ALLOWED_TYPES.includes(mime)
+  const allowByExtension =
+    !mime || mime === 'application/octet-stream'
+      ? /\.(jpe?g|png|webp|gif)$/i.test(file.name || '')
+      : false
+  if (!allowByMime && !allowByExtension) {
     return NextResponse.json(
-      { error: 'Csak JPEG, PNG, WebP vagy GIF formátum tölthető fel.' },
+      { error: 'Csak JPEG, PNG, WebP vagy GIF formátum tölthető fel. (ChatGPT/Gemini képeknél mentsd PNG-ként.)' },
       { status: 400 }
     )
   }
