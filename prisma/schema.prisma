@@ -39,7 +39,10 @@ model Product {
   variants         Json?    // [{ size?, color? }]
   isNew            Boolean  @default(false)
   onSale           Boolean  @default(false)
+  saleStartAt      DateTime?
+  saleEndAt        DateTime?
   active           Boolean  @default(true)
+  archived         Boolean  @default(false)
   isColorable      Boolean  @default(false)
   likesCount       Int      @default(0)
   // Sourcing / visszaszámlálós: minden időzítés DB-ben, deploy után nem változik

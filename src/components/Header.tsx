@@ -4,59 +4,25 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
-import {
-  LayoutGrid,
-  Backpack,
-  Shirt,
-  Gem,
-  Cpu,
-  Home,
-  Box,
-  type LucideIcon,
-} from 'lucide-react'
+import { Phone, Box } from 'lucide-react'
 import { useLocale } from '@/context/LocaleContext'
 import { useCart } from '@/context/CartContext'
 import { useWishlist } from '@/context/WishlistContext'
 import { LOCALES, type Locale } from '@/i18n/locales'
-import { categories, getCategoryName } from '@/lib/data'
+import { getStorefrontCategories, getCategoryName, threeDSubcategories } from '@/lib/data'
 import { SearchModal } from '@/components/SearchModal'
 import { CartDrawer } from '@/components/CartDrawer'
 import { CallUsModal } from '@/components/CallUsModal'
-import { Phone } from 'lucide-react'
-
-/** Ikon map a Termékek dropdown kategóriáihoz (slug → komponens). */
-const categoryIconMap: Record<string, LucideIcon> = {
-  taskak: Backpack,
-  ruhazat: Shirt,
-  kiegeszitok: Gem,
-  elektronika: Cpu,
-  otthon: Home,
-  '3d-nyomtatott': Box,
-}
-const DefaultCategoryIcon = LayoutGrid
-
-/** Világos színek a kategória ikonokhoz (slug → Tailwind text osztály). */
-const categoryIconColorMap: Record<string, string> = {
-  taskak: 'text-amber-500',
-  ruhazat: 'text-rose-500',
-  kiegeszitok: 'text-violet-500',
-  elektronika: 'text-sky-500',
-  otthon: 'text-emerald-500',
-  '3d-nyomtatott': 'text-indigo-500',
-}
-const defaultCategoryIconColor = 'text-slate-600 dark:text-slate-400'
 
 const navItems: { href: string; labelKey: string }[] = [
   { href: '/akciok', labelKey: 'nav.deals' },
-  { href: '/ujdonsagok', labelKey: 'nav.new' },
-  { href: '/beszerzesre-rendelheto', labelKey: 'nav.sourcing' },
 ]
 
 const helpDropdownItems: { href: string; labelKey: string }[] = [
   { href: '/szallitas', labelKey: 'nav.shipping' },
   { href: '/visszakuldes', labelKey: 'nav.returns' },
-  { href: '/kapcsolat', labelKey: 'nav.contact' },
   { href: '/gyik', labelKey: 'nav.faq' },
+  { href: '/kapcsolat', labelKey: 'nav.contact' },
 ]
 
 export function Header() {
@@ -140,109 +106,103 @@ export function Header() {
           </button>
 
           <nav className={`${mobileNavOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row absolute md:relative top-full left-0 right-0 md:top-0 bg-[var(--card-bg)] md:bg-transparent border-b md:border-b-0 border-[var(--border)] md:border-0 py-4 md:py-0 items-center gap-3 md:gap-4 md:flex-nowrap md:min-h-[2.5rem] shadow-lg md:shadow-none z-40`}>
-            <div className="relative flex items-center h-full" ref={productsRef}>
-              <button
-                type="button"
-                onClick={() => setProductsOpen((o) => !o)}
-                className={`text-sm font-medium leading-none transition-colors flex items-center gap-1 whitespace-nowrap shrink-0 h-full ${
-                  pathname === '/termekek' ? 'text-accent' : 'text-foreground hover:text-accent'
-                }`}
-                aria-expanded={productsOpen}
-                aria-haspopup="true"
-                aria-label={t('nav.products')}
-              >
-                {t('nav.products')}
-                <svg className="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {productsOpen && (
-                <ul className="absolute left-0 top-full mt-1 py-2 min-w-[200px] rounded-xl border border-[var(--border)] bg-[var(--card-bg)] shadow-lg z-50">
-                  <li>
-                    <Link
-                      href="/termekek"
-                      className={`flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium transition-colors ${
-                        pathname === '/termekek' && !searchParams.get('kategoria')
-                          ? 'bg-[var(--border)] text-accent font-semibold'
-                          : 'text-foreground hover:bg-[var(--border)] hover:text-accent'
-                      }`}
-                      onClick={() => { setProductsOpen(false); setMobileNavOpen(false) }}
-                    >
-                      <DefaultCategoryIcon className={`h-4 w-4 shrink-0 ${defaultCategoryIconColor}`} aria-hidden />
-                      {t('nav.allProducts')}
-                    </Link>
-                  </li>
-                  {categories.map((cat) => {
-                    const CategoryIcon = categoryIconMap[cat.slug] ?? DefaultCategoryIcon
-                    const iconColor = categoryIconColorMap[cat.slug] ?? defaultCategoryIconColor
-                    const isActive = pathname === '/termekek' && searchParams.get('kategoria') === cat.slug
-                    return (
-                      <li key={cat.slug}>
+            <div
+              className="relative flex items-center h-full"
+              ref={productsRef}
+              onMouseEnter={() => { setHelpOpen(false); setProductsOpen(true) }}
+              onMouseLeave={() => setProductsOpen(false)}
+            >
+              {(() => {
+                const is3DProductsActive =
+                  pathname === '/termekek' &&
+                  (!searchParams.get('kategoria') || searchParams.get('kategoria') === '3d-nyomtatott')
+                return (
+                  <Link
+                    href="/termekek?kategoria=3d-nyomtatott"
+                    className={`text-sm font-medium leading-none transition-colors flex items-center gap-1 whitespace-nowrap shrink-0 h-full ${
+                      is3DProductsActive ? 'text-accent' : 'text-foreground hover:text-accent'
+                    }`}
+                    aria-expanded={productsOpen}
+                    aria-haspopup="true"
+                    onClick={() => { setProductsOpen(false); setMobileNavOpen(false) }}
+                  >
+                    {t('nav.products')}
+                    <svg className="w-4 h-4 text-current" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </Link>
+                )
+              })()}
+              {productsOpen && (() => {
+                const threeDCat = getStorefrontCategories().find((c) => c.slug === '3d-nyomtatott')
+                const subParam = searchParams.get('sub') ?? ''
+                const is3DNav =
+                  pathname === '/termekek' &&
+                  (!searchParams.get('kategoria') || searchParams.get('kategoria') === '3d-nyomtatott')
+                const is3DParentActive = is3DNav && !subParam
+                return (
+                  <div className="absolute left-0 top-full pt-1 min-w-[240px] z-50">
+                    <ul className="nav-dropdown-panel py-2 min-w-[240px] max-h-[70vh] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--card-bg)] shadow-lg">
+                    {threeDCat && (
+                      <li>
                         <Link
-                          href={`/termekek?kategoria=${cat.slug}`}
-                          className={`flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium transition-colors ${
-                            isActive ? 'bg-[var(--border)] text-accent font-semibold' : 'text-foreground hover:bg-[var(--border)] hover:text-accent'
+                          href="/termekek?kategoria=3d-nyomtatott"
+                          className={`flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold transition-colors ${
+                            is3DParentActive
+                              ? 'bg-[var(--border)] text-accent'
+                              : 'text-foreground hover:bg-[var(--border)] hover:text-accent'
                           }`}
                           onClick={() => { setProductsOpen(false); setMobileNavOpen(false) }}
                         >
-                          <CategoryIcon className={`h-4 w-4 shrink-0 ${iconColor}`} aria-hidden />
-                          {getCategoryName(cat, locale)}
+                          <Box className="h-4 w-4 shrink-0 text-indigo-500" aria-hidden />
+                          {getCategoryName(threeDCat, locale)}
                         </Link>
                       </li>
-                    )
-                  })}
-                </ul>
-              )}
+                    )}
+                    {threeDSubcategories.map((sub) => {
+                      const isSubActive = is3DNav && subParam === sub.slug
+                      return (
+                        <li key={sub.slug}>
+                          <Link
+                            href={`/termekek?kategoria=3d-nyomtatott&sub=${sub.slug}`}
+                            className={`flex items-center gap-2.5 pl-9 pr-4 py-2 text-sm font-medium transition-colors ${
+                              isSubActive
+                                ? 'bg-[var(--border)] text-accent font-semibold'
+                                : 'text-muted hover:bg-[var(--border)] hover:text-foreground'
+                            }`}
+                            onClick={() => { setProductsOpen(false); setMobileNavOpen(false) }}
+                          >
+                            <span className="text-base leading-none shrink-0" aria-hidden>{sub.icon}</span>
+                            {getCategoryName(sub, locale)}
+                          </Link>
+                        </li>
+                      )
+                    })}
+                    </ul>
+                  </div>
+                )
+              })()}
             </div>
             {navItems.map(({ href, labelKey }) => {
               const isDeals = href === '/akciok'
-              const isSourcing = href === '/beszerzesre-rendelheto'
-              const link = (
-                <Link
-                  key={href}
-                  href={href}
-                  onClick={() => setMobileNavOpen(false)}
-                  className={`text-sm font-medium leading-none transition-colors whitespace-nowrap shrink-0 inline-flex items-center ${
-                    pathname === href ? 'text-accent' : 'text-foreground hover:text-accent'
-                  } ${isDeals ? 'relative z-10' : ''}`}
-                >
-                  {t(labelKey)}
-                </Link>
+              return (
+                <span key={href} className={isDeals ? 'nav-link-fire' : ''}>
+                  <Link
+                    href={href}
+                    onClick={() => setMobileNavOpen(false)}
+                    className={`text-sm font-medium leading-none transition-colors whitespace-nowrap shrink-0 inline-flex items-center ${
+                      pathname === href ? 'text-accent' : 'text-foreground hover:text-accent'
+                    } ${isDeals ? 'relative z-10' : ''}`}
+                  >
+                    {t(labelKey)}
+                  </Link>
+                </span>
               )
-              if (isDeals) {
-                return (
-                  <span key={href} className="nav-link-fire">
-                    {link}
-                  </span>
-                )
-              }
-              if (isSourcing) {
-                return (
-                  <span key={href} className="nav-link-sourcing-fomo">
-                    <span className="nav-sourcing-sparks" aria-hidden>
-                      {[0, 1, 2, 3, 4, 5, 6].map((i) => (
-                        <span key={i} className="nav-sourcing-spark" style={{ '--spark-i': i } as React.CSSProperties} />
-                      ))}
-                    </span>
-                    <Link
-                      href={href}
-                      onClick={() => setMobileNavOpen(false)}
-                      className={`nav-sourcing-link text-sm font-medium leading-none transition-colors shrink-0 inline-flex items-center justify-center h-full relative z-10 ${
-                        pathname === href ? 'text-accent' : 'text-foreground hover:text-accent'
-                      }`}
-                      aria-label={t('nav.sourcing')}
-                    >
-                      {t('nav.sourcing')}
-                    </Link>
-                  </span>
-                )
-              }
-              return link
             })}
             <div
               className="relative flex items-center h-full"
               ref={helpRef}
-              onMouseEnter={() => setHelpOpen(true)}
+              onMouseEnter={() => { setProductsOpen(false); setHelpOpen(true) }}
               onMouseLeave={() => setHelpOpen(false)}
             >
               <button
@@ -261,7 +221,8 @@ export function Header() {
                 </svg>
               </button>
               {helpOpen && (
-                <ul className="absolute left-0 top-full mt-1 py-2 min-w-[200px] rounded-xl border border-[var(--border)] bg-[var(--card-bg)] shadow-lg z-50 md:left-0">
+                <div className="absolute left-0 top-full pt-1 min-w-[200px] z-50 md:left-0">
+                  <ul className="nav-dropdown-panel py-2 min-w-[200px] rounded-xl border border-[var(--border)] bg-[var(--card-bg)] shadow-lg">
                   {helpDropdownItems.map(({ href, labelKey }) => (
                     <li key={href}>
                       <Link
@@ -291,7 +252,8 @@ export function Header() {
                       {t('callUs.title')}
                     </button>
                   </li>
-                </ul>
+                  </ul>
+                </div>
               )}
             </div>
           </nav>

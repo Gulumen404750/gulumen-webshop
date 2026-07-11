@@ -31,6 +31,21 @@
   }
 }
 
+@keyframes nav-dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.nav-dropdown-panel {
+  animation: nav-dropdown-in 0.18s ease-out;
+}
+
 /* Macska cikázik a sávban, faltól falig */
 @keyframes hero-cat-zigzag {
   0%   { left: 2%; top: 42%; transform: translateY(-50%) scaleX(1); }
@@ -707,5 +722,27 @@
   inset: 0;
   background-image: url("data:image/svg+xml,%3Csvg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg' opacity='0.15'%3E%3Ccircle cx='12' cy='12' r='1.5' fill='%23d97706'/%3E%3Ccircle cx='6' cy='6' r='1' fill='%23d97706'/%3E%3Ccircle cx='18' cy='18' r='1' fill='%23d97706'/%3E%3C/svg%3E");
   pointer-events: none;
+}
+
+@keyframes sale-countdown-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.82; }
+}
+.sale-countdown-urgent {
+  animation: sale-countdown-pulse 2s ease-in-out infinite;
+}
+
+@keyframes featured-product-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.featured-product-enter {
+  animation: featured-product-in 0.45s ease-out;
 }
 

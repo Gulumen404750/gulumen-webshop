@@ -5,6 +5,9 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { getProductName } from '@/lib/data'
 import { useLocale } from '@/context/LocaleContext'
+import { SaleCountdown } from '@/components/SaleCountdown'
+import { useSaleActive } from '@/hooks/useSaleActive'
+import { getSaleDiscountPercent } from '@/lib/storefront-config'
 import type { Product } from '@/lib/data'
 
 const STORAGE_KEY = 'gulumen-deal-popup-closed'
@@ -16,7 +19,6 @@ type PopupConfig = {
 }
 
 export function DealPopup() {
-  const { locale, t } = useLocale()
   const [visible, setVisible] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [config, setConfig] = useState<PopupConfig | null>(null)
@@ -83,58 +85,9 @@ export function DealPopup() {
             {config?.description || 'Válogatás az aktuális akcióinkból – mindig meglepően jó áron.'}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {products.map((product) => {
-              const priceHuf = product.discountPriceHuf ?? product.priceHuf
-              const hasImage = product.image?.startsWith('/') || product.image?.startsWith('http')
-              const isLocalImage = product.image?.startsWith('/')
-              const productName = getProductName(product, locale)
-              return (
-                <Link
-                  key={product.id}
-                  href={`/termek/${product.slug}`}
-                  onClick={close}
-                  className="block rounded-xl border border-[var(--border)] overflow-hidden hover:border-accent transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-[var(--card-bg)]"
-                >
-                  <div className="aspect-square bg-[var(--border)] relative">
-                    {hasImage ? (
-                      isLocalImage ? (
-                        <Image
-                          src={product.image}
-                          alt={productName}
-                          fill
-                          className="object-cover"
-                          sizes="(max-width: 640px) 100vw, 33vw"
-                        />
-                      ) : (
-                        <img
-                          src={product.image}
-                          alt={productName}
-                          className="absolute inset-0 w-full h-full object-cover"
-                          referrerPolicy="no-referrer"
-                        />
-                      )
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-muted text-xs">
-                        {t('product.noImage')}
-                      </div>
-                    )}
-                    {product.onSale && (
-                      <span className="absolute top-2 left-2 rounded bg-discount text-white text-xs font-semibold px-2 py-0.5">
-                        Akció
-                      </span>
-                    )}
-                  </div>
-                  <div className="p-3">
-                    <h3 className="font-heading font-medium text-foreground text-sm line-clamp-2">
-                      {productName}
-                    </h3>
-                    <p className="mt-1 text-discount font-semibold text-sm">
-                      {priceHuf.toLocaleString('hu-HU')} Ft
-                    </p>
-                  </div>
-                </Link>
-              )
-            })}
+            {products.map((product) => (
+              <DealPopupProduct key={product.id} product={product} onNavigate={close} />
+            ))}
           </div>
           <div className="mt-6 text-center">
             <Link
@@ -148,5 +101,70 @@ export function DealPopup() {
         </div>
       </div>
     </div>
+  )
+}
+
+function DealPopupProduct({ product, onNavigate }: { product: Product; onNavigate: () => void }) {
+  const { locale, t } = useLocale()
+  const saleActive = useSaleActive(product)
+  const priceHuf = saleActive && product.discountPriceHuf ? product.discountPriceHuf : product.priceHuf
+  const hasDiscount = saleActive && !!product.discountPriceHuf
+  const salePercent = saleActive ? getSaleDiscountPercent(product) : null
+  const hasImage = product.image?.startsWith('/') || product.image?.startsWith('http')
+  const isLocalImage = product.image?.startsWith('/')
+  const productName = getProductName(product, locale)
+
+  return (
+    <Link
+      href={`/termek/${product.slug}`}
+      onClick={onNavigate}
+      className="block rounded-xl border border-[var(--border)] overflow-hidden hover:border-accent hover:shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-[var(--card-bg)]"
+    >
+      <div className="aspect-square bg-[var(--border)] relative">
+        {hasImage ? (
+          isLocalImage ? (
+            <Image
+              src={product.image}
+              alt={productName}
+              fill
+              className="object-cover"
+              sizes="(max-width: 640px) 100vw, 33vw"
+            />
+          ) : (
+            <img
+              src={product.image}
+              alt={productName}
+              className="absolute inset-0 w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          )
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-muted text-xs">
+            {t('product.noImage')}
+          </div>
+        )}
+        {saleActive && (
+          <span className="absolute top-2 left-2 rounded bg-discount text-white text-xs font-bold px-2 py-0.5 shadow-sm">
+            {salePercent != null ? `-${salePercent}%` : t('status.deal')}
+          </span>
+        )}
+        {saleActive && <SaleCountdown product={product} variant="overlay" />}
+      </div>
+      <div className="p-3">
+        <h3 className="font-heading font-medium text-foreground text-sm line-clamp-2">
+          {productName}
+        </h3>
+        <div className="mt-1 flex items-baseline gap-2 flex-wrap">
+          {hasDiscount && (
+            <span className="text-xs text-muted line-through">
+              {product.priceHuf.toLocaleString('hu-HU')} Ft
+            </span>
+          )}
+          <span className={`font-semibold text-sm ${hasDiscount ? 'text-discount' : 'text-foreground'}`}>
+            {priceHuf.toLocaleString('hu-HU')} Ft
+          </span>
+        </div>
+      </div>
+    </Link>
   )
 }

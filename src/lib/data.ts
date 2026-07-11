@@ -39,6 +39,12 @@ export interface Product {
   description_ro?: string
   isNew?: boolean
   onSale?: boolean
+  /** Storefront láthatóság (DB). Mock módban a storefront-config szűr. */
+  active?: boolean
+  archived?: boolean
+  /** Időzített akció kezdete/vége (ISO string). */
+  saleStartAt?: string
+  saleEndAt?: string
   type?: ProductType
   previewFrom?: string
   saleFrom?: string
@@ -266,16 +272,22 @@ export function getMaxQty(
 }
 
 export const categories = [
-  { slug: 'taskak', name: 'Táskák', nameEn: 'Bags', nameDe: 'Taschen', nameRo: 'Genți' },
-  { slug: 'ruhazat', name: 'Ruházat', nameEn: 'Clothing', nameDe: 'Kleidung', nameRo: 'Îmbrăcăminte' },
-  { slug: 'kiegeszitok', name: 'Kiegészítők', nameEn: 'Accessories', nameDe: 'Accessoires', nameRo: 'Accesorii' },
-  { slug: 'elektronika', name: 'Elektronika / Egyéb', nameEn: 'Electronics & More', nameDe: 'Elektronik & Mehr', nameRo: 'Electronică și altele' },
-  { slug: 'otthon', name: 'Otthon', nameEn: 'Home', nameDe: 'Zuhause', nameRo: 'Casă' },
-  { slug: '3d-nyomtatott', name: '3D Nyomtatott Termékek', nameEn: '3D Printed Products', nameDe: '3D-Druck Produkte', nameRo: 'Produse printate 3D' },
+  { slug: 'taskak', name: 'Táskák', nameEn: 'Bags', nameDe: 'Taschen', nameRo: 'Genți', storefrontVisible: false },
+  { slug: 'ruhazat', name: 'Ruházat', nameEn: 'Clothing', nameDe: 'Kleidung', nameRo: 'Îmbrăcăminte', storefrontVisible: false },
+  { slug: 'kiegeszitok', name: 'Kiegészítők', nameEn: 'Accessories', nameDe: 'Accessoires', nameRo: 'Accesorii', storefrontVisible: false },
+  { slug: 'elektronika', name: 'Elektronika / Egyéb', nameEn: 'Electronics & More', nameDe: 'Elektronik & Mehr', nameRo: 'Electronică și altele', storefrontVisible: false },
+  { slug: 'otthon', name: 'Otthon', nameEn: 'Home', nameDe: 'Zuhause', nameRo: 'Casă', storefrontVisible: false },
+  { slug: '3d-nyomtatott', name: '3D Nyomtatott Termékek', nameEn: '3D Printed Products', nameDe: '3D-Druck Produkte', nameRo: 'Produse printate 3D', storefrontVisible: true },
 ] as const
+
+/** Nav és shop: jelenleg látható kategóriák (a többi rejtett, de megmarad). */
+export function getStorefrontCategories() {
+  return categories.filter((c) => c.storefrontVisible)
+}
 
 /** 3D nyomtatott alkategóriák (fülek) – slug = product.category érték. */
 export const threeDSubcategories = [
+  { slug: '3d-otthon', name: 'Otthon', nameEn: 'Home', nameDe: 'Zuhause', nameRo: 'Casă', icon: '🏠' },
   { slug: '3d-konyha', name: 'Konyha', nameEn: 'Kitchen', nameDe: 'Küche', nameRo: 'Bucătărie', icon: '🍳' },
   { slug: '3d-jatek', name: 'Játék', nameEn: 'Toys', nameDe: 'Spielzeug', nameRo: 'Jocuri', icon: '🧸' },
   { slug: '3d-kert', name: 'Kert', nameEn: 'Garden', nameDe: 'Garten', nameRo: 'Grădină', icon: '🌿' },
@@ -990,6 +1002,8 @@ function get3DMockProducts(): Product[] {
       isColorable: true,
       description: '3D nyomtatott növénykötöző (PLA), strap 80 mm. Ellenőrzött, saját tervezés. Ideális kerti és benti növényekhez.',
       type: 'stock',
+      active: true,
+      isNew: true,
     },
     {
       id: '3d-2',
@@ -1009,6 +1023,32 @@ function get3DMockProducts(): Product[] {
       isColorable: true,
       description: '3D nyomtatott szalvétatartó, fa stílusú körök (PLA). Ellenőrzött, saját tervezés. Asztalra, konyhába.',
       type: 'stock',
+      active: true,
+      isNew: true,
+    },
+    {
+      id: '3d-3',
+      name: 'Kábel rendező klipsz',
+      nameEn: 'Cable organizer clip',
+      nameDe: 'Kabel-Organizer-Klammer',
+      nameRo: 'Cleme organizator cabluri',
+      slug: 'kabel-rendezo-klipsz',
+      priceHuf: 1290,
+      priceEur: 4,
+      discountPriceHuf: 990,
+      discountPriceEur: 3,
+      condition: 'Új',
+      category: '3d-eszkozok',
+      image: '/img/3d-szalveta-tarto.png',
+      images: ['/img/3d-szalveta-tarto.png'],
+      stock: 10,
+      isColorable: true,
+      onSale: true,
+      saleStartAt: new Date(Date.now() - 2 * 86400000).toISOString(),
+      saleEndAt: new Date(Date.now() + 14 * 86400000).toISOString(),
+      description: '3D nyomtatott kábelrendező klipsz (PLA). Asztal szélére vagy falra rögzíthető. Praktikus, minimalista design.',
+      type: 'stock',
+      active: true,
     },
   ]
 }
@@ -1090,12 +1130,16 @@ export async function getProductByIdAsync(id: string): Promise<Product | undefin
   return getProductById(id)
 }
 
-/** Async: összes termék (DB vagy mock). */
+/** Async: összes termék (DB vagy mock), storefront szűréssel. */
 export async function getAllProductsAsync(): Promise<Product[]> {
   try {
-    return await getProductsSource()
+    const { isDbConfigured } = await import('@/lib/prisma')
+    const { filterStorefrontProducts } = await import('@/lib/storefront-config')
+    const raw = await getProductsSource()
+    return filterStorefrontProducts(raw, !isDbConfigured())
   } catch {
-    return mockProducts
+    const { filterStorefrontProducts } = await import('@/lib/storefront-config')
+    return filterStorefrontProducts(mockProducts, true)
   }
 }
 

@@ -36,6 +36,9 @@ function dbProductToProduct(row: {
   isNew: boolean
   onSale: boolean
   active: boolean
+  archived: boolean
+  saleStartAt: Date | null
+  saleEndAt: Date | null
   isColorable: boolean
   likesCount: number
   type: string
@@ -74,6 +77,10 @@ function dbProductToProduct(row: {
     variants: variants ?? undefined,
     isNew: row.isNew,
     onSale: row.onSale,
+    active: row.active,
+    archived: row.archived,
+    saleStartAt: row.saleStartAt?.toISOString(),
+    saleEndAt: row.saleEndAt?.toISOString(),
     type: row.type === 'sourcing_deal' ? 'sourcing_deal' : 'stock',
     previewFrom: row.previewFrom?.toISOString(),
     saleFrom: row.dealStartAt?.toISOString(),
@@ -88,7 +95,7 @@ function dbProductToProduct(row: {
 export async function getAllProductsFromDb(): Promise<Product[]> {
   if (!isDbConfigured()) return []
   const rows = await prisma.product.findMany({
-    where: { active: true },
+    where: { active: true, archived: false },
     orderBy: { createdAt: 'desc' },
   })
   return rows.map(dbProductToProduct)
@@ -97,8 +104,8 @@ export async function getAllProductsFromDb(): Promise<Product[]> {
 /** Slug alapján egy termék. */
 export async function getProductBySlugFromDb(slug: string): Promise<Product | null> {
   if (!isDbConfigured()) return null
-  const row = await prisma.product.findUnique({
-    where: { slug, active: true },
+  const row = await prisma.product.findFirst({
+    where: { slug, active: true, archived: false },
   })
   return row ? dbProductToProduct(row) : null
 }
@@ -116,7 +123,7 @@ export async function getProductByIdFromDb(id: string): Promise<Product | null> 
 export async function getSourcingDealProductsFromDb(): Promise<Product[]> {
   if (!isDbConfigured()) return []
   const rows = await prisma.product.findMany({
-    where: { active: true, type: 'sourcing_deal', sourcingEnabled: true },
+    where: { active: true, archived: false, type: 'sourcing_deal', sourcingEnabled: true },
     orderBy: [{ sortOrder: { sort: 'asc', nulls: 'last' } }, { dealEndAt: 'asc' }],
   })
   return rows.map(dbProductToProduct)
@@ -126,7 +133,7 @@ export async function getSourcingDealProductsFromDb(): Promise<Product[]> {
 export async function getStockProductsFromDb(): Promise<Product[]> {
   if (!isDbConfigured()) return []
   const rows = await prisma.product.findMany({
-    where: { active: true, type: 'stock' },
+    where: { active: true, archived: false, type: 'stock' },
     orderBy: { createdAt: 'desc' },
   })
   return rows.map(dbProductToProduct)

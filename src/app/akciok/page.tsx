@@ -1,11 +1,12 @@
 import { getAllProductsAsync } from '@/lib/data'
+import { getActiveDealProducts } from '@/lib/storefront-config'
 import { ProductCard } from '@/components/ProductCard'
 
 export const revalidate = 10
 
 export default async function DealsPage() {
   const allProducts = await getAllProductsAsync()
-  const dealProducts = allProducts.filter((p) => p.onSale && p.type !== 'sourcing_deal')
+  const dealProducts = getActiveDealProducts(allProducts)
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

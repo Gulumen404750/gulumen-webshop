@@ -6,7 +6,10 @@ import { useCallback, useEffect, useState } from 'react'
 import type { Product } from '@/lib/data'
 import { getSourcingDealStatus, getProductName, getDisplayStock, is3DProduct } from '@/lib/data'
 import { SourcingDealCardCountdown } from '@/components/SourcingDealCardCountdown'
+import { SaleCountdown } from '@/components/SaleCountdown'
 import { SoldImpactOverlay } from '@/components/SoldImpactOverlay'
+import { getSaleDiscountPercent } from '@/lib/storefront-config'
+import { useSaleActive } from '@/hooks/useSaleActive'
 import { useLocale } from '@/context/LocaleContext'
 import { useEuroRate } from '@/context/EuroRateContext'
 import { useAuth } from '@/context/AuthContext'
@@ -148,9 +151,11 @@ export function ProductCard({
     [product.id, userId, liked, likesCount, toast, t, syncFromServer]
   )
 
-  const priceHuf = product.discountPriceHuf ?? product.priceHuf
+  const saleActive = useSaleActive(product)
+  const priceHuf = saleActive && product.discountPriceHuf ? product.discountPriceHuf : product.priceHuf
   const priceEur = hufToEur(priceHuf)
-  const hasDiscount = !!product.discountPriceHuf
+  const hasDiscount = saleActive && !!product.discountPriceHuf
+  const salePercent = saleActive ? getSaleDiscountPercent(product) : null
   const hasImage = Boolean(product.image?.trim())
   const isLocalImage = product.image?.startsWith('/')
   const displayName = getProductName(product, locale)
@@ -214,17 +219,20 @@ export function ProductCard({
               🔥 {t('product.popular') || 'Népszerű termék'}
             </span>
           )}
-          {product.onSale && product.type !== 'sourcing_deal' && !is3DProduct(product) && (
-            <span className="absolute top-3 left-3 px-2 py-1 text-xs font-medium bg-discount text-white rounded">
-              {t('status.deal')}
+          {saleActive && product.type !== 'sourcing_deal' && (
+            <span className="absolute top-3 left-3 px-2 py-1 text-xs font-bold bg-discount text-white rounded">
+              {salePercent != null ? `-${salePercent}%` : t('status.deal')}
             </span>
           )}
-          {product.isNew && !product.onSale && product.type !== 'sourcing_deal' && !is3DProduct(product) && (
+          {product.isNew && !saleActive && product.type !== 'sourcing_deal' && !is3DProduct(product) && (
             <span className="absolute top-3 left-3 px-2 py-1 text-xs font-medium bg-accent text-white rounded">
               {t('status.new')}
             </span>
           )}
           {showSoldImpact && <SoldImpactOverlay label={t('status.expired')} />}
+          {saleActive && product.type !== 'sourcing_deal' && (
+            <SaleCountdown product={product} variant="overlay" />
+          )}
         </div>
         {product.type === 'sourcing_deal' && (
           <SourcingDealCardCountdown

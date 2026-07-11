@@ -33,6 +33,9 @@ type Product = {
   isNew: boolean
   onSale: boolean
   active: boolean
+  archived: boolean
+  saleStartAt: string | null
+  saleEndAt: string | null
   isColorable: boolean
   type: string
   sourcingEnabled: boolean
@@ -111,6 +114,9 @@ export default function AdminProductEditPage() {
             isNew: product.isNew ?? false,
             onSale: product.onSale ?? false,
             active: product.active ?? true,
+            archived: product.archived ?? false,
+            saleStartAt: product.saleStartAt || undefined,
+            saleEndAt: product.saleEndAt || undefined,
             isColorable: product.isColorable ?? false,
             type: product.type || 'stock',
             sourcingEnabled: product.sourcingEnabled ?? false,
@@ -143,6 +149,9 @@ export default function AdminProductEditPage() {
             isNew: product.isNew ?? false,
             onSale: product.onSale ?? false,
             active: product.active ?? true,
+            archived: product.archived ?? false,
+            saleStartAt: product.saleStartAt || undefined,
+            saleEndAt: product.saleEndAt || undefined,
             isColorable: product.isColorable ?? false,
             type: product.type || 'stock',
             sourcingEnabled: product.sourcingEnabled ?? false,
@@ -700,6 +709,15 @@ export default function AdminProductEditPage() {
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
+              checked={product?.archived ?? false}
+              onChange={(e) => setProduct((p) => ({ ...p, archived: e.target.checked, active: e.target.checked ? false : (p?.active ?? true) }))}
+              className="rounded border-[var(--border)]"
+            />
+            Archivált
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
               checked={product?.isNew ?? false}
               onChange={(e) => setProduct((p) => ({ ...p, isNew: e.target.checked }))}
               className="rounded border-[var(--border)]"
@@ -715,6 +733,32 @@ export default function AdminProductEditPage() {
             />
             Akciós
           </label>
+        </div>
+
+        {product?.onSale && product?.type !== 'sourcing_deal' && (
+          <div className="grid gap-4 sm:grid-cols-2 border-t border-[var(--border)] pt-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Akció kezdete</label>
+              <input
+                value={product?.saleStartAt?.slice(0, 16) ?? ''}
+                onChange={(e) => setProduct((p) => ({ ...p, saleStartAt: e.target.value ? new Date(e.target.value).toISOString() : null }))}
+                type="datetime-local"
+                className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Akció vége</label>
+              <input
+                value={product?.saleEndAt?.slice(0, 16) ?? ''}
+                onChange={(e) => setProduct((p) => ({ ...p, saleEndAt: e.target.value ? new Date(e.target.value).toISOString() : null }))}
+                type="datetime-local"
+                className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-wrap gap-4">
           <label className="flex items-center gap-2">
             <input
               type="checkbox"

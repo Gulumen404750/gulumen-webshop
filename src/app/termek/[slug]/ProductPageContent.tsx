@@ -29,6 +29,8 @@ import { useWishlist } from '@/context/WishlistContext'
 import { useEuroRate } from '@/context/EuroRateContext'
 import { useToast } from '@/context/ToastContext'
 import { trackAddToCart } from '@/lib/analytics'
+import { SaleCountdown } from '@/components/SaleCountdown'
+import { useSaleActive } from '@/hooks/useSaleActive'
 import type { Product } from '@/lib/data'
 
 const RECENTLY_VIEWED_KEY = 'gulumen-recently-viewed'
@@ -97,9 +99,10 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
     .filter((p) => p.category === product.category && p.id !== product.id && p.type !== 'sourcing_deal')
     .slice(0, 4)
 
-  const priceHuf = product.discountPriceHuf ?? product.priceHuf
+  const saleActive = useSaleActive(product)
+  const priceHuf = saleActive && product.discountPriceHuf ? product.discountPriceHuf : product.priceHuf
   const priceEur = hufToEur(priceHuf)
-  const hasDiscount = !!product.discountPriceHuf
+  const hasDiscount = saleActive && !!product.discountPriceHuf
 
   /** 3D színezhető terméknél szín + anyag is kötelező. */
   const canAddToCart =
@@ -351,6 +354,9 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
               {priceHuf.toLocaleString('hu-HU')} Ft
             </span>
             <span className="text-muted">(€{formatEur(priceEur)})</span>
+            {saleActive && product.type !== 'sourcing_deal' && (
+              <SaleCountdown product={product} variant="inline" />
+            )}
           </div>
           <p className="mt-2 text-muted">{product.condition}</p>
           {product.variants && product.variants.length > 0 && (

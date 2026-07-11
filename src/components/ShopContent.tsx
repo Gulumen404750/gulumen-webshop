@@ -2,8 +2,9 @@
 
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useMemo, useCallback, useState, useEffect } from 'react'
-import { categories, mockProducts, getCategoryName, getProductName, getProductDescription, threeDSubcategories, is3DProduct } from '@/lib/data'
+import { categories, mockProducts, getCategoryName, getProductName, getProductDescription, threeDSubcategories, is3DProduct, getStorefrontCategories } from '@/lib/data'
 import type { Product } from '@/lib/data'
+import { AUTO_HIDE_FILTERS_BELOW_COUNT } from '@/lib/storefront-config'
 import { ProductCard } from '@/components/ProductCard'
 import { HungarianFlagIcon } from '@/components/HungarianFlagIcon'
 import { useLocale } from '@/context/LocaleContext'
@@ -46,7 +47,7 @@ export function ShopContent({ initialProducts }: ShopContentProps = {}) {
   const priceMax = searchParams.get('priceMax') ?? ''
   const conditionFilter = searchParams.get('condition') ?? ''
   const sort = (searchParams.get('sort') as SortOption) || 'newest'
-  const is3DPage = categoryParam === '3d-nyomtatott'
+  const is3DPage = categoryParam === '3d-nyomtatott' || !categoryParam
 
   const setParams = useCallback(
     (updates: Record<string, string>) => {
@@ -64,17 +65,17 @@ export function ShopContent({ initialProducts }: ShopContentProps = {}) {
     [setParams]
   )
 
-  /** Az aktuális nézet alap listája: összes/többi kategória = NEM 3D; 3D oldal = csak 3D termékek. */
+  /** Az aktuális nézet alap listája. Alapértelmezés: 3D termékek (egyetlen látható kategória). */
   const productsForView = useMemo(() => {
-    if (categoryParam === '3d-nyomtatott') {
+    if (categoryParam === '3d-nyomtatott' || !categoryParam) {
       return stockProducts.filter((p) => is3DProduct(p))
     }
-    return stockProducts.filter((p) => !is3DProduct(p))
+    return stockProducts.filter((p) => !is3DProduct(p) && p.category === categoryParam)
   }, [categoryParam, stockProducts])
 
   const filtered = useMemo(() => {
     let list = [...productsForView]
-    if (categoryParam === '3d-nyomtatott') {
+    if (categoryParam === '3d-nyomtatott' || !categoryParam) {
       if (subParam && threeDSlugs.includes(subParam as typeof threeDSlugs[number])) {
         list = list.filter((p) => p.category === subParam)
       }
@@ -106,8 +107,10 @@ export function ShopContent({ initialProducts }: ShopContentProps = {}) {
   const sizes = Array.from(
     new Set(productsForView.flatMap((p) => p.variants?.map((v) => v.size).filter(Boolean) ?? []))
   ).filter(Boolean) as string[]
-  const cat = categoryParam ? categories.find((c) => c.slug === categoryParam) : null
+  const cat = categoryParam ? categories.find((c) => c.slug === categoryParam) : getStorefrontCategories()[0] ?? null
   const pageTitle = cat ? getCategoryName(cat, locale) : t('pages.productsTitle')
+  const showFilters = filtered.length >= AUTO_HIDE_FILTERS_BELOW_COUNT || sizes.length > 1 || conditions.length > 1
+  const show3DTabs = is3DPage && productsForView.length > AUTO_HIDE_FILTERS_BELOW_COUNT
 
   const INITIAL_PAGE_SIZE = 12
   const PAGE_SIZE = 12
@@ -139,7 +142,7 @@ export function ShopContent({ initialProducts }: ShopContentProps = {}) {
         </p>
       )}
 
-      {is3DPage && (
+      {show3DTabs && (
         <div className="flex flex-wrap gap-2 mb-6">
           <button
             type="button"
@@ -163,6 +166,7 @@ export function ShopContent({ initialProducts }: ShopContentProps = {}) {
       )}
 
       <div className={`flex flex-col lg:flex-row gap-8 ${threeDTabDesignClass}`}>
+        {showFilters && (
         <aside className="lg:w-56 shrink-0">
           <div className="sticky top-24 space-y-6">
             <div>
@@ -214,6 +218,7 @@ export function ShopContent({ initialProducts }: ShopContentProps = {}) {
             </div>
           </div>
         </aside>
+        )}
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-6">

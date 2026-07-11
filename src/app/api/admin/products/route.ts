@@ -17,11 +17,23 @@ export async function GET(request: Request) {
   const search = searchParams.get('search')?.trim() || ''
   const category = searchParams.get('category')?.trim() || ''
   const activeStr = searchParams.get('active')
+  const status = searchParams.get('status')?.trim() || ''
   const type = searchParams.get('type')?.trim() || ''
 
   const where: Record<string, unknown> = {}
-  if (activeStr === 'true') where.active = true
-  if (activeStr === 'false') where.active = false
+  if (status === 'active') {
+    where.active = true
+    where.archived = false
+  } else if (status === 'inactive') {
+    where.active = false
+    where.archived = false
+  } else if (status === 'archived') {
+    where.archived = true
+  } else if (activeStr === 'true') {
+    where.active = true
+  } else if (activeStr === 'false') {
+    where.active = false
+  }
   if (category) where.category = category
   if (type) where.type = type
   if (search) {
@@ -65,7 +77,10 @@ const createProductSchema = z.object({
   variants: z.unknown().optional(),
   isNew: z.boolean().optional(),
   onSale: z.boolean().optional(),
+  saleStartAt: z.string().datetime().optional().nullable(),
+  saleEndAt: z.string().datetime().optional().nullable(),
   active: z.boolean().optional(),
+  archived: z.boolean().optional(),
   isColorable: z.boolean().optional(),
   type: z.enum(['stock', 'sourcing_deal']).optional(),
   sourcingEnabled: z.boolean().optional(),
@@ -127,7 +142,10 @@ export async function POST(request: Request) {
       variants: d.variants === null ? Prisma.JsonNull : (d.variants ?? undefined),
       isNew: d.isNew ?? false,
       onSale: d.onSale ?? false,
+      saleStartAt: d.saleStartAt ? new Date(d.saleStartAt) : null,
+      saleEndAt: d.saleEndAt ? new Date(d.saleEndAt) : null,
       active: d.active ?? true,
+      archived: d.archived ?? false,
       isColorable: d.isColorable ?? false,
       type: d.type ?? 'stock',
       sourcingEnabled: d.sourcingEnabled ?? false,
