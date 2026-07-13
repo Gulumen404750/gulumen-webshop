@@ -3,6 +3,7 @@
  * Deploy előtt: Prisma client generálás + migrate deploy (táblák létrehozása/frissítése).
  * Így mind Linux (Railway) mind Windows (lokál) esetén helyesen indul.
  */
+require('./load-env.cjs')
 require('./bootstrap-auth-env.cjs')
 
 const { spawnSync } = require('child_process')

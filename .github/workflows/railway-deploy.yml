@@ -16,5 +16,11 @@ jobs:
       RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
     steps:
       - uses: actions/checkout@v4
+      - name: Check RAILWAY_TOKEN
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::error::RAILWAY_TOKEN hiányzik. Railway → gulumen-webshop → Settings → Tokens → Create token. GitHub → repo Settings → Secrets → Actions → RAILWAY_TOKEN"
+            exit 1
+          fi
       - name: Deploy to gulumen-webshop (build + deploy)
         run: railway up --service gulumen-webshop --ci -y -m "GitHub Actions deploy ${GITHUB_SHA}"
