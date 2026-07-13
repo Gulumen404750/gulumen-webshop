@@ -12,6 +12,15 @@ function run(name, args) {
   if (r.status !== 0) process.exit(r.status ?? 1)
 }
 
+if (!process.env.DATABASE_URL?.trim()) {
+  console.error('')
+  console.error('[start] HIBA: DATABASE_URL nincs beállítva.')
+  console.error('[start] Railway → gulumen-webshop (NEM dynamic-perfection) → Variables →')
+  console.error('[start]   New Variable → DATABASE_URL → Reference → Postgres → DATABASE_URL')
+  console.error('')
+  process.exit(1)
+}
+
 run('npx', ['prisma', 'generate'])
 run('npx', ['prisma', 'migrate', 'deploy'])
 
