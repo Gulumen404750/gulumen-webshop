@@ -25,8 +25,12 @@ if (!process.env.DATABASE_URL?.trim()) {
 run('npx', ['prisma', 'generate'])
 run('npx', ['prisma', 'migrate', 'deploy'])
 
+// Railway: PORT env + 0.0.0.0 (különben a proxy nem éri el a konténert)
 const port = process.env.PORT || '3000'
-const result = spawnSync('npx', ['next', 'start', '-p', port], {
+const hostname = process.env.HOSTNAME || '0.0.0.0'
+console.log(`[start] next start -H ${hostname} -p ${port}`)
+
+const result = spawnSync('npx', ['next', 'start', '-H', hostname, '-p', port], {
   stdio: 'inherit',
   shell: true,
 })
