@@ -2,6 +2,7 @@
  * NextAuth options: Google OAuth + JWT session.
  * User by email: ha nincs ilyen user, létrehozzuk; ha van, bejelentkeztetjük.
  */
+import '@/lib/bootstrap-auth-env'
 import type { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import { prisma, isDbConfigured } from '@/lib/prisma'

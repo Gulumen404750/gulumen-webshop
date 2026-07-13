@@ -28,10 +28,14 @@ export function isJwtConfigured(): boolean {
 }
 
 export async function getSession(request: Request): Promise<SessionUser | null> {
-  const nextSession = await getServerSession(authOptions)
-  if (nextSession?.user?.email) {
-    const id = (nextSession.user as { id?: string }).id
-    if (id) return { userId: id, email: nextSession.user.email }
+  try {
+    const nextSession = await getServerSession(authOptions)
+    if (nextSession?.user?.email) {
+      const id = (nextSession.user as { id?: string }).id
+      if (id) return { userId: id, email: nextSession.user.email }
+    }
+  } catch {
+    // NextAuth misconfigured – fall through to JWT cookie session
   }
   const secret = getSecret()
   if (!secret) return null

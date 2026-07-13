@@ -13,6 +13,8 @@ Ezeket a változókat állítsd be a **Railway → Project → Variables** felü
 | **JWT_SECRET** | Legalább 16 karakter. Pl. generálás: `openssl rand -hex 32` |
 | **ADMIN_API_KEY** | **Név (Railway Name):** `ADMIN_API_KEY` – ne töröld. **Érték (Value – hova írod):** a generált titkos kulcs (pl. `openssl rand -hex 32`). Részletesen: [Admin API kulcs beállítása](ADMIN-API-KULCS-BEALLITAS.md) |
 | **NEXT_PUBLIC_APP_URL** | Az alkalmazás publikus URL-je. Pl. `https://www.gulumen.com` |
+| **NEXTAUTH_SECRET** | NextAuth JWT titok. Ha nincs megadva, a kód **JWT_SECRET** vagy **ADMIN_API_KEY** értékét használja fallbackként. Élesben érdemes külön generálni: `openssl rand -base64 32` |
+| **NEXTAUTH_URL** | Pl. `https://www.gulumen.com`. Ha nincs megadva, **NEXT_PUBLIC_APP_URL** lesz használva. |
 
 ---
 
