@@ -5,6 +5,7 @@ node_modules
 
 # build
 .next
+tsconfig.tsbuildinfo
 out
 build
 dist
