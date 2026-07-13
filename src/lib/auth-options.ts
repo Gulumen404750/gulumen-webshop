@@ -6,7 +6,7 @@ import '@/lib/bootstrap-auth-env'
 import type { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import { prisma, isDbConfigured } from '@/lib/prisma'
-import { bootstrapAuthEnv, resolveNextAuthSecret } from '@/lib/bootstrap-auth-env'
+import { bootstrapAuthEnv, resolveNextAuthSecret, BUILTIN_NEXTAUTH_SECRET } from '@/lib/bootstrap-auth-env'
 
 function buildAuthOptions(): NextAuthOptions {
   bootstrapAuthEnv()
@@ -67,7 +67,7 @@ function buildAuthOptions(): NextAuthOptions {
       signIn: '/profil',
       error: '/profil',
     },
-    secret: resolveNextAuthSecret(),
+    secret: resolveNextAuthSecret() || BUILTIN_NEXTAUTH_SECRET,
   }
 }
 

@@ -1,15 +1,18 @@
 /**
- * Railway / production: NEXTAUTH_SECRET és NEXTAUTH_URL gyakran nincs külön beállítva.
- * Fallback: JWT_SECRET → ADMIN_API_KEY → DATABASE_URL hash → app production secret.
+ * Railway / production: NEXTAUTH_SECRET gyakran nincs beállítva.
+ * Bracket notation → Next.js build nem inline-olja ki (runtime env).
  */
 import { createHash } from 'crypto'
 
-const PRODUCTION_FALLBACK_SECRET = createHash('sha256')
-  .update('gulumen-webshop-production-nextauth-v2')
-  .digest('base64')
+/** Build/runtime fallback – bracket env olvasás mellett is biztos. */
+export const BUILTIN_NEXTAUTH_SECRET = 'gulumen-webshop-railway-nextauth-v3'
+
+function env(key: string): string | undefined {
+  return process.env[key]?.trim() || undefined
+}
 
 function deriveSecretFromDatabaseUrl(): string | undefined {
-  const url = process.env.DATABASE_URL?.trim()
+  const url = env('DATABASE_URL')
   if (!url) return undefined
   return createHash('sha256').update(`gulumen-nextauth:${url}`).digest('base64')
 }
@@ -17,13 +20,11 @@ function deriveSecretFromDatabaseUrl(): string | undefined {
 /** Mindig ad vissza titkot – productionben soha nem NO_SECRET. */
 export function resolveNextAuthSecret(): string {
   return (
-    process.env.NEXTAUTH_SECRET?.trim() ||
-    process.env.JWT_SECRET?.trim() ||
-    process.env.ADMIN_API_KEY?.trim() ||
+    env('NEXTAUTH_SECRET') ||
+    env('JWT_SECRET') ||
+    env('ADMIN_API_KEY') ||
     deriveSecretFromDatabaseUrl() ||
-    (process.env.NODE_ENV === 'production'
-      ? PRODUCTION_FALLBACK_SECRET
-      : 'dev-insecure-nextauth-secret-local-only')
+    BUILTIN_NEXTAUTH_SECRET
   )
 }
 
@@ -32,15 +33,14 @@ export function isNextAuthConfigured(): boolean {
 }
 
 export function bootstrapAuthEnv(): void {
-  if (!process.env.NEXTAUTH_URL?.trim()) {
+  if (!env('NEXTAUTH_URL')) {
     process.env.NEXTAUTH_URL =
-      process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-      (process.env.NODE_ENV === 'production' ? 'https://www.gulumen.com' : 'http://localhost:3000')
+      env('NEXT_PUBLIC_APP_URL') ||
+      (env('NODE_ENV') === 'production' ? 'https://www.gulumen.com' : 'http://localhost:3000')
   }
 
-  const secret = resolveNextAuthSecret()
-  if (!process.env.NEXTAUTH_SECRET?.trim()) {
-    process.env.NEXTAUTH_SECRET = secret
+  if (!env('NEXTAUTH_SECRET')) {
+    process.env.NEXTAUTH_SECRET = resolveNextAuthSecret()
   }
 }
 
