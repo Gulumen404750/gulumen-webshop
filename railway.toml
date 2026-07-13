@@ -1,5 +1,12 @@
-# Railway – gulumen-webshop service
-# https://docs.railway.com/reference/config-as-code
+# Railway deploy – CSAK a gulumen-webshop service-re (www.gulumen.com).
+# Használat (egyszeri login után):
+#   npx @railway/cli login
+#   npx @railway/cli link
+#     → welcoming-balance projekt
+#     → gulumen-webshop service  (NE dynamic-perfection!)
+#   npm run deploy:railway
+#
+# Vagy GitHub Actions: állítsd be a RAILWAY_TOKEN secretet (Railway → gulumen-webshop → Settings → Tokens).
 
 [build]
 builder = "nixpacks"
