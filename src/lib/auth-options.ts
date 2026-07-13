@@ -6,6 +6,7 @@ import '@/lib/bootstrap-auth-env'
 import type { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import { prisma, isDbConfigured } from '@/lib/prisma'
+import { resolveNextAuthSecret } from '@/lib/bootstrap-auth-env'
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -64,5 +65,5 @@ export const authOptions: NextAuthOptions = {
     signIn: '/profil',
     error: '/profil',
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: resolveNextAuthSecret(),
 }

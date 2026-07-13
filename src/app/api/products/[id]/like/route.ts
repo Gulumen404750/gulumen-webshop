@@ -52,8 +52,13 @@ export async function GET(
     }
 
     const likesCount = ProductLikes.getLikesCount(productId)
-    const session = await getSession(request)
-    const liked = session ? ProductLikes.hasLike(productId, session.userId) : false
+    let liked = false
+    try {
+      const session = await getSession(request)
+      liked = session ? ProductLikes.hasLike(productId, session.userId) : false
+    } catch {
+      liked = false
+    }
 
     return NextResponse.json({ likesCount, liked })
   } catch (e) {
