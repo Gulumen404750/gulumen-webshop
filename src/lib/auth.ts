@@ -4,7 +4,7 @@
  */
 import { SignJWT, jwtVerify } from 'jose'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth-options'
+import { getAuthOptions } from '@/lib/auth-options'
 import { isNextAuthConfigured } from '@/lib/bootstrap-auth-env'
 
 const COOKIE_NAME = 'gulumen-session'
@@ -31,7 +31,7 @@ export function isJwtConfigured(): boolean {
 export async function getSession(request: Request): Promise<SessionUser | null> {
   if (isNextAuthConfigured()) {
     try {
-      const nextSession = await getServerSession(authOptions)
+      const nextSession = await getServerSession(getAuthOptions())
       if (nextSession?.user?.email) {
         const id = (nextSession.user as { id?: string }).id
         if (id) return { userId: id, email: nextSession.user.email }

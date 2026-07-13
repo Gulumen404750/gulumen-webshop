@@ -1,0 +1,11 @@
+# Railway – gulumen-webshop service
+# https://docs.railway.com/reference/config-as-code
+
+[build]
+builder = "nixpacks"
+buildCommand = "npm run build"
+
+[deploy]
+startCommand = "npm run start"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 5

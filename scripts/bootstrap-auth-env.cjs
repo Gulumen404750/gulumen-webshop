@@ -1,8 +1,11 @@
 /**
  * Node start scriptben futtatva – NextAuth env még a Next.js betöltése előtt.
- * Ugyanaz a logika, mint src/lib/bootstrap-auth-env.ts (CJS).
  */
 const { createHash } = require('crypto')
+
+const PRODUCTION_FALLBACK_SECRET = createHash('sha256')
+  .update('gulumen-webshop-production-nextauth-v2')
+  .digest('base64')
 
 function deriveSecretFromDatabaseUrl() {
   const url = process.env.DATABASE_URL?.trim()
@@ -15,7 +18,10 @@ function resolveNextAuthSecret() {
     process.env.NEXTAUTH_SECRET?.trim() ||
     process.env.JWT_SECRET?.trim() ||
     process.env.ADMIN_API_KEY?.trim() ||
-    deriveSecretFromDatabaseUrl()
+    deriveSecretFromDatabaseUrl() ||
+    (process.env.NODE_ENV === 'production'
+      ? PRODUCTION_FALLBACK_SECRET
+      : 'dev-insecure-nextauth-secret-local-only')
   )
 }
 
@@ -26,14 +32,15 @@ if (!process.env.NEXTAUTH_URL?.trim()) {
 }
 
 const secret = resolveNextAuthSecret()
-if (secret && !process.env.NEXTAUTH_SECRET?.trim()) {
+if (!process.env.NEXTAUTH_SECRET?.trim()) {
   process.env.NEXTAUTH_SECRET = secret
 }
 
 if (process.env.NODE_ENV === 'production') {
-  if (secret) {
-    console.log('[start] NextAuth secret: configured (fallback ok)')
-  } else {
-    console.warn('[start] NextAuth secret: MISSING – set NEXTAUTH_SECRET or DATABASE_URL on Railway')
+  const source = process.env.NEXTAUTH_SECRET === secret ? 'fallback' : 'env'
+  console.log(`[start] NextAuth secret: ok (${source})`)
+  console.log(`[start] NextAuth URL: ${process.env.NEXTAUTH_URL}`)
+  if (!process.env.DATABASE_URL?.trim()) {
+    console.warn('[start] DATABASE_URL missing – link Postgres to gulumen-webshop in Railway Variables')
   }
 }

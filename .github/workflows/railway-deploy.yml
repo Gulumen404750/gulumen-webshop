@@ -1,0 +1,20 @@
+# Automatikus Railway redeploy push után.
+# Egyszeri beállítás: GitHub repo → Settings → Secrets → RAILWAY_TOKEN
+# Token: https://railway.app/account/tokens
+name: Deploy to Railway
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ secrets.RAILWAY_TOKEN != '' }}
+    container: ghcr.io/railwayapp/cli:latest
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Redeploy gulumen-webshop
+        run: railway redeploy --service gulumen-webshop -y
