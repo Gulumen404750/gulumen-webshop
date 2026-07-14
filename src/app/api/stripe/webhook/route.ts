@@ -10,6 +10,8 @@ import {
 import { markReservationsPaidByOrderId } from '@/lib/reservations'
 import { sendOrderConfirmationEmail } from '@/lib/order-email'
 import { qualifiesForLoyalty, incrementQualifyingOrder, decrementQualifyingOrder } from '@/lib/loyalty'
+import { enqueueOrderPurchasePointsRedemption, enqueueLuckySpinPointsBonus } from '@/lib/gamification/order-points'
+import { computeLuckySpinDiscount, getActiveSpin } from '@/lib/gamification/lucky-spin'
 import { logger } from '@/lib/logger'
 
 /** Stripe HUF: zero-decimal – amount_total forintban (egész), nem fillér. */
@@ -122,8 +124,43 @@ export async function POST(request: Request) {
       })
       await markReservationsPaidByOrderId(orderId)
 
-      // Hűségkedvezmény: csak ha még nem számoltuk, és a végösszeg eléri a küszöböt (HUF/EUR)
       const updatedOrder = await getOrderById(orderId)
+      if (updatedOrder) {
+        await enqueueOrderPurchasePointsRedemption({
+          id: updatedOrder.id,
+          userId: updatedOrder.userId,
+          pointsUsed: updatedOrder.pointsUsed ?? 0,
+          pointsDiscountHuf: updatedOrder.pointsDiscountHuf ?? 0,
+        })
+        if (
+          updatedOrder.userId &&
+          (updatedOrder.pointsUsed ?? 0) > 0 &&
+          updatedOrder.items?.length
+        ) {
+          const orderDate = new Date(updatedOrder.createdAt)
+          const spin = await getActiveSpin(updatedOrder.userId, orderDate)
+          if (spin) {
+            const discount = computeLuckySpinDiscount(
+              updatedOrder.items.map((i) => ({
+                productId: i.productId,
+                qty: i.qty,
+                priceHuf: i.priceHuf,
+              })),
+              spin,
+              orderDate
+            )
+            if (discount.active) {
+              await enqueueLuckySpinPointsBonus({
+                orderId: updatedOrder.id,
+                userId: updatedOrder.userId,
+                pointsUsed: updatedOrder.pointsUsed ?? 0,
+              })
+            }
+          }
+        }
+      }
+
+      // Hűségkedvezmény: csak ha még nem számoltuk, és a végösszeg eléri a küszöböt (HUF/EUR)
       if (updatedOrder && !updatedOrder.countedForLoyalty && customerEmail) {
         if (qualifiesForLoyalty(amountTotal, currency)) {
           incrementQualifyingOrder(customerEmail)

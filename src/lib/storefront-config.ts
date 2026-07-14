@@ -18,7 +18,12 @@ export const FEATURED_PRODUCT_COUNT = 3
 export const FEATURED_ROTATION_MS = 2 * 60 * 1000
 
 /** Mock módban aktív 3D termék ID-k (DB nélküli fejlesztéshez). */
-export const MOCK_ACTIVE_3D_PRODUCT_IDS = ['3d-1', '3d-2', '3d-3'] as const
+export const MOCK_ACTIVE_3D_PRODUCT_IDS = [
+  '3d-1', '3d-2', '3d-3',
+  '3d-4', '3d-5', '3d-6', '3d-7', '3d-8', '3d-9', '3d-10',
+  '3d-11', '3d-12', '3d-13', '3d-14', '3d-15', '3d-16', '3d-17', '3d-18',
+  '3d-19', '3d-20', '3d-21', '3d-22', '3d-23', '3d-24', '3d-25', '3d-26', '3d-27', '3d-28',
+] as const
 
 function is3DCategory(category: string | undefined): boolean {
   return (category?.startsWith?.('3d-') ?? false)

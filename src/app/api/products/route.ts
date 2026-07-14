@@ -1,18 +1,16 @@
 import { NextResponse } from 'next/server'
-import { getAllProductsFromDb } from '@/lib/products'
+import { getAllProductsAsync } from '@/lib/data'
 import { getProductOrdersCounts } from '@/lib/orders'
 
 /**
  * GET /api/products
- * Nyilvános: összes aktív storefront termék (DB konfigurált: getAllProductsFromDb, egyébként []).
- * Sourcing deal termékeknél ordersCount is beállítva a kosár/elérhetőség helyes megjelenítéséhez.
- * Cache: rövid (10 s), hogy a készlet mindenhol naprakész legyen.
+ * Nyilvános: összes aktív storefront termék (DB vagy mock fallback).
  */
 export const revalidate = 10
 
 export async function GET() {
   try {
-    const products = await getAllProductsFromDb()
+    const products = await getAllProductsAsync()
     const sourcingIds = products.filter((p) => p.type === 'sourcing_deal').map((p) => p.id)
     if (sourcingIds.length > 0) {
       const counts = await getProductOrdersCounts(sourcingIds)

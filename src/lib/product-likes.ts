@@ -1,11 +1,12 @@
 /**
  * ProductLike – userhez kötött kedvelések (privát), számláló publikus.
- * Unique: (productId, userId) → 1 user 1 like / termék.
- * Élesben: PostgreSQL/Redis ajánlott.
+ * DB (Prisma) ha DATABASE_URL be van állítva, különben fájl fallback dev-hez.
  */
 
 import path from 'path'
 import fs from 'fs'
+import { isDbConfigured, prisma } from '@/lib/prisma'
+import { toggleLikeWithGamification } from '@/lib/gamification/like-gamification'
 
 const DATA_DIR = path.join(process.cwd(), 'data')
 const PRODUCT_LIKES_FILE = path.join(DATA_DIR, 'product-likes.json')
@@ -14,6 +15,21 @@ export type ProductLikeRecord = {
   productId: string
   userId: string
   createdAt: string
+}
+
+export type ToggleLikeResult = {
+  liked: boolean
+  likesCount: number
+  qualifyingLikeCount?: number
+  qualifyingLikeTarget?: number
+  pointLimitReached?: boolean
+  canEarnLikeProgress?: boolean
+  windowResetsAt?: string | null
+  dailyBonusQueued?: boolean
+  /** @deprecated */
+  dailyLikeCount?: number
+  /** @deprecated */
+  dailyLikeTarget?: number
 }
 
 function loadRecords(): ProductLikeRecord[] {
@@ -42,39 +58,36 @@ function saveRecords(records: ProductLikeRecord[]): void {
   }
 }
 
-/** Nyilvános: termékre vonatkozó like-ok száma. */
-export function getLikesCount(productId: string): number {
-  const records = loadRecords()
-  return records.filter((r) => r.productId === productId).length
+function fileGetLikesCount(productId: string): number {
+  return loadRecords().filter((r) => r.productId === productId).length
 }
 
-/** User ezt a terméket kedveli-e (privát állapot). */
-export function hasLike(productId: string, userId: string): boolean {
-  const records = loadRecords()
-  return records.some((r) => r.productId === productId && r.userId === userId)
+function legacyUserId(email: string): string {
+  return `user-${email.trim().toLowerCase()}`
 }
 
-/** Like hozzáadása (toggle on). Unique (productId, userId). */
-export function addLike(productId: string, userId: string): void {
-  const records = loadRecords()
-  if (records.some((r) => r.productId === productId && r.userId === userId)) return
-  records.push({ productId, userId, createdAt: new Date().toISOString() })
-  saveRecords(records)
+function userIdsForLookup(userId: string, email?: string): Set<string> {
+  const ids = new Set<string>([userId])
+  if (email) ids.add(legacyUserId(email))
+  return ids
 }
 
-/** Like eltávolítása (toggle off). */
-export function removeLike(productId: string, userId: string): void {
-  const records = loadRecords().filter((r) => !(r.productId === productId && r.userId === userId))
-  saveRecords(records)
+function fileGetLikedProductIdsByUser(userId: string, email?: string): string[] {
+  const userIds = userIdsForLookup(userId, email)
+  return Array.from(
+    new Set(loadRecords().filter((r) => userIds.has(r.userId)).map((r) => r.productId))
+  )
 }
 
-/**
- * Toggle: ha van like, töröljük és false; ha nincs, hozzáadjuk és true.
- * Vissza: { liked: boolean, likesCount: number }
- */
-export function toggleLike(productId: string, userId: string): { liked: boolean; likesCount: number } {
+function fileHasLike(productId: string, userId: string, email?: string): boolean {
+  const userIds = userIdsForLookup(userId, email)
+  return loadRecords().some((r) => r.productId === productId && userIds.has(r.userId))
+}
+
+function fileToggleLike(productId: string, userId: string, email?: string): { liked: boolean; likesCount: number } {
   const records = loadRecords()
-  const idx = records.findIndex((r) => r.productId === productId && r.userId === userId)
+  const userIds = userIdsForLookup(userId, email)
+  const idx = records.findIndex((r) => r.productId === productId && userIds.has(r.userId))
   if (idx >= 0) {
     records.splice(idx, 1)
     saveRecords(records)
@@ -85,8 +98,68 @@ export function toggleLike(productId: string, userId: string): { liked: boolean;
   return { liked: true, likesCount: records.filter((r) => r.productId === productId).length }
 }
 
+
+/** Nyilvános: termékre vonatkozó like-ok száma. */
+export async function getLikesCount(productId: string): Promise<number> {
+  if (isDbConfigured()) {
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: { likesCount: true },
+    })
+    return product?.likesCount ?? 0
+  }
+  return fileGetLikesCount(productId)
+}
+
+/** User ezt a terméket kedveli-e (privát állapot). */
+export async function hasLike(productId: string, userId: string, email?: string): Promise<boolean> {
+  if (isDbConfigured()) {
+    const row = await prisma.productLike.findUnique({
+      where: { productId_userId: { productId, userId } },
+    })
+    return Boolean(row)
+  }
+  return fileHasLike(productId, userId, email)
+}
+
+/**
+ * Toggle like. Vissza: { liked, likesCount, dailyLikeCount?, ... }
+ */
+export async function toggleLike(
+  productId: string,
+  userId: string,
+  email?: string
+): Promise<ToggleLikeResult> {
+  if (isDbConfigured()) {
+    const result = await toggleLikeWithGamification(productId, userId)
+    return {
+      liked: result.liked,
+      likesCount: result.likesCount,
+      qualifyingLikeCount: result.qualifyingLikeCount,
+      qualifyingLikeTarget: result.qualifyingLikeTarget,
+      pointLimitReached: result.pointLimitReached,
+      canEarnLikeProgress: result.canEarnLikeProgress,
+      windowResetsAt: result.windowResetsAt,
+      dailyBonusQueued: result.dailyBonusQueued,
+      dailyLikeCount: result.qualifyingLikeCount,
+      dailyLikeTarget: result.qualifyingLikeTarget,
+    }
+  }
+  const fileResult = fileToggleLike(productId, userId, email)
+  const { devOnLikeToggle } = await import('@/lib/dev-gamification')
+  const gam = devOnLikeToggle(userId, productId, fileResult.liked)
+  return { ...fileResult, ...gam }
+}
+
 /** User összes kedvenc termék id-ja (privát wishlist). */
-export function getLikedProductIdsByUser(userId: string): string[] {
-  const records = loadRecords()
-  return Array.from(new Set(records.filter((r) => r.userId === userId).map((r) => r.productId)))
+export async function getLikedProductIdsByUser(userId: string, email?: string): Promise<string[]> {
+  if (isDbConfigured()) {
+    const rows = await prisma.productLike.findMany({
+      where: { userId },
+      select: { productId: true },
+      orderBy: { createdAt: 'desc' },
+    })
+    return rows.map((r) => r.productId)
+  }
+  return fileGetLikedProductIdsByUser(userId, email)
 }

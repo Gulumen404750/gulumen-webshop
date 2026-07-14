@@ -13,6 +13,8 @@ export async function GET(request: Request) {
     }
     return NextResponse.json({
       user: { id: session.userId, email: session.email },
+      provider: session.provider ?? 'credentials',
+      isNewUser: session.isNewUser === true,
     })
   } catch {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

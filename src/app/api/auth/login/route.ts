@@ -3,6 +3,7 @@ import { z } from 'zod'
 import bcrypt from 'bcryptjs'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { createSession, getSessionCookieHeader, isJwtConfigured } from '@/lib/auth'
+import { devVerifyUser } from '@/lib/dev-auth'
 import {
   loginRateLimitCheck,
   loginRateLimitRecordFailure,
@@ -15,7 +16,7 @@ const loginSchema = z.object({
 })
 
 export async function POST(request: Request) {
-  if (!isDbConfigured() || !isJwtConfigured()) {
+  if (!isJwtConfigured()) {
     return NextResponse.json({ error: 'Auth not configured' }, { status: 503 })
   }
 
@@ -43,24 +44,43 @@ export async function POST(request: Request) {
   const { email, password } = parsed.data
   const emailNorm = email.trim().toLowerCase()
 
-  const user = await prisma.user.findUnique({ where: { email: emailNorm } })
-  if (!user) {
-    loginRateLimitRecordFailure(request)
-    return NextResponse.json(
-      { error: 'Hibás e-mail vagy jelszó' },
-      { status: 401 }
-    )
-  }
-  if (!user.passwordHash) {
-    loginRateLimitRecordFailure(request)
-    return NextResponse.json(
-      { error: 'Ehhez a fiókhoz Google-lel jelentkezz be.' },
-      { status: 401 }
-    )
+  if (isDbConfigured()) {
+    const user = await prisma.user.findUnique({ where: { email: emailNorm } })
+    if (!user) {
+      loginRateLimitRecordFailure(request)
+      return NextResponse.json(
+        { error: 'Hibás e-mail vagy jelszó' },
+        { status: 401 }
+      )
+    }
+    if (!user.passwordHash) {
+      loginRateLimitRecordFailure(request)
+      return NextResponse.json(
+        { error: 'Ehhez a fiókhoz Google-lel jelentkezz be.' },
+        { status: 401 }
+      )
+    }
+
+    const ok = await bcrypt.compare(password, user.passwordHash)
+    if (!ok) {
+      loginRateLimitRecordFailure(request)
+      return NextResponse.json(
+        { error: 'Hibás e-mail vagy jelszó' },
+        { status: 401 }
+      )
+    }
+
+    loginRateLimitRecordSuccess(request)
+    const token = await createSession(user.id, user.email)
+    const response = NextResponse.json({
+      user: { id: user.id, email: user.email, name: user.name },
+    })
+    response.headers.set('Set-Cookie', getSessionCookieHeader(token))
+    return response
   }
 
-  const ok = await bcrypt.compare(password, user.passwordHash)
-  if (!ok) {
+  const devUser = await devVerifyUser(emailNorm, password)
+  if (!devUser) {
     loginRateLimitRecordFailure(request)
     return NextResponse.json(
       { error: 'Hibás e-mail vagy jelszó' },
@@ -69,9 +89,10 @@ export async function POST(request: Request) {
   }
 
   loginRateLimitRecordSuccess(request)
-  const token = await createSession(user.id, user.email)
+  const token = await createSession(devUser.id, devUser.email)
   const response = NextResponse.json({
-    user: { id: user.id, email: user.email, name: user.name },
+    user: { id: devUser.id, email: devUser.email, name: devUser.name },
+    devMode: true,
   })
   response.headers.set('Set-Cookie', getSessionCookieHeader(token))
   return response

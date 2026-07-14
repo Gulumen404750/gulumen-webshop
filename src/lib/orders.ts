@@ -52,6 +52,9 @@ export type Order = {
   refundedAmount?: number
   refundStatus?: RefundStatus
   cancelRequestedAt?: string
+  userId?: string
+  pointsDiscountHuf?: number
+  pointsUsed?: number
 }
 
 const COUPON_PERCENT = 0.05
@@ -125,6 +128,9 @@ function dbOrderToOrder(row: {
   refundedAmount: number | null
   refundStatus: string | null
   cancelRequestedAt: Date | null
+  userId: string | null
+  pointsDiscountHuf: number
+  pointsUsed: number
   items: { productId: string; qty: number; fulfillmentType: string; priceHuf: number; name: string | null }[]
 }): Order {
   return {
@@ -138,6 +144,9 @@ function dbOrderToOrder(row: {
     currency: row.currency,
     createdAt: row.createdAt.toISOString(),
     customerEmail: row.customerEmail ?? undefined,
+    userId: row.userId ?? undefined,
+    pointsDiscountHuf: row.pointsDiscountHuf,
+    pointsUsed: row.pointsUsed,
     stripeSessionId: row.stripeSessionId ?? undefined,
     paymentIntentId: row.paymentIntentId ?? undefined,
     amountPaid: row.amountPaid ?? undefined,
@@ -338,8 +347,23 @@ export function generateOrderGroupId(): string {
 
 export async function createCheckoutOrders(params: {
   orderGroupId: string
-  inStock?: { items: OrderItem[]; subtotalHuf: number; discountHuf: number; totalHuf: number }
-  sourcing?: { items: OrderItem[]; subtotalHuf: number; discountHuf: number; totalHuf: number }
+  userId?: string
+  inStock?: {
+    items: OrderItem[]
+    subtotalHuf: number
+    discountHuf: number
+    totalHuf: number
+    pointsDiscountHuf?: number
+    pointsUsed?: number
+  }
+  sourcing?: {
+    items: OrderItem[]
+    subtotalHuf: number
+    discountHuf: number
+    totalHuf: number
+    pointsDiscountHuf?: number
+    pointsUsed?: number
+  }
   currency?: string
 }): Promise<Order[]> {
   const currency = params.currency ?? 'huf'
@@ -357,6 +381,9 @@ export async function createCheckoutOrders(params: {
           subtotalHuf: params.inStock.subtotalHuf,
           discountHuf: params.inStock.discountHuf,
           totalHuf: params.inStock.totalHuf,
+          pointsDiscountHuf: params.inStock.pointsDiscountHuf ?? 0,
+          pointsUsed: params.inStock.pointsUsed ?? 0,
+          userId: params.userId ?? null,
           currency,
           items: {
             create: params.inStock.items.map((i) => ({
@@ -378,6 +405,9 @@ export async function createCheckoutOrders(params: {
         subtotalHuf: params.inStock.subtotalHuf,
         discountHuf: params.inStock.discountHuf,
         totalHuf: params.inStock.totalHuf,
+        pointsDiscountHuf: params.inStock.pointsDiscountHuf ?? 0,
+        pointsUsed: params.inStock.pointsUsed ?? 0,
+        userId: params.userId,
         currency,
         createdAt: new Date().toISOString(),
       })
@@ -393,6 +423,9 @@ export async function createCheckoutOrders(params: {
           subtotalHuf: params.sourcing.subtotalHuf,
           discountHuf: params.sourcing.discountHuf,
           totalHuf: params.sourcing.totalHuf,
+          pointsDiscountHuf: params.sourcing.pointsDiscountHuf ?? 0,
+          pointsUsed: params.sourcing.pointsUsed ?? 0,
+          userId: params.userId ?? null,
           currency,
           items: {
             create: params.sourcing.items.map((i) => ({
@@ -414,6 +447,9 @@ export async function createCheckoutOrders(params: {
         subtotalHuf: params.sourcing.subtotalHuf,
         discountHuf: params.sourcing.discountHuf,
         totalHuf: params.sourcing.totalHuf,
+        pointsDiscountHuf: params.sourcing.pointsDiscountHuf ?? 0,
+        pointsUsed: params.sourcing.pointsUsed ?? 0,
+        userId: params.userId,
         currency,
         createdAt: new Date().toISOString(),
       })

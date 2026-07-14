@@ -71,8 +71,17 @@ model Coupon {
   minOrderHuf  Int?
   maxUses      Int?     // null = unlimited
   usedCount    Int       @default(0)
+  /// Gamification: személyes kupon tulajdonos (egy user = egy aktív gamification kupon)
+  userId       String?
+  user         User?     @relation("GamificationCoupons", fields: [userId], references: [id], onDelete: SetNull)
+  /// gamification | admin | registration
+  source       String?
+  /// Melyik pontlevonás hozta létre (append-only audit)
+  pointTransactionId String? @unique
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  @@index([userId, active])
+  @@index([source])
 }
 
 /// Admin / chatbot / webshop beállítások – key-value.
@@ -93,6 +102,14 @@ model User {
   orders    Order[]
   productLikes ProductLike[]
   loyaltyRecords LoyaltyRecord[]
+  pointWallet UserPointWallet?
+  pointTransactions PointTransaction[]
+  pointEvents PointEvent[]
+  dailyActivities UserDailyActivity[]
+  dailyLikeProgress UserDailyLikeProgress[]
+  gamificationCoupons Coupon[] @relation("GamificationCoupons")
+  likePointWindow UserLikePointWindow?
+  luckySpins LuckySpin[]
 }
 
 model Order {
@@ -118,6 +135,10 @@ model Order {
   cancelRequestedAt DateTime?
   userId             String?
   user              User?    @relation(fields: [userId], references: [id])
+  /// Ponttal fizetett összeg (Ft) – max. kosár 30%-a.
+  pointsDiscountHuf Int      @default(0)
+  /// Levont pontok száma (checkout mentés).
+  pointsUsed         Int      @default(0)
   items             OrderItem[]
   paymentTransactions PaymentTransaction[]
 }
@@ -151,8 +172,12 @@ model ProductLike {
   productId String
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Gamification: napi 10 lájk számlálóhoz – unlike esetén false, sor megmarad auditra
+  countsForDailyBonus Boolean @default(true)
   createdAt DateTime @default(now())
   @@unique([productId, userId])
+  @@index([userId, createdAt])
+  @@index([createdAt])
 }
 
 model LoyaltyRecord {
@@ -243,4 +268,138 @@ model VoiceApiLog {
   details   String?
   createdAt  DateTime @default(now())
   @@index([createdAt])
+}
+
+// ─── Gamification (pontrendszer) ───────────────────────────────────────────
+
+/// Gyors olvasás: cache-elt egyenleg. Forrás igazság: PointTransaction (append-only).
+model UserPointWallet {
+  userId               String   @id
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balance              Int      @default(0)
+  lifetimeEarned       Int      @default(0)
+  lifetimeRedeemed     Int      @default(0)
+  gamificationSuspended Boolean @default(false)
+  suspendedAt          DateTime?
+  suspendReason        String?
+  lastReconciledAt     DateTime?
+  /// Optimistic lock – párhuzamos pontírás ellen
+  version              Int      @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+/// Append-only pont főkönyv – UPDATE/DELETE tiltva az app rétegben.
+model PointTransaction {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Pozitív = jóváírás, negatív = levonás. Soha 0.
+  delta           Int
+  balanceAfter    Int
+  type            String   // BROWSE_5MIN | LIKE_DAILY_BONUS | REDEEM_COUPON | REVERSAL | ADMIN_ADJUST
+  reason          String?
+  idempotencyKey  String   @unique
+  referenceType   String?  // browse_day | product_like | coupon | order
+  referenceId     String?
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  @@index([userId, createdAt])
+  @@index([type, createdAt])
+  @@index([referenceType, referenceId])
+}
+
+/// Outbox: API gyors válasz → háttérben feldolgozás (nem terheli a fő requestet).
+model PointEvent {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type            String   // BROWSE_5MIN | LIKE_DAILY_BONUS | REDEEM_COUPON
+  idempotencyKey  String   @unique
+  payload         Json     @default("{}")
+  status          String   @default("pending") // pending | processing | completed | failed
+  attempts        Int      @default(0)
+  maxAttempts     Int      @default(5)
+  lastError       String?
+  scheduledAt     DateTime @default(now())
+  processedAt     DateTime?
+  createdAt       DateTime @default(now())
+  @@index([status, scheduledAt])
+  @@index([userId, createdAt])
+}
+
+/// Napi összesítő snapshot – gyors dashboard / reconciliation (opcionális cache).
+model PointSnapshot {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime @db.Date
+  balance   Int
+  txCount   Int      @default(0)
+  createdAt DateTime @default(now())
+  @@unique([userId, date])
+  @@index([date])
+}
+
+/// Napi 5 perc aktív böngészés – Europe/Budapest naptári nap.
+model UserDailyActivity {
+  id                     String    @id @default(cuid())
+  userId                 String
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activityDate           DateTime  @db.Date
+  activeSeconds          Int       @default(0)
+  /// Aktuális 5 perces session haladása (bónusz után nullázódik).
+  sessionProgressSeconds Int       @default(0)
+  /// Ma hány böngészés bónusz járt (max 2 / nap).
+  bonusGrantedCount      Int       @default(0)
+  lastBonusGrantedAt     DateTime?
+  /// @deprecated – használd bonusGrantedCount >= BROWSE_DAILY_MAX_BONUSES
+  bonusGranted           Boolean   @default(false)
+  lastHeartbeatAt        DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  @@unique([userId, activityDate])
+  @@index([activityDate])
+}
+
+/// 12 órás gördülő ablak: max 10 pontszerző lájk / ablak.
+model UserLikePointWindow {
+  userId              String   @id
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  windowStartedAt     DateTime
+  qualifyingLikeCount Int      @default(0)
+  bonusGranted        Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+/// Heti Szerencsekerék – 10 kedvelt termék, 3 napig érvényes, 25% kedvezmény 10+ db esetén.
+model LuckySpin {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// ISO hét azonosító (Europe/Budapest), pl. "2026-W28"
+  weekId      String
+  /// Kiválasztott 10 termék ID (ProductLike alapján)
+  productIds  String[]
+  /// Pörgetéskor zárolt árak: { productId: priceHuf }
+  priceSnapshot Json     @default("{}")
+  generatedAt DateTime @default(now())
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  @@unique([userId, weekId])
+  @@index([userId, expiresAt])
+}
+
+/// @deprecated – helyette UserLikePointWindow (12 órás ablak).
+model UserDailyLikeProgress {
+  id                  String   @id @default(cuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  progressDate        DateTime @db.Date
+  qualifyingLikeCount Int      @default(0)
+  bonusGranted        Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  @@unique([userId, progressDate])
+  @@index([progressDate])
 }

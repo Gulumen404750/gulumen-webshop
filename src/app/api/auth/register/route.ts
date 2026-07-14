@@ -3,6 +3,7 @@ import { z } from 'zod'
 import bcrypt from 'bcryptjs'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { createSession, getSessionCookieHeader, isJwtConfigured } from '@/lib/auth'
+import { devCreateUser, devFindUserByEmail } from '@/lib/dev-auth'
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -11,9 +12,10 @@ const registerSchema = z.object({
 })
 
 export async function POST(request: Request) {
-  if (!isDbConfigured() || !isJwtConfigured()) {
+  if (!isJwtConfigured()) {
     return NextResponse.json({ error: 'Auth not configured' }, { status: 503 })
   }
+
   let body: unknown
   try {
     body = await request.json()
@@ -30,27 +32,50 @@ export async function POST(request: Request) {
   const { email, password, name } = parsed.data
   const emailNorm = email.trim().toLowerCase()
 
-  const existing = await prisma.user.findUnique({ where: { email: emailNorm } })
-  if (existing) {
-    return NextResponse.json(
-      { error: 'Ezzel az e-mail címmel már regisztráltak' },
-      { status: 409 }
-    )
+  try {
+    if (isDbConfigured()) {
+      const existing = await prisma.user.findUnique({ where: { email: emailNorm } })
+      if (existing) {
+        return NextResponse.json(
+          { error: 'Ezzel az e-mail címmel már regisztráltak' },
+          { status: 409 }
+        )
+      }
+
+      const passwordHash = await bcrypt.hash(password, 12)
+      const user = await prisma.user.create({
+        data: {
+          email: emailNorm,
+          passwordHash,
+          name: name?.trim() || null,
+        },
+      })
+
+      const token = await createSession(user.id, user.email)
+      const response = NextResponse.json({
+        user: { id: user.id, email: user.email, name: user.name },
+      })
+      response.headers.set('Set-Cookie', getSessionCookieHeader(token))
+      return response
+    }
+
+    if (devFindUserByEmail(emailNorm)) {
+      return NextResponse.json(
+        { error: 'Ezzel az e-mail címmel már regisztráltak' },
+        { status: 409 }
+      )
+    }
+
+    const user = await devCreateUser(emailNorm, password, name)
+    const token = await createSession(user.id, user.email)
+    const response = NextResponse.json({
+      user: { id: user.id, email: user.email, name: user.name },
+      devMode: true,
+    })
+    response.headers.set('Set-Cookie', getSessionCookieHeader(token))
+    return response
+  } catch (e) {
+    console.error('[api/auth/register] POST', e)
+    return NextResponse.json({ error: 'Regisztráció sikertelen' }, { status: 500 })
   }
-
-  const passwordHash = await bcrypt.hash(password, 12)
-  const user = await prisma.user.create({
-    data: {
-      email: emailNorm,
-      passwordHash,
-      name: name?.trim() || null,
-    },
-  })
-
-  const token = await createSession(user.id, user.email)
-  const response = NextResponse.json({
-    user: { id: user.id, email: user.email, name: user.name },
-  })
-  response.headers.set('Set-Cookie', getSessionCookieHeader(token))
-  return response
 }

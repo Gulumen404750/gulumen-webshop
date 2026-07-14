@@ -26,7 +26,8 @@ function buildAuthOptions(): NextAuthOptions {
         clientSecret: readEnv('GOOGLE_CLIENT_SECRET') ?? '',
         authorization: {
           params: {
-            prompt: 'consent',
+            // Mindig fiókválasztó + szükség esetén hozzájárulás (ne automatikusan az aktív böngésző-fiók).
+            prompt: 'select_account',
             access_type: 'offline',
             response_type: 'code',
           },
@@ -40,7 +41,9 @@ function buildAuthOptions(): NextAuthOptions {
         if (!isDbConfigured()) return false
         const emailNorm = user.email.trim().toLowerCase()
         let dbUser = await prisma.user.findUnique({ where: { email: emailNorm } })
+        let isNewUser = false
         if (!dbUser) {
+          isNewUser = true
           dbUser = await prisma.user.create({
             data: {
               email: emailNorm,
@@ -49,13 +52,18 @@ function buildAuthOptions(): NextAuthOptions {
             },
           })
         }
-        (user as { id?: string }).id = dbUser.id
+        const authUser = user as { id?: string; isNewUser?: boolean }
+        authUser.id = dbUser.id
+        authUser.isNewUser = isNewUser
         return true
       },
       async jwt({ token, user }) {
         if (user?.email) {
           token.email = user.email
           token.userId = (user as { id?: string }).id
+          if ((user as { isNewUser?: boolean }).isNewUser) {
+            token.isNewUser = true
+          }
         }
         return token
       },

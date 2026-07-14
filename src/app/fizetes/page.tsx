@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCart } from '@/context/CartContext'
@@ -11,20 +11,133 @@ import { useEuroRate } from '@/context/EuroRateContext'
 import { trackBeginCheckout } from '@/lib/analytics'
 import { getProductById as getProductByIdFromData, getProductName } from '@/lib/data'
 import { useProducts } from '@/context/ProductsContext'
+import { usePointWallet } from '@/hooks/usePointWallet'
+import { useLuckySpin } from '@/hooks/useLuckySpin'
+import {
+  computeCheckoutTotals,
+  applyLuckySpinLockedPrices,
+  MAX_CART_POINTS_COVERAGE,
+  POINTS_PER_HUF,
+} from '@/lib/checkout'
+import { LUCKY_SPIN_MIN_ITEMS, LUCKY_SPIN_DISCOUNT_PERCENT } from '@/lib/gamification/constants'
 
 export default function PaymentPage() {
   const router = useRouter()
   const { t, locale } = useLocale()
   const { userId } = useAuth()
-  const { items, subtotalHuf, discountHuf, totalHuf, isDiscountActive } = useCart()
+  const { items } = useCart()
   const { getProductById: getProductByIdFromContext } = useProducts()
   const getProductById = (id: string) => getProductByIdFromContext(id) ?? getProductByIdFromData(id)
-  const { isDiscountActive: couponActive, discountPercent } = useCatCoupon()
+  const { isDiscountActive: couponActive, discountPercent, activate, catStatus, status: couponStatusValue } = useCatCoupon()
   const { hufToEur, formatEur } = useEuroRate()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loyaltyPercent, setLoyaltyPercent] = useState(0)
   const [guestEmail, setGuestEmail] = useState('')
+  const [usePoints, setUsePoints] = useState(false)
+  const [couponExpanded, setCouponExpanded] = useState(false)
+  const [couponCodeInput, setCouponCodeInput] = useState('')
+  const [couponMessage, setCouponMessage] = useState<string | null>(null)
+  const [checkoutResult, setCheckoutResult] = useState<{
+    orderGroupId: string
+    payments: Array<{ orderType: 'in_stock' | 'sourcing'; type: string; url?: string; clientSecret?: string; message?: string }>
+  } | null>(null)
+  const [pointsPreview, setPointsPreview] = useState<{
+    maxUsablePointsDiscountHuf: number
+    maxUsablePoints: number
+    balance: number
+  } | null>(null)
+  const { wallet, refresh: refreshWallet } = usePointWallet(!!userId)
+  const { data: luckySpinData } = useLuckySpin(!!userId)
+
+  const luckySpinRecord = luckySpinData?.spin && luckySpinData.isActive
+    ? {
+        id: luckySpinData.spin.id,
+        userId: userId ?? '',
+        weekId: luckySpinData.spin.weekId,
+        productIds: luckySpinData.spin.productIds,
+        priceSnapshot: Object.fromEntries(
+          (luckySpinData.spin.products ?? []).map((p) => [
+            p.id,
+            p.discountPriceHuf ?? p.priceHuf,
+          ])
+        ),
+        generatedAt: new Date(luckySpinData.spin.generatedAt),
+        expiresAt: new Date(luckySpinData.spin.expiresAt),
+      }
+    : null
+
+  const cartLines = items.map((item) => {
+    const p = getProductById(item.productId)
+    return {
+      productId: item.productId,
+      qty: item.qty,
+      priceHuf: p ? (p.discountPriceHuf ?? p.priceHuf) : 0,
+      fulfillmentType: (p?.type === 'sourcing_deal' ? 'procurement' : 'stock') as 'stock' | 'procurement',
+      name: p?.name,
+    }
+  })
+
+  const lockedLines = applyLuckySpinLockedPrices(cartLines, luckySpinRecord)
+
+  let effectiveCouponPercent = 0
+  if (couponActive && discountPercent > 0) {
+    effectiveCouponPercent = discountPercent
+  } else if (!couponActive && loyaltyPercent > 0) {
+    effectiveCouponPercent = loyaltyPercent / 100
+  }
+
+  const checkoutPreview = computeCheckoutTotals({
+    lines: lockedLines,
+    coupon: { percent: effectiveCouponPercent },
+    luckySpin: luckySpinRecord,
+    points:
+      usePoints && pointsPreview
+        ? {
+            requestedDiscountHuf: pointsPreview.maxUsablePointsDiscountHuf,
+            userBalance: pointsPreview.balance,
+          }
+        : undefined,
+  })
+
+  const couponDiscountOnTotal = checkoutPreview.couponDiscountHuf
+  const luckySpinDiscount = checkoutPreview.luckySpin
+  const displayTotalHuf = checkoutPreview.afterCouponAndLuckyHuf
+  const pointsDiscountHuf = checkoutPreview.pointsDiscountHuf
+  const shippingHuf = checkoutPreview.shippingHuf
+  const cardTotalHuf = checkoutPreview.finalTotalHuf
+  const freeShippingRemainingHuf = checkoutPreview.freeShippingRemainingHuf
+
+  const spinProductIds = useMemo(
+    () => new Set(luckySpinRecord?.productIds ?? []),
+    [luckySpinRecord]
+  )
+
+  const { promoItems, normalItems, promoSubtotalHuf, normalSubtotalHuf } = useMemo(() => {
+    const promo: typeof items = []
+    const normal: typeof items = []
+    let promoSub = 0
+    let normalSub = 0
+    for (const item of items) {
+      const line = lockedLines.find((l) => l.productId === item.productId)
+      const lineTotal = (line?.priceHuf ?? 0) * item.qty
+      if (spinProductIds.has(item.productId)) {
+        promo.push(item)
+        promoSub += lineTotal
+      } else {
+        normal.push(item)
+        normalSub += lineTotal
+      }
+    }
+    return {
+      promoItems: promo,
+      normalItems: normal,
+      promoSubtotalHuf: promoSub,
+      normalSubtotalHuf: normalSub,
+    }
+  }, [items, lockedLines, spinProductIds])
+
+  const luckySpinDiscountActive = luckySpinDiscount.active
 
   useEffect(() => {
     if (!couponActive && userId) {
@@ -37,22 +150,105 @@ export default function PaymentPage() {
     }
   }, [couponActive, userId])
 
-  const loyaltyDiscountHuf = !couponActive && loyaltyPercent > 0 ? Math.round(subtotalHuf * (loyaltyPercent / 100)) : 0
-  const displayTotalHuf = couponActive ? totalHuf : subtotalHuf - loyaltyDiscountHuf
-  const subtotalEur = hufToEur(subtotalHuf)
-  const discountEur = hufToEur(couponActive ? discountHuf : loyaltyDiscountHuf)
-  const totalEur = hufToEur(displayTotalHuf)
+  const loyaltyDiscountOnTotal = !couponActive && loyaltyPercent > 0 ? couponDiscountOnTotal : 0
+  const effectiveCouponDiscountHuf =
+    couponActive && couponDiscountOnTotal > 0
+      ? couponDiscountOnTotal
+      : loyaltyDiscountOnTotal > 0
+        ? loyaltyDiscountOnTotal
+        : 0
+  const totalEur = hufToEur(cardTotalHuf)
+
+  const handleCouponApply = () => {
+    setCouponMessage(null)
+    if (!userId) {
+      setCouponMessage(t('coupon.loggedInRequired'))
+      return
+    }
+    if (couponActive) {
+      setCouponMessage(t('payment.couponAlreadyActive'))
+      return
+    }
+    if (catStatus === 'used' && couponStatusValue === 'used') {
+      setCouponMessage(t('coupon.alreadyActivated'))
+      return
+    }
+    if (catStatus === 'not_claimed' && activate()) {
+      setCouponMessage(t('coupon.activated'))
+      setCouponCodeInput('')
+      return
+    }
+    if (couponCodeInput.trim()) {
+      setCouponMessage(t('payment.couponInvalid'))
+      return
+    }
+    setCouponMessage(t('payment.couponNoneAvailable'))
+  }
+
+  const renderLineItem = (item: (typeof items)[number]) => {
+    const product = getProductById(item.productId)
+    const name = product ? getProductName(product, locale) : item.productId
+    const line = lockedLines.find((l) => l.productId === item.productId)
+    const unitPriceHuf = line?.priceHuf ?? 0
+    const isPromo = spinProductIds.has(item.productId)
+    const showPromoPrice = isPromo && luckySpinDiscountActive
+    const discountedUnitHuf = showPromoPrice
+      ? Math.round(unitPriceHuf * (1 - LUCKY_SPIN_DISCOUNT_PERCENT))
+      : unitPriceHuf
+    const lineKey = `${item.productId}-${item.options?.colorHex ?? ''}-${item.options?.colorName ?? ''}-${item.options?.materialName ?? ''}`
+
+    return (
+      <li key={lineKey} className="flex justify-between gap-3 text-sm">
+        <div className="min-w-0">
+          <span className="text-foreground">{name} × {item.qty}</span>
+          {(item.options?.colorName || item.options?.materialName) && (
+            <p className="text-xs text-muted mt-0.5">
+              {item.options?.materialName && <span>{t('product.material')}: {item.options.materialName}</span>}
+              {item.options?.materialName && item.options?.colorName && ' · '}
+              {item.options?.colorName && <span>{t('product.color')}: {item.options.colorName}</span>}
+            </p>
+          )}
+        </div>
+        <span className="shrink-0 text-right text-muted tabular-nums">
+          {showPromoPrice ? (
+            <>
+              <span className="line-through block">{unitPriceHuf.toLocaleString('hu-HU')} Ft</span>
+              <span className="text-discount font-medium">{discountedUnitHuf.toLocaleString('hu-HU')} Ft</span>
+            </>
+          ) : (
+            <span>{unitPriceHuf.toLocaleString('hu-HU')} Ft</span>
+          )}
+        </span>
+      </li>
+    )
+  }
+
+  useEffect(() => {
+    if (!userId || displayTotalHuf <= 0) {
+      setPointsPreview(null)
+      return
+    }
+    fetch(`/api/gamification/purchase-preview?cartTotalHuf=${displayTotalHuf}`, {
+      credentials: 'include',
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data) {
+          setPointsPreview({
+            maxUsablePointsDiscountHuf: data.maxUsablePointsDiscountHuf ?? 0,
+            maxUsablePoints: data.maxUsablePoints ?? 0,
+            balance: data.balance ?? 0,
+          })
+        }
+      })
+      .catch(() => setPointsPreview(null))
+  }, [userId, displayTotalHuf, wallet?.balance])
 
   useEffect(() => {
     if (items.length === 0) {
       router.replace('/kosar')
     }
   }, [items.length, router])
-
-  const [checkoutResult, setCheckoutResult] = useState<{
-    orderGroupId: string
-    payments: Array<{ orderType: 'in_stock' | 'sourcing'; type: string; url?: string; clientSecret?: string; message?: string }>
-  } | null>(null)
 
   const handlePayByCard = async () => {
     setError(null)
@@ -68,11 +264,12 @@ export default function PaymentPage() {
     }
     // Timed offer validity: decided by /api/checkout (fresh ordersCount + server now). No client-side block.
     setLoading(true)
-    trackBeginCheckout(displayTotalHuf)
+    trackBeginCheckout(cardTotalHuf)
     try {
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           items: items.map(({ productId, qty, options }) => ({
             productId,
@@ -82,6 +279,7 @@ export default function PaymentPage() {
           customer: { email },
           isDiscountActive: couponActive,
           discountPercent: couponActive ? discountPercent : undefined,
+          pointsDiscountHuf: pointsDiscountHuf > 0 ? pointsDiscountHuf : undefined,
         }),
       })
       const data = await res.json()
@@ -106,6 +304,7 @@ export default function PaymentPage() {
         return
       }
       setCheckoutResult({ orderGroupId: data.orderGroupId, payments: data.payments || [] })
+      void refreshWallet()
       setLoading(false)
       setTimeout(() => {
         router.push(`/fizetes/siker?order_group_id=${encodeURIComponent(data.orderGroupId)}`)
@@ -133,46 +332,86 @@ export default function PaymentPage() {
 
       <section className="mb-8 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
         <h2 className="font-heading text-lg font-semibold text-foreground mb-4">{t('payment.summary')}</h2>
-        {items.length > 0 && (
-          <ul className="mb-4 space-y-1 text-sm text-muted border-b border-[var(--border)] pb-3">
-            {items.map((item) => {
-              const product = getProductById(item.productId)
-              const name = product ? getProductName(product, locale) : item.productId
-              return (
-                <li key={item.productId} className="flex justify-between gap-2">
-                  <span className="truncate">{name} × {item.qty}</span>
-                  {(item.options?.colorName || item.options?.materialName) && (
-                    <span className="shrink-0">
-                      {item.options?.materialName && <span>{t('product.material') || 'Anyag'}: {item.options.materialName}</span>}
-                      {item.options?.materialName && item.options?.colorName && ' · '}
-                      {item.options?.colorName && <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>}
-                    </span>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-        )}
-        <div className="space-y-2">
-          <div className="flex justify-between text-foreground">
-            <span>{t('cart.subtotal')}</span>
-            <span>{subtotalHuf.toLocaleString('hu-HU')} Ft <span className="text-muted">(€{formatEur(subtotalEur)})</span></span>
+
+        {promoItems.length > 0 && (
+          <div className="mb-4">
+            <h3 className="text-sm font-semibold text-accent mb-2">{t('cart.blockPromoTitle')}</h3>
+            <ul className="space-y-2 border-b border-[var(--border)] pb-3">
+              {promoItems.map(renderLineItem)}
+            </ul>
           </div>
-          {couponActive && discountHuf > 0 && (
-            <div className="flex justify-between text-discount">
-              <span>{t('cart.discountLabel', { percent: Math.round(discountPercent * 100) })}</span>
-              <span>−{discountHuf.toLocaleString('hu-HU')} Ft <span className="text-muted">(€{formatEur(discountEur)})</span></span>
+        )}
+
+        {normalItems.length > 0 && (
+          <div className="mb-4">
+            <h3 className="text-sm font-semibold text-foreground mb-2">
+              {promoItems.length > 0 ? t('cart.blockNormalTitle') : t('payment.allItems')}
+            </h3>
+            <ul className="space-y-2 border-b border-[var(--border)] pb-3">
+              {normalItems.map(renderLineItem)}
+            </ul>
+          </div>
+        )}
+
+        {luckySpinRecord && !luckySpinDiscount.active && luckySpinDiscount.qualifyingItemCount > 0 && (
+          <p className="text-xs text-muted mb-3">
+            {t('luckySpin.cartProgress').replace(
+              '{remaining}',
+              String(LUCKY_SPIN_MIN_ITEMS - luckySpinDiscount.qualifyingItemCount)
+            )}
+          </p>
+        )}
+
+        <div className="space-y-2 text-sm">
+          {promoSubtotalHuf > 0 && (
+            <div className="flex justify-between text-foreground">
+              <span>{t('payment.subtotalPromo')}</span>
+              <span>{promoSubtotalHuf.toLocaleString('hu-HU')} Ft</span>
             </div>
           )}
-          {!couponActive && loyaltyDiscountHuf > 0 && (
-            <div className="flex justify-between text-discount">
-              <span>{t('cart.loyaltyDiscountLabel', { percent: loyaltyPercent })}</span>
-              <span>−{loyaltyDiscountHuf.toLocaleString('hu-HU')} Ft <span className="text-muted">(€{formatEur(discountEur)})</span></span>
+          {normalSubtotalHuf > 0 && (
+            <div className="flex justify-between text-foreground">
+              <span>{t('payment.subtotalNormal')}</span>
+              <span>{normalSubtotalHuf.toLocaleString('hu-HU')} Ft</span>
             </div>
           )}
-          <div className="flex justify-between font-heading font-bold text-lg text-foreground pt-2 border-t border-[var(--border)]">
-            <span>{t('cart.total')}</span>
-            <span>{displayTotalHuf.toLocaleString('hu-HU')} Ft <span className="text-muted">(€{formatEur(totalEur)})</span></span>
+          {luckySpinDiscount.discountHuf > 0 && (
+            <div className="flex justify-between text-discount">
+              <span>{t('payment.luckySpinDiscount')}</span>
+              <span>−{luckySpinDiscount.discountHuf.toLocaleString('hu-HU')} Ft</span>
+            </div>
+          )}
+          {effectiveCouponDiscountHuf > 0 && (
+            <div className="flex justify-between text-discount">
+              <span>{t('payment.couponDiscountLine')}</span>
+              <span>−{effectiveCouponDiscountHuf.toLocaleString('hu-HU')} Ft</span>
+            </div>
+          )}
+          {pointsDiscountHuf > 0 && (
+            <div className="flex justify-between text-accent">
+              <span>{t('payment.pointsDiscount')}</span>
+              <span>−{pointsDiscountHuf.toLocaleString('hu-HU')} Ft</span>
+            </div>
+          )}
+          <div className="flex justify-between text-foreground">
+            <span>{t('payment.shippingFee')}</span>
+            <span>
+              {shippingHuf === 0
+                ? t('payment.shippingFree')
+                : `${shippingHuf.toLocaleString('hu-HU')} Ft`}
+            </span>
+          </div>
+          {freeShippingRemainingHuf > 0 && (
+            <p className="text-xs text-muted">
+              {t('cart.freeShippingProgress', { amount: freeShippingRemainingHuf.toLocaleString('hu-HU') })}
+            </p>
+          )}
+          {freeShippingRemainingHuf === 0 && checkoutPreview.merchandiseTotalHuf > 0 && shippingHuf === 0 && (
+            <p className="text-xs text-green-600 dark:text-green-400">{t('cart.freeShippingReached')}</p>
+          )}
+          <div className="flex justify-between font-heading font-bold text-lg text-foreground pt-3 mt-2 border-t border-[var(--border)]">
+            <span>{t('payment.totalDue')}</span>
+            <span>{cardTotalHuf.toLocaleString('hu-HU')} Ft <span className="text-muted text-sm font-normal">(€{formatEur(totalEur)})</span></span>
           </div>
         </div>
       </section>
@@ -194,6 +433,81 @@ export default function PaymentPage() {
           <p className="text-xs text-muted">{t('payment.guestCheckoutNote') || 'Regisztráció opcionális. A rendeléshez add meg az e-mail címed.'}</p>
         </section>
       )}
+
+      {userId && pointsPreview && pointsPreview.maxUsablePointsDiscountHuf > 0 && (
+        <section className="mb-8 p-4 rounded-xl border border-accent/30 bg-accent/5">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={usePoints}
+              onChange={(e) => setUsePoints(e.target.checked)}
+              className="mt-1 w-4 h-4 rounded border-[var(--border)] text-accent focus:ring-accent"
+            />
+            <span className="text-sm text-foreground">
+              {t('payment.usePoints')
+                .replace('{points}', String(pointsPreview.maxUsablePoints))
+                .replace('{huf}', pointsPreview.maxUsablePointsDiscountHuf.toLocaleString('hu-HU'))
+                .replace('{percent}', String(Math.round(MAX_CART_POINTS_COVERAGE * 100)))}
+            </span>
+          </label>
+          <p className="text-xs text-muted mt-2 ml-7">
+            {t('payment.pointsRate').replace('{rate}', String(POINTS_PER_HUF))}
+          </p>
+          {userId && luckySpinDiscount.active && usePoints && (
+            <p className="text-xs text-accent mt-1 ml-7">{t('luckySpin.pointsBonusHint')}</p>
+          )}
+        </section>
+      )}
+
+      <section className="mb-8 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
+        <button
+          type="button"
+          onClick={() => setCouponExpanded((v) => !v)}
+          className="w-full flex items-center justify-between text-left font-heading font-semibold text-foreground"
+        >
+          <span>{t('payment.addCouponTitle')}</span>
+          <span className="text-muted text-lg leading-none">{couponExpanded ? '−' : '+'}</span>
+        </button>
+        {couponExpanded && (
+          <div className="mt-4 space-y-3">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={couponCodeInput}
+                onChange={(e) => setCouponCodeInput(e.target.value)}
+                placeholder={t('payment.couponPlaceholder')}
+                className="flex-1 px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground text-sm"
+              />
+              <button
+                type="button"
+                onClick={handleCouponApply}
+                className="shrink-0 px-4 py-2 bg-accent text-white text-sm font-semibold rounded-lg hover:opacity-90"
+              >
+                {t('payment.couponApply')}
+              </button>
+            </div>
+            {couponActive && (
+              <p className="text-sm text-discount">
+                {t('payment.couponApplied', { percent: Math.round(discountPercent * 100) })}
+                {effectiveCouponDiscountHuf > 0 && (
+                  <span className="ml-1">(−{effectiveCouponDiscountHuf.toLocaleString('hu-HU')} Ft)</span>
+                )}
+              </p>
+            )}
+            {couponMessage && (
+              <p className="text-sm text-muted" role="status">{couponMessage}</p>
+            )}
+            {!userId && (
+              <p className="text-xs text-muted">{t('coupon.loggedInRequired')}</p>
+            )}
+          </div>
+        )}
+        {!couponExpanded && couponActive && effectiveCouponDiscountHuf > 0 && (
+          <p className="text-sm text-discount mt-2">
+            {t('payment.couponDiscountLine')}: −{effectiveCouponDiscountHuf.toLocaleString('hu-HU')} Ft
+          </p>
+        )}
+      </section>
 
       <section className="mb-8 p-4 rounded-xl border-2 border-[var(--border)] bg-[var(--card-bg)]">
         <p className="text-sm text-muted mb-3">{t('payment.cardOnly')}</p>

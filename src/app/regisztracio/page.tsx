@@ -6,17 +6,30 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { useCatCoupon } from '@/context/CatCouponContext'
 import { useLocale } from '@/context/LocaleContext'
+import { GoogleSignInButton } from '@/components/GoogleSignInButton'
 
 export default function RegistrationPage() {
   const { t } = useLocale()
   const router = useRouter()
-  const { register } = useAuth()
+  const { register, loginWithGoogle } = useAuth()
   const { claimRegistrationCoupon } = useCatCoupon()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [acceptOffers, setAcceptOffers] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [couponGranted, setCouponGranted] = useState(false)
+
+  const handleGoogleRegister = () => {
+    setError(null)
+    if (!acceptOffers) {
+      setError(t('register.errorOffers') || 'A 10%-os kuponhoz fogadd el a termékajánlatokat.')
+      return
+    }
+    loginWithGoogle({
+      acceptOffers: true,
+      callbackUrl: typeof window !== 'undefined' ? `${window.location.origin}/termekek` : '/termekek',
+    })
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -110,6 +123,18 @@ export default function RegistrationPage() {
         >
           {t('buttons.register')}
         </button>
+        <div className="relative my-2">
+          <span className="absolute inset-0 flex items-center">
+            <span className="w-full border-t border-[var(--border)]" />
+          </span>
+          <span className="relative flex justify-center text-xs uppercase text-muted">
+            {t('profile.or') || 'vagy'}
+          </span>
+        </div>
+        <GoogleSignInButton
+          label={t('register.withGoogle') || 'Regisztráció Google-lel'}
+          onClick={handleGoogleRegister}
+        />
       </form>
       <p className="mt-4 text-sm text-muted">
         {t('pages.registerHaveAccount')}{' '}

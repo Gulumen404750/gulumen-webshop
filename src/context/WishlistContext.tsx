@@ -1,43 +1,71 @@
 'use client'
 
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  type ReactNode,
+} from 'react'
 import { useAuth } from '@/context/AuthContext'
+import type { Product } from '@/lib/data'
 
-/**
- * Kedvencek lista privát: csak API-ból (GET /api/me/wishlist), userId alapján.
- * Nincs localStorage – különböző user külön listát lát.
- */
 type WishlistContextValue = {
   productIds: string[]
+  products: Product[]
+  isLoading: boolean
   isInWishlist: (productId: string) => boolean
   count: number
   syncFromServer: (() => void) | undefined
+  /** Azonnali UI frissítés like/unlike kattintáskor – szerver sync csak POST után. */
+  applyOptimisticToggle: (product: Product, liked: boolean) => void
 }
 
 const WishlistContext = createContext<WishlistContextValue | null>(null)
 
-/** Session cookie automatikusan megy; csak credentials kell. */
 function getFetchOpts(): RequestInit {
   return { credentials: 'include' }
 }
 
 export function WishlistProvider({ children }: { children: ReactNode }) {
-  const { userId } = useAuth()
+  const { userId, authChecked } = useAuth()
   const [productIds, setProductIds] = useState<string[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const fetchGenRef = useRef(0)
 
   const fetchWishlist = useCallback(() => {
+    if (!authChecked) return
+
     if (!userId) {
       setProductIds([])
+      setProducts([])
+      setIsLoading(false)
       return
     }
+
+    const gen = ++fetchGenRef.current
+    setIsLoading(true)
+
     fetch('/api/me/wishlist', getFetchOpts())
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
+        if (gen !== fetchGenRef.current) return
         const ids = Array.isArray(data?.productIds) ? data.productIds : []
         setProductIds(ids.filter((id: unknown): id is string => typeof id === 'string'))
+        const prods = Array.isArray(data?.products) ? data.products : []
+        setProducts(prods.filter((p: unknown): p is Product => typeof (p as Product)?.id === 'string'))
       })
-      .catch(() => setProductIds([]))
-  }, [userId])
+      .catch(() => {
+        if (gen !== fetchGenRef.current) return
+        // Hiba esetén megtartjuk a meglévő listát – ne villogjon üresre
+      })
+      .finally(() => {
+        if (gen === fetchGenRef.current) setIsLoading(false)
+      })
+  }, [userId, authChecked])
 
   useEffect(() => {
     fetchWishlist()
@@ -47,6 +75,16 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     fetchWishlist()
   }, [fetchWishlist])
 
+  const applyOptimisticToggle = useCallback((product: Product, liked: boolean) => {
+    if (liked) {
+      setProductIds((prev) => (prev.includes(product.id) ? prev : [...prev, product.id]))
+      setProducts((prev) => (prev.some((p) => p.id === product.id) ? prev : [...prev, product]))
+    } else {
+      setProductIds((prev) => prev.filter((id) => id !== product.id))
+      setProducts((prev) => prev.filter((p) => p.id !== product.id))
+    }
+  }, [])
+
   const isInWishlist = useCallback(
     (productId: string) => productIds.includes(productId),
     [productIds]
@@ -54,9 +92,12 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
 
   const value: WishlistContextValue = {
     productIds,
+    products,
+    isLoading,
     isInWishlist,
     count: productIds.length,
     syncFromServer,
+    applyOptimisticToggle,
   }
 
   return <WishlistContext.Provider value={value}>{children}</WishlistContext.Provider>

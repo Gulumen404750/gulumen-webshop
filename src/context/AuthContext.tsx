@@ -1,12 +1,21 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
+import { saveGoogleAuthPending } from '@/lib/google-auth-pending'
+
+export type GoogleAuthOptions = {
+  /** Regisztrációs flow: true = 10%-os kupon, false = csak bejelentkezés */
+  acceptOffers?: boolean
+  callbackUrl?: string
+}
 
 type AuthContextValue = {
   userId: string | null
   isLoggedIn: boolean
+  /** Session ellenőrzés kész (ne töröljünk wishlistet hydration közben). */
+  authChecked: boolean
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>
-  loginWithGoogle: () => void
+  loginWithGoogle: (options?: GoogleAuthOptions) => void
   register: (email: string, password: string, name?: string) => Promise<{ ok: boolean; error?: string; email?: string }>
   logout: () => Promise<void>
 }
@@ -16,6 +25,7 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
+  const [authChecked, setAuthChecked] = useState(false)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -26,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (data?.user?.email) setUserId(data.user.email.trim().toLowerCase())
       })
       .catch(() => {})
+      .finally(() => setAuthChecked(true))
   }, [])
 
   const login = useCallback(async (email: string, password: string) => {
@@ -60,9 +71,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { ok: false, error: data.error || 'Regisztráció sikertelen' }
   }, [])
 
-  const loginWithGoogle = useCallback(() => {
+  const loginWithGoogle = useCallback((options?: GoogleAuthOptions) => {
     const base = typeof window !== 'undefined' ? window.location.origin : ''
-    window.location.href = `${base}/api/auth/signin/google?callbackUrl=${encodeURIComponent(base + '/profil')}`
+    const callback = options?.callbackUrl ?? `${base}/profil`
+    if (options?.acceptOffers === true) {
+      saveGoogleAuthPending(true)
+    }
+    window.location.href = `${base}/api/auth/signin/google?callbackUrl=${encodeURIComponent(callback)}`
   }, [])
 
   const logout = useCallback(async () => {
@@ -75,6 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value: AuthContextValue = {
     userId: mounted ? userId : null,
     isLoggedIn: !!userId,
+    authChecked: mounted && authChecked,
     login,
     loginWithGoogle,
     register,

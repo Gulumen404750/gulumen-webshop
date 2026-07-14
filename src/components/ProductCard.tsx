@@ -15,6 +15,7 @@ import { useEuroRate } from '@/context/EuroRateContext'
 import { useAuth } from '@/context/AuthContext'
 import { useToast } from '@/context/ToastContext'
 import { useWishlist } from '@/context/WishlistContext'
+import { Lock } from 'lucide-react'
 
 /** Elérhető készlet: stock = product.stock (getDisplayStock); sourcing_deal = maxOrders - ordersCount (0 ha nem vehető). serverNow = hydration egyezés listán. */
 function getAvailableStock(product: Product, serverNow?: number): number {
@@ -85,11 +86,12 @@ export function ProductCard({
   const { hufToEur, formatEur } = useEuroRate()
   const { userId } = useAuth()
   const { toast } = useToast()
-  const { syncFromServer } = useWishlist()
+  const { syncFromServer, applyOptimisticToggle } = useWishlist()
 
   const [liked, setLiked] = useState(false)
   const [likesCount, setLikesCount] = useState(() => Math.max(0, product.likesCount ?? 0))
   const [likePulse, setLikePulse] = useState(false)
+  const [pointLimitReached, setPointLimitReached] = useState(false)
   const showLikes = showLikesForProduct(product)
   const availableStock = getAvailableStock(product, serverNow)
   const showFomoBadge = showLikes && likesCount > 20 && availableStock < 10
@@ -102,6 +104,7 @@ export function ProductCard({
       .then((data) => {
         if (data?.likesCount != null) setLikesCount(data.likesCount)
         if (typeof data?.liked === 'boolean') setLiked(data.liked)
+        if (typeof data?.pointLimitReached === 'boolean') setPointLimitReached(data.pointLimitReached)
       })
       .catch(() => {})
   }, [product.id, showLikes])
@@ -122,7 +125,7 @@ export function ProductCard({
       const prevCount = likesCount
       setLiked(!prevLiked)
       setLikesCount((c) => (prevLiked ? Math.max(0, c - 1) : c + 1))
-      syncFromServer?.()
+      applyOptimisticToggle(product, !prevLiked)
 
       fetch(`/api/products/${product.id}/like`, {
         method: 'POST',
@@ -140,15 +143,17 @@ export function ProductCard({
         .then((data) => {
           if (data?.likesCount != null) setLikesCount(data.likesCount)
           if (typeof data?.liked === 'boolean') setLiked(data.liked)
+          if (typeof data?.pointLimitReached === 'boolean') setPointLimitReached(data.pointLimitReached)
           syncFromServer?.()
         })
         .catch(() => {
           setLiked(prevLiked)
           setLikesCount(prevCount)
+          applyOptimisticToggle(product, prevLiked)
           syncFromServer?.()
         })
     },
-    [product.id, userId, liked, likesCount, toast, t, syncFromServer]
+    [product, userId, liked, likesCount, toast, t, syncFromServer, applyOptimisticToggle]
   )
 
   const saleActive = useSaleActive(product)
@@ -198,11 +203,20 @@ export function ProductCard({
             <button
               type="button"
               onClick={onWishlistLikeClick}
-              className={`flex items-center gap-1 px-2 py-1.5 rounded-full bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 transition-shadow duration-200 ${likePulse ? 'product-like-pulse' : ''} ${showLikes ? likesGlow : ''}`}
+              className={`relative flex items-center gap-1 px-2 py-1.5 rounded-full bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 transition-shadow duration-200 ${likePulse ? 'product-like-pulse' : ''} ${showLikes ? likesGlow : ''}`}
               aria-label={liked ? (t('wishlist.remove') || 'Eltávolítás a kedvencekből') : (t('wishlist.add') || 'Kedvencekhez')}
-              title={showLikes ? (t('product.likesCount', { count: likesCount }) || '') : undefined}
+              title={
+                pointLimitReached && userId && !liked
+                  ? t('gamification.likeLimitReached')
+                  : showLikes
+                    ? (t('product.likesCount', { count: likesCount }) || '')
+                    : undefined
+              }
             >
               <HeartIcon filled={liked} className={`w-5 h-5 shrink-0 ${liked ? 'text-red-500' : 'text-muted'}`} />
+              {pointLimitReached && userId && !liked && (
+                <Lock className="w-3 h-3 absolute -top-0.5 -right-0.5 text-muted bg-white dark:bg-gray-800 rounded-full p-0.5" aria-hidden />
+              )}
               {showLikes && (
                 <span className="text-sm font-semibold tabular-nums text-foreground min-w-[1.25rem] text-center">{likesCount}</span>
               )}

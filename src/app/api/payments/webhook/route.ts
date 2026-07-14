@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getPaymentTransactionById, updatePaymentTransactionStatus } from '@/lib/payment-transactions'
 import { getOrderById, setOrderStatus } from '@/lib/orders'
 import { markReservationsPaidByOrderId, markReservationsCanceledByOrderId } from '@/lib/reservations'
+import { enqueueOrderPurchasePointsRedemption } from '@/lib/gamification/order-points'
 import type { PaymentTransactionStatus } from '@/lib/payment-transactions'
 
 /**
@@ -84,6 +85,12 @@ export async function POST(request: Request) {
       if (tx.mode === 'capture') {
         await setOrderStatus(order.id, 'paid')
         console.debug('[payments/webhook] Order marked paid (capture)', order.id)
+        await enqueueOrderPurchasePointsRedemption({
+          id: order.id,
+          userId: order.userId,
+          pointsUsed: order.pointsUsed ?? 0,
+          pointsDiscountHuf: order.pointsDiscountHuf ?? 0,
+        })
       } else {
         await setOrderStatus(order.id, 'sourcing_pending')
         console.debug('[payments/webhook] Order marked sourcing_pending (authorize)', order.id)

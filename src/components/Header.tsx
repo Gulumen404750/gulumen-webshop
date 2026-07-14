@@ -7,12 +7,12 @@ import { useState, useEffect, useRef } from 'react'
 import { Phone, Box } from 'lucide-react'
 import { useLocale } from '@/context/LocaleContext'
 import { useCart } from '@/context/CartContext'
-import { useWishlist } from '@/context/WishlistContext'
 import { LOCALES, type Locale } from '@/i18n/locales'
 import { getStorefrontCategories, getCategoryName, threeDSubcategories } from '@/lib/data'
 import { SearchModal } from '@/components/SearchModal'
 import { CartDrawer } from '@/components/CartDrawer'
 import { CallUsModal } from '@/components/CallUsModal'
+import { PointsDisplay } from '@/components/PointsDisplay'
 
 const navItems: { href: string; labelKey: string }[] = [
   { href: '/akciok', labelKey: 'nav.deals' },
@@ -30,7 +30,6 @@ export function Header() {
   const searchParams = useSearchParams()
   const { t, locale, setLocale } = useLocale()
   const { itemCount } = useCart()
-  const { count: wishlistCount } = useWishlist()
   const [dark, setDark] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
@@ -313,17 +312,13 @@ export function Header() {
                 </ul>
               )}
             </div>
+            <PointsDisplay compact className="hidden sm:flex" />
             <Link
               href="/kedvencek"
-              className="relative hidden sm:flex p-2 rounded-lg text-muted hover:text-foreground hover:bg-[var(--border)]"
+              className="hidden sm:flex p-2 rounded-lg text-muted hover:text-foreground hover:bg-[var(--border)]"
               aria-label={t('wishlist.title') || 'Kedvencek'}
             >
               <HeartIcon className="w-5 h-5" />
-              {wishlistCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">
-                  {wishlistCount > 99 ? '99+' : wishlistCount}
-                </span>
-              )}
             </Link>
             <button
               type="button"

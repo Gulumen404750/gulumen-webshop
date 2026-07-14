@@ -1,0 +1,17 @@
+-- Pont fizetőeszköz + 12 órás lájk ablak
+ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "pointsDiscountHuf" INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE "Order" ADD COLUMN IF NOT EXISTS "pointsUsed" INTEGER NOT NULL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS "UserLikePointWindow" (
+  "userId" TEXT NOT NULL,
+  "windowStartedAt" TIMESTAMP(3) NOT NULL,
+  "qualifyingLikeCount" INTEGER NOT NULL DEFAULT 0,
+  "bonusGranted" BOOLEAN NOT NULL DEFAULT false,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT "UserLikePointWindow_pkey" PRIMARY KEY ("userId")
+);
+
+ALTER TABLE "UserLikePointWindow"
+  ADD CONSTRAINT "UserLikePointWindow_userId_fkey"
+  FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

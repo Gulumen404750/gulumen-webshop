@@ -18,6 +18,7 @@ import { Analytics } from '@/components/Analytics'
 import { WalletErrorGuard } from '@/components/WalletErrorGuard'
 import { CallUsStickyCTA } from '@/components/CallUsStickyCTA'
 import { Footer } from '@/components/Footer'
+import { BrowseHeartbeatTracker } from '@/components/BrowseHeartbeatTracker'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -78,6 +79,7 @@ export default function RootLayout({
                   <WishlistProvider>
                   <ToastProvider>
                     <Header />
+                    <BrowseHeartbeatTracker />
                     <main className="flex-1">{children}</main>
                     <Footer />
                     <CallUsStickyCTA />

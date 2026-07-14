@@ -7,6 +7,7 @@ import { FeaturedProductsGrid } from '@/components/FeaturedProductsGrid'
 import { HeroCat } from '@/components/HeroCat'
 import { RecentlyViewed } from '@/components/RecentlyViewed'
 import { useLocale } from '@/context/LocaleContext'
+import { useAuth } from '@/context/AuthContext'
 
 type Props = {
   featuredProducts: Product[]
@@ -16,6 +17,8 @@ type Props = {
 
 export default function HomePageClient({ featuredProducts, dealProducts, newProducts }: Props) {
   const { t } = useLocale()
+  const { isLoggedIn, authChecked } = useAuth()
+  const showRegisterCta = authChecked && !isLoggedIn
 
   const faqItems = [
     { q: t('home.faq1q'), a: t('home.faq1a') },
@@ -49,19 +52,29 @@ export default function HomePageClient({ featuredProducts, dealProducts, newProd
           <p className="mt-5 text-lg sm:text-xl text-muted max-w-2xl mx-auto leading-relaxed">
             {t('home.heroSubtitle')}
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10">
+          <div className="mt-10 flex flex-col items-center gap-6">
             <Link
               href="/termekek?kategoria=3d-nyomtatott"
               className="inline-block px-8 py-3.5 bg-indigo-600 text-white font-heading font-semibold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-500/20"
             >
               {t('home.heroCta')}
             </Link>
-            <Link
-              href="#kapcsolat"
-              className="inline-block px-8 py-3.5 border-2 border-[var(--border)] text-foreground font-heading font-semibold rounded-xl hover:bg-[var(--border)]/50 transition-colors"
-            >
-              {t('home.heroCtaSecondary')}
-            </Link>
+
+            {showRegisterCta && (
+              <div className="register-cta-blink w-full max-w-2xl rounded-2xl border-2 border-[var(--border)] bg-[var(--card-bg)]/90 backdrop-blur-sm p-6 sm:p-8 text-center">
+                <p className="text-sm font-medium tracking-wide uppercase text-accent mb-2">🎁 10%</p>
+                <h2 className="font-heading text-xl sm:text-2xl font-bold text-foreground">
+                  {t('home.registerTitle')}
+                </h2>
+                <p className="mt-2 text-sm sm:text-base text-muted leading-relaxed">{t('home.registerDesc')}</p>
+                <Link
+                  href="/regisztracio"
+                  className="inline-block mt-5 px-8 py-3 bg-accent text-white font-heading font-semibold rounded-xl hover:opacity-90 transition-opacity"
+                >
+                  {t('buttons.register')}
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -200,25 +213,6 @@ export default function HomePageClient({ featuredProducts, dealProducts, newProd
               className="inline-block px-8 py-3 border border-[var(--border)] text-foreground font-medium rounded-xl hover:bg-[var(--border)]/50 transition-colors"
             >
               {t('nav.shipping')}
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Regisztráció – 10% egyszeri kupon */}
-      <section className="py-16 lg:py-20">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="register-cta-blink rounded-2xl border-2 border-[var(--border)] bg-[var(--card-bg)] p-8 sm:p-10 text-center">
-            <p className="text-sm font-medium tracking-wide uppercase text-accent mb-2">🎁 10%</p>
-            <h2 className="font-heading text-2xl sm:text-3xl font-bold text-foreground">
-              {t('home.registerTitle')}
-            </h2>
-            <p className="mt-3 text-muted leading-relaxed">{t('home.registerDesc')}</p>
-            <Link
-              href="/regisztracio"
-              className="inline-block mt-6 px-8 py-3.5 bg-accent text-white font-heading font-semibold rounded-xl hover:opacity-90 transition-opacity"
-            >
-              {t('buttons.register')}
             </Link>
           </div>
         </div>

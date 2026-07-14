@@ -57,10 +57,11 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
   const { t, locale } = useLocale()
   const { items, addItem, itemCount } = useCart()
   const { userId } = useAuth()
-  const { syncFromServer } = useWishlist()
+  const { syncFromServer, applyOptimisticToggle } = useWishlist()
   const { toast } = useToast()
   const [liked, setLiked] = useState(false)
   const [likesCount, setLikesCount] = useState<number | null>(null)
+  const [pointLimitReached, setPointLimitReached] = useState(false)
   const { hufToEur, formatEur } = useEuroRate()
   useRecentlyViewed(product.id, product.slug)
   const productName = getProductName(product, locale)
@@ -136,6 +137,7 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
       .then((data) => {
         if (data?.likesCount != null) setLikesCount(data.likesCount)
         if (typeof data?.liked === 'boolean') setLiked(data.liked)
+        if (typeof data?.pointLimitReached === 'boolean') setPointLimitReached(data.pointLimitReached)
       })
       .catch(() => {})
   }, [product.id, showLikes, userId])
@@ -316,7 +318,7 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
                 const prevCount = likesCount ?? displayLikes
                 setLiked(!prevLiked)
                 setLikesCount((c) => (prevLiked ? Math.max(0, (c ?? 0) - 1) : (c ?? 0) + 1))
-                syncFromServer?.()
+                applyOptimisticToggle(product, !prevLiked)
                 fetch(`/api/products/${product.id}/like`, { method: 'POST', credentials: 'include' })
                   .then((r) => {
                     if (r.status === 401) {
@@ -330,11 +332,13 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
                   .then((d) => {
                     if (d?.likesCount != null) setLikesCount(d.likesCount)
                     if (typeof d?.liked === 'boolean') setLiked(d.liked)
+                    if (typeof d?.pointLimitReached === 'boolean') setPointLimitReached(d.pointLimitReached)
                     syncFromServer?.()
                   })
                   .catch(() => {
                     setLiked(prevLiked)
                     setLikesCount(prevCount)
+                    applyOptimisticToggle(product, prevLiked)
                     syncFromServer?.()
                   })
               }}
@@ -343,6 +347,9 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
             >
               {liked ? (t('wishlist.remove') || 'Eltávolítás a kedvencekből') : (t('wishlist.add') || 'Kedvencekhez')}
             </button>
+            {pointLimitReached && userId && !liked && (
+              <p className="text-xs text-muted w-full">{t('gamification.likeLimitReached')}</p>
+            )}
           </div>
           <div className="mt-4 flex items-baseline gap-3 flex-wrap">
             {hasDiscount && (

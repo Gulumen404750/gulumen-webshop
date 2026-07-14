@@ -3,36 +3,107 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { useEffect, useRef, useMemo, useState } from 'react'
+import { useEffect, useRef, useMemo, useState, useCallback } from 'react'
 import { getProductById as getProductByIdFromData, getAddToCartReason, getMaxQty, getProductName, is3DProduct } from '@/lib/data'
-import { useCart } from '@/context/CartContext'
+import { useCart, type CartItem } from '@/context/CartContext'
 import { useProducts } from '@/context/ProductsContext'
 import { useCatCoupon } from '@/context/CatCouponContext'
+import { useAuth } from '@/context/AuthContext'
 import { useSourcingDealOrders } from '@/context/SourcingDealOrdersContext'
 import { useLocale } from '@/context/LocaleContext'
 import { useToast } from '@/context/ToastContext'
 import { useEuroRate } from '@/context/EuroRateContext'
+import { useLuckySpin } from '@/hooks/useLuckySpin'
 import { CheckoutSourcingModal } from '@/components/CheckoutSourcingModal'
+import {
+  computeCheckoutTotals,
+  applyLuckySpinLockedPrices,
+} from '@/lib/checkout'
+import { LUCKY_SPIN_DISCOUNT_PERCENT } from '@/lib/gamification/constants'
 
 export default function CartPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const { items, addItem, removeItem, updateQty, clearCart, subtotalHuf, discountHuf, totalHuf, isDiscountActive } = useCart()
+  const { items, addItem, removeItem, updateQty, clearCart } = useCart()
   const { getProductById: getProductByIdFromContext, products, productsLoaded } = useProducts()
   const getProductById = (id: string) => getProductByIdFromContext(id) ?? getProductByIdFromData(id)
   const { t, locale } = useLocale()
   const { toast } = useToast()
   const { hufToEur, formatEur } = useEuroRate()
-  const { markUsed, discountPercent } = useCatCoupon()
+  const { userId } = useAuth()
+  const { markUsed, discountPercent, isDiscountActive } = useCatCoupon()
+  const { data: luckySpinData } = useLuckySpin(!!userId)
   const { getOrdersCount, placeOrder, cancelOrder } = useSourcingDealOrders()
   const processedAddIdRef = useRef<string | null>(null)
   const [showCheckoutModal, setShowCheckoutModal] = useState(false)
 
-  const { stockItems, threeDItems, sourcingItems } = useMemo(() => {
+  const luckySpinRecord = useMemo(() => {
+    if (!luckySpinData?.spin || !luckySpinData.isActive) return null
+    return {
+      id: luckySpinData.spin.id,
+      userId: userId ?? '',
+      weekId: luckySpinData.spin.weekId,
+      productIds: luckySpinData.spin.productIds,
+      priceSnapshot: Object.fromEntries(
+        (luckySpinData.spin.products ?? []).map((p) => [
+          p.id,
+          p.discountPriceHuf ?? p.priceHuf,
+        ])
+      ),
+      generatedAt: new Date(luckySpinData.spin.generatedAt),
+      expiresAt: new Date(luckySpinData.spin.expiresAt),
+    }
+  }, [luckySpinData, userId])
+
+  const spinProductIds = useMemo(
+    () => new Set(luckySpinRecord?.productIds ?? []),
+    [luckySpinRecord]
+  )
+
+  const isPromoItem = useCallback(
+    (productId: string) => spinProductIds.has(productId),
+    [spinProductIds]
+  )
+
+  const checkoutPreview = useMemo(() => {
+    const cartLines = items.map((item) => {
+      const p = getProductById(item.productId)
+      return {
+        productId: item.productId,
+        qty: item.qty,
+        priceHuf: p ? (p.discountPriceHuf ?? p.priceHuf) : 0,
+        fulfillmentType: (p?.type === 'sourcing_deal' ? 'procurement' : 'stock') as 'stock' | 'procurement',
+        name: p?.name,
+      }
+    })
+    const lockedLines = applyLuckySpinLockedPrices(cartLines, luckySpinRecord)
+    return computeCheckoutTotals({
+      lines: lockedLines,
+      coupon: { percent: isDiscountActive ? discountPercent : 0 },
+      luckySpin: luckySpinRecord,
+    })
+  }, [items, getProductById, luckySpinRecord, isDiscountActive, discountPercent])
+
+  const {
+    subtotalHuf,
+    couponDiscountHuf,
+    luckySpinDiscountHuf,
+    merchandiseTotalHuf,
+    freeShippingRemainingHuf,
+  } = checkoutPreview
+  const luckySpinDiscountActive = checkoutPreview.luckySpin.active
+  const displayTotalHuf = merchandiseTotalHuf
+
+  const { stockItems, threeDItems, sourcingItems, promoItems } = useMemo(() => {
     const stock: typeof items = []
     const threeD: typeof items = []
     const sourcing: typeof items = []
+    const promo: typeof items = []
     for (const item of items) {
+      if (isPromoItem(item.productId)) {
+        promo.push(item)
+        continue
+      }
       const product = getProductById(item.productId)
       if (product?.type === 'sourcing_deal') {
         sourcing.push(item)
@@ -42,20 +113,22 @@ export default function CartPage() {
         stock.push(item)
       }
     }
-    return { stockItems: stock, threeDItems: threeD, sourcingItems: sourcing }
-  }, [items, products])
+    return { stockItems: stock, threeDItems: threeD, sourcingItems: sourcing, promoItems: promo }
+  }, [items, products, isPromoItem, getProductById])
 
   const hasSourcingItems = sourcingItems.length > 0
 
-  const { subtotalEur, discountEur, totalEur } = useMemo(() => {
+  const { subtotalEur, couponDiscountEur, luckySpinDiscountEur, totalEur } = useMemo(() => {
     const subEur = hufToEur(subtotalHuf)
-    const discEur = hufToEur(discountHuf)
+    const couponEur = hufToEur(couponDiscountHuf)
+    const spinEur = hufToEur(luckySpinDiscountHuf)
     return {
       subtotalEur: subEur,
-      discountEur: discEur,
-      totalEur: hufToEur(totalHuf),
+      couponDiscountEur: couponEur,
+      luckySpinDiscountEur: spinEur,
+      totalEur: hufToEur(displayTotalHuf),
     }
-  }, [subtotalHuf, discountHuf, totalHuf, hufToEur])
+  }, [subtotalHuf, couponDiscountHuf, luckySpinDiscountHuf, displayTotalHuf, hufToEur])
 
   useEffect(() => {
     const addId = searchParams.get('add')
@@ -141,6 +214,38 @@ export default function CartPage() {
 
       {!productsLoaded && items.length > 0 && (
         <p className="text-muted text-sm mb-4">Betöltés…</p>
+      )}
+
+      {promoItems.length > 0 && (
+        <section className="mb-8">
+          <h2 className="font-heading text-lg font-semibold text-foreground mb-1">{t('cart.blockPromoTitle')}</h2>
+          <p className="text-sm text-muted mb-3">{t('cart.blockPromoDispatch')}</p>
+          <ul className="space-y-4">
+            {promoItems.map((item) => (
+              <CartLineRow
+                key={`promo-${item.productId}-${item.options?.colorHex ?? item.options?.colorName ?? ''}-${item.options?.materialName ?? ''}`}
+                item={item}
+                isPromo
+                luckySpinDiscountActive={luckySpinDiscountActive}
+                lockedUnitPriceHuf={luckySpinRecord?.priceSnapshot?.[item.productId]}
+                getProductById={getProductById}
+                locale={locale}
+                t={t}
+                hufToEur={hufToEur}
+                formatEur={formatEur}
+                updateQty={updateQty}
+                removeItem={removeItem}
+                onDecreaseSourcing={(productId) => cancelOrder(productId, 1)}
+                onIncreaseSourcing={(productId) => placeOrder(productId, 1)}
+                onRemoveSourcing={(productId, qty) => cancelOrder(productId, qty)}
+              />
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {(stockItems.length > 0 || threeDItems.length > 0 || sourcingItems.length > 0) && promoItems.length > 0 && (
+        <h2 className="font-heading text-lg font-semibold text-foreground mb-4">{t('cart.blockNormalTitle')}</h2>
       )}
 
       {stockItems.length > 0 && (
@@ -352,9 +457,8 @@ export default function CartPage() {
       <p className="text-sm text-muted mb-4 whitespace-pre-line">{t('pages.shipping.fullDescription')}</p>
 
       {(() => {
-        const FREE_SHIPPING_THRESHOLD = 25000
-        const remaining = Math.max(0, FREE_SHIPPING_THRESHOLD - totalHuf)
-        const reached = remaining === 0
+        const remaining = freeShippingRemainingHuf
+        const reached = remaining === 0 && merchandiseTotalHuf > 0
         return (
           <div className="mb-6 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
             {reached ? (
@@ -392,22 +496,28 @@ export default function CartPage() {
           <span>{t('cart.subtotal')}</span>
           <span>{subtotalHuf.toLocaleString('hu-HU')} Ft <span className="text-muted">(€{formatEur(subtotalEur)})</span></span>
         </div>
-        {isDiscountActive && discountHuf > 0 && (
+        {isDiscountActive && couponDiscountHuf > 0 && (
           <div className="flex justify-between text-discount">
             <span>{t('cart.discountLabel', { percent: Math.round(discountPercent * 100) })}</span>
-            <span>−{discountHuf.toLocaleString('hu-HU')} Ft <span className="text-muted">(€{formatEur(discountEur)})</span></span>
+            <span>−{couponDiscountHuf.toLocaleString('hu-HU')} Ft <span className="text-muted">(€{formatEur(couponDiscountEur)})</span></span>
+          </div>
+        )}
+        {luckySpinDiscountHuf > 0 && (
+          <div className="flex justify-between text-discount">
+            <span>{t('luckySpin.cartDiscount')}</span>
+            <span>−{luckySpinDiscountHuf.toLocaleString('hu-HU')} Ft <span className="text-muted">(€{formatEur(luckySpinDiscountEur)})</span></span>
           </div>
         )}
         <div className="flex justify-between font-heading font-bold text-lg text-foreground pt-2">
           <span>{t('cart.total')}</span>
-          <span>{totalHuf.toLocaleString('hu-HU')} Ft <span className="text-muted">(€{formatEur(totalEur)})</span></span>
+          <span>{displayTotalHuf.toLocaleString('hu-HU')} Ft <span className="text-muted">(€{formatEur(totalEur)})</span></span>
         </div>
       </div>
       <div className="mt-8 flex flex-col sm:flex-row gap-4">
         <button
           type="button"
           onClick={handleCheckoutClick}
-          disabled={items.length === 0 || (productsLoaded && totalHuf <= 0)}
+          disabled={items.length === 0 || (productsLoaded && displayTotalHuf <= 0)}
           className="py-3 px-6 bg-accent text-white font-heading font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {t('buttons.checkout')}
@@ -420,6 +530,133 @@ export default function CartPage() {
         </Link>
       </div>
     </div>
+  )
+}
+
+type CartLineRowProps = {
+  item: CartItem
+  isPromo?: boolean
+  luckySpinDiscountActive?: boolean
+  lockedUnitPriceHuf?: number
+  getProductById: (id: string) => ReturnType<typeof getProductByIdFromData> | undefined
+  locale: string
+  t: (key: string, params?: Record<string, string | number>) => string
+  hufToEur: (huf: number) => number
+  formatEur: (eur: number) => string
+  updateQty: (productId: string, qty: number, options?: CartItem['options']) => void
+  removeItem: (productId: string, options?: CartItem['options']) => void
+  onDecreaseSourcing?: (productId: string) => void
+  onIncreaseSourcing?: (productId: string) => void
+  onRemoveSourcing?: (productId: string, qty: number) => void
+}
+
+function CartLineRow({
+  item,
+  isPromo = false,
+  luckySpinDiscountActive = false,
+  lockedUnitPriceHuf,
+  getProductById,
+  locale,
+  t,
+  hufToEur,
+  formatEur,
+  updateQty,
+  removeItem,
+  onDecreaseSourcing,
+  onIncreaseSourcing,
+  onRemoveSourcing,
+}: CartLineRowProps) {
+  const product = getProductById(item.productId)
+  const isSourcingOrder = product?.type === 'sourcing_deal'
+  const maxAllowedInCart = isSourcingOrder && product
+    ? Math.max(0, (product.maxOrders ?? 0) - (product.ordersCount ?? 0))
+    : (product ? getMaxQty(product) : 0)
+  const catalogUnitHuf = product ? (product.discountPriceHuf ?? product.priceHuf) : 0
+  const unitPriceHuf = lockedUnitPriceHuf != null && lockedUnitPriceHuf > 0 ? lockedUnitPriceHuf : catalogUnitHuf
+  const discountedUnitHuf = isPromo && luckySpinDiscountActive
+    ? Math.round(unitPriceHuf * (1 - LUCKY_SPIN_DISCOUNT_PERCENT))
+    : unitPriceHuf
+  const displayUnitHuf = isPromo && luckySpinDiscountActive ? discountedUnitHuf : unitPriceHuf
+  const priceEur = hufToEur(displayUnitHuf)
+  const img = product?.image?.trim() ? product.image : ''
+  const isLocalImg = img?.startsWith('/')
+  const lineKey = `${item.productId}-${item.options?.colorHex ?? item.options?.colorName ?? ''}-${item.options?.materialName ?? ''}`
+
+  return (
+    <li key={lineKey} className="flex gap-4 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
+      <div className="w-20 h-20 shrink-0 rounded-lg bg-[var(--border)] relative overflow-hidden">
+        {img ? (
+          isLocalImg ? (
+            <Image src={img} alt={product ? getProductName(product, locale) : ''} fill className="object-cover" sizes="80px" />
+          ) : (
+            <img src={img} alt={product ? getProductName(product, locale) : ''} className="absolute inset-0 w-full h-full object-cover" referrerPolicy="no-referrer" />
+          )
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-muted text-xs">{t('product.noImage')}</div>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-foreground truncate">{product ? getProductName(product, locale) : item.productId}</p>
+        <p className="text-muted text-sm">
+          {isPromo && luckySpinDiscountActive ? (
+            <>
+              <span className="line-through mr-2">{unitPriceHuf.toLocaleString('hu-HU')} Ft</span>
+              <span className="text-discount font-medium">{displayUnitHuf.toLocaleString('hu-HU')} Ft</span>
+            </>
+          ) : (
+            <span>{displayUnitHuf.toLocaleString('hu-HU')} Ft</span>
+          )}
+          {' '}× {item.qty}
+          {priceEur > 0 && <span className="ml-1">(€{formatEur(priceEur)})</span>}
+        </p>
+        {(item.options?.colorName || item.options?.materialName) && (
+          <p className="text-foreground text-sm mt-0.5">
+            {item.options?.materialName && <span>{t('product.material') || 'Anyag'}: {item.options.materialName}</span>}
+            {item.options?.materialName && item.options?.colorName && ' · '}
+            {item.options?.colorName && <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>}
+          </p>
+        )}
+        <p className="text-foreground text-sm font-medium mt-1">{t('cart.availableUpTo', { count: maxAllowedInCart })}</p>
+      </div>
+      <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+        <div className="flex items-center border border-[var(--border)] rounded-lg overflow-hidden bg-[var(--card-bg)]">
+          <button
+            type="button"
+            onClick={() => {
+              if (item.qty <= 1) return
+              updateQty(item.productId, item.qty - 1, item.options)
+              onDecreaseSourcing?.(item.productId)
+            }}
+            disabled={item.qty <= 1}
+            className="w-9 h-9 flex items-center justify-center text-foreground hover:bg-[var(--border)] disabled:opacity-40 disabled:cursor-not-allowed"
+            aria-label={t('cart.decreaseQty')}
+          >−</button>
+          <span className="w-10 h-9 flex items-center justify-center text-sm font-medium text-foreground border-x border-[var(--border)]">{item.qty}</span>
+          <button
+            type="button"
+            onClick={() => {
+              if (item.qty >= maxAllowedInCart) return
+              updateQty(item.productId, item.qty + 1, item.options)
+              onIncreaseSourcing?.(item.productId)
+            }}
+            disabled={item.qty >= maxAllowedInCart}
+            className="w-9 h-9 flex items-center justify-center text-foreground hover:bg-[var(--border)] disabled:opacity-40 disabled:cursor-not-allowed"
+            aria-label={t('cart.increaseQty')}
+          >+</button>
+        </div>
+        <span className="text-muted text-sm whitespace-nowrap">{item.qty} db</span>
+        <button
+          type="button"
+          onClick={() => {
+            if (onRemoveSourcing) onRemoveSourcing(item.productId, item.qty)
+            removeItem(item.productId, item.options)
+          }}
+          className="text-muted hover:text-red-600 text-sm font-medium"
+        >
+          {t('cart.remove')}
+        </button>
+      </div>
+    </li>
   )
 }
 

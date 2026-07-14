@@ -2,6 +2,10 @@
 
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
 import { useAuth } from './AuthContext'
+import {
+  clearGoogleAuthPending,
+  readGoogleAuthPending,
+} from '@/lib/google-auth-pending'
 
 const STORAGE_PREFIX_CAT = 'gulumen-cat-coupon-'
 const STORAGE_PREFIX_REG = 'gulumen-registration-coupon-'
@@ -169,6 +173,14 @@ export function CatCouponProvider({ children }: { children: ReactNode }) {
     },
     [userId, refresh]
   )
+
+  useEffect(() => {
+    if (!userId) return
+    const pending = readGoogleAuthPending()
+    if (!pending?.acceptOffers) return
+    clearGoogleAuthPending()
+    claimRegistrationCoupon(userId)
+  }, [userId, claimRegistrationCoupon])
 
   const markUsed = useCallback(() => {
     if (!userId) return
