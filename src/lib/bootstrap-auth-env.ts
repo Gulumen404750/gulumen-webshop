@@ -95,10 +95,12 @@ export function isNextAuthConfigured(): boolean {
  * Safe to call multiple times (e.g. every auth request).
  */
 export function bootstrapAuthEnv(): void {
-  const appUrl = resolvePublicAppUrl()
   const nextAuthUrl = resolveNextAuthUrl()
 
-  process.env.NEXT_PUBLIC_APP_URL = appUrl
+  // Do NOT assign process.env.NEXT_PUBLIC_APP_URL here: Next.js inlines
+  // NEXT_PUBLIC_* values at build time, turning the assignment target into
+  // a string literal ("https://www.gulumen.com" = ...) which is a syntax
+  // error. Consumers must call resolvePublicAppUrl() directly instead.
   process.env.NEXTAUTH_URL = nextAuthUrl
 
   const nextAuthSecret = resolveNextAuthSecret()
