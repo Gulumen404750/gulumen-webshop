@@ -321,8 +321,11 @@
     "noAccount": "Nu ai cont?",
     "registerLink": "Înregistrare",
     "authErrorDbNotConfigured": "Autentificarea Google nu este disponibilă: baza de date nu este configurată.",
+    "authErrorDbUnreachable": "Autentificarea Google nu este disponibilă: baza de date nu este accesibilă momentan.",
     "authErrorUserCreateFailed": "Google v-a verificat, dar contul de utilizator nu a putut fi creat.",
     "authErrorGoogleEmailMissing": "Google nu a furnizat o adresă de e-mail.",
+    "authErrorOAuthProvider": "OAuth Google a eșuat (eroare token/callback). Verificați redirect URI și GOOGLE_*.",
+    "authErrorOAuthAccountNotLinked": "Acest cont Google este deja legat de altă metodă de autentificare.",
     "authErrorAccessDenied": "Autentificarea Google a fost anulată sau nu este permisă.",
     "authErrorConfiguration": "Autentificarea Google este configurată incorect (chei OAuth sau URL callback).",
     "authErrorDefault": "Autentificarea Google a eșuat. Încercați din nou mai târziu."

@@ -319,8 +319,11 @@
     "noAccount": "Már nincs fiókod?",
     "registerLink": "Regisztráció",
     "authErrorDbNotConfigured": "A Google bejelentkezés nem érhető el: az adatbázis nincs konfigurálva. Kérjük, próbáld később.",
+    "authErrorDbUnreachable": "A Google bejelentkezés nem érhető el: az adatbázis jelenleg nem elérhető. Kérjük, próbáld később.",
     "authErrorUserCreateFailed": "A Google fiókod hitelesítése sikerült, de a felhasználói fiók létrehozása nem sikerült. Kérjük, próbáld újra vagy írj nekünk.",
     "authErrorGoogleEmailMissing": "A Google nem adott meg e-mail címet. Próbáld újra egy másik Google fiókkal.",
+    "authErrorOAuthProvider": "A Google OAuth folyamat megszakadt (token/callback hiba). Ellenőrizd a Google Console redirect URI-t és a Railway GOOGLE_* változókat.",
+    "authErrorOAuthAccountNotLinked": "Ez a Google fiók már más belépési módhoz van kötve.",
     "authErrorAccessDenied": "A Google bejelentkezés megszakadt vagy nem engedélyezett.",
     "authErrorConfiguration": "A Google bejelentkezés nincs megfelelően konfigurálva (OAuth kulcsok vagy callback URL).",
     "authErrorDefault": "A Google bejelentkezés sikertelen. Próbáld újra később."

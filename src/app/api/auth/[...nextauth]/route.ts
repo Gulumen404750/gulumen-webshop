@@ -10,6 +10,10 @@ export const runtime = 'nodejs'
 /** Runtime handler – bootstrap + fresh options every request (NO_SECRET safe). */
 function authHandler(req: Request, ctx: { params: Promise<{ nextauth: string[] }> }) {
   bootstrapAuthEnv()
+  const url = new URL(req.url)
+  if (url.pathname.includes('/api/auth/')) {
+    console.log('[auth-handler]', req.method, url.pathname, url.search || '')
+  }
   const options = getAuthOptions()
   return NextAuth(options)(req, ctx)
 }

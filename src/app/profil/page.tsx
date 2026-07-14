@@ -27,14 +27,18 @@ export default function ProfilePage() {
     if (!code) return
     const keyMap: Record<string, string> = {
       db_not_configured: 'profile.authErrorDbNotConfigured',
+      db_unreachable: 'profile.authErrorDbUnreachable',
       user_create_failed: 'profile.authErrorUserCreateFailed',
       google_email_missing: 'profile.authErrorGoogleEmailMissing',
+      google: 'profile.authErrorOAuthProvider',
       AccessDenied: 'profile.authErrorAccessDenied',
       Configuration: 'profile.authErrorConfiguration',
       OAuthSignin: 'profile.authErrorConfiguration',
       OAuthCallback: 'profile.authErrorConfiguration',
+      OAuthAccountNotLinked: 'profile.authErrorOAuthAccountNotLinked',
     }
-    setAuthError(t(keyMap[code] ?? 'profile.authErrorDefault'))
+    const message = t(keyMap[code] ?? 'profile.authErrorDefault')
+    setAuthError(code === 'google' || code.startsWith('OAuth') ? `${message} (${code})` : message)
   }, [t])
 
   const handleLogin = async (e: React.FormEvent) => {

@@ -336,8 +336,11 @@
     "noAccount": "Don't have an account?",
     "registerLink": "Register",
     "authErrorDbNotConfigured": "Google sign-in is unavailable: the database is not configured. Please try again later.",
+    "authErrorDbUnreachable": "Google sign-in is unavailable: the database is not reachable right now. Please try again later.",
     "authErrorUserCreateFailed": "Google verified your account, but we could not create your user profile. Please try again or contact us.",
     "authErrorGoogleEmailMissing": "Google did not provide an email address. Try again with a different Google account.",
+    "authErrorOAuthProvider": "Google OAuth failed (token/callback error). Check Google Console redirect URI and Railway GOOGLE_* variables.",
+    "authErrorOAuthAccountNotLinked": "This Google account is already linked to another sign-in method.",
     "authErrorAccessDenied": "Google sign-in was cancelled or not permitted.",
     "authErrorConfiguration": "Google sign-in is misconfigured (OAuth keys or callback URL).",
     "authErrorDefault": "Google sign-in failed. Please try again later."

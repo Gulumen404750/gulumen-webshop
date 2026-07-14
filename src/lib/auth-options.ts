@@ -13,11 +13,19 @@ import {
   resolveNextAuthUrl,
   isGoogleAuthConfigured,
 } from '@/lib/bootstrap-auth-env'
+import { checkDbConnectivity } from '@/lib/prisma'
 
 const AUTH_ERROR_BASE = '/profil'
 
 function authErrorRedirect(code: string): string {
   return `${AUTH_ERROR_BASE}?authError=${encodeURIComponent(code)}`
+}
+
+function safeEmailHint(email: string | null | undefined): string | undefined {
+  if (!email) return undefined
+  const parts = email.split('@')
+  if (parts.length !== 2) return '(invalid-format)'
+  return `***@${parts[1]}`
 }
 
 function buildAuthOptions(): NextAuthOptions {
@@ -30,6 +38,7 @@ function buildAuthOptions(): NextAuthOptions {
 
   const googleClientId = readEnv('GOOGLE_CLIENT_ID') ?? ''
   const googleClientSecret = readEnv('GOOGLE_CLIENT_SECRET') ?? ''
+  const authDebug = readEnv('AUTH_DEBUG') === 'true' || readEnv('AUTH_DEBUG') === '1'
 
   if (!isGoogleAuthConfigured()) {
     console.error('[auth] Google OAuth missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET')
@@ -38,6 +47,7 @@ function buildAuthOptions(): NextAuthOptions {
   }
 
   return {
+    debug: authDebug,
     providers: [
       GoogleProvider({
         clientId: googleClientId,
@@ -52,15 +62,47 @@ function buildAuthOptions(): NextAuthOptions {
       }),
     ],
     session: { strategy: 'jwt', maxAge: 30 * 24 * 60 * 60 },
+    events: {
+      async signIn(message) {
+        console.log('[auth-event] signIn ok', {
+          provider: message.account?.provider,
+          userId: message.user?.id,
+          email: safeEmailHint(message.user?.email),
+          isNewUser: message.isNewUser,
+        })
+      },
+    },
     callbacks: {
-      async signIn({ user, account }) {
+      async signIn({ user, account, profile }) {
+        console.error('[auth] signIn callback start', {
+          provider: account?.provider,
+          accountType: account?.type,
+          hasEmail: Boolean(user?.email),
+          emailHint: safeEmailHint(user?.email),
+          hasAccount: Boolean(account),
+          profileKeys: profile && typeof profile === 'object' ? Object.keys(profile) : [],
+          isDbConfigured: isDbConfigured(),
+          nextAuthUrl: resolveNextAuthUrl(),
+          googleConfigured: isGoogleAuthConfigured(),
+        })
+
         if (account?.provider !== 'google' || !user?.email) {
+          console.error('[auth] signIn rejected: missing google provider or email', {
+            provider: account?.provider,
+            hasEmail: Boolean(user?.email),
+          })
           return authErrorRedirect('google_email_missing')
         }
 
         if (!isDbConfigured()) {
-          console.error('[auth] Google signIn blocked: DATABASE_URL not configured')
+          console.error('[auth] signIn blocked: DATABASE_URL not configured')
           return authErrorRedirect('db_not_configured')
+        }
+
+        const dbReachable = await checkDbConnectivity()
+        if (!dbReachable) {
+          console.error('[auth] signIn blocked: Postgres not reachable (DATABASE_URL is set)')
+          return authErrorRedirect('db_unreachable')
         }
 
         const emailNorm = user.email.trim().toLowerCase()
@@ -77,12 +119,20 @@ function buildAuthOptions(): NextAuthOptions {
               },
             })
           }
+          console.error('[auth] signIn callback success', {
+            userId: dbUser.id,
+            isNewUser,
+            emailHint: safeEmailHint(emailNorm),
+          })
           const authUser = user as { id?: string; isNewUser?: boolean }
           authUser.id = dbUser.id
           authUser.isNewUser = isNewUser
           return true
         } catch (e) {
-          console.error('[auth] Google signIn user create/lookup failed', e)
+          console.error('[auth] signIn user create/lookup failed', {
+            error: e instanceof Error ? { name: e.name, message: e.message, stack: e.stack } : e,
+            emailHint: safeEmailHint(emailNorm),
+          })
           return authErrorRedirect('user_create_failed')
         }
       },

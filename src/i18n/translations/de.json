@@ -336,8 +336,11 @@
     "noAccount": "Noch kein Konto?",
     "registerLink": "Registrieren",
     "authErrorDbNotConfigured": "Google-Anmeldung nicht verfügbar: Datenbank nicht konfiguriert.",
+    "authErrorDbUnreachable": "Google-Anmeldung nicht verfügbar: Datenbank derzeit nicht erreichbar.",
     "authErrorUserCreateFailed": "Google hat Sie verifiziert, aber das Benutzerkonto konnte nicht erstellt werden.",
     "authErrorGoogleEmailMissing": "Google hat keine E-Mail-Adresse bereitgestellt.",
+    "authErrorOAuthProvider": "Google OAuth fehlgeschlagen (Token/Callback-Fehler). Redirect-URI und GOOGLE_* prüfen.",
+    "authErrorOAuthAccountNotLinked": "Dieses Google-Konto ist bereits mit einer anderen Anmeldemethode verknüpft.",
     "authErrorAccessDenied": "Google-Anmeldung abgebrochen oder nicht erlaubt.",
     "authErrorConfiguration": "Google-Anmeldung ist falsch konfiguriert (OAuth-Schlüssel oder Callback-URL).",
     "authErrorDefault": "Google-Anmeldung fehlgeschlagen. Bitte später erneut versuchen."
