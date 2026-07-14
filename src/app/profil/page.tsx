@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { useCatCoupon } from '@/context/CatCouponContext'
 import { useLocale } from '@/context/LocaleContext'
 
 function GoogleIcon({ className }: { className?: string }) {
@@ -20,6 +21,7 @@ function GoogleIcon({ className }: { className?: string }) {
 export default function ProfilePage() {
   const { t } = useLocale()
   const { isLoggedIn, userId, login, loginWithGoogle, logout } = useAuth()
+  const { registrationStatus } = useCatCoupon()
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -39,6 +41,12 @@ export default function ProfilePage() {
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <h1 className="font-heading text-2xl font-bold text-foreground mb-6">{t('profile.title')}</h1>
         <p className="text-muted mb-4">{t('profile.loggedInAs')} {userId}</p>
+        {registrationStatus === 'claimed' && (
+          <p className="text-sm text-accent mb-4">{t('profile.registrationCouponActive')}</p>
+        )}
+        {registrationStatus === 'used' && (
+          <p className="text-sm text-muted mb-4">{t('profile.registrationCouponUsed')}</p>
+        )}
         <button
           type="button"
           onClick={async () => {

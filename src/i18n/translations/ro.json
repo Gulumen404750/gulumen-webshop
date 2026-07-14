@@ -272,13 +272,18 @@
   "register": {
     "intro": "Înregistrează-te cu e-mailul. Dacă accepți să primești oferte de produse, vei primi un cupon de 10% o singură dată la prima achiziție.",
     "checkboxOffers": "Accept că Gulumen îmi poate trimite oferte și noutăți pe e-mail; în schimb primesc un cupon de 10% o singură dată.",
-    "errorEmail": "Te rugăm să introduci adresa de e-mail."
+    "errorEmail": "Te rugăm să introduci adresa de e-mail.",
+    "errorPassword": "Parola trebuie să aibă cel puțin 8 caractere.",
+    "errorOffers": "Acceptă ofertele de produse pentru a activa cuponul de 10%.",
+    "couponGranted": "✅ Cupon de 10% activat! Se aplică automat în coș la prima achiziție."
   },
   "profile": {
     "title": "Profil",
     "loginTitle": "Profil / Autentificare",
     "loginRequired": "Autentifică-te pentru a activa cuponul și a gestiona comenzile.",
     "loggedInAs": "Autentificat ca:",
+    "registrationCouponActive": "Cupon de înregistrare 10%: activ în coș",
+    "registrationCouponUsed": "Cupon de înregistrare 10%: deja folosit",
     "email": "Email",
     "password": "Parolă",
     "loginCta": "Autentificare",
@@ -411,7 +416,11 @@
     "placeholder": "Scrie întrebarea aici...",
     "send": "Trimite",
     "escalateNote": "↑ Caz transferat unui agent.",
-    "serviceError": "Serviciul AI indisponibil temporar."
+    "serviceError": "Serviciul AI indisponibil temporar.",
+    "voiceStart": "Vorbește – intrare vocală",
+    "voiceStop": "Oprește ascultarea",
+    "voiceListening": "Ascult…",
+    "voiceUnsupported": "Intrarea vocală nu este suportată în acest browser. Scrie întrebarea."
   },
   "faq": {
     "intro": "Întrebări frecvente despre produsele noastre printate 3D.",

@@ -205,6 +205,43 @@ export default function HomePageClient({ featuredProducts, dealProducts, newProd
         </div>
       </section>
 
+      {/* Regisztráció – 10% egyszeri kupon */}
+      <section className="py-16 lg:py-20">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="register-cta-blink rounded-2xl border-2 border-[var(--border)] bg-[var(--card-bg)] p-8 sm:p-10 text-center">
+            <p className="text-sm font-medium tracking-wide uppercase text-accent mb-2">🎁 10%</p>
+            <h2 className="font-heading text-2xl sm:text-3xl font-bold text-foreground">
+              {t('home.registerTitle')}
+            </h2>
+            <p className="mt-3 text-muted leading-relaxed">{t('home.registerDesc')}</p>
+            <Link
+              href="/regisztracio"
+              className="inline-block mt-6 px-8 py-3.5 bg-accent text-white font-heading font-semibold rounded-xl hover:opacity-90 transition-opacity"
+            >
+              {t('buttons.register')}
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Trust strip */}
+      <section className="py-10 border-y border-[var(--border)] bg-[var(--card-bg)]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-4 gap-6 text-center text-sm text-muted">
+          <div>
+            <p className="font-medium text-foreground">{t('home.trustDispatch')}</p>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">{t('home.trustPayment')}</p>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">{t('home.trustReturns')}</p>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">{t('home.trustChat')}</p>
+          </div>
+        </div>
+      </section>
+
       <RecentlyViewed />
     </>
   )

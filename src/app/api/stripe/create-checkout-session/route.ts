@@ -6,6 +6,7 @@ import type { Product } from '@/lib/data'
 import { createOrder, getProductOrdersCount, type OrderItem } from '@/lib/orders'
 import { getLoyaltyByEmail } from '@/lib/loyalty'
 import { rateLimit } from '@/lib/rate-limit'
+import { resolvePublicAppUrl } from '@/lib/bootstrap-auth-env'
 
 function getStripe(): Stripe | null {
   const key = process.env.STRIPE_SECRET_KEY
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
       { status: 501 }
     )
   }
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const appUrl = resolvePublicAppUrl()
 
   let raw: unknown
   try {

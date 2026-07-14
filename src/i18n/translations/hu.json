@@ -270,13 +270,18 @@
   "register": {
     "intro": "Regisztrálj e-mail címed megadásával. Ha elfogadod, hogy termékajánlatokat küldünk, cserébe 10%-os egyszeri kupont kapsz az első vásárláshoz.",
     "checkboxOffers": "Elfogadom, hogy a Gulumen termékajánlatokat és újdonságokat küldhet e-mailben; cserébe 10%-os egyszeri kupont kapok.",
-    "errorEmail": "Kérlek add meg az e-mail címed."
+    "errorEmail": "Kérlek add meg az e-mail címed.",
+    "errorPassword": "A jelszónak legalább 8 karakter hosszúnak kell lennie.",
+    "errorOffers": "A 10%-os kupon aktiválásához jelöld be a termékajánlatok elfogadását.",
+    "couponGranted": "✅ 10%-os egyszeri kupon aktiválva! A kosárban automatikusan érvényesül az első vásárlásnál."
   },
   "profile": {
     "title": "Profil",
     "loginTitle": "Profil / Bejelentkezés",
     "loginRequired": "Jelentkezz be a kupon aktiválásához és a rendeléseid kezeléséhez.",
     "loggedInAs": "Bejelentkezve:",
+    "registrationCouponActive": "10%-os egyszeri regisztrációs kupon: aktív a kosárban",
+    "registrationCouponUsed": "10%-os regisztrációs kupon: már felhasználva",
     "email": "E-mail",
     "password": "Jelszó",
     "loginCta": "Bejelentkezés",
@@ -426,7 +431,11 @@
     "placeholder": "Írd ide a kérdésed...",
     "send": "Küldés",
     "escalateNote": "↑ Ügy átadva emberi ügyintézőnek.",
-    "serviceError": "Az AI szolgáltatás átmenetileg nem elérhető."
+    "serviceError": "Az AI szolgáltatás átmenetileg nem elérhető.",
+    "voiceStart": "Beszélj – hangfelismerés",
+    "voiceStop": "Felismerés leállítása",
+    "voiceListening": "Hallgatlak…",
+    "voiceUnsupported": "A hangbevitel nem támogatott ebben a böngészőben. Írd be a kérdésed."
   }
 }
 

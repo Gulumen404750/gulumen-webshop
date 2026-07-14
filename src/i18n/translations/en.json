@@ -287,13 +287,18 @@
   "register": {
     "intro": "Register with your email. If you accept that we send you product offers, you will receive a one-time 10% coupon for your first purchase.",
     "checkboxOffers": "I accept that Gulumen may send me product offers and news by email; in exchange I receive a one-time 10% coupon.",
-    "errorEmail": "Please enter your email address."
+    "errorEmail": "Please enter your email address.",
+    "errorPassword": "Password must be at least 8 characters.",
+    "errorOffers": "Please accept product offers to activate the 10% coupon.",
+    "couponGranted": "✅ One-time 10% coupon activated! It applies automatically in your cart on your first purchase."
   },
   "profile": {
     "title": "Profile",
     "loginTitle": "Profile / Log in",
     "loginRequired": "Log in to activate the coupon and manage your orders.",
     "loggedInAs": "Logged in as:",
+    "registrationCouponActive": "One-time 10% registration coupon: active in cart",
+    "registrationCouponUsed": "10% registration coupon: already used",
     "email": "Email",
     "password": "Password",
     "loginCta": "Log in",
@@ -426,6 +431,10 @@
     "placeholder": "Type your question here...",
     "send": "Send",
     "escalateNote": "↑ Case forwarded to a human agent.",
-    "serviceError": "AI service temporarily unavailable."
+    "serviceError": "AI service temporarily unavailable.",
+    "voiceStart": "Speak – voice input",
+    "voiceStop": "Stop listening",
+    "voiceListening": "Listening…",
+    "voiceUnsupported": "Voice input is not supported in this browser. Type your question."
   }
 }

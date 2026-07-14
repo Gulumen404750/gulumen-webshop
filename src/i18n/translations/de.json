@@ -287,13 +287,18 @@
   "register": {
     "intro": "Registriere dich mit deiner E-Mail. Wenn du einverstanden bist, dass wir dir Produktangebote schicken, erhältst du einen einmaligen 10-% Gutschein für deinen ersten Einkauf.",
     "checkboxOffers": "Ich bin damit einverstanden, dass Gulumen mir Produktangebote und Neuigkeiten per E-Mail sendet; dafür erhalte ich einen einmaligen 10-% Gutschein.",
-    "errorEmail": "Bitte gib deine E-Mail-Adresse an."
+    "errorEmail": "Bitte gib deine E-Mail-Adresse an.",
+    "errorPassword": "Das Passwort muss mindestens 8 Zeichen lang sein.",
+    "errorOffers": "Bitte stimme den Produktangeboten zu, um den 10-% Gutschein zu aktivieren.",
+    "couponGranted": "✅ Einmaliger 10-% Gutschein aktiviert! Er gilt automatisch im Warenkorb beim ersten Einkauf."
   },
   "profile": {
     "title": "Profil",
     "loginTitle": "Profil / Anmeldung",
     "loginRequired": "Melden Sie sich an, um den Gutschein zu aktivieren und Bestellungen zu verwalten.",
     "loggedInAs": "Angemeldet als:",
+    "registrationCouponActive": "Einmaliger 10-% Registrierungsgutschein: im Warenkorb aktiv",
+    "registrationCouponUsed": "10-% Registrierungsgutschein: bereits eingelöst",
     "email": "E-Mail",
     "password": "Passwort",
     "loginCta": "Anmelden",
@@ -426,6 +431,10 @@
     "placeholder": "Schreib deine Frage...",
     "send": "Senden",
     "escalateNote": "↑ An einen Mitarbeiter weitergeleitet.",
-    "serviceError": "KI-Service vorübergehend nicht verfügbar."
+    "serviceError": "KI-Service vorübergehend nicht verfügbar.",
+    "voiceStart": "Sprechen – Spracheingabe",
+    "voiceStop": "Aufnahme stoppen",
+    "voiceListening": "Ich höre zu…",
+    "voiceUnsupported": "Spracheingabe wird in diesem Browser nicht unterstützt. Bitte tippen."
   }
 }

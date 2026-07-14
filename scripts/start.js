@@ -1,7 +1,7 @@
 /**
  * Production start: Next.js a Railway által adott PORT-on (vagy 3000 lokálisan).
  */
-console.log('[start] gulumen-webshop bootstrap v5')
+console.log('[start] gulumen-webshop bootstrap v6')
 require('./load-env.cjs')
 require('./bootstrap-auth-env.cjs')
 

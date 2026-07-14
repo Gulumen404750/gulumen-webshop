@@ -19,6 +19,8 @@ type CatCouponContextValue = {
   status: CatCouponStatus
   /** Csak az 5%-os macska kupon állapota – e-mailhez kötve, a modál ezt használja */
   catStatus: CatCouponStatus
+  /** 10%-os regisztrációs kupon állapota */
+  registrationStatus: CatCouponStatus
   isDiscountActive: boolean
   activate: () => boolean
   markUsed: () => void
@@ -28,14 +30,19 @@ type CatCouponContextValue = {
 
 const CatCouponContext = createContext<CatCouponContextValue | null>(null)
 
+/** E-mail kulcs – mindig kisbetű, hogy regisztráció és bejelentkezés egyezzen. */
+export function normalizeCouponUserId(userId: string): string {
+  return userId.trim().toLowerCase()
+}
+
 function getCatKey(userId: string): string {
-  return `${STORAGE_PREFIX_CAT}${userId}`
+  return `${STORAGE_PREFIX_CAT}${normalizeCouponUserId(userId)}`
 }
 function getRegKey(userId: string): string {
-  return `${STORAGE_PREFIX_REG}${userId}`
+  return `${STORAGE_PREFIX_REG}${normalizeCouponUserId(userId)}`
 }
 function getLegacyKey(userId: string): string {
-  return `${STORAGE_PREFIX_LEGACY}${userId}`
+  return `${STORAGE_PREFIX_LEGACY}${normalizeCouponUserId(userId)}`
 }
 
 function readStored(key: string): StoredCoupon | null {
@@ -87,21 +94,27 @@ function readReg(uid: string | null): StoredCoupon | null {
   return readStored(getRegKey(uid))
 }
 
+function couponStatus(stored: StoredCoupon | null): CatCouponStatus {
+  if (!stored) return 'not_claimed'
+  return stored.status
+}
+
 function combinedStatus(userId: string | null): CatCouponStatus {
   const cat = readCat(userId)
   const reg = readReg(userId)
-  const catUsed = cat?.status === 'used'
-  const regUsed = reg?.status === 'used'
-  if (catUsed && regUsed) return 'used'
+  if (cat?.status === 'used' && reg?.status === 'used') return 'used'
+  if (cat?.status === 'used' && !reg) return 'used'
+  if (reg?.status === 'used' && !cat) return 'used'
   if (cat?.status === 'claimed' || reg?.status === 'claimed') return 'claimed'
   return 'not_claimed'
 }
 
-/** Csak az 5%-os macska kupon állapota – e-mailenként, egyszer aktiválható. */
 function catOnlyStatus(userId: string | null): CatCouponStatus {
-  const cat = readCat(userId)
-  if (!cat) return 'not_claimed'
-  return cat.status
+  return couponStatus(readCat(userId))
+}
+
+function regOnlyStatus(userId: string | null): CatCouponStatus {
+  return couponStatus(readReg(userId))
 }
 
 function combinedPercent(userId: string | null): number {
@@ -110,20 +123,26 @@ function combinedPercent(userId: string | null): number {
   let p = 0
   if (cat?.status === 'claimed') p += CAT_PERCENT
   if (reg?.status === 'claimed') p += REG_PERCENT
-  return p || CAT_PERCENT
+  return p
 }
 
 export function CatCouponProvider({ children }: { children: ReactNode }) {
   const { userId } = useAuth()
   const [status, setStatus] = useState<CatCouponStatus>('not_claimed')
   const [catStatus, setCatStatus] = useState<CatCouponStatus>('not_claimed')
-  const [storedPercent, setStoredPercent] = useState(CAT_PERCENT)
+  const [registrationStatus, setRegistrationStatus] = useState<CatCouponStatus>('not_claimed')
+  const [storedPercent, setStoredPercent] = useState(0)
+
+  const refresh = useCallback((uid: string | null) => {
+    setStatus(combinedStatus(uid))
+    setCatStatus(catOnlyStatus(uid))
+    setRegistrationStatus(regOnlyStatus(uid))
+    setStoredPercent(combinedPercent(uid))
+  }, [])
 
   useEffect(() => {
-    setStatus(combinedStatus(userId))
-    setCatStatus(catOnlyStatus(userId))
-    setStoredPercent(combinedPercent(userId))
-  }, [userId])
+    refresh(userId)
+  }, [userId, refresh])
 
   const activate = useCallback((): boolean => {
     if (!userId) return false
@@ -131,27 +150,24 @@ export function CatCouponProvider({ children }: { children: ReactNode }) {
     if (cat?.status) return false
     const payload: StoredCoupon = { status: 'claimed', percent: CAT_PERCENT * 100 }
     localStorage.setItem(getCatKey(userId), JSON.stringify(payload))
-    setStatus(combinedStatus(userId))
-    setCatStatus(catOnlyStatus(userId))
-    setStoredPercent(combinedPercent(userId))
+    refresh(userId)
     return true
-  }, [userId])
+  }, [userId, refresh])
 
   const claimRegistrationCoupon = useCallback(
     (uid: string): boolean => {
       if (typeof window === 'undefined') return false
-      const reg = readReg(uid)
+      const normalized = normalizeCouponUserId(uid)
+      const reg = readReg(normalized)
       if (reg?.status) return false
       const payload: StoredCoupon = { status: 'claimed', percent: REG_PERCENT * 100 }
-      localStorage.setItem(getRegKey(uid), JSON.stringify(payload))
-      if (uid === userId) {
-        setStatus(combinedStatus(userId))
-        setCatStatus(catOnlyStatus(userId))
-        setStoredPercent(combinedPercent(userId))
+      localStorage.setItem(getRegKey(normalized), JSON.stringify(payload))
+      if (userId && normalizeCouponUserId(userId) === normalized) {
+        refresh(userId)
       }
       return true
     },
-    [userId]
+    [userId, refresh]
   )
 
   const markUsed = useCallback(() => {
@@ -164,15 +180,14 @@ export function CatCouponProvider({ children }: { children: ReactNode }) {
     if (reg?.status === 'claimed') {
       localStorage.setItem(getRegKey(userId), JSON.stringify({ status: 'used', percent: 10 }))
     }
-    setStatus(combinedStatus(userId))
-    setCatStatus(catOnlyStatus(userId))
-    setStoredPercent(combinedPercent(userId))
-  }, [userId])
+    refresh(userId)
+  }, [userId, refresh])
 
-  const isDiscountActive = status === 'claimed'
+  const isDiscountActive = status === 'claimed' && storedPercent > 0
   const value: CatCouponContextValue = {
     status,
     catStatus,
+    registrationStatus,
     isDiscountActive,
     activate,
     markUsed,

@@ -16,11 +16,13 @@ export default function RegistrationPage() {
   const [password, setPassword] = useState('')
   const [acceptOffers, setAcceptOffers] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [couponGranted, setCouponGranted] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-    const trimmedEmail = email.trim()
+    setCouponGranted(false)
+    const trimmedEmail = email.trim().toLowerCase()
     if (!trimmedEmail) {
       setError(t('register.errorEmail'))
       return
@@ -29,21 +31,25 @@ export default function RegistrationPage() {
       setError(t('register.errorPassword') || 'A jelszónak legalább 8 karakter hosszúnak kell lennie.')
       return
     }
+    if (!acceptOffers) {
+      setError(t('register.errorOffers') || 'A 10%-os kuponhoz fogadd el a termékajánlatokat.')
+      return
+    }
     const result = await register(trimmedEmail, password)
     if (!result.ok) {
       setError(result.error ?? 'Regisztráció sikertelen')
       return
     }
-    if (acceptOffers) {
-      claimRegistrationCoupon(trimmedEmail)
-    }
+    const uid = result.email ?? trimmedEmail
+    const claimed = claimRegistrationCoupon(uid)
+    if (claimed) setCouponGranted(true)
     router.push('/termekek')
   }
 
   return (
     <div className="max-w-md mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <h1 className="font-heading text-2xl font-bold text-foreground mb-6">
-        {t('pages.registerTitle')}
+      <h1 className="font-heading text-2xl font-bold text-foreground mb-2">
+        {t('home.registerTitle')}
       </h1>
       <p className="text-muted mb-6">{t('register.intro')}</p>
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -75,7 +81,7 @@ export default function RegistrationPage() {
             autoComplete="new-password"
           />
         </div>
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 rounded-lg border border-accent/30 bg-accent/5 p-4">
           <input
             id="reg-offers"
             type="checkbox"
@@ -91,6 +97,11 @@ export default function RegistrationPage() {
         {error && (
           <p className="text-sm text-red-600 dark:text-red-400" role="alert">
             {error}
+          </p>
+        )}
+        {couponGranted && (
+          <p className="text-sm text-green-700 dark:text-green-400" role="status">
+            {t('register.couponGranted')}
           </p>
         )}
         <button

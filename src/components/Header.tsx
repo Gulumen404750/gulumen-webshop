@@ -47,7 +47,9 @@ export function Header() {
   useEffect(() => {
     setMounted(true)
     const stored = localStorage.getItem('gulumen-dark')
-    const prefers = typeof window !== 'undefined' && window.matchMedia('(prefers-dark-mode: dark)').matches
+    const prefers =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-color-scheme: dark)').matches
     setDark(stored === 'true' || (!stored && prefers))
   }, [])
 
@@ -256,9 +258,21 @@ export function Header() {
                 </div>
               )}
             </div>
+            <button
+              type="button"
+              className="md:hidden flex items-center gap-2 w-full px-2 py-3 mt-2 rounded-lg text-sm font-medium text-foreground hover:bg-[var(--border)] border-t border-[var(--border)] pt-4"
+              onClick={() => {
+                setDark((d) => !d)
+                setMobileNavOpen(false)
+              }}
+              aria-label={dark ? t('common.lightMode') : t('common.darkMode')}
+            >
+              {dark ? <SunIcon className="w-5 h-5 shrink-0" /> : <MoonIcon className="w-5 h-5 shrink-0" />}
+              <span>{dark ? t('common.lightMode') : t('common.darkMode')}</span>
+            </button>
           </nav>
 
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <div className="relative" ref={langRef}>
               <button
                 type="button"
@@ -301,7 +315,7 @@ export function Header() {
             </div>
             <Link
               href="/kedvencek"
-              className="relative p-2 rounded-lg text-muted hover:text-foreground hover:bg-[var(--border)]"
+              className="relative hidden sm:flex p-2 rounded-lg text-muted hover:text-foreground hover:bg-[var(--border)]"
               aria-label={t('wishlist.title') || 'Kedvencek'}
             >
               <HeartIcon className="w-5 h-5" />
@@ -344,7 +358,7 @@ export function Header() {
             <button
               type="button"
               onClick={() => setDark((d) => !d)}
-              className="p-2 rounded-lg text-muted hover:text-foreground hover:bg-[var(--border)]"
+              className="hidden md:flex p-2 rounded-lg text-muted hover:text-foreground hover:bg-[var(--border)] shrink-0"
               aria-label={dark ? t('common.lightMode') : t('common.darkMode')}
             >
               {dark ? <SunIcon className="w-5 h-5" /> : <MoonIcon className="w-5 h-5" />}

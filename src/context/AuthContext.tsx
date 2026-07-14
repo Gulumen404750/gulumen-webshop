@@ -7,7 +7,7 @@ type AuthContextValue = {
   isLoggedIn: boolean
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>
   loginWithGoogle: () => void
-  register: (email: string, password: string, name?: string) => Promise<{ ok: boolean; error?: string }>
+  register: (email: string, password: string, name?: string) => Promise<{ ok: boolean; error?: string; email?: string }>
   logout: () => Promise<void>
 }
 
@@ -23,7 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     fetch('/api/auth/session', { credentials: 'include' })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data?.user?.email) setUserId(data.user.email)
+        if (data?.user?.email) setUserId(data.user.email.trim().toLowerCase())
       })
       .catch(() => {})
   }, [])
@@ -37,7 +37,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
     const data = await res.json().catch(() => ({}))
     if (res.ok && data.user?.email) {
-      setUserId(data.user.email)
+      const email = data.user.email.trim().toLowerCase()
+      setUserId(email)
       return { ok: true }
     }
     return { ok: false, error: data.error || 'Bejelentkezés sikertelen' }
@@ -48,12 +49,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ email: email.trim(), password, name: name?.trim() || undefined }),
+      body: JSON.stringify({ email: email.trim().toLowerCase(), password, name: name?.trim() || undefined }),
     })
     const data = await res.json().catch(() => ({}))
     if (res.ok && data.user?.email) {
-      setUserId(data.user.email)
-      return { ok: true }
+      const normalized = data.user.email.trim().toLowerCase()
+      setUserId(normalized)
+      return { ok: true, email: normalized }
     }
     return { ok: false, error: data.error || 'Regisztráció sikertelen' }
   }, [])

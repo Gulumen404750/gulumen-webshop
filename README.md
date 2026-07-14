@@ -28,7 +28,7 @@ Deploy **csak** a **gulumen-webshop** service-re (NE `dynamic-perfection`).
 Push után a **Deploy → Logs** elején ezeknek kell megjelenniük:
 
 ```
-[start] gulumen-webshop bootstrap v5
+[start] gulumen-webshop bootstrap v6
 [start] NextAuth secret: ok
 [start] JWT secret: ok
 [start] NextAuth URL: https://www.gulumen.com
@@ -68,18 +68,17 @@ A **PORT** változót **ne** add hozzá manuálisan. Railway automatikusan beál
 next start -H 0.0.0.0 -p $PORT
 ```
 
-### 6. Miért volt NO_SECRET korábban?
+### 6. Miért volt NO_SECRET / localhost URL korábban?
 
-Next.js 14 App Router **build-time** beégetheti a `process.env.NEXTAUTH_SECRET` értékét a bundle-be. Ha buildkor a változó hiányzik, runtime-ban `undefined` marad – még fallback ellenére is.
+Next.js 14 App Router **build-time** beégetheti a `process.env.NEXTAUTH_SECRET` és `NEXT_PUBLIC_APP_URL` értékeket a bundle-be. Ha Railway Variables-ben `NEXT_PUBLIC_APP_URL=http://localhost:3000` marad, OAuth redirect és metadata is localhostra mutat.
 
-**Javítás a kódban (v5):**
+**Javítás a kódban (v6):**
 
+- `scripts/prebuild.cjs` – build előtt localhost → `https://www.gulumen.com` productionben
+- `scripts/ensure-production-url.cjs` – start előtt ugyanez
+- `resolvePublicAppUrl()` / `resolveNextAuthUrl()` – runtime szerver oldalon soha nem localhost productionben
 - `readEnv(key)` – dinamikus kulcs, nem inline-olható buildkor
 - `resolveNextAuthSecret()` – mindig ad titkot (beépített fallback is)
-- `getAuthOptions()` – kérésenként frissül, `secret` közvetlenül a resolverből jön
-- `next.config.js` – `serverComponentsExternalPackages: ['next-auth']`
-- `scripts/bootstrap-auth-env.cjs` – Next.js indulása **előtt** beállítja a `process.env`-et
-- Auth route: `dynamic = 'force-dynamic'`, `runtime = 'nodejs'`
 
 ### 7. Opcionális Variables
 
