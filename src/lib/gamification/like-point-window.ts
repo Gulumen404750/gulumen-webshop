@@ -1,4 +1,5 @@
-import { prisma, type Prisma } from '@/lib/prisma'
+import { prisma } from '@/lib/prisma'
+import { type Prisma } from '@prisma/client'
 import {
   DAILY_LIKE_TARGET,
   LIKE_BONUS_WINDOW_MS,
