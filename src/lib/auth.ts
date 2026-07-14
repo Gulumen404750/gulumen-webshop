@@ -1,11 +1,9 @@
 /**
- * Auth: NextAuth (Google) + httpOnly session cookie (JWT, email/jelszó).
- * getSession(request) – először NextAuth session, majd saját JWT.
+ * Auth: JWT cookie session (email/jelszó). Google OAuth külön NextAuth route-on.
+ * getSession() szándékosan NEM hív getServerSession-t – elkerüli a Railway NO_SECRET log spamet.
  */
 import { SignJWT, jwtVerify } from 'jose'
-import { getServerSession } from 'next-auth'
-import { getAuthOptions } from '@/lib/auth-options'
-import { isGoogleAuthConfigured } from '@/lib/bootstrap-auth-env'
+import { resolveJwtSecret } from '@/lib/bootstrap-auth-env'
 
 const COOKIE_NAME = 'gulumen-session'
 const JWT_ISSUER = 'gulumen'
@@ -18,29 +16,17 @@ export type SessionUser = {
 }
 
 function getSecret(): Uint8Array | null {
-  const secret = process.env.JWT_SECRET
+  const secret = resolveJwtSecret()
   if (!secret || secret.length < 16) return null
   return new TextEncoder().encode(secret)
 }
 
-/** True ha JWT_SECRET be van állítva (legalább 16 karakter). Auth 503 ellenőrzéshez. */
+/** True ha JWT titok be van állítva (legalább 16 karakter). */
 export function isJwtConfigured(): boolean {
   return getSecret() !== null
 }
 
 export async function getSession(request: Request): Promise<SessionUser | null> {
-  // NextAuth csak Google login beállítás mellett – különben NO_SECRET spam a logban
-  if (isGoogleAuthConfigured()) {
-    try {
-      const nextSession = await getServerSession(getAuthOptions())
-      if (nextSession?.user?.email) {
-        const id = (nextSession.user as { id?: string }).id
-        if (id) return { userId: id, email: nextSession.user.email }
-      }
-    } catch {
-      // NextAuth hiba – JWT cookie session fallback
-    }
-  }
   const secret = getSecret()
   if (!secret) return null
   const cookie = request.headers.get('cookie')

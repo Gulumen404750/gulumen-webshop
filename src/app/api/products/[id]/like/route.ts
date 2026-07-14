@@ -61,12 +61,8 @@ export async function GET(
     }
 
     return NextResponse.json({ likesCount, liked })
-  } catch (e) {
-    console.error('[api/products/[id]/like] GET', e)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+  } catch {
+    return NextResponse.json({ likesCount: 0, liked: false })
   }
 }
 
