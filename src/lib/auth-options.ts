@@ -67,7 +67,7 @@ function buildAuthOptions(): NextAuthOptions {
       signIn: '/profil',
       error: '/profil',
     },
-    secret: resolveNextAuthSecret() || BUILTIN_NEXTAUTH_SECRET,
+    secret: process.env['NEXTAUTH_SECRET'] || resolveNextAuthSecret() || BUILTIN_NEXTAUTH_SECRET,
   }
 }
 

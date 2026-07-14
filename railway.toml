@@ -23,3 +23,5 @@ restartPolicyMaxRetries = 5
 HOSTNAME = "0.0.0.0"
 NEXT_PUBLIC_APP_URL = "https://www.gulumen.com"
 NEXTAUTH_URL = "https://www.gulumen.com"
+NEXTAUTH_SECRET = "gulumen-webshop-railway-nextauth-v3"
+JWT_SECRET = "gulumen-webshop-jwt-production-v3-min-32-chars"
