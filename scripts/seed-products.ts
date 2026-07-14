@@ -4,7 +4,7 @@
  * A start.js deploy után is meghívja (upsert + régi teszt termékek archiválása).
  */
 
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, type Prisma } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
@@ -174,7 +174,7 @@ const CANONICAL_SLUGS = [...stockProducts, ...sourcingDeals].map((p) => p.slug)
 
 type SeedProduct = (typeof stockProducts)[number] | (typeof sourcingDeals)[number]
 
-function productPayload(p: SeedProduct) {
+function productPayload(p: SeedProduct): Prisma.ProductUncheckedCreateInput {
   return {
     id: p.id,
     slug: p.slug,
@@ -183,9 +183,9 @@ function productPayload(p: SeedProduct) {
     nameDe: p.nameDe,
     nameRo: p.nameRo,
     description_hu: p.description_hu,
-    description_en: 'description_en' in p ? p.description_en : undefined,
-    description_de: 'description_de' in p ? p.description_de : undefined,
-    description_ro: 'description_ro' in p ? p.description_ro : undefined,
+    description_en: ('description_en' in p ? p.description_en : undefined) ?? '',
+    description_de: ('description_de' in p ? p.description_de : undefined) ?? '',
+    description_ro: '',
     condition: p.condition,
     category: p.category,
     image: p.image,
