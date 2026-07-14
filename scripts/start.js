@@ -1,7 +1,7 @@
 /**
  * Production start: Next.js a Railway által adott PORT-on (vagy 3000 lokálisan).
  */
-console.log('[start] gulumen-webshop bootstrap v4')
+console.log('[start] gulumen-webshop bootstrap v5')
 require('./load-env.cjs')
 require('./bootstrap-auth-env.cjs')
 
@@ -30,9 +30,10 @@ if (seed.status !== 0) {
   console.warn('[start] Product seed failed (non-fatal) – storefront may show stale DB data')
 }
 
-// Railway: PORT env + 0.0.0.0 (különben a proxy nem éri el a konténert)
+// Railway: PORT env (gyakran 8080) + 0.0.0.0 – különben a proxy nem éri el a konténert
 const port = process.env.PORT || '3000'
 const hostname = process.env.HOSTNAME || '0.0.0.0'
+console.log(`[start] Listening on ${hostname}:${port} (Railway PORT=${process.env.PORT ?? 'not set, default 3000'})`)
 console.log(`[start] next start -H ${hostname} -p ${port}`)
 
 const result = spawnSync('npx', ['next', 'start', '-H', hostname, '-p', port], {

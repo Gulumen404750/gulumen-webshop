@@ -4,6 +4,8 @@ const { withSentryConfig } = require('@sentry/nextjs')
 const nextConfig = {
   experimental: {
     instrumentationHook: true,
+    // Keep next-auth as Node require – avoids webpack inlining process.env at build time
+    serverComponentsExternalPackages: ['next-auth'],
   },
   images: {
     formats: ['image/avif', 'image/webp'],

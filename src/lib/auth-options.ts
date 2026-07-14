@@ -1,20 +1,29 @@
 /**
  * NextAuth options: Google OAuth + JWT session.
- * getAuthOptions() – runtime-on épül, hogy a Railway env (DATABASE_URL stb.) biztosan elérhető legyen.
+ * getAuthOptions() builds at request time so Railway runtime env is always used.
  */
 import '@/lib/bootstrap-auth-env'
 import type { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import { prisma, isDbConfigured } from '@/lib/prisma'
-import { bootstrapAuthEnv, BUILTIN_NEXTAUTH_SECRET } from '@/lib/bootstrap-auth-env'
+import {
+  bootstrapAuthEnv,
+  readEnv,
+  resolveNextAuthSecret,
+} from '@/lib/bootstrap-auth-env'
 
 function buildAuthOptions(): NextAuthOptions {
   bootstrapAuthEnv()
+
+  // resolveNextAuthSecret() uses dynamic env reads – not build-inlined by Next.js.
+  const secret = resolveNextAuthSecret()
+  process.env.NEXTAUTH_SECRET = secret
+
   return {
     providers: [
       GoogleProvider({
-        clientId: process.env.GOOGLE_CLIENT_ID ?? '',
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
+        clientId: readEnv('GOOGLE_CLIENT_ID') ?? '',
+        clientSecret: readEnv('GOOGLE_CLIENT_SECRET') ?? '',
         authorization: {
           params: {
             prompt: 'consent',
@@ -67,14 +76,10 @@ function buildAuthOptions(): NextAuthOptions {
       signIn: '/profil',
       error: '/profil',
     },
-    // NextAuth assertConfig productionben csak options.secret-et nézi – mindig legyen érték
-    secret: process.env['NEXTAUTH_SECRET'] || BUILTIN_NEXTAUTH_SECRET,
+    secret,
   }
 }
 
-let cachedAuthOptions: NextAuthOptions | null = null
-
 export function getAuthOptions(): NextAuthOptions {
-  cachedAuthOptions = buildAuthOptions()
-  return cachedAuthOptions
+  return buildAuthOptions()
 }
