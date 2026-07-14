@@ -5,7 +5,7 @@
 import { SignJWT, jwtVerify } from 'jose'
 import { getServerSession } from 'next-auth'
 import { getAuthOptions } from '@/lib/auth-options'
-import { isNextAuthConfigured } from '@/lib/bootstrap-auth-env'
+import { isGoogleAuthConfigured } from '@/lib/bootstrap-auth-env'
 
 const COOKIE_NAME = 'gulumen-session'
 const JWT_ISSUER = 'gulumen'
@@ -29,7 +29,8 @@ export function isJwtConfigured(): boolean {
 }
 
 export async function getSession(request: Request): Promise<SessionUser | null> {
-  if (isNextAuthConfigured()) {
+  // NextAuth csak Google login beállítás mellett – különben NO_SECRET spam a logban
+  if (isGoogleAuthConfigured()) {
     try {
       const nextSession = await getServerSession(getAuthOptions())
       if (nextSession?.user?.email) {
@@ -37,7 +38,7 @@ export async function getSession(request: Request): Promise<SessionUser | null> 
         if (id) return { userId: id, email: nextSession.user.email }
       }
     } catch {
-      // NextAuth misconfigured – fall through to JWT cookie session
+      // NextAuth hiba – JWT cookie session fallback
     }
   }
   const secret = getSecret()

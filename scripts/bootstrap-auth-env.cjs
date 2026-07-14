@@ -26,7 +26,7 @@ function resolveSecret() {
   )
 }
 
-console.log('[start] gulumen-webshop bootstrap v3')
+console.log('[start] gulumen-webshop bootstrap v4')
 
 if (!env('NEXTAUTH_URL')) {
   process.env.NEXTAUTH_URL =

@@ -6,7 +6,7 @@ import '@/lib/bootstrap-auth-env'
 import type { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import { prisma, isDbConfigured } from '@/lib/prisma'
-import { bootstrapAuthEnv, resolveNextAuthSecret, BUILTIN_NEXTAUTH_SECRET } from '@/lib/bootstrap-auth-env'
+import { bootstrapAuthEnv, BUILTIN_NEXTAUTH_SECRET } from '@/lib/bootstrap-auth-env'
 
 function buildAuthOptions(): NextAuthOptions {
   bootstrapAuthEnv()
@@ -67,7 +67,8 @@ function buildAuthOptions(): NextAuthOptions {
       signIn: '/profil',
       error: '/profil',
     },
-    secret: process.env['NEXTAUTH_SECRET'] || resolveNextAuthSecret() || BUILTIN_NEXTAUTH_SECRET,
+    // NextAuth assertConfig productionben csak options.secret-et nézi – mindig legyen érték
+    secret: process.env['NEXTAUTH_SECRET'] || BUILTIN_NEXTAUTH_SECRET,
   }
 }
 

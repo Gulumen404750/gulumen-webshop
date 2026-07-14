@@ -1,8 +1,7 @@
 /**
  * Production start: Next.js a Railway által adott PORT-on (vagy 3000 lokálisan).
- * Deploy előtt: Prisma client generálás + migrate deploy (táblák létrehozása/frissítése).
- * Így mind Linux (Railway) mind Windows (lokál) esetén helyesen indul.
  */
+console.log('[start] gulumen-webshop bootstrap v4')
 require('./load-env.cjs')
 require('./bootstrap-auth-env.cjs')
 
