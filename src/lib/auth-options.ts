@@ -4,6 +4,7 @@
  */
 import '@/lib/bootstrap-auth-env'
 import type { NextAuthOptions } from 'next-auth'
+import type { Account, Profile, User } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import {
@@ -12,10 +13,15 @@ import {
   resolveNextAuthSecret,
   resolveNextAuthUrl,
   isGoogleAuthConfigured,
+  isProductionRuntime,
 } from '@/lib/bootstrap-auth-env'
 import { checkDbConnectivity } from '@/lib/prisma'
 
 const AUTH_ERROR_BASE = '/profil'
+
+/** Google Console redirect URI – mindig www, hostfüggetlenül. */
+const GOOGLE_OAUTH_CANONICAL_ORIGIN = 'https://www.gulumen.com'
+const GOOGLE_ISSUER = 'https://accounts.google.com'
 
 function authErrorRedirect(code: string): string {
   return `${AUTH_ERROR_BASE}?authError=${encodeURIComponent(code)}`
@@ -28,22 +34,51 @@ function safeEmailHint(email: string | null | undefined): string | undefined {
   return `***@${parts[1]}`
 }
 
+function isLocalhostOrigin(origin: string): boolean {
+  try {
+    const host = new URL(origin).hostname
+    return host === 'localhost' || host === '127.0.0.1'
+  } catch {
+    return /localhost|127\.0\.0\.1/i.test(origin)
+  }
+}
+
+/** Élesben fix www origin – OAuth callback URI egyezés a Google Console-lal. */
+function resolveGoogleOAuthBaseUrl(): string {
+  const resolved = resolveNextAuthUrl()
+  if (!isProductionRuntime() || isLocalhostOrigin(resolved)) return resolved
+  return GOOGLE_OAUTH_CANONICAL_ORIGIN
+}
+
+function logSignInError(
+  reason: string,
+  ctx: { user: User; account: Account | null; profile?: Profile },
+): void {
+  console.error(`[auth] signIn error: ${reason}`, {
+    user: ctx.user,
+    account: ctx.account,
+    profile: ctx.profile,
+  })
+}
+
 function buildAuthOptions(): NextAuthOptions {
   bootstrapAuthEnv()
 
   const secret = resolveNextAuthSecret()
-  const nextAuthUrl = resolveNextAuthUrl()
+  const nextAuthUrl = resolveGoogleOAuthBaseUrl()
   process.env.NEXTAUTH_SECRET = secret
   process.env.NEXTAUTH_URL = nextAuthUrl
 
   const googleClientId = readEnv('GOOGLE_CLIENT_ID') ?? ''
   const googleClientSecret = readEnv('GOOGLE_CLIENT_SECRET') ?? ''
   const authDebug = readEnv('AUTH_DEBUG') === 'true' || readEnv('AUTH_DEBUG') === '1'
+  const googleCallbackUrl = `${nextAuthUrl}/api/auth/callback/google`
 
   if (!isGoogleAuthConfigured()) {
     console.error('[auth] Google OAuth missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET')
   } else {
-    console.log('[auth] Google OAuth callback:', `${nextAuthUrl}/api/auth/callback/google`)
+    console.log('[auth] Google OAuth issuer:', GOOGLE_ISSUER)
+    console.log('[auth] Google OAuth callback:', googleCallbackUrl)
   }
 
   return {
@@ -52,6 +87,8 @@ function buildAuthOptions(): NextAuthOptions {
       GoogleProvider({
         clientId: googleClientId,
         clientSecret: googleClientSecret,
+        issuer: GOOGLE_ISSUER,
+        checks: ['pkce', 'state'],
         authorization: {
           params: {
             prompt: 'select_account',
@@ -74,6 +111,8 @@ function buildAuthOptions(): NextAuthOptions {
     },
     callbacks: {
       async signIn({ user, account, profile }) {
+        const ctx = { user, account: account ?? null, profile }
+
         console.error('[auth] signIn callback start', {
           provider: account?.provider,
           accountType: account?.type,
@@ -82,26 +121,24 @@ function buildAuthOptions(): NextAuthOptions {
           hasAccount: Boolean(account),
           profileKeys: profile && typeof profile === 'object' ? Object.keys(profile) : [],
           isDbConfigured: isDbConfigured(),
-          nextAuthUrl: resolveNextAuthUrl(),
+          nextAuthUrl,
+          googleCallbackUrl,
           googleConfigured: isGoogleAuthConfigured(),
         })
 
         if (account?.provider !== 'google' || !user?.email) {
-          console.error('[auth] signIn rejected: missing google provider or email', {
-            provider: account?.provider,
-            hasEmail: Boolean(user?.email),
-          })
+          logSignInError('missing google provider or email', ctx)
           return authErrorRedirect('google_email_missing')
         }
 
         if (!isDbConfigured()) {
-          console.error('[auth] signIn blocked: DATABASE_URL not configured')
+          logSignInError('DATABASE_URL not configured', ctx)
           return authErrorRedirect('db_not_configured')
         }
 
         const dbReachable = await checkDbConnectivity()
         if (!dbReachable) {
-          console.error('[auth] signIn blocked: Postgres not reachable (DATABASE_URL is set)')
+          logSignInError('Postgres not reachable', ctx)
           return authErrorRedirect('db_unreachable')
         }
 
@@ -129,7 +166,8 @@ function buildAuthOptions(): NextAuthOptions {
           authUser.isNewUser = isNewUser
           return true
         } catch (e) {
-          console.error('[auth] signIn user create/lookup failed', {
+          logSignInError('user create/lookup failed', ctx)
+          console.error('[auth] signIn user create/lookup exception', {
             error: e instanceof Error ? { name: e.name, message: e.message, stack: e.stack } : e,
             emailHint: safeEmailHint(emailNorm),
           })
@@ -154,7 +192,7 @@ function buildAuthOptions(): NextAuthOptions {
         return session
       },
       async redirect({ url, baseUrl }) {
-        const canonicalBase = resolveNextAuthUrl()
+        const canonicalBase = resolveGoogleOAuthBaseUrl()
         const effectiveBase = canonicalBase || baseUrl
         if (url.startsWith('/')) return `${effectiveBase}${url}`
         try {
