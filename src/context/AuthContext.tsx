@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { saveGoogleAuthPending } from '@/lib/google-auth-pending'
+import { runLogoutCleanup } from '@/lib/logout-cleanup'
+import { getCanonicalAppOrigin } from '@/lib/app-url'
 
 export type GoogleAuthOptions = {
   /** Regisztrációs flow: true = 10%-os kupon, false = csak bejelentkezés */
@@ -72,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const loginWithGoogle = useCallback((options?: GoogleAuthOptions) => {
-    const base = typeof window !== 'undefined' ? window.location.origin : ''
+    const base = getCanonicalAppOrigin()
     const callback = options?.callbackUrl ?? `${base}/profil`
     if (options?.acceptOffers === true) {
       saveGoogleAuthPending(true)
@@ -81,9 +83,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const logout = useCallback(async () => {
-    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+    runLogoutCleanup()
     setUserId(null)
-    const base = typeof window !== 'undefined' ? window.location.origin : ''
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' })
+    const base = getCanonicalAppOrigin() || (typeof window !== 'undefined' ? window.location.origin : '')
     window.location.href = `${base}/api/auth/signout?callbackUrl=${encodeURIComponent(base + '/')}`
   }, [])
 

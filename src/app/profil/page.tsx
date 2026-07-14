@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useCatCoupon } from '@/context/CatCouponContext'
 import { useLocale } from '@/context/LocaleContext'
@@ -19,6 +19,23 @@ export default function ProfilePage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState<string | null>(null)
+  const [authError, setAuthError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const code = params.get('authError') || params.get('error')
+    if (!code) return
+    const keyMap: Record<string, string> = {
+      db_not_configured: 'profile.authErrorDbNotConfigured',
+      user_create_failed: 'profile.authErrorUserCreateFailed',
+      google_email_missing: 'profile.authErrorGoogleEmailMissing',
+      AccessDenied: 'profile.authErrorAccessDenied',
+      Configuration: 'profile.authErrorConfiguration',
+      OAuthSignin: 'profile.authErrorConfiguration',
+      OAuthCallback: 'profile.authErrorConfiguration',
+    }
+    setAuthError(t(keyMap[code] ?? 'profile.authErrorDefault'))
+  }, [t])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -63,6 +80,11 @@ export default function ProfilePage() {
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <h1 className="font-heading text-2xl font-bold text-foreground mb-6">{t('profile.loginTitle')}</h1>
       <p className="text-muted mb-6">{t('profile.loginRequired')}</p>
+      {authError && (
+        <p className="mb-4 p-3 rounded-lg border border-red-300/50 bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300 text-sm" role="alert">
+          {authError}
+        </p>
+      )}
       <form onSubmit={handleLogin} className="space-y-4 max-w-md">
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1">

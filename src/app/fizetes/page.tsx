@@ -140,6 +140,10 @@ export default function PaymentPage() {
   const luckySpinDiscountActive = luckySpinDiscount.active
 
   useEffect(() => {
+    if (couponActive) setCouponExpanded(true)
+  }, [couponActive])
+
+  useEffect(() => {
     if (!couponActive && userId) {
       fetch(`/api/loyalty?email=${encodeURIComponent(userId)}`)
         .then((r) => r.json())
@@ -334,20 +338,30 @@ export default function PaymentPage() {
         <h2 className="font-heading text-lg font-semibold text-foreground mb-4">{t('payment.summary')}</h2>
 
         {promoItems.length > 0 && (
-          <div className="mb-4">
-            <h3 className="text-sm font-semibold text-accent mb-2">{t('cart.blockPromoTitle')}</h3>
-            <ul className="space-y-2 border-b border-[var(--border)] pb-3">
+          <div className="mb-5 rounded-lg border border-accent/30 bg-accent/5 p-3">
+            <div className="flex justify-between items-baseline gap-3 mb-2">
+              <h3 className="text-sm font-semibold text-accent">{t('cart.blockPromoTitle')}</h3>
+              <span className="text-sm font-medium text-foreground tabular-nums shrink-0">
+                {promoSubtotalHuf.toLocaleString('hu-HU')} Ft
+              </span>
+            </div>
+            <ul className="space-y-2">
               {promoItems.map(renderLineItem)}
             </ul>
           </div>
         )}
 
         {normalItems.length > 0 && (
-          <div className="mb-4">
-            <h3 className="text-sm font-semibold text-foreground mb-2">
-              {promoItems.length > 0 ? t('cart.blockNormalTitle') : t('payment.allItems')}
-            </h3>
-            <ul className="space-y-2 border-b border-[var(--border)] pb-3">
+          <div className="mb-5 rounded-lg border border-[var(--border)] p-3">
+            <div className="flex justify-between items-baseline gap-3 mb-2">
+              <h3 className="text-sm font-semibold text-foreground">
+                {promoItems.length > 0 ? t('cart.blockNormalTitle') : t('payment.allItems')}
+              </h3>
+              <span className="text-sm font-medium text-foreground tabular-nums shrink-0">
+                {normalSubtotalHuf.toLocaleString('hu-HU')} Ft
+              </span>
+            </div>
+            <ul className="space-y-2">
               {normalItems.map(renderLineItem)}
             </ul>
           </div>
@@ -362,56 +376,99 @@ export default function PaymentPage() {
           </p>
         )}
 
-        <div className="space-y-2 text-sm">
-          {promoSubtotalHuf > 0 && (
-            <div className="flex justify-between text-foreground">
-              <span>{t('payment.subtotalPromo')}</span>
-              <span>{promoSubtotalHuf.toLocaleString('hu-HU')} Ft</span>
+        <div className="space-y-4 text-sm">
+          <div>
+            <h3 className="font-heading font-semibold text-foreground mb-2">{t('payment.itemsTotalSection')}</h3>
+            <div className="space-y-1.5">
+              {promoSubtotalHuf > 0 && (
+                <div className="flex justify-between text-foreground">
+                  <span>{t('payment.subtotalPromo')}</span>
+                  <span className="tabular-nums">{promoSubtotalHuf.toLocaleString('hu-HU')} Ft</span>
+                </div>
+              )}
+              {normalSubtotalHuf > 0 && (
+                <div className="flex justify-between text-foreground">
+                  <span>{t('payment.subtotalNormal')}</span>
+                  <span className="tabular-nums">{normalSubtotalHuf.toLocaleString('hu-HU')} Ft</span>
+                </div>
+              )}
             </div>
-          )}
-          {normalSubtotalHuf > 0 && (
-            <div className="flex justify-between text-foreground">
-              <span>{t('payment.subtotalNormal')}</span>
-              <span>{normalSubtotalHuf.toLocaleString('hu-HU')} Ft</span>
-            </div>
-          )}
-          {luckySpinDiscount.discountHuf > 0 && (
-            <div className="flex justify-between text-discount">
-              <span>{t('payment.luckySpinDiscount')}</span>
-              <span>−{luckySpinDiscount.discountHuf.toLocaleString('hu-HU')} Ft</span>
-            </div>
-          )}
-          {effectiveCouponDiscountHuf > 0 && (
-            <div className="flex justify-between text-discount">
-              <span>{t('payment.couponDiscountLine')}</span>
-              <span>−{effectiveCouponDiscountHuf.toLocaleString('hu-HU')} Ft</span>
-            </div>
-          )}
-          {pointsDiscountHuf > 0 && (
-            <div className="flex justify-between text-accent">
-              <span>{t('payment.pointsDiscount')}</span>
-              <span>−{pointsDiscountHuf.toLocaleString('hu-HU')} Ft</span>
-            </div>
-          )}
-          <div className="flex justify-between text-foreground">
-            <span>{t('payment.shippingFee')}</span>
-            <span>
-              {shippingHuf === 0
-                ? t('payment.shippingFree')
-                : `${shippingHuf.toLocaleString('hu-HU')} Ft`}
-            </span>
           </div>
-          {freeShippingRemainingHuf > 0 && (
-            <p className="text-xs text-muted">
-              {t('cart.freeShippingProgress', { amount: freeShippingRemainingHuf.toLocaleString('hu-HU') })}
-            </p>
+
+          {(luckySpinDiscount.discountHuf > 0 || effectiveCouponDiscountHuf > 0 || pointsDiscountHuf > 0) && (
+            <div className="border-t border-[var(--border)] pt-3">
+              <h3 className="font-heading font-semibold text-foreground mb-2">{t('payment.discountsSection')}</h3>
+              <div className="space-y-1.5">
+                {luckySpinDiscount.discountHuf > 0 && (
+                  <div className="flex justify-between text-discount">
+                    <span>
+                      {t('payment.luckySpinDiscountLine', {
+                        percent: Math.round(LUCKY_SPIN_DISCOUNT_PERCENT * 100),
+                      })}
+                    </span>
+                    <span className="tabular-nums">−{luckySpinDiscount.discountHuf.toLocaleString('hu-HU')} Ft</span>
+                  </div>
+                )}
+                {effectiveCouponDiscountHuf > 0 && (
+                  <div className="flex justify-between text-discount">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span>
+                        {couponActive
+                          ? t('payment.couponDiscountWithCode', {
+                              percent: Math.round((couponActive ? discountPercent : loyaltyPercent / 100) * 100),
+                            })
+                          : t('payment.loyaltyDiscountLine', { percent: loyaltyPercent })}
+                      </span>
+                      <button
+                        type="button"
+                        title={t('payment.couponScopeHint')}
+                        aria-label={t('payment.couponScopeHint')}
+                        className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-current text-[10px] leading-none opacity-70 hover:opacity-100"
+                      >
+                        i
+                      </button>
+                    </span>
+                    <span className="tabular-nums">−{effectiveCouponDiscountHuf.toLocaleString('hu-HU')} Ft</span>
+                  </div>
+                )}
+                {pointsDiscountHuf > 0 && (
+                  <div className="flex justify-between text-accent">
+                    <span>{t('payment.pointsDiscount')}</span>
+                    <span className="tabular-nums">−{pointsDiscountHuf.toLocaleString('hu-HU')} Ft</span>
+                  </div>
+                )}
+              </div>
+            </div>
           )}
-          {freeShippingRemainingHuf === 0 && checkoutPreview.merchandiseTotalHuf > 0 && shippingHuf === 0 && (
-            <p className="text-xs text-green-600 dark:text-green-400">{t('cart.freeShippingReached')}</p>
-          )}
-          <div className="flex justify-between font-heading font-bold text-lg text-foreground pt-3 mt-2 border-t border-[var(--border)]">
-            <span>{t('payment.totalDue')}</span>
-            <span>{cardTotalHuf.toLocaleString('hu-HU')} Ft <span className="text-muted text-sm font-normal">(€{formatEur(totalEur)})</span></span>
+
+          <div className="border-t border-[var(--border)] pt-3 space-y-1.5">
+            <div className="flex justify-between text-foreground">
+              <span>{t('payment.shippingFee')}</span>
+              <span className="tabular-nums">
+                {shippingHuf === 0 ? (
+                  <span className="text-green-600 dark:text-green-400 font-medium">
+                    {t('payment.shippingFreeBadge')}
+                  </span>
+                ) : (
+                  `${shippingHuf.toLocaleString('hu-HU')} Ft`
+                )}
+              </span>
+            </div>
+            {freeShippingRemainingHuf > 0 && (
+              <p className="text-xs text-muted">
+                {t('cart.freeShippingProgress', { amount: freeShippingRemainingHuf.toLocaleString('hu-HU') })}
+              </p>
+            )}
+            {freeShippingRemainingHuf === 0 && checkoutPreview.merchandiseTotalHuf > 0 && shippingHuf === 0 && (
+              <p className="text-xs text-green-600 dark:text-green-400">{t('cart.freeShippingReached')}</p>
+            )}
+            <div className="flex justify-between font-heading font-bold text-lg text-foreground pt-2 mt-1">
+              <span>{t('payment.totalDue')}</span>
+              <span className="tabular-nums">
+                {cardTotalHuf.toLocaleString('hu-HU')} Ft{' '}
+                <span className="text-muted text-sm font-normal">(€{formatEur(totalEur)})</span>
+              </span>
+            </div>
           </div>
         </div>
       </section>
@@ -459,7 +516,7 @@ export default function PaymentPage() {
         </section>
       )}
 
-      <section className="mb-8 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
+      <section className="mb-8 p-4 rounded-xl border-2 border-dashed border-[var(--border)] bg-[var(--card-bg)]">
         <button
           type="button"
           onClick={() => setCouponExpanded((v) => !v)}

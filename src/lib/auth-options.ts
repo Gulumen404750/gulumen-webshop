@@ -10,23 +10,40 @@ import {
   bootstrapAuthEnv,
   readEnv,
   resolveNextAuthSecret,
+  resolveNextAuthUrl,
+  isGoogleAuthConfigured,
 } from '@/lib/bootstrap-auth-env'
+
+const AUTH_ERROR_BASE = '/profil'
+
+function authErrorRedirect(code: string): string {
+  return `${AUTH_ERROR_BASE}?authError=${encodeURIComponent(code)}`
+}
 
 function buildAuthOptions(): NextAuthOptions {
   bootstrapAuthEnv()
 
-  // resolveNextAuthSecret() uses dynamic env reads – not build-inlined by Next.js.
   const secret = resolveNextAuthSecret()
+  const nextAuthUrl = resolveNextAuthUrl()
   process.env.NEXTAUTH_SECRET = secret
+  process.env.NEXTAUTH_URL = nextAuthUrl
+
+  const googleClientId = readEnv('GOOGLE_CLIENT_ID') ?? ''
+  const googleClientSecret = readEnv('GOOGLE_CLIENT_SECRET') ?? ''
+
+  if (!isGoogleAuthConfigured()) {
+    console.error('[auth] Google OAuth missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET')
+  } else {
+    console.log('[auth] Google OAuth callback:', `${nextAuthUrl}/api/auth/callback/google`)
+  }
 
   return {
     providers: [
       GoogleProvider({
-        clientId: readEnv('GOOGLE_CLIENT_ID') ?? '',
-        clientSecret: readEnv('GOOGLE_CLIENT_SECRET') ?? '',
+        clientId: googleClientId,
+        clientSecret: googleClientSecret,
         authorization: {
           params: {
-            // Mindig fiókválasztó + szükség esetén hozzájárulás (ne automatikusan az aktív böngésző-fiók).
             prompt: 'select_account',
             access_type: 'offline',
             response_type: 'code',
@@ -37,25 +54,37 @@ function buildAuthOptions(): NextAuthOptions {
     session: { strategy: 'jwt', maxAge: 30 * 24 * 60 * 60 },
     callbacks: {
       async signIn({ user, account }) {
-        if (account?.provider !== 'google' || !user?.email) return false
-        if (!isDbConfigured()) return false
-        const emailNorm = user.email.trim().toLowerCase()
-        let dbUser = await prisma.user.findUnique({ where: { email: emailNorm } })
-        let isNewUser = false
-        if (!dbUser) {
-          isNewUser = true
-          dbUser = await prisma.user.create({
-            data: {
-              email: emailNorm,
-              name: user.name ?? null,
-              passwordHash: null,
-            },
-          })
+        if (account?.provider !== 'google' || !user?.email) {
+          return authErrorRedirect('google_email_missing')
         }
-        const authUser = user as { id?: string; isNewUser?: boolean }
-        authUser.id = dbUser.id
-        authUser.isNewUser = isNewUser
-        return true
+
+        if (!isDbConfigured()) {
+          console.error('[auth] Google signIn blocked: DATABASE_URL not configured')
+          return authErrorRedirect('db_not_configured')
+        }
+
+        const emailNorm = user.email.trim().toLowerCase()
+        try {
+          let dbUser = await prisma.user.findUnique({ where: { email: emailNorm } })
+          let isNewUser = false
+          if (!dbUser) {
+            isNewUser = true
+            dbUser = await prisma.user.create({
+              data: {
+                email: emailNorm,
+                name: user.name ?? null,
+                passwordHash: null,
+              },
+            })
+          }
+          const authUser = user as { id?: string; isNewUser?: boolean }
+          authUser.id = dbUser.id
+          authUser.isNewUser = isNewUser
+          return true
+        } catch (e) {
+          console.error('[auth] Google signIn user create/lookup failed', e)
+          return authErrorRedirect('user_create_failed')
+        }
       },
       async jwt({ token, user }) {
         if (user?.email) {
@@ -75,9 +104,15 @@ function buildAuthOptions(): NextAuthOptions {
         return session
       },
       async redirect({ url, baseUrl }) {
-        if (url.startsWith('/')) return `${baseUrl}${url}`
-        if (new URL(url).origin === baseUrl) return url
-        return `${baseUrl}/profil`
+        const canonicalBase = resolveNextAuthUrl()
+        const effectiveBase = canonicalBase || baseUrl
+        if (url.startsWith('/')) return `${effectiveBase}${url}`
+        try {
+          if (new URL(url).origin === effectiveBase) return url
+        } catch {
+          /* ignore malformed url */
+        }
+        return `${effectiveBase}/profil`
       },
     },
     pages: {

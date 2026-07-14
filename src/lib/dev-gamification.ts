@@ -24,6 +24,7 @@ import { canGrantBrowseBonus } from '@/lib/gamification/browse-bonus'
 import { formatGamificationDateKey } from '@/lib/gamification/dates'
 import { getCurrentWeekId } from '@/lib/gamification/lucky-spin'
 import { mockProducts } from '@/lib/data'
+import { isDbConfigured } from '@/lib/prisma'
 import type { HeartbeatResult } from '@/lib/gamification/browse-heartbeat'
 
 const DATA_DIR = path.join(process.cwd(), 'data')
@@ -74,6 +75,10 @@ function emptyStore(): DevGamificationStore {
 }
 
 function loadStore(): DevGamificationStore {
+  if (isDbConfigured()) {
+    console.error('[dev-gamification] DATABASE_URL is set – JSON fallback must not be used')
+    return emptyStore()
+  }
   try {
     if (!fs.existsSync(DEV_GAMIFICATION_FILE)) return emptyStore()
     const raw = fs.readFileSync(DEV_GAMIFICATION_FILE, 'utf-8')
@@ -91,6 +96,10 @@ function loadStore(): DevGamificationStore {
 }
 
 function saveStore(store: DevGamificationStore): void {
+  if (isDbConfigured()) {
+    console.error('[dev-gamification] DATABASE_URL is set – refusing to write dev-gamification.json')
+    return
+  }
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true })
   fs.writeFileSync(DEV_GAMIFICATION_FILE, JSON.stringify(store, null, 2), 'utf-8')
 }

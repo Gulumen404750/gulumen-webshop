@@ -1,20 +1,20 @@
 'use client'
 
-import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react'
+import { useAuth } from './AuthContext'
 import { useCatCoupon } from './CatCouponContext'
 import { useSourcingDealOrders } from './SourcingDealOrdersContext'
 import { useProducts } from './ProductsContext'
 import { getProductById as getProductByIdFromData, getMaxQty } from '@/lib/data'
 import type { Product } from '@/lib/data'
-
-const CART_STORAGE_KEY = 'gulumen-cart'
-
-/** Opcionális termék opciók (pl. 3D: filament szín + anyag PLA/PETG). */
-export type CartItemOptions = {
-  colorName?: string
-  colorHex?: string
-  materialName?: string
-}
+import { onLogoutCleanup } from '@/lib/logout-cleanup'
+import {
+  clearPersistedCart,
+  loadPersistedCart,
+  savePersistedCart,
+  type CartItem,
+  type CartItemOptions,
+} from '@/lib/cart-storage'
 
 function hasOptions(opts: CartItemOptions | undefined): boolean {
   return Boolean(
@@ -45,11 +45,7 @@ function sameCartLine(item: CartItem, productId: string, options?: CartItemOptio
  * a product listából (getProductById) kell lookupolni rendereléskor.
  * A kosár semmilyen körülmények között nem tárolhat Product referenciát.
  */
-export type CartItem = {
-  productId: string
-  qty: number
-  options?: CartItemOptions
-}
+export type { CartItem, CartItemOptions } from '@/lib/cart-storage'
 
 type CartContextValue = {
   items: CartItem[]
@@ -67,44 +63,14 @@ type CartContextValue = {
 
 const CartContext = createContext<CartContextValue | null>(null)
 
-function loadCart(): CartItem[] {
-  if (typeof window === 'undefined') return []
-  try {
-    const raw = localStorage.getItem(CART_STORAGE_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return []
-    return parsed.map((x: Record<string, unknown>) => {
-      const opts = x.options as Record<string, unknown> | undefined
-      return {
-        productId: String(x.productId ?? ''),
-        qty: Math.max(1, Number(x.qty) || 1),
-        options:
-          opts && (opts.colorName != null || opts.colorHex != null || opts.materialName != null)
-            ? {
-                colorName: opts.colorName != null ? String(opts.colorName) : undefined,
-                colorHex: opts.colorHex != null ? String(opts.colorHex) : undefined,
-                materialName: opts.materialName != null ? String(opts.materialName) : undefined,
-              }
-            : undefined,
-      }
-    }).filter((x: CartItem) => x.productId !== '')
-  } catch {
-    return []
-  }
-}
-
-function saveCart(items: CartItem[]) {
-  if (typeof window === 'undefined') return
-  localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items))
-}
-
 export function CartProvider({ children }: { children: ReactNode }) {
+  const { isLoggedIn, authChecked } = useAuth()
   const { isDiscountActive, discountPercent } = useCatCoupon()
   const { syncFromCart } = useSourcingDealOrders()
   const { getProductById: getProductByIdFromContext } = useProducts()
   const [items, setItems] = useState<CartItem[]>([])
   const [mounted, setMounted] = useState(false)
+  const wasLoggedInRef = useRef(false)
 
   const getProductById = useCallback(
     (id: string) => getProductByIdFromContext(id) ?? getProductByIdFromData(id),
@@ -113,14 +79,30 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setMounted(true)
-    const loaded = loadCart()
+    const loaded = loadPersistedCart()
     setItems(loaded)
     const sourcingItems = loaded.filter((item) => getProductById(item.productId)?.type === 'sourcing_deal')
     if (sourcingItems.length > 0) syncFromCart(sourcingItems)
   }, [syncFromCart, getProductById])
 
   useEffect(() => {
-    if (mounted) saveCart(items)
+    return onLogoutCleanup(() => {
+      setItems([])
+      clearPersistedCart()
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!authChecked) return
+    if (wasLoggedInRef.current && !isLoggedIn) {
+      setItems([])
+      clearPersistedCart()
+    }
+    wasLoggedInRef.current = isLoggedIn
+  }, [isLoggedIn, authChecked])
+
+  useEffect(() => {
+    if (mounted) savePersistedCart(items)
   }, [items, mounted])
 
   const addItem = useCallback(
@@ -170,7 +152,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     )
   }, [])
 
-  const clearCart = useCallback(() => setItems([]), [])
+  const clearCart = useCallback(() => {
+    setItems([])
+    clearPersistedCart()
+  }, [])
 
   const { subtotalHuf, discountHuf, totalHuf, itemCount } = useMemo(() => {
     let sub = 0
