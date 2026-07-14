@@ -18,6 +18,11 @@ export function readEnv(key: string): string | undefined {
   return process.env[key]?.trim() || undefined
 }
 
+/** Dynamic key write – avoids `process.env.NEXT_PUBLIC_* =` → literal syntax error at build. */
+function setEnv(key: string, value: string): void {
+  process.env[key] = value
+}
+
 function isLocalhostUrl(url: string): boolean {
   try {
     const host = new URL(url).hostname
@@ -98,14 +103,14 @@ export function bootstrapAuthEnv(): void {
   const appUrl = resolvePublicAppUrl()
   const nextAuthUrl = resolveNextAuthUrl()
 
-  process.env.NEXT_PUBLIC_APP_URL = appUrl
-  process.env.NEXTAUTH_URL = nextAuthUrl
+  setEnv('NEXT_PUBLIC_APP_URL', appUrl)
+  setEnv('NEXTAUTH_URL', nextAuthUrl)
 
   const nextAuthSecret = resolveNextAuthSecret()
-  process.env.NEXTAUTH_SECRET = nextAuthSecret
+  setEnv('NEXTAUTH_SECRET', nextAuthSecret)
 
   if (!readEnv('JWT_SECRET')) {
-    process.env.JWT_SECRET = resolveJwtSecret()
+    setEnv('JWT_SECRET', resolveJwtSecret())
   }
 }
 
