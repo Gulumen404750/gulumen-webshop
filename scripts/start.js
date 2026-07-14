@@ -25,6 +25,12 @@ if (!process.env.DATABASE_URL?.trim()) {
 run('npx', ['prisma', 'generate'])
 run('npx', ['prisma', 'migrate', 'deploy'])
 
+console.log('[start] Seeding canonical storefront catalog...')
+const seed = spawnSync('npx', ['tsx', 'scripts/seed-products.ts'], { stdio: 'inherit', shell: true })
+if (seed.status !== 0) {
+  console.warn('[start] Product seed failed (non-fatal) – storefront may show stale DB data')
+}
+
 // Railway: PORT env + 0.0.0.0 (különben a proxy nem éri el a konténert)
 const port = process.env.PORT || '3000'
 const hostname = process.env.HOSTNAME || '0.0.0.0'
