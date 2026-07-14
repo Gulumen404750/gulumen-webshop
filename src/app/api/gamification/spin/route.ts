@@ -116,9 +116,9 @@ async function handleSpinRequest(request: Request, forceGenerate: boolean) {
         return NextResponse.json({ error: result.error }, { status: result.status })
       }
       status = await getSpinStatusForUser(userId, now)
-      return NextResponse.json(
-        await enrichSpinResponse(status, { created: 'created' in result ? result.created : true })
-      )
+      const created =
+        'created' in result && typeof result.created === 'boolean' ? result.created : true
+      return NextResponse.json(await enrichSpinResponse(status, { created }))
     }
 
     return NextResponse.json(await enrichSpinResponse(status))
