@@ -50,13 +50,31 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     setIsLoading(true)
 
     fetch('/api/me/wishlist', getFetchOpts())
-      .then((r) => (r.ok ? r.json() : null))
+      .then(async (r) => {
+        if (!r.ok) return null
+        return r.json()
+      })
       .then((data) => {
         if (gen !== fetchGenRef.current) return
+        if (data == null) return
+
         const ids = Array.isArray(data?.productIds) ? data.productIds : []
-        setProductIds(ids.filter((id: unknown): id is string => typeof id === 'string'))
+        const nextIds = ids.filter((id: unknown): id is string => typeof id === 'string')
+        setProductIds(nextIds)
+
         const prods = Array.isArray(data?.products) ? data.products : []
-        setProducts(prods.filter((p: unknown): p is Product => typeof (p as Product)?.id === 'string'))
+        const nextProds = prods.filter(
+          (p: unknown): p is Product => typeof (p as Product)?.id === 'string'
+        )
+        setProducts((prev) => {
+          if (nextProds.length >= nextIds.length) return nextProds
+          return nextIds
+            .map(
+              (id) =>
+                nextProds.find((p) => p.id === id) ?? prev.find((p) => p.id === id)
+            )
+            .filter((p): p is Product => p != null)
+        })
       })
       .catch(() => {
         if (gen !== fetchGenRef.current) return

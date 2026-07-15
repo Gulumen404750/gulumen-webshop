@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rate-limit'
 import * as ProductLikes from '@/lib/product-likes'
-import { getProductByIdAsync } from '@/lib/data'
 import { getSession, resolveSessionUserId } from '@/lib/auth'
+import { isDbConfigured } from '@/lib/prisma'
+import { getProductsByIdsFromDb } from '@/lib/products'
+import { getProductByIdAsync } from '@/lib/data'
 import type { Product } from '@/lib/data'
 
 /**
@@ -29,10 +31,15 @@ export async function GET(request: Request) {
     }
 
     const productIds = await ProductLikes.getLikedProductIdsByUser(userId, session.email)
-    const products: Product[] = []
-    for (const id of productIds) {
-      const product = await getProductByIdAsync(id)
-      if (product) products.push(product)
+
+    let products: Product[] = []
+    if (isDbConfigured()) {
+      products = await getProductsByIdsFromDb(productIds)
+    } else {
+      for (const id of productIds) {
+        const product = await getProductByIdAsync(id)
+        if (product) products.push(product)
+      }
     }
 
     return NextResponse.json({ productIds, products })
