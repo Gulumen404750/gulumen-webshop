@@ -73,7 +73,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
               nextProds.find((p: Product) => p.id === id) ??
               prev.find((p: Product) => p.id === id)
             )
-            .filter((p): p is Product => p != null)
+            .filter((p: Product | undefined): p is Product => p != null)
         })
       })
       .catch(() => {
