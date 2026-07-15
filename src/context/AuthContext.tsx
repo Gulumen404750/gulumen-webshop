@@ -73,13 +73,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { ok: false, error: data.error || 'Regisztráció sikertelen' }
   }, [])
 
-  const loginWithGoogle = useCallback((options?: GoogleAuthOptions) => {
+  const loginWithGoogle = useCallback(async (options?: GoogleAuthOptions) => {
     const base = getCanonicalAppOrigin()
     const callback = options?.callbackUrl ?? `${base}/profil`
     if (options?.acceptOffers === true) {
       saveGoogleAuthPending(true)
     }
-    window.location.href = `${base}/api/auth/signin/google?callbackUrl=${encodeURIComponent(callback)}`
+    try {
+      const csrfRes = await fetch(`${base}/api/auth/csrf`, { credentials: 'include' })
+      if (!csrfRes.ok) throw new Error(`CSRF ${csrfRes.status}`)
+      const { csrfToken } = (await csrfRes.json()) as { csrfToken: string }
+      const form = document.createElement('form')
+      form.method = 'POST'
+      form.action = `${base}/api/auth/signin/google`
+      form.style.display = 'none'
+      const csrfInput = document.createElement('input')
+      csrfInput.type = 'hidden'
+      csrfInput.name = 'csrfToken'
+      csrfInput.value = csrfToken
+      form.appendChild(csrfInput)
+      const cbInput = document.createElement('input')
+      cbInput.type = 'hidden'
+      cbInput.name = 'callbackUrl'
+      cbInput.value = callback
+      form.appendChild(cbInput)
+      document.body.appendChild(form)
+      form.submit()
+    } catch {
+      window.location.href = `${base}/profil?authError=google`
+    }
   }, [])
 
   const logout = useCallback(async () => {
