@@ -22,9 +22,14 @@ type Props = { params: Promise<{ slug: string }> }
 export async function generateImageMetadata({ params }: Props) {
   const { slug } = await params
   const product = await getProductBySlugAsync(slug)
-  return {
-    alt: product?.name ? `${product.name} – Gulumen` : 'Gulumen termék',
-  }
+  return [
+    {
+      id: slug,
+      alt: product?.name ? `${product.name} – Gulumen` : 'Gulumen termék',
+      size: { width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT },
+      contentType: 'image/png',
+    },
+  ]
 }
 
 export default async function ProductOgImage({ params }: Props) {
