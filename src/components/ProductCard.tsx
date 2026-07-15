@@ -173,7 +173,7 @@ export function ProductCard({
       aria-disabled={showSoldImpact}
     >
       <article
-        className={`bg-[var(--card-bg)] rounded-xl border border-[var(--border)] overflow-hidden transition-shadow hover:shadow-lg ${showSoldImpact ? 'sold-impact-card-vanish' : ''}`}
+        className={`bg-[var(--card-bg)] rounded-xl border border-[var(--border)] overflow-hidden transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-lg hover:border-accent/25 ${showSoldImpact ? 'sold-impact-card-vanish' : ''}`}
       >
         <div className="aspect-square bg-[var(--border)] relative overflow-hidden">
           {hasImage ? (

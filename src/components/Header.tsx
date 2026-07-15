@@ -106,7 +106,7 @@ export function Header() {
             {mobileNavOpen ? <CloseIcon className="w-6 h-6" /> : <HamburgerIcon className="w-6 h-6" />}
           </button>
 
-          <nav className={`${mobileNavOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row absolute md:relative top-full left-0 right-0 md:top-0 bg-[var(--card-bg)] md:bg-transparent border-b md:border-b-0 border-[var(--border)] md:border-0 py-4 md:py-0 items-center gap-3 md:gap-4 md:flex-nowrap md:min-h-[2.5rem] shadow-lg md:shadow-none z-40`}>
+          <nav className={`${mobileNavOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row absolute md:relative top-full left-0 right-0 md:top-0 bg-[var(--card-bg)] md:bg-transparent border-b md:border-b-0 border-[var(--border)] md:border-0 py-4 md:py-0 items-center gap-4 md:gap-6 md:flex-nowrap md:min-h-[2.5rem] shadow-lg md:shadow-none z-40`}>
             <div
               className="relative flex items-center h-full"
               ref={productsRef}
@@ -120,7 +120,7 @@ export function Header() {
                 return (
                   <Link
                     href="/termekek?kategoria=3d-nyomtatott"
-                    className={`text-sm font-medium leading-none transition-colors flex items-center gap-1 whitespace-nowrap shrink-0 h-full ${
+                    className={`text-sm font-medium leading-none transition-colors flex items-center gap-1 whitespace-nowrap shrink-0 h-full px-2 md:px-3 py-1 ${
                       is3DProductsActive ? 'text-accent' : 'text-foreground hover:text-accent'
                     }`}
                     aria-expanded={productsOpen}
@@ -187,11 +187,13 @@ export function Header() {
             {navItems.map(({ href, labelKey }) => {
               const isDeals = href === '/akciok'
               return (
-                <span key={href} className={isDeals ? 'nav-link-fire' : ''}>
+                <span key={href} className={isDeals ? 'nav-link-fire mx-0.5 md:mx-1' : ''}>
                   <Link
                     href={href}
                     onClick={() => setMobileNavOpen(false)}
                     className={`text-sm font-medium leading-none transition-colors whitespace-nowrap shrink-0 inline-flex items-center ${
+                      isDeals ? '' : 'px-2 md:px-3 py-1'
+                    } ${
                       pathname === href ? 'text-accent' : 'text-foreground hover:text-accent'
                     } ${isDeals ? 'relative z-10' : ''}`}
                   >
@@ -209,7 +211,7 @@ export function Header() {
               <button
                 type="button"
                 onClick={() => setHelpOpen((o) => !o)}
-                className={`text-sm font-medium leading-none transition-colors flex items-center gap-1 whitespace-nowrap shrink-0 h-full ${
+                className={`text-sm font-medium leading-none transition-colors flex items-center gap-1 whitespace-nowrap shrink-0 h-full px-2 md:px-3 py-1 ${
                   helpDropdownItems.some(({ href }) => pathname === href) ? 'text-accent' : 'text-foreground hover:text-accent'
                 }`}
                 aria-expanded={helpOpen}
