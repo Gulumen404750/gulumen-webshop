@@ -19,6 +19,7 @@ export default async function AdminDashboardPage() {
     pendingCallbacks,
     todayCallsCount,
     usersCount,
+    lowStockCount,
   ] = await Promise.all([
     prisma.product.count(),
     prisma.order.count(),
@@ -31,6 +32,9 @@ export default async function AdminDashboardPage() {
       },
     }),
     prisma.user.count(),
+    prisma.product.count({
+      where: { stock: { lt: 3 }, active: true },
+    }),
   ])
 
   const cards = [
@@ -44,6 +48,21 @@ export default async function AdminDashboardPage() {
   return (
     <div className="space-y-8">
       <h1 className="text-2xl font-heading font-bold text-foreground">Áttekintés</h1>
+
+      {lowStockCount > 0 && (
+        <Link
+          href="/admin/dashboard/products?lowStock=1"
+          className="block rounded-xl border border-amber-500/50 bg-amber-500/10 p-4 hover:border-amber-500/70 transition-colors"
+        >
+          <p className="font-medium text-amber-800 dark:text-amber-300">
+            {lowStockCount} termék készlete 3 alatt
+          </p>
+          <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+            Megtekintés a terméklistán →
+          </p>
+        </Link>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((c) => (
           <Link

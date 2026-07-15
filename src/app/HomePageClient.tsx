@@ -8,6 +8,7 @@ import { HeroCat } from '@/components/HeroCat'
 import { RecentlyViewed } from '@/components/RecentlyViewed'
 import { useLocale } from '@/context/LocaleContext'
 import { useAuth } from '@/context/AuthContext'
+import { getRegistrationCouponPercentDisplay } from '@/lib/coupon-config'
 
 type Props = {
   featuredProducts: Product[]
@@ -19,6 +20,7 @@ export default function HomePageClient({ featuredProducts, dealProducts, newProd
   const { t } = useLocale()
   const { isLoggedIn, authChecked } = useAuth()
   const showRegisterCta = authChecked && !isLoggedIn
+  const registrationCouponPercent = getRegistrationCouponPercentDisplay()
 
   const faqItems = [
     { q: t('home.faq1q'), a: t('home.faq1a') },
@@ -60,11 +62,10 @@ export default function HomePageClient({ featuredProducts, dealProducts, newProd
               {t('home.heroCta')}
             </Link>
 
-            {showRegisterCta && (
+            {showRegisterCta && registrationCouponPercent > 0 && (
               <div className="register-cta-blink w-full max-w-2xl rounded-2xl border-2 border-[var(--border)] bg-[var(--card-bg)]/90 backdrop-blur-sm p-6 sm:p-8 text-center">
-                <p className="text-sm font-medium tracking-wide uppercase text-accent mb-2">🎁 10%</p>
-                <h2 className="font-heading text-xl sm:text-2xl font-bold text-foreground">
-                  {t('home.registerTitle')}
+                <h2 className="font-heading text-xl sm:text-2xl font-bold text-foreground leading-snug">
+                  {t('register.firstPurchasePromo', { percent: registrationCouponPercent })}
                 </h2>
                 <p className="mt-2 text-sm sm:text-base text-muted leading-relaxed">{t('home.registerDesc')}</p>
                 <Link

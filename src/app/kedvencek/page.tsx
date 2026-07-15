@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { ProductCard } from '@/components/ProductCard'
 import { LuckySpinPanel } from '@/components/LuckySpinPanel'
+import { WishlistEmptyState } from '@/components/empty-states/WishlistEmptyState'
 import { useWishlist } from '@/context/WishlistContext'
 import { useLocale } from '@/context/LocaleContext'
 import { useAuth } from '@/context/AuthContext'
@@ -28,7 +29,7 @@ export default function WishlistPage() {
           {showInitialLoading ? (
             <p className="text-muted mb-4">{t('common.loading') || 'Betöltés…'}</p>
           ) : showEmpty ? (
-            <p className="text-muted mb-4">{t('wishlist.empty') || 'Még nincs kedvenc termék.'}</p>
+            <WishlistEmptyState />
           ) : (
             <>
               {isLoading && products.length > 0 && (
@@ -43,9 +44,11 @@ export default function WishlistPage() {
           )}
         </>
       )}
-      <Link href="/termekek" className="inline-block mt-6 text-accent font-medium hover:underline">
-        {t('buttons.browseProducts')}
-      </Link>
+      {!showEmpty && (
+        <Link href="/termekek" className="inline-block mt-6 text-accent font-medium hover:underline">
+          {t('buttons.browseProducts')}
+        </Link>
+      )}
     </div>
   )
 }

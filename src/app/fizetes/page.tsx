@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { Loader2 } from 'lucide-react'
 import { useCart } from '@/context/CartContext'
 import { useCatCoupon } from '@/context/CatCouponContext'
 import { useAuth } from '@/context/AuthContext'
@@ -20,6 +21,14 @@ import {
   POINTS_PER_HUF,
 } from '@/lib/checkout'
 import { LUCKY_SPIN_MIN_ITEMS, LUCKY_SPIN_DISCOUNT_PERCENT } from '@/lib/gamification/constants'
+import { PaymentTrustBadges } from '@/components/PaymentTrustBadges'
+
+function createCheckoutIdempotencyKey(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `checkout-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`
+}
 
 export default function PaymentPage() {
   const router = useRouter()
@@ -49,6 +58,8 @@ export default function PaymentPage() {
   } | null>(null)
   const { wallet, refresh: refreshWallet } = usePointWallet(!!userId)
   const { data: luckySpinData } = useLuckySpin(!!userId)
+  const checkoutInFlightRef = useRef(false)
+  const idempotencyKeyRef = useRef<string | null>(null)
 
   const luckySpinRecord = luckySpinData?.spin && luckySpinData.isActive
     ? {
@@ -254,7 +265,9 @@ export default function PaymentPage() {
     }
   }, [items.length, router])
 
-  const handlePayByCard = async () => {
+  const handlePayByCard = useCallback(async () => {
+    if (checkoutInFlightRef.current || loading || checkoutResult) return
+
     setError(null)
     setCheckoutResult(null)
     if (!userId && !guestEmail.trim()) {
@@ -266,13 +279,21 @@ export default function PaymentPage() {
       setError(t('payment.emailInvalid') || 'Érvényes e-mail címet adj meg.')
       return
     }
-    // Timed offer validity: decided by /api/checkout (fresh ordersCount + server now). No client-side block.
+
+    checkoutInFlightRef.current = true
+    if (!idempotencyKeyRef.current) {
+      idempotencyKeyRef.current = createCheckoutIdempotencyKey()
+    }
+
     setLoading(true)
     trackBeginCheckout(cardTotalHuf)
     try {
       const res = await fetch('/api/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKeyRef.current,
+        },
         credentials: 'include',
         body: JSON.stringify({
           items: items.map(({ productId, qty, options }) => ({
@@ -290,6 +311,8 @@ export default function PaymentPage() {
       if (!res.ok) {
         const isTimedOfferError = res.status === 400 && (data.code === 'timed_offer_unavailable' || data.error?.includes('timed'))
         setError(isTimedOfferError ? t('payment.timedOfferNoLongerAvailable') : (data.error || t('payment.errorCreateSession')))
+        idempotencyKeyRef.current = null
+        checkoutInFlightRef.current = false
         setLoading(false)
         return
       }
@@ -301,6 +324,7 @@ export default function PaymentPage() {
       const clientSecretPayment = data.payments?.find((p: { type: string }) => p.type === 'client_secret')
       if (clientSecretPayment?.clientSecret) {
         setCheckoutResult({ orderGroupId: data.orderGroupId, payments: data.payments })
+        checkoutInFlightRef.current = false
         setLoading(false)
         setTimeout(() => {
           router.push(`/fizetes/siker?order_group_id=${encodeURIComponent(data.orderGroupId)}`)
@@ -309,15 +333,31 @@ export default function PaymentPage() {
       }
       setCheckoutResult({ orderGroupId: data.orderGroupId, payments: data.payments || [] })
       void refreshWallet()
+      checkoutInFlightRef.current = false
       setLoading(false)
       setTimeout(() => {
         router.push(`/fizetes/siker?order_group_id=${encodeURIComponent(data.orderGroupId)}`)
       }, 2500)
     } catch {
       setError(t('payment.errorCreateSession'))
+      idempotencyKeyRef.current = null
+      checkoutInFlightRef.current = false
       setLoading(false)
     }
-  }
+  }, [
+    loading,
+    checkoutResult,
+    userId,
+    guestEmail,
+    t,
+    cardTotalHuf,
+    items,
+    couponActive,
+    discountPercent,
+    pointsDiscountHuf,
+    refreshWallet,
+    router,
+  ])
 
   if (items.length === 0) {
     return (
@@ -569,10 +609,6 @@ export default function PaymentPage() {
       <section className="mb-8 p-4 rounded-xl border-2 border-[var(--border)] bg-[var(--card-bg)]">
         <p className="text-sm text-muted mb-3">{t('payment.cardOnly')}</p>
         <p className="text-xs text-muted mb-4">{t('payment.secureNote')}</p>
-        <p className="flex items-center gap-2 text-sm text-foreground mb-4">
-          <LockIcon className="w-5 h-5 text-accent shrink-0" />
-          {t('payment.securePayment') || 'Biztonságos fizetés'}
-        </p>
         {error && (
           <p className="text-red-600 dark:text-red-400 text-sm mb-4" role="alert">
             {error}
@@ -595,13 +631,23 @@ export default function PaymentPage() {
             </p>
           </div>
         )}
+        <PaymentTrustBadges className="mb-4" />
         <button
           type="button"
           onClick={handlePayByCard}
           disabled={loading || !!checkoutResult}
-          className="w-full py-3 px-6 bg-accent text-white font-heading font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          aria-busy={loading}
+          aria-disabled={loading || !!checkoutResult}
+          className="w-full py-3 px-6 bg-accent text-white font-heading font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
-          {loading ? t('payment.redirecting') : checkoutResult ? (t('checkout.redirecting') || 'Átirányítás…') : t('payment.payWithCard')}
+          {loading && <Loader2 className="w-5 h-5 shrink-0 animate-spin" aria-hidden />}
+          <span>
+            {loading
+              ? t('payment.redirecting')
+              : checkoutResult
+                ? (t('checkout.redirecting') || 'Átirányítás…')
+                : t('payment.payWithCard')}
+          </span>
         </button>
       </section>
 
@@ -612,13 +658,5 @@ export default function PaymentPage() {
         ← {t('payment.backToCart')}
       </Link>
     </div>
-  )
-}
-
-function LockIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-    </svg>
   )
 }

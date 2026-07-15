@@ -11,6 +11,7 @@ import { useLocale } from '@/context/LocaleContext'
 import { useAuth } from '@/context/AuthContext'
 import { useCatCoupon } from '@/context/CatCouponContext'
 import { useLuckySpin } from '@/hooks/useLuckySpin'
+import { useFocusTrap } from '@/hooks/useFocusTrap'
 import { CheckoutSourcingModal } from '@/components/CheckoutSourcingModal'
 import {
   computeCheckoutTotals,
@@ -31,6 +32,8 @@ export function CartDrawer({ isOpen, onClose }: Props) {
   const { data: luckySpinData } = useLuckySpin(!!userId)
   const drawerRef = useRef<HTMLDivElement>(null)
   const [showCheckoutModal, setShowCheckoutModal] = useState(false)
+
+  useFocusTrap(drawerRef, isOpen && !showCheckoutModal)
 
   const luckySpinRecord = useMemo(() => {
     if (!luckySpinData?.spin || !luckySpinData.isActive) return null

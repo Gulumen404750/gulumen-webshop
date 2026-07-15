@@ -12,8 +12,10 @@ const STORAGE_PREFIX_REG = 'gulumen-registration-coupon-'
 /** Régi egykulcsos formátum – migrációhoz */
 const STORAGE_PREFIX_LEGACY = 'gulumen-cat-coupon-'
 
-const CAT_PERCENT = 0.05
-const REG_PERCENT = 0.1
+import {
+  CAT_COUPON_PERCENT,
+  REGISTRATION_COUPON_PERCENT,
+} from '@/lib/coupon-config'
 
 export type CatCouponStatus = 'not_claimed' | 'claimed' | 'used'
 
@@ -125,8 +127,8 @@ function combinedPercent(userId: string | null): number {
   const cat = readCat(userId)
   const reg = readReg(userId)
   let p = 0
-  if (cat?.status === 'claimed') p += CAT_PERCENT
-  if (reg?.status === 'claimed') p += REG_PERCENT
+  if (cat?.status === 'claimed') p += CAT_COUPON_PERCENT
+  if (reg?.status === 'claimed') p += REGISTRATION_COUPON_PERCENT
   return p
 }
 
@@ -152,7 +154,7 @@ export function CatCouponProvider({ children }: { children: ReactNode }) {
     if (!userId) return false
     const cat = readCat(userId)
     if (cat?.status) return false
-    const payload: StoredCoupon = { status: 'claimed', percent: CAT_PERCENT * 100 }
+    const payload: StoredCoupon = { status: 'claimed', percent: CAT_COUPON_PERCENT * 100 }
     localStorage.setItem(getCatKey(userId), JSON.stringify(payload))
     refresh(userId)
     return true
@@ -164,7 +166,7 @@ export function CatCouponProvider({ children }: { children: ReactNode }) {
       const normalized = normalizeCouponUserId(uid)
       const reg = readReg(normalized)
       if (reg?.status) return false
-      const payload: StoredCoupon = { status: 'claimed', percent: REG_PERCENT * 100 }
+      const payload: StoredCoupon = { status: 'claimed', percent: REGISTRATION_COUPON_PERCENT * 100 }
       localStorage.setItem(getRegKey(normalized), JSON.stringify(payload))
       if (userId && normalizeCouponUserId(userId) === normalized) {
         refresh(userId)

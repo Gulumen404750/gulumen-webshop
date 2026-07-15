@@ -3,6 +3,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 import { getResponse } from '@/lib/ai-assistant'
+import {
+  MOBILE_FAB_Z,
+  mobileAiFabMaxWidth,
+  mobileFabBottom,
+  mobileFabRight,
+} from '@/lib/mobile-fab-layout'
 import { useLocale } from '@/context/LocaleContext'
 import type { Locale } from '@/i18n/locales'
 
@@ -135,14 +141,18 @@ export function AIAssistant() {
   }
 
   const fabStyle = {
-    right: 'max(1rem, env(safe-area-inset-right, 1rem))',
+    right: mobileFabRight,
   } as const
 
   return (
     <>
       <div
-        className="hidden md:flex fixed bottom-6 z-40 flex-col items-end gap-3"
-        style={{ ...fabStyle, bottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))' }}
+        className="hidden md:flex fixed bottom-6 flex-col items-end gap-3"
+        style={{
+          ...fabStyle,
+          bottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))',
+          zIndex: MOBILE_FAB_Z,
+        }}
       >
         <button
           type="button"
@@ -176,10 +186,12 @@ export function AIAssistant() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="md:hidden fixed z-40 flex items-center gap-2 px-4 py-3 rounded-full shadow-lg bg-accent text-white font-heading font-semibold hover:opacity-90 transition-opacity max-w-[calc(100vw-2rem)]"
+        className="md:hidden fixed flex items-center gap-2 px-4 py-3 rounded-full shadow-lg bg-accent text-white font-heading font-semibold hover:opacity-90 transition-opacity"
         style={{
-          ...fabStyle,
-          bottom: 'max(5.25rem, calc(env(safe-area-inset-bottom, 0px) + 4.5rem))',
+          zIndex: MOBILE_FAB_Z,
+          right: mobileFabRight,
+          bottom: mobileFabBottom,
+          maxWidth: mobileAiFabMaxWidth,
         }}
         aria-label={t('ai.title')}
       >

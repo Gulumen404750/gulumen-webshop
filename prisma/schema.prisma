@@ -80,6 +80,7 @@ model Coupon {
   pointTransactionId String? @unique
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  orders       Order[]
   @@index([userId, active])
   @@index([source])
 }
@@ -106,7 +107,6 @@ model User {
   pointTransactions PointTransaction[]
   pointEvents PointEvent[]
   dailyActivities UserDailyActivity[]
-  dailyLikeProgress UserDailyLikeProgress[]
   gamificationCoupons Coupon[] @relation("GamificationCoupons")
   likePointWindow UserLikePointWindow?
   luckySpins LuckySpin[]
@@ -139,6 +139,11 @@ model Order {
   pointsDiscountHuf Int      @default(0)
   /// Levont pontok száma (checkout mentés).
   pointsUsed         Int      @default(0)
+  /// Checkout DB kupon (admin / gamification kód).
+  couponId           String?
+  coupon             Coupon?  @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  /// Sikeres fizetés után usedCount növelve (rendelés-csoportonként egyszer).
+  couponUsageRecorded Boolean @default(false)
   items             OrderItem[]
   paymentTransactions PaymentTransaction[]
 }
@@ -352,8 +357,6 @@ model UserDailyActivity {
   /// Ma hány böngészés bónusz járt (max 2 / nap).
   bonusGrantedCount      Int       @default(0)
   lastBonusGrantedAt     DateTime?
-  /// @deprecated – használd bonusGrantedCount >= BROWSE_DAILY_MAX_BONUSES
-  bonusGranted           Boolean   @default(false)
   lastHeartbeatAt        DateTime?
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
@@ -388,18 +391,4 @@ model LuckySpin {
   createdAt   DateTime @default(now())
   @@unique([userId, weekId])
   @@index([userId, expiresAt])
-}
-
-/// @deprecated – helyette UserLikePointWindow (12 órás ablak).
-model UserDailyLikeProgress {
-  id                  String   @id @default(cuid())
-  userId              String
-  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  progressDate        DateTime @db.Date
-  qualifyingLikeCount Int      @default(0)
-  bonusGranted        Boolean  @default(false)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  @@unique([userId, progressDate])
-  @@index([progressDate])
 }

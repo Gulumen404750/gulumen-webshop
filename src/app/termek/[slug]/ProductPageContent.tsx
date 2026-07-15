@@ -3,8 +3,10 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { useState, useEffect } from 'react'
-import { getDisplayStock, getProductName, getSourcingDealStatus, mockProducts } from '@/lib/data'
+import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { Share2 } from 'lucide-react'
+import { getDisplayStock, getProductName, getSourcingDealStatus } from '@/lib/data'
 import { ProductTabs } from '@/components/ProductTabs'
 import { SourcingDealBox } from '@/components/SourcingDealBox'
 import { Breadcrumbs, productBreadcrumbs } from '@/components/Breadcrumbs'
@@ -22,6 +24,11 @@ const ProductModelViewer = dynamic(
 )
 import { is3DProduct } from '@/lib/data'
 import { FILAMENT_COLORS, getFilamentColorName, type FilamentColor } from '@/lib/filamentColors'
+import {
+  buildColorableProductShareUrl,
+  findFilamentColorByHex,
+  parseMaterialParam,
+} from '@/lib/product-share-url'
 import { useLocale } from '@/context/LocaleContext'
 import { useCart } from '@/context/CartContext'
 import { useAuth } from '@/context/AuthContext'
@@ -51,10 +58,11 @@ function useRecentlyViewed(productId: string, productSlug: string) {
 
 const showLikesForProduct = (type: string | undefined) => type === 'stock' || type === 'sourcing_deal'
 
-type Props = { product: Product; slug: string; serverNow?: number }
+type Props = { product: Product; slug: string; serverNow?: number; similarProducts: Product[] }
 
-export function ProductPageContent({ product, slug, serverNow }: Props) {
+export function ProductPageContent({ product, slug, serverNow, similarProducts }: Props) {
   const { t, locale } = useLocale()
+  const searchParams = useSearchParams()
   const { items, addItem, itemCount } = useCart()
   const { userId } = useAuth()
   const { syncFromServer, applyOptimisticToggle } = useWishlist()
@@ -96,10 +104,6 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
   const has360 = product.images360 && product.images360.length > 0
   const has3DModel = is3DProduct(product) && product.modelUrl
 
-  const similarProducts = mockProducts
-    .filter((p) => p.category === product.category && p.id !== product.id && p.type !== 'sourcing_deal')
-    .slice(0, 4)
-
   const saleActive = useSaleActive(product)
   const priceHuf = saleActive && product.discountPriceHuf ? product.discountPriceHuf : product.priceHuf
   const priceEur = hufToEur(priceHuf)
@@ -109,6 +113,41 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
   const canAddToCart =
     !isColorable ||
     (selectedColor !== null && (!is3DWithMaterial || selectedMaterial !== null))
+
+  const canShareConfiguration =
+    isColorable &&
+    selectedColor !== null &&
+    (!is3DWithMaterial || selectedMaterial !== null)
+
+  useEffect(() => {
+    if (!isColorable) return
+
+    const colorParam = searchParams.get('color')
+    const materialParam = searchParams.get('material')
+
+    if (colorParam) {
+      const color = findFilamentColorByHex(colorParam)
+      if (color) setSelectedColor(color)
+    }
+    if (is3DWithMaterial && materialParam) {
+      const material = parseMaterialParam(materialParam)
+      if (material) setSelectedMaterial(material)
+    }
+  }, [searchParams, isColorable, is3DWithMaterial])
+
+  const handleShareConfiguration = useCallback(async () => {
+    if (!canShareConfiguration || !selectedColor) return
+    const url = buildColorableProductShareUrl(window.location.origin, slug, {
+      colorHex: selectedColor.hex,
+      material: is3DWithMaterial ? selectedMaterial : undefined,
+    })
+    try {
+      await navigator.clipboard.writeText(url)
+      toast(t('product.shareCopied'))
+    } catch {
+      toast(t('product.shareCopied'))
+    }
+  }, [canShareConfiguration, selectedColor, is3DWithMaterial, selectedMaterial, slug, t, toast])
 
   const handleAddToCart = () => {
     if (!canAddToCart) return
@@ -413,31 +452,53 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
               )}
               {isColorable && (
                 <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-3">
-                  <p className="text-sm font-medium text-foreground mb-2">{t('product.color') || 'Szín'} *</p>
-                  <div className="flex flex-wrap gap-2">
-                    {FILAMENT_COLORS.map((color) => (
-                      <button
-                        key={color.id}
-                        type="button"
-                        onClick={() => setSelectedColor(color)}
-                        className={`flex items-center gap-2 rounded-lg border-2 px-3 py-1.5 text-sm transition-colors ${
-                          selectedColor?.id === color.id
-                            ? 'border-accent bg-accent/10 text-foreground'
-                            : 'border-[var(--border)] bg-[var(--card-bg)] text-foreground hover:border-accent/50'
-                        }`}
-                        aria-pressed={selectedColor?.id === color.id}
-                        aria-label={getFilamentColorName(color, locale)}
-                        title={getFilamentColorName(color, locale)}
-                      >
-                        <span
-                          className="w-5 h-5 rounded-full shrink-0 border border-[var(--border)] shadow-inner"
-                          style={{ backgroundColor: color.hex }}
-                        />
-                        <span>{getFilamentColorName(color, locale)}</span>
-                      </button>
-                    ))}
+                  <p id="product-color-label" className="text-sm font-medium text-foreground mb-2">
+                    {t('product.color') || 'Szín'} *
+                  </p>
+                  <div
+                    role="radiogroup"
+                    aria-labelledby="product-color-label"
+                    className="flex flex-wrap gap-2"
+                  >
+                    {FILAMENT_COLORS.map((color) => {
+                      const colorName = getFilamentColorName(color, locale)
+                      const isSelected = selectedColor?.id === color.id
+                      return (
+                        <button
+                          key={color.id}
+                          type="button"
+                          role="radio"
+                          onClick={() => setSelectedColor(color)}
+                          className={`flex items-center gap-2 rounded-lg border-2 px-3 py-1.5 text-sm transition-colors ${
+                            isSelected
+                              ? 'border-accent bg-accent/10 text-foreground'
+                              : 'border-[var(--border)] bg-[var(--card-bg)] text-foreground hover:border-accent/50'
+                          }`}
+                          aria-checked={isSelected}
+                          aria-label={colorName}
+                          title={colorName}
+                        >
+                          <span
+                            className="w-5 h-5 rounded-full shrink-0 border border-[var(--border)] shadow-inner"
+                            style={{ backgroundColor: color.hex }}
+                            aria-hidden
+                          />
+                          <span>{colorName}</span>
+                        </button>
+                      )
+                    })}
                   </div>
                   <p className="mt-2 text-xs text-muted">{t('product.selectColorHint') || 'A kosárba a kiválasztott szín kerül; a termékfotó csak illusztráció.'}</p>
+                  <button
+                    type="button"
+                    onClick={() => void handleShareConfiguration()}
+                    disabled={!canShareConfiguration}
+                    className="mt-3 inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-[var(--border)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={!canShareConfiguration ? t('product.shareNeedSelection') : undefined}
+                  >
+                    <Share2 className="w-4 h-4 shrink-0" aria-hidden />
+                    {t('product.share')}
+                  </button>
                 </div>
               )}
               <p className="mt-2 text-sm text-foreground">

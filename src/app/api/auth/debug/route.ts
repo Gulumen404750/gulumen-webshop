@@ -12,9 +12,13 @@ function envStatus(key: string): 'OK' | 'HIÁNYZIK' {
 
 /**
  * GET /api/auth/debug
- * Nem érzékeny auth diagnosztika – Railway / éles OAuth hibakereséshez.
+ * Nem érzékeny auth diagnosztika – csak development (NODE_ENV !== 'production').
  */
 export async function GET() {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
   bootstrapAuthEnv()
   const nextAuthUrl = resolveNextAuthUrl()
 

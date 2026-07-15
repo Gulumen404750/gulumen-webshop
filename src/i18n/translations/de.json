@@ -155,7 +155,11 @@
     "blockPromoDispatch": "25 % Rabatt auf die oben genannten Artikel bei mindestens 10 Stück aus der Liste",
     "blockNormalTitle": "Normale Artikel",
     "sourcingDisclaimerAccept": "Ich nehme zur Kenntnis, dass Beschaffungsartikel nach der Bestellung beschafft werden (7–14 Werktage). Bei Stornierung nach Beginn des Beschaffungsvorgangs können die tatsächlich entstandenen Kosten abgezogen werden.",
-    "checkoutConfirmButton": "Zur Kasse"
+    "checkoutConfirmButton": "Zur Kasse",
+    "mobileStickyBanner": "{count} Artikel im Warenkorb – {total} Ft",
+    "mobileStickyBannerAria": "Warenkorb-Übersicht",
+    "emptyStateTitle": "Dein Warenkorb ist leer",
+    "emptyStateCta": "Aktionen entdecken"
   },
   "payment": {
     "title": "Zahlung",
@@ -164,6 +168,10 @@
     "payWithCard": "Mit Karte zahlen",
     "secureNote": "Die Zahlung erfolgt auf einer sicheren Kassen-Seite. Gib Kartenzahlungsdaten niemals per E-Mail oder Chat an.",
     "securePayment": "Sichere Zahlung",
+    "trustBadgesLabel": "Einkaufsgarantien",
+    "trustBadgeSecure": "Sichere Zahlung",
+    "trustBadgeReturns": "14 Tage Rückgaberecht",
+    "trustBadgeShipping": "Schneller Versand",
     "guestCheckout": "Gastbestellung",
     "guestCheckoutNote": "Registrierung optional. E-Mail für die Bestellung angeben.",
     "emailRequired": "E-Mail-Adresse ist erforderlich.",
@@ -254,6 +262,11 @@
     "backToImage": "Zurück zum Bild",
     "color": "Farbe",
     "fullscreen3D": "Vergrößern / Vollbild",
+    "view3DDesktopHint": "Die 3D-Ansicht ist am Desktop am besten.",
+    "openFullscreen3D": "Im Vollbild öffnen",
+    "share": "Teilen",
+    "shareCopied": "Link in die Zwischenablage kopiert!",
+    "shareNeedSelection": "Wähle zuerst Farbe und Material.",
     "similarProducts": "Ähnliche Produkte",
     "recentlyViewed": "Zuletzt angesehen",
     "like": "Gefällt mir",
@@ -284,7 +297,15 @@
     "empty": "Noch keine Favoriten.",
     "add": "Zur Wunschliste",
     "remove": "Aus Wunschliste entfernen",
-    "loginRequired": "Melde dich an, um zu liken."
+    "loginRequired": "Melde dich an, um zu liken.",
+    "emptyStateHint": "Tippe auf die Herzen bei Produkten!",
+    "emptyStateCta": "Produkte entdecken"
+  },
+  "search": {
+    "noResultsTitle": "Keine Ergebnisse",
+    "noResultsHint": "Probiere einen anderen Suchbegriff oder stöbere in Kategorien.",
+    "noResultsHintWithQuery": "Keine Ergebnisse für „{query}“. Probiere einen anderen Begriff oder die vorgeschlagenen Kategorien.",
+    "suggestedCategories": "Vorgeschlagene Kategorien"
   },
   "coupon": {
     "title": "🎁 5% Rabatt geschenkt",
@@ -313,6 +334,7 @@
     "legal": "Nach Auftragserteilung erfolgt die Beschaffung über einen eigenen Beschaffungskanal.\n\nBei erfolgreicher Beschaffung erfolgt die Lieferung des Produkts innerhalb von 7–14 Werktagen.\n\nKann das Produkt innerhalb des angegebenen Preisrahmens nicht beschafft werden, wird die Bestellung storniert und der volle Betrag innerhalb von 1–3 Werktagen erstattet."
   },
   "register": {
+    "firstPurchasePromo": "Registriere dich und erhalte {percent} % Rabatt auf deinen ersten Einkauf!",
     "intro": "Registriere dich mit deiner E-Mail. Wenn du einverstanden bist, dass wir dir Produktangebote schicken, erhältst du einen einmaligen 10-% Gutschein für deinen ersten Einkauf.",
     "checkboxOffers": "Ich bin damit einverstanden, dass Gulumen mir Produktangebote und Neuigkeiten per E-Mail sendet; dafür erhalte ich einen einmaligen 10-% Gutschein.",
     "errorEmail": "Bitte gib deine E-Mail-Adresse an.",
@@ -343,7 +365,12 @@
     "authErrorOAuthAccountNotLinked": "Dieses Google-Konto ist bereits mit einer anderen Anmeldemethode verknüpft.",
     "authErrorAccessDenied": "Google-Anmeldung abgebrochen oder nicht erlaubt.",
     "authErrorConfiguration": "Google-Anmeldung ist falsch konfiguriert (OAuth-Schlüssel oder Callback-URL).",
-    "authErrorDefault": "Google-Anmeldung fehlgeschlagen. Bitte später erneut versuchen."
+    "authErrorDefault": "Google-Anmeldung fehlgeschlagen. Bitte später erneut versuchen.",
+    "loyaltyTierBronze": "Bronze",
+    "loyaltyTierSilver": "Silber",
+    "loyaltyTierGold": "Gold",
+    "loyaltyDiscountLabel": "{percent}% dauerhafter Treuerabatt",
+    "loyaltyQualifiedOrders": "{count} qualifizierte Bestellungen"
   },
   "gamification": {
     "pointsTitle": "Deine Punkte",
@@ -368,7 +395,17 @@
     "mechanicsRedeemTitle": "Gutschein einlösen",
     "mechanicsRedeem": "Bei {threshold} Punkten einlösbar: einmaliger {discount}%-Gutschein ({days} Tage gültig, einmal verwendbar).",
     "mechanicsReset": "Browse-Boni um Mitternacht; Like-Punkte in 12-Stunden-Fenstern. Punkte können 1–2 Minuten brauchen.",
-    "likeLimitReached": "Like-Punkte-Limit erreicht (10 pro 12 Std.). Liken ist weiterhin möglich."
+    "likeLimitReached": "Like-Punkte-Limit erreicht (10 pro 12 Std.). Liken ist weiterhin möglich.",
+    "historyTitle": "Punkteverlauf",
+    "historyLoading": "Laden…",
+    "historyEmpty": "Noch keine Punktbewegungen.",
+    "historyTypeBrowse": "Browsing",
+    "historyTypeLike": "Favorit",
+    "historyTypeRedeem": "Gutschein einlösen",
+    "historyTypeReversal": "Stornierung",
+    "historyTypeOther": "Sonstiges",
+    "historyBalanceAfter": "Guthaben: {balance} Punkte",
+    "historyDevNote": "Punkteverlauf ist im lokalen Dev-Modus nur mit Datenbank verfügbar."
   },
   "luckySpin": {
     "title": "Glücksrad",
@@ -403,6 +440,7 @@
     "sortNewest": "Neueste",
     "sortPriceAsc": "Preis: aufsteigend",
     "sortPriceDesc": "Preis: absteigend",
+    "filters": "Filter",
     "filterPrice": "Preis",
     "filterSize": "Größe",
     "filterCondition": "Zustand",
@@ -422,6 +460,12 @@
     "shippingTitle": "Versandinformationen",
     "returnsTitle": "Rückgabe",
     "contactTitle": "Kontakt",
+    "contact": {
+      "introAi": "Fragen oder Beschwerden? Nutze die Schaltfläche „Haben Sie eine Frage? Ich helfe!“ unten rechts – der KI-Support antwortet auf Ungarisch, Englisch, Deutsch und Rumänisch.",
+      "introHuman": "Für einen menschlichen Ansprechpartner (z. B. Beschwerde, Rechtsfrage) bitte im Chat eine Übergabe anfordern – mit Bestell-ID und E-Mail.",
+      "emailLabel": "E-Mail:",
+      "frogAria": "Dekorative Froschfigur – ziehen zum Verschieben"
+    },
     "registerTitle": "Registrierung",
     "registerHaveAccount": "Bereits ein Konto?",
     "shipping": {

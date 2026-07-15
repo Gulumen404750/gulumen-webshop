@@ -1,10 +1,7 @@
 /**
  * In-memory IP-based rate limit. For production consider Redis.
- * 60 requests per minute per IP; returns 429 when exceeded.
+ * Default: 60 requests per minute per IP; returns 429 when exceeded.
  */
-
-const windowMs = 60 * 1000
-const maxPerWindow = 60
 
 const store = new Map<string, { count: number; resetAt: number }>()
 
@@ -16,7 +13,12 @@ function getClientId(request: Request): string {
   return 'unknown'
 }
 
-export function rateLimit(request: Request): { ok: true } | { ok: false; status: 429 } {
+export function rateLimit(
+  request: Request,
+  options?: { maxPerWindow?: number; windowMs?: number }
+): { ok: true } | { ok: false; status: 429 } {
+  const windowMs = options?.windowMs ?? 60 * 1000
+  const maxPerWindow = options?.maxPerWindow ?? 60
   const now = Date.now()
   const id = getClientId(request)
   let entry = store.get(id)

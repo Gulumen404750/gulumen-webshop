@@ -6,7 +6,7 @@ import { z } from 'zod'
 
 /**
  * GET /api/admin/products
- * Query: search, category, active, type. List products for admin.
+ * Query: search, category, active, type, lowStock. List products for admin.
  */
 export async function GET(request: Request) {
   const ok = await requireAdmin()
@@ -19,9 +19,14 @@ export async function GET(request: Request) {
   const activeStr = searchParams.get('active')
   const status = searchParams.get('status')?.trim() || ''
   const type = searchParams.get('type')?.trim() || ''
+  const lowStock =
+    searchParams.get('lowStock') === '1' || searchParams.get('lowStock') === 'true'
 
   const where: Record<string, unknown> = {}
-  if (status === 'active') {
+  if (lowStock) {
+    where.stock = { lt: 3 }
+    where.active = true
+  } else if (status === 'active') {
     where.active = true
     where.archived = false
   } else if (status === 'inactive') {

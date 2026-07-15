@@ -8,9 +8,10 @@ import {
   setOrderCountedForLoyalty,
 } from '@/lib/orders'
 import { markReservationsPaidByOrderId } from '@/lib/reservations'
-import { sendOrderConfirmationEmail } from '@/lib/order-email'
+import { maybeSendOrderGroupConfirmationEmail } from '@/lib/order-email'
 import { qualifiesForLoyalty, incrementQualifyingOrder, decrementQualifyingOrder } from '@/lib/loyalty'
 import { enqueueOrderPurchasePointsRedemption, enqueueLuckySpinPointsBonus } from '@/lib/gamification/order-points'
+import { recordCouponUsageOnPayment } from '@/lib/coupon-checkout'
 import { computeLuckySpinDiscount, getActiveSpin } from '@/lib/gamification/lucky-spin'
 import { logger } from '@/lib/logger'
 
@@ -124,6 +125,8 @@ export async function POST(request: Request) {
       })
       await markReservationsPaidByOrderId(orderId)
 
+      await recordCouponUsageOnPayment(orderId)
+
       const updatedOrder = await getOrderById(orderId)
       if (updatedOrder) {
         await enqueueOrderPurchasePointsRedemption({
@@ -169,14 +172,9 @@ export async function POST(request: Request) {
       }
 
       try {
-        if (updatedOrder) {
-          const emailResult = await sendOrderConfirmationEmail(
-            updatedOrder,
-            customerEmail
-          )
-          if (!emailResult.ok) {
-            logger.error({ err: emailResult.error }, 'checkout.session.completed: email send failed')
-          }
+        const emailResult = await maybeSendOrderGroupConfirmationEmail(orderId, customerEmail)
+        if (!emailResult.ok) {
+          logger.error({ err: emailResult.error }, 'checkout.session.completed: email send failed')
         }
       } catch (emailErr) {
         logger.error({ err: emailErr }, 'checkout.session.completed: email error (webhook still 200)')

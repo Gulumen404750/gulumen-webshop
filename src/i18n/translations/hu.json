@@ -155,7 +155,11 @@
     "sourcingDisclaimerAccept": "Tudomásul veszem, hogy az egyedi beszerzésű termék megrendelés után kerül beszerzésre (7–14 munkanap). A beszerzés megindulása után történő lemondás esetén a ténylegesen felmerült költségek levonásra kerülhetnek.",
     "checkoutConfirmButton": "Tovább a fizetéshez",
     "freeShippingProgress": "Még {amount} Ft és ingyenes a szállítás",
-    "freeShippingReached": "Ingyenes szállítás elérve"
+    "freeShippingReached": "Ingyenes szállítás elérve",
+    "mobileStickyBanner": "{count} termék a kosaradban – {total} Ft",
+    "mobileStickyBannerAria": "Kosár összefoglaló",
+    "emptyStateTitle": "Üres a kosár",
+    "emptyStateCta": "Böngéssz az akciók között"
   },
   "payment": {
     "title": "Fizetés",
@@ -164,6 +168,10 @@
     "payWithCard": "Fizetek kártyával",
     "secureNote": "A fizetés biztonságos pénztári felületen történik. A kártyaadatokat soha ne add meg e-mailben vagy chatben.",
     "securePayment": "Biztonságos fizetés",
+    "trustBadgesLabel": "Vásárlási garanciák",
+    "trustBadgeSecure": "Biztonságos fizetés",
+    "trustBadgeReturns": "14 napos visszaküldés",
+    "trustBadgeShipping": "Gyors szállítás",
     "guestCheckout": "Vendég vásárlás",
     "guestCheckoutNote": "Regisztráció opcionális. A rendeléshez add meg az e-mail címed.",
     "emailRequired": "E-mail cím kötelező a rendeléshez.",
@@ -254,6 +262,11 @@
     "backToImage": "Vissza a képhez",
     "color": "Szín",
     "fullscreen3D": "Nagyítás / Teljes képernyő",
+    "view3DDesktopHint": "A 3D nézet asztali gépen a legjobb élmény.",
+    "openFullscreen3D": "Megnyitás teljes képernyőn",
+    "share": "Megosztás",
+    "shareCopied": "Link a vágólapra másolva!",
+    "shareNeedSelection": "Előbb válaszd ki a színt és az anyagot.",
     "similarProducts": "Hasonló termékek",
     "recentlyViewed": "Utoljára megtekintett termékek",
     "like": "Kedvelés",
@@ -296,6 +309,7 @@
     "legal": "A rendelés leadását követően a beszerzés egyedi beszerzési csatornán keresztül történik.\n\nSikeres beszerzés esetén a termék kiszállítása 7–14 munkanapon belül történik.\n\nAmennyiben a termék a megadott árkereten belül nem biztosítható, a rendelés törlésre kerül, és a teljes összeg 1–3 munkanapon belül visszatérítésre kerül."
   },
   "register": {
+    "firstPurchasePromo": "Regisztrálj és kapj {percent}% kedvezményt az első vásárlásra!",
     "intro": "Regisztrálj e-mail címed megadásával. Ha elfogadod, hogy termékajánlatokat küldünk, cserébe 10%-os egyszeri kupont kapsz az első vásárláshoz.",
     "checkboxOffers": "Elfogadom, hogy a Gulumen termékajánlatokat és újdonságokat küldhet e-mailben; cserébe 10%-os egyszeri kupont kapok.",
     "errorEmail": "Kérlek add meg az e-mail címed.",
@@ -326,7 +340,12 @@
     "authErrorOAuthAccountNotLinked": "Ez a Google fiók már más belépési módhoz van kötve.",
     "authErrorAccessDenied": "A Google bejelentkezés megszakadt vagy nem engedélyezett.",
     "authErrorConfiguration": "A Google bejelentkezés nincs megfelelően konfigurálva (OAuth kulcsok vagy callback URL).",
-    "authErrorDefault": "A Google bejelentkezés sikertelen. Próbáld újra később."
+    "authErrorDefault": "A Google bejelentkezés sikertelen. Próbáld újra később.",
+    "loyaltyTierBronze": "Bronz",
+    "loyaltyTierSilver": "Ezüst",
+    "loyaltyTierGold": "Arany",
+    "loyaltyDiscountLabel": "{percent}% állandó hűségkedvezmény",
+    "loyaltyQualifiedOrders": "{count} minősített rendelés"
   },
   "gamification": {
     "pointsTitle": "Pontjaid",
@@ -351,7 +370,17 @@
     "mechanicsRedeemTitle": "Kupon beváltás",
     "mechanicsRedeem": "{threshold} pont összegyűjtése után beváltható egy egyszeri {discount}%-os kupon ({days} napig érvényes, egyszer használható).",
     "mechanicsReset": "A böngészés bónusz éjfélkor nullázódik; a lájk pontszerzés 12 órás ablakban működik. A pontok jóváírása 1–2 percet is igénybe vehet.",
-    "likeLimitReached": "A pontszerző lájk limit betelt (12 óránként 10). A kedvelés továbbra is működik."
+    "likeLimitReached": "A pontszerző lájk limit betelt (12 óránként 10). A kedvelés továbbra is működik.",
+    "historyTitle": "Ponttörténet",
+    "historyLoading": "Betöltés…",
+    "historyEmpty": "Még nincs pontmozgás.",
+    "historyTypeBrowse": "Böngészés",
+    "historyTypeLike": "Kedvenc",
+    "historyTypeRedeem": "Kupon beváltás",
+    "historyTypeReversal": "Visszavonás",
+    "historyTypeOther": "Egyéb",
+    "historyBalanceAfter": "Egyenleg: {balance} pont",
+    "historyDevNote": "Helyi fejlesztői módban a ponttörténet csak adatbázissal érhető el."
   },
   "luckySpin": {
     "title": "Szerencsekerék",
@@ -384,7 +413,15 @@
     "empty": "Még nincs kedvenc termék.",
     "add": "Kedvencekhez",
     "remove": "Eltávolítás a kedvencekből",
-    "loginRequired": "Jelentkezz be a kedveléshez."
+    "loginRequired": "Jelentkezz be a kedveléshez.",
+    "emptyStateHint": "Kattints a szívekre a termékeknél!",
+    "emptyStateCta": "Termékek böngészése"
+  },
+  "search": {
+    "noResultsTitle": "Nincs találat",
+    "noResultsHint": "Próbálj másik keresőszót, vagy böngéssz kategóriák között.",
+    "noResultsHintWithQuery": "Nincs találat a(z) „{query}” keresésre. Próbálj másik szót, vagy nézd meg a javasolt kategóriákat.",
+    "suggestedCategories": "Javasolt kategóriák"
   },
   "common": {
     "language": "Nyelv",
@@ -403,6 +440,7 @@
     "sortNewest": "Legújabb",
     "sortPriceAsc": "Ár: növekvő",
     "sortPriceDesc": "Ár: csökkenő",
+    "filters": "Szűrők",
     "filterPrice": "Ár (Ft)",
     "filterSize": "Méret",
     "filterCondition": "Állapot",
@@ -422,6 +460,12 @@
     "shippingTitle": "Szállítási információk",
     "returnsTitle": "Visszaküldés",
     "contactTitle": "Kapcsolat",
+    "contact": {
+      "introAi": "Kérdésed vagy panaszod van? Használd az oldal jobb alsó sarkában lévő „Kérdésed van? Segítek!” gombot – az AI ügyfélszolgálat magyarul, angolul, németül és románul válaszol.",
+      "introHuman": "Ha emberi ügyintézőt szeretnél (pl. panasz, jogi ügy), a chatben kérj ügy átadását – add meg a rendelés azonosítót és e-mail címedet.",
+      "emailLabel": "E-mail:",
+      "frogAria": "Dekoratív béka – húzd el a helyére"
+    },
     "registerTitle": "Regisztráció",
     "registerHaveAccount": "Már van fiókod?",
     "shipping": {

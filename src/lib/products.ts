@@ -1,7 +1,7 @@
 /**
- * Termékek betöltése adatbázisból. A data.ts Product típusát használja; ha DB nincs konfigurálva, a data.ts mockProducts fallback-et használja.
+ * Termékek betöltése adatbázisból (storefront). mockProducts fallback csak
+ * NODE_ENV=development + nincs DATABASE_URL esetén – lásd data.ts async API-k.
  */
-
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import type { Product, Condition } from '@/lib/data'
 
@@ -135,6 +135,26 @@ export async function getStockProductsFromDb(): Promise<Product[]> {
   const rows = await prisma.product.findMany({
     where: { active: true, archived: false, type: 'stock' },
     orderBy: { createdAt: 'desc' },
+  })
+  return rows.map(dbProductToProduct)
+}
+
+/** Hasonló termékek: ugyanaz a kategória, aktív, kizárva az aktuális. */
+export async function getSimilarProductsFromDb(
+  category: string,
+  excludeProductId: string,
+  limit = 4
+): Promise<Product[]> {
+  if (!isDbConfigured()) return []
+  const rows = await prisma.product.findMany({
+    where: {
+      category,
+      active: true,
+      archived: false,
+      id: { not: excludeProductId },
+    },
+    orderBy: { updatedAt: 'desc' },
+    take: limit,
   })
   return rows.map(dbProductToProduct)
 }

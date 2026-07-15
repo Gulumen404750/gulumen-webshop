@@ -10,6 +10,8 @@ import { PointsDisplay } from '@/components/PointsDisplay'
 import { GoogleSignInButton } from '@/components/GoogleSignInButton'
 import { PointsProgress } from '@/components/PointsProgress'
 import { PointsGuide } from '@/components/PointsGuide'
+import { PointHistoryTimeline } from '@/components/PointHistoryTimeline'
+import { LoyaltyTierBadge } from '@/components/LoyaltyTierBadge'
 
 export default function ProfilePage() {
   const { t } = useLocale()
@@ -55,11 +57,13 @@ export default function ProfilePage() {
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <h1 className="font-heading text-2xl font-bold text-foreground mb-6">{t('profile.title')}</h1>
         <p className="text-muted mb-4">{t('profile.loggedInAs')} {userId}</p>
+        {userId && <LoyaltyTierBadge email={userId} className="mb-6" />}
         <div className="grid gap-4 sm:grid-cols-2 mb-6">
           <PointsDisplay />
           <PointsProgress />
         </div>
         <PointsGuide className="mb-6" />
+        <PointHistoryTimeline className="mb-6" />
         {registrationStatus === 'claimed' && (
           <p className="text-sm text-accent mb-4">{t('profile.registrationCouponActive')}</p>
         )}

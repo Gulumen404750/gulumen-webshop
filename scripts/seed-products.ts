@@ -1,10 +1,10 @@
 /**
  * Termékek seedelése az adatbázisba (production bootstrap).
  * Futtatás: npm run seed:products
- * A start.js deploy után is meghívja (upsert + régi teszt termékek archiválása).
+ * Csak hiányzó slug-okat hoz létre; meglévőknél csak üres mezőket tölt ki.
  */
 
-import { PrismaClient, type Prisma } from '@prisma/client'
+import { PrismaClient, type Prisma, type Product } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
@@ -549,17 +549,110 @@ function productPayload(p: SeedProduct): Prisma.ProductUncheckedCreateInput {
   }
 }
 
+function isBlankString(value: string | null | undefined): boolean {
+  return value == null || value.trim() === ''
+}
+
+function isEmptyArray(value: unknown[] | null | undefined): boolean {
+  return value == null || value.length === 0
+}
+
+/** Meglévő sor: csak üres / null mezők kitöltése seed értékkel (ár, készlet, státusz érintetlen). */
+function buildEmptyFieldPatch(
+  existing: Product,
+  seed: Prisma.ProductUncheckedCreateInput
+): Prisma.ProductUpdateInput {
+  const patch: Prisma.ProductUpdateInput = {}
+
+  const setStringIfBlank = (
+    key: keyof Prisma.ProductUpdateInput,
+    current: string | null | undefined,
+    next: string | null | undefined
+  ) => {
+    if (isBlankString(current) && next != null && !isBlankString(next)) {
+      ;(patch as Record<string, unknown>)[key as string] = next
+    }
+  }
+
+  setStringIfBlank('name', existing.name, seed.name)
+  setStringIfBlank('nameEn', existing.nameEn, seed.nameEn ?? null)
+  setStringIfBlank('nameDe', existing.nameDe, seed.nameDe ?? null)
+  setStringIfBlank('nameRo', existing.nameRo, seed.nameRo ?? null)
+  setStringIfBlank('description_hu', existing.description_hu, seed.description_hu)
+  setStringIfBlank('description_en', existing.description_en, seed.description_en)
+  setStringIfBlank('description_de', existing.description_de, seed.description_de)
+  setStringIfBlank('description_ro', existing.description_ro, seed.description_ro)
+  setStringIfBlank('image', existing.image, seed.image)
+  setStringIfBlank('modelUrl', existing.modelUrl, seed.modelUrl ?? null)
+
+  if (isEmptyArray(existing.images)) {
+    const nextImages = seed.images
+    if (Array.isArray(nextImages) && nextImages.length > 0) {
+      patch.images = nextImages
+    }
+  }
+  if (isEmptyArray(existing.images360)) {
+    const next360 = seed.images360
+    if (Array.isArray(next360) && next360.length > 0) {
+      patch.images360 = next360
+    }
+  }
+  if (existing.variants == null && seed.variants != null) {
+    patch.variants = seed.variants as Prisma.InputJsonValue
+  }
+  if (existing.discountPriceHuf == null && seed.discountPriceHuf != null) {
+    patch.discountPriceHuf = seed.discountPriceHuf
+  }
+  if (existing.discountPriceEur == null && seed.discountPriceEur != null) {
+    patch.discountPriceEur = seed.discountPriceEur
+  }
+  if (existing.saleStartAt == null && seed.saleStartAt != null) {
+    patch.saleStartAt = seed.saleStartAt
+  }
+  if (existing.saleEndAt == null && seed.saleEndAt != null) {
+    patch.saleEndAt = seed.saleEndAt
+  }
+  if (existing.dealStartAt == null && seed.dealStartAt != null) {
+    patch.dealStartAt = seed.dealStartAt
+  }
+  if (existing.dealEndAt == null && seed.dealEndAt != null) {
+    patch.dealEndAt = seed.dealEndAt
+  }
+  if (existing.previewFrom == null && seed.previewFrom != null) {
+    patch.previewFrom = seed.previewFrom
+  }
+  if (existing.maxOrders == null && seed.maxOrders != null) {
+    patch.maxOrders = seed.maxOrders
+  }
+  if (isBlankString(existing.category) && !isBlankString(seed.category)) {
+    patch.category = seed.category
+  }
+
+  return patch
+}
+
 export async function seedProducts(): Promise<void> {
-  console.log('[seed] Upserting canonical storefront catalog...')
+  let created = 0
+  let skipped = 0
+
   for (const p of [...stockProducts, ...sourcingDeals]) {
     const data = productPayload(p)
-    await prisma.product.upsert({
-      where: { slug: p.slug },
-      create: data,
-      update: data,
-    })
-    console.log('[seed]   upserted', p.slug)
+    const existing = await prisma.product.findUnique({ where: { slug: p.slug } })
+
+    if (!existing) {
+      await prisma.product.create({ data })
+      created++
+      continue
+    }
+
+    skipped++
+    const patch = buildEmptyFieldPatch(existing, data)
+    if (Object.keys(patch).length > 0) {
+      await prisma.product.update({ where: { slug: p.slug }, data: patch })
+    }
   }
+
+  console.log(`[seed] created ${created}, skipped ${skipped} existing`)
 
   const archived = await prisma.product.updateMany({
     where: {

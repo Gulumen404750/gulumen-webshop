@@ -75,6 +75,8 @@ export function SaleCountdown({ product, variant = 'overlay', onExpired }: Props
   if (variant === 'inline') {
     return (
       <span
+        aria-live="polite"
+        aria-atomic="true"
         className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium border ${
           urgent
             ? 'bg-discount/15 text-discount border-discount/30 sale-countdown-urgent'
@@ -93,7 +95,11 @@ export function SaleCountdown({ product, variant = 'overlay', onExpired }: Props
         urgent ? 'sale-countdown-urgent' : ''
       }`}
     >
-      <div className="flex items-center justify-center gap-1.5 text-white text-xs font-medium">
+      <div
+        aria-live="polite"
+        aria-atomic="true"
+        className="flex items-center justify-center gap-1.5 text-white text-xs font-medium"
+      >
         <ClockIcon className="w-3.5 h-3.5 shrink-0 opacity-90" />
         <span className={`tabular-nums tracking-wide ${urgent ? 'font-semibold' : ''}`}>{text}</span>
       </div>

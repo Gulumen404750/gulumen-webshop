@@ -1,7 +1,9 @@
 /**
  * Payment Provider Abstraction – provider-független fizetési interfész.
- * Később implementálható: Stripe, Barion, SimplePay.
+ * Implementációk: DummyProvider, StripeProvider (Barion, SimplePay később).
  */
+
+import { StripeProvider } from '@/lib/stripe-provider'
 
 export type PaymentCustomer = {
   email: string
@@ -108,10 +110,12 @@ export function setDefaultPaymentProvider(provider: PaymentProvider): void {
   defaultProvider = provider
 }
 
-/** Visszaadja az alapértelmezett providert. Ha nincs, DummyProvider. */
+/** Visszaadja az alapértelmezett providert. STRIPE_SECRET_KEY esetén Stripe, különben Dummy. */
 export function getPaymentProvider(): PaymentProvider {
   if (!defaultProvider) {
-    defaultProvider = new DummyProvider()
+    defaultProvider = process.env.STRIPE_SECRET_KEY?.trim()
+      ? new StripeProvider()
+      : new DummyProvider()
   }
   return defaultProvider
 }

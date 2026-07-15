@@ -13,13 +13,14 @@
 }
 
 .dark {
-  --bg: #111111;
-  --text: #f9fafb;
-  --text-muted: #9ca3af;
+  /* WCAG AA: fő szöveg ≥ 4.5:1 a háttérhez és kártyához */
+  --bg: #111827;
+  --text: #f3f4f6;
+  --text-muted: #cbd5e1;
   --accent: #38bdf8;
-  --discount: #f87171;
-  --card-bg: #1f2937;
-  --border: #374151;
+  --discount: #fca5a5;
+  --card-bg: #1e293b;
+  --border: #334155;
 }
 
 @layer base {

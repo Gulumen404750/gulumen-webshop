@@ -140,7 +140,11 @@
     "blockPromoDispatch": "25% reducere la produsele de mai sus dacă cumperi cel puțin 10 din listă",
     "blockNormalTitle": "Produse normale",
     "sourcingDisclaimerAccept": "Accept că produsele la comandă sunt aprovizionate după plasarea comenzii (7–14 zile lucrătoare). În caz de anulare după ce procesul de aprovizionare a început, costurile efectiv suportate pot fi reținute.",
-    "checkoutConfirmButton": "Continuă la plată"
+    "checkoutConfirmButton": "Continuă la plată",
+    "mobileStickyBanner": "{count} produse în coș – {total} Ft",
+    "mobileStickyBannerAria": "Rezumat coș",
+    "emptyStateTitle": "Coșul este gol",
+    "emptyStateCta": "Vezi ofertele"
   },
   "payment": {
     "title": "Plată",
@@ -149,6 +153,10 @@
     "payWithCard": "Plătesc cu cardul",
     "secureNote": "Plata se face pe o pagină securizată. Nu împărtăși niciodată datele cardului prin e-mail sau chat.",
     "securePayment": "Plată securizată",
+    "trustBadgesLabel": "Garanții de cumpărare",
+    "trustBadgeSecure": "Plată securizată",
+    "trustBadgeReturns": "Returnare în 14 zile",
+    "trustBadgeShipping": "Livrare rapidă",
     "guestCheckout": "Cumpărare oaspete",
     "guestCheckoutNote": "Înregistrarea opțională. Introdu e-mailul pentru comandă.",
     "emailRequired": "Adresa de e-mail este obligatorie.",
@@ -239,6 +247,11 @@
     "backToImage": "Înapoi la imagine",
     "color": "Culoare",
     "fullscreen3D": "Mărire / Ecran complet",
+    "view3DDesktopHint": "Vizualizarea 3D este optimă pe desktop.",
+    "openFullscreen3D": "Deschide pe ecran complet",
+    "share": "Distribuie",
+    "shareCopied": "Link copiat în clipboard!",
+    "shareNeedSelection": "Selectează mai întâi culoarea și materialul.",
     "similarProducts": "Produse similare",
     "recentlyViewed": "Vizualizate recent",
     "like": "Apreciere",
@@ -269,7 +282,15 @@
     "empty": "Niciun produs favorit încă.",
     "add": "Adaugă la favorite",
     "remove": "Elimină din favorite",
-    "loginRequired": "Autentifică-te pentru a adăuga la favorite."
+    "loginRequired": "Autentifică-te pentru a adăuga la favorite.",
+    "emptyStateHint": "Apasă pe inimioare la produse!",
+    "emptyStateCta": "Vezi produsele"
+  },
+  "search": {
+    "noResultsTitle": "Niciun rezultat",
+    "noResultsHint": "Încearcă alt termen de căutare sau răsfoiește categoriile.",
+    "noResultsHintWithQuery": "Niciun rezultat pentru „{query}”. Încearcă alt cuvânt sau categoriile sugerate.",
+    "suggestedCategories": "Categorii sugerate"
   },
   "coupon": {
     "title": "🎁 Cadou reducere 5%",
@@ -298,6 +319,7 @@
     "legal": "După plasarea comenzii, aprovizionarea se face printr-un canal dedicat de aprovizionare.\n\nÎn caz de aprovizionare reușită, livrarea produsului se face în 7–14 zile lucrătoare.\n\nDacă produsul nu poate fi asigurat în cadrul gamei de preț indicate, comanda se anulează și suma integrală se rambursează în 1–3 zile lucrătoare."
   },
   "register": {
+    "firstPurchasePromo": "Înregistrează-te și primește {percent}% reducere la prima achiziție!",
     "intro": "Înregistrează-te cu e-mailul. Dacă accepți să primești oferte de produse, vei primi un cupon de 10% o singură dată la prima achiziție.",
     "checkboxOffers": "Accept că Gulumen îmi poate trimite oferte și noutăți pe e-mail; în schimb primesc un cupon de 10% o singură dată.",
     "errorEmail": "Te rugăm să introduci adresa de e-mail.",
@@ -328,7 +350,12 @@
     "authErrorOAuthAccountNotLinked": "Acest cont Google este deja legat de altă metodă de autentificare.",
     "authErrorAccessDenied": "Autentificarea Google a fost anulată sau nu este permisă.",
     "authErrorConfiguration": "Autentificarea Google este configurată incorect (chei OAuth sau URL callback).",
-    "authErrorDefault": "Autentificarea Google a eșuat. Încercați din nou mai târziu."
+    "authErrorDefault": "Autentificarea Google a eșuat. Încercați din nou mai târziu.",
+    "loyaltyTierBronze": "Bronz",
+    "loyaltyTierSilver": "Argint",
+    "loyaltyTierGold": "Aur",
+    "loyaltyDiscountLabel": "{percent}% reducere permanentă de fidelitate",
+    "loyaltyQualifiedOrders": "{count} comenzi calificate"
   },
   "gamification": {
     "pointsTitle": "Punctele tale",
@@ -353,7 +380,17 @@
     "mechanicsRedeemTitle": "Răscumpărare cupon",
     "mechanicsRedeem": "La {threshold} puncte poți răscumpăra un cupon unic de {discount}% (valabil {days} zile, o singură utilizare).",
     "mechanicsReset": "Bonusurile de navigare la miezul nopții; like-urile în ferestre de 12 ore. Punctele pot apărea în 1–2 minute.",
-    "likeLimitReached": "Limita de like-uri cu puncte atinsă (10 / 12 ore). Poți continua să dai like."
+    "likeLimitReached": "Limita de like-uri cu puncte atinsă (10 / 12 ore). Poți continua să dai like.",
+    "historyTitle": "Istoric puncte",
+    "historyLoading": "Se încarcă…",
+    "historyEmpty": "Încă nu există mișcări de puncte.",
+    "historyTypeBrowse": "Navigare",
+    "historyTypeLike": "Favorite",
+    "historyTypeRedeem": "Răscumpărare cupon",
+    "historyTypeReversal": "Anulare",
+    "historyTypeOther": "Altele",
+    "historyBalanceAfter": "Sold: {balance} puncte",
+    "historyDevNote": "Istoricul punctelor este disponibil în modul dev local doar cu bază de date."
   },
   "luckySpin": {
     "title": "Roata Norocului",
@@ -388,6 +425,7 @@
     "sortNewest": "Cele mai noi",
     "sortPriceAsc": "Preț: crescător",
     "sortPriceDesc": "Preț: descrescător",
+    "filters": "Filtre",
     "filterPrice": "Preț",
     "filterSize": "Mărime",
     "filterCondition": "Stare",
@@ -407,6 +445,12 @@
     "shippingTitle": "Informații livrare",
     "returnsTitle": "Returnări",
     "contactTitle": "Contact",
+    "contact": {
+      "introAi": "Întrebări sau reclamații? Folosește butonul „Ai o întrebare? Te ajut!” din colțul din dreapta jos – asistența AI răspunde în maghiară, engleză, germană și română.",
+      "introHuman": "Dacă vrei un agent uman (ex. reclamație, aspect juridic), cere transferul în chat – cu ID-ul comenzii și e-mailul tău.",
+      "emailLabel": "E-mail:",
+      "frogAria": "Broască decorativă – trage pentru a o muta"
+    },
     "registerTitle": "Înregistrare",
     "registerHaveAccount": "Ai deja cont?",
     "shipping": {

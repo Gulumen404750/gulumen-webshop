@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useLocale } from '@/context/LocaleContext'
+import { useFocusTrap } from '@/hooks/useFocusTrap'
 
 type Props = {
   isOpen: boolean
@@ -13,6 +14,9 @@ export function CheckoutSourcingModal({ isOpen, onClose, onConfirm }: Props) {
   const { t } = useLocale()
   const [accepted, setAccepted] = useState(false)
   const prevOpen = useRef(false)
+  const dialogRef = useRef<HTMLDivElement>(null)
+
+  useFocusTrap(dialogRef, isOpen)
 
   useEffect(() => {
     if (isOpen) setAccepted(false)
@@ -47,6 +51,7 @@ export function CheckoutSourcingModal({ isOpen, onClose, onConfirm }: Props) {
         onClick={onClose}
       />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="checkout-sourcing-title"

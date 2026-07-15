@@ -34,11 +34,13 @@ type Props = {
   selectedColorHex?: string
   /** Teljes képernyős gomb megjelenítése. */
   enableFullscreen?: boolean
+  /** Mobil asztali-tip hint (pl. beágyazott teljes képernyős nézetben kapcsold ki). */
+  showMobileHint?: boolean
   /** Betöltés után (szín alkalmazása előtt is meghívódik). */
   onLoaded?: () => void
 }
 
-export function ProductModelViewer({ src, alt, className = '', selectedColorHex, enableFullscreen = false, onLoaded }: Props) {
+export function ProductModelViewer({ src, alt, className = '', selectedColorHex, enableFullscreen = false, showMobileHint = true, onLoaded }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<ModelViewerElement | null>(null)
   const loadingRef = useRef(false)
@@ -169,7 +171,7 @@ export function ProductModelViewer({ src, alt, className = '', selectedColorHex,
           <button
             type="button"
             onClick={() => setFullscreenOpen(true)}
-            className="absolute top-2 right-2 w-10 h-10 rounded-lg border border-[var(--border)] bg-[var(--card-bg)]/90 text-foreground flex items-center justify-center hover:bg-[var(--border)] transition-colors shadow-sm"
+            className="absolute top-2 right-2 hidden md:flex w-10 h-10 rounded-lg border border-[var(--border)] bg-[var(--card-bg)]/90 text-foreground items-center justify-center hover:bg-[var(--border)] transition-colors shadow-sm"
             aria-label={t('product.fullscreen3D') || 'Nagyítás / Teljes képernyő'}
             title={t('product.fullscreen3D') || 'Nagyítás'}
           >
@@ -219,6 +221,22 @@ export function ProductModelViewer({ src, alt, className = '', selectedColorHex,
         )}
       </div>
 
+      {showMobileHint && (
+        <div className="md:hidden mt-3 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2.5 text-center space-y-2">
+          <p className="text-sm text-muted leading-relaxed">{t('product.view3DDesktopHint')}</p>
+          {enableFullscreen && (
+            <button
+              type="button"
+              onClick={() => setFullscreenOpen(true)}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground text-sm font-medium hover:bg-[var(--border)] transition-colors"
+            >
+              <ExpandIcon className="w-4 h-4 shrink-0" aria-hidden />
+              {t('product.openFullscreen3D')}
+            </button>
+          )}
+        </div>
+      )}
+
       {fullscreenOpen && (
         <div
           className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4"
@@ -243,6 +261,7 @@ export function ProductModelViewer({ src, alt, className = '', selectedColorHex,
                 alt={alt}
                 selectedColorHex={selectedColorHex}
                 className="absolute inset-0"
+                showMobileHint={false}
               />
             </div>
           </div>

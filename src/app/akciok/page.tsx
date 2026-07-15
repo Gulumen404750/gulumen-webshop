@@ -2,7 +2,7 @@ import { getAllProductsAsync } from '@/lib/data'
 import { getActiveDealProducts } from '@/lib/storefront-config'
 import { ProductCard } from '@/components/ProductCard'
 
-export const revalidate = 10
+export const revalidate = 60
 
 export default async function DealsPage() {
   const allProducts = await getAllProductsAsync()

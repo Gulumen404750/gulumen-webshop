@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { FaqPageJsonLd } from '@/components/FaqPageJsonLd'
 import { useLocale } from '@/context/LocaleContext'
 
 export default function FaqPage() {
@@ -32,8 +33,14 @@ export default function FaqPage() {
     },
   ]
 
+  const faqItems = sections.flatMap((section) =>
+    section.items.map((item) => ({ question: item.q, answer: item.a }))
+  )
+
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <>
+      <FaqPageJsonLd items={faqItems} />
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <h1 className="font-heading text-3xl font-bold text-foreground mb-2">{t('nav.faq')}</h1>
       <p className="text-muted mb-10">{t('faq.intro')}</p>
 
@@ -62,6 +69,7 @@ export default function FaqPage() {
           {t('nav.contact')}
         </Link>
       </p>
-    </div>
+      </div>
+    </>
   )
 }

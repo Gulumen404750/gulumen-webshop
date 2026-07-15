@@ -5,7 +5,10 @@ import { useMemo, useCallback, useState, useEffect } from 'react'
 import { categories, mockProducts, getCategoryName, getProductName, getProductDescription, threeDSubcategories, is3DProduct, getStorefrontCategories } from '@/lib/data'
 import type { Product } from '@/lib/data'
 import { AUTO_HIDE_FILTERS_BELOW_COUNT } from '@/lib/storefront-config'
+import { SlidersHorizontal } from 'lucide-react'
 import { ProductCard } from '@/components/ProductCard'
+import { SearchNoResultsEmptyState } from '@/components/empty-states/SearchNoResultsEmptyState'
+import { ShopFiltersDrawer } from '@/components/ShopFiltersDrawer'
 import { HungarianFlagIcon } from '@/components/HungarianFlagIcon'
 import { useLocale } from '@/context/LocaleContext'
 
@@ -115,6 +118,15 @@ export function ShopContent({ initialProducts }: ShopContentProps = {}) {
   const INITIAL_PAGE_SIZE = 12
   const PAGE_SIZE = 12
   const [visibleCount, setVisibleCount] = useState(INITIAL_PAGE_SIZE)
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const activeFilterCount = useMemo(() => {
+    let count = 0
+    if (sizeFilter) count++
+    if (priceMin) count++
+    if (priceMax) count++
+    if (conditionFilter) count++
+    return count
+  }, [sizeFilter, priceMin, priceMax, conditionFilter])
   useEffect(() => {
     setVisibleCount(INITIAL_PAGE_SIZE)
   }, [categoryParam, subParam, searchQuery, sizeFilter, priceMin, priceMax, conditionFilter, sort])
@@ -167,71 +179,51 @@ export function ShopContent({ initialProducts }: ShopContentProps = {}) {
 
       <div className={`flex flex-col lg:flex-row gap-8 ${threeDTabDesignClass}`}>
         {showFilters && (
-        <aside className="lg:w-56 shrink-0">
-          <div className="sticky top-24 space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">{t('common.filterPrice')} (Ft)</label>
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  placeholder="Min"
-                  value={priceMin}
-                  onChange={(e) => setParams({ priceMin: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
-                />
-                <input
-                  type="number"
-                  placeholder="Max"
-                  value={priceMax}
-                  onChange={(e) => setParams({ priceMax: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
-                />
-              </div>
+          <aside className="hidden lg:block lg:w-56 shrink-0">
+            <div className="sticky top-24">
+              <ShopFilterFields
+                t={t}
+                priceMin={priceMin}
+                priceMax={priceMax}
+                sizeFilter={sizeFilter}
+                conditionFilter={conditionFilter}
+                sizes={sizes}
+                conditions={conditions}
+                setParams={setParams}
+              />
             </div>
-            {sizes.length > 0 && (
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">{t('common.filterSize')}</label>
-                <select
-                  value={sizeFilter}
-                  onChange={(e) => setParams({ size: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
-                >
-                  <option value="">{t('common.allSizes')}</option>
-                  {sizes.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">{t('common.filterCondition')}</label>
-              <select
-                value={conditionFilter}
-                onChange={(e) => setParams({ condition: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
-              >
-                <option value="">{t('common.allConditions')}</option>
-                {conditions.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </aside>
+          </aside>
         )}
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
             <p className="text-muted text-sm">{t('product.productsCount', { count: filtered.length })}</p>
-            <select
-              value={sort}
-              onChange={(e) => setParams({ sort: e.target.value })}
-              className="px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground text-sm"
-            >
-              <option value="newest">{t('common.sortNewest')}</option>
-              <option value="price-asc">{t('common.sortPriceAsc')}</option>
-              <option value="price-desc">{t('common.sortPriceDesc')}</option>
-            </select>
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              {showFilters && (
+                <button
+                  type="button"
+                  onClick={() => setFiltersOpen(true)}
+                  className="lg:hidden inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground text-sm font-medium hover:bg-[var(--border)] transition-colors"
+                >
+                  <SlidersHorizontal className="w-4 h-4 shrink-0" aria-hidden />
+                  <span>{t('common.filters')}</span>
+                  {activeFilterCount > 0 && (
+                    <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full bg-accent text-white text-xs font-semibold">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </button>
+              )}
+              <select
+                value={sort}
+                onChange={(e) => setParams({ sort: e.target.value })}
+                className="px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground text-sm"
+              >
+                <option value="newest">{t('common.sortNewest')}</option>
+                <option value="price-asc">{t('common.sortPriceAsc')}</option>
+                <option value="price-desc">{t('common.sortPriceDesc')}</option>
+              </select>
+            </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {visibleProducts.map((p) => (
@@ -250,9 +242,106 @@ export function ShopContent({ initialProducts }: ShopContentProps = {}) {
             </div>
           )}
           {filtered.length === 0 && (
-            <p className="text-muted text-center py-12">{t('common.noResults')}</p>
+            searchQuery ? (
+              <SearchNoResultsEmptyState query={searchQuery} />
+            ) : (
+              <p className="text-muted text-center py-12">{t('common.noResults')}</p>
+            )
           )}
         </div>
+      </div>
+
+      {showFilters && (
+        <ShopFiltersDrawer isOpen={filtersOpen} onClose={() => setFiltersOpen(false)}>
+          <ShopFilterFields
+            t={t}
+            priceMin={priceMin}
+            priceMax={priceMax}
+            sizeFilter={sizeFilter}
+            conditionFilter={conditionFilter}
+            sizes={sizes}
+            conditions={conditions}
+            setParams={setParams}
+          />
+        </ShopFiltersDrawer>
+      )}
+    </div>
+  )
+}
+
+type ShopFilterFieldsProps = {
+  t: (key: string) => string
+  priceMin: string
+  priceMax: string
+  sizeFilter: string
+  conditionFilter: string
+  sizes: string[]
+  conditions: string[]
+  setParams: (updates: Record<string, string>) => void
+}
+
+function ShopFilterFields({
+  t,
+  priceMin,
+  priceMax,
+  sizeFilter,
+  conditionFilter,
+  sizes,
+  conditions,
+  setParams,
+}: ShopFilterFieldsProps) {
+  return (
+    <div className="space-y-6">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">{t('common.filterPrice')}</label>
+        <div className="flex gap-2">
+          <input
+            type="number"
+            placeholder="Min"
+            value={priceMin}
+            onChange={(e) => setParams({ priceMin: e.target.value })}
+            className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
+          />
+          <input
+            type="number"
+            placeholder="Max"
+            value={priceMax}
+            onChange={(e) => setParams({ priceMax: e.target.value })}
+            className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
+          />
+        </div>
+      </div>
+      {sizes.length > 0 && (
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">{t('common.filterSize')}</label>
+          <select
+            value={sizeFilter}
+            onChange={(e) => setParams({ size: e.target.value })}
+            className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
+          >
+            <option value="">{t('common.allSizes')}</option>
+            {sizes.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">{t('common.filterCondition')}</label>
+        <select
+          value={conditionFilter}
+          onChange={(e) => setParams({ condition: e.target.value })}
+          className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
+        >
+          <option value="">{t('common.allConditions')}</option>
+          {conditions.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
       </div>
     </div>
   )

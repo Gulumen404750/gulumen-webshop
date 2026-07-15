@@ -43,6 +43,9 @@ import {
   validateCouponPercent,
   FREE_SHIPPING_THRESHOLD,
 } from '@/lib/checkout'
+import { maybeSendOrderGroupConfirmationEmail } from '@/lib/order-email'
+import { resolveCheckoutCoupon, recordCouponUsageOnPayment } from '@/lib/coupon-checkout'
+import type { CouponDiscount } from '@/lib/checkout'
 
 const checkoutBodySchema = z.object({
   items: z
@@ -68,6 +71,8 @@ const checkoutBodySchema = z.object({
   discountPercent: z.number().min(0).max(1).optional(),
   /** Szerver validálja: max. kosár 30%-a, egyenleg ellenőrzés. */
   pointsDiscountHuf: z.number().int().min(0).optional(),
+  /** DB kupon kód – nem kombinálható macska/regisztrációs kuponnal vagy loyalty-val. */
+  couponCode: z.string().min(1).optional(),
 })
 
 export async function POST(request: Request) {
@@ -113,7 +118,20 @@ export async function POST(request: Request) {
     isDiscountActive,
     discountPercent: bodyPercent,
     pointsDiscountHuf: requestedPointsHuf = 0,
+    couponCode: bodyCouponCode,
   } = parsed.data
+
+  const couponCodeTrimmed = bodyCouponCode?.trim() ?? ''
+  const hasClientCoupon = Boolean(isDiscountActive && bodyPercent != null && bodyPercent > 0)
+  if (couponCodeTrimmed && hasClientCoupon) {
+    return NextResponse.json(
+      {
+        code: 'coupon_conflict',
+        error: 'A kuponkód nem kombinálható a macska vagy regisztrációs kuponnal.',
+      },
+      { status: 400 }
+    )
+  }
 
   let checkoutUserId: string | null = null
   const session = await getSession(request)
@@ -133,20 +151,8 @@ export async function POST(request: Request) {
     if (p) productMap.set(id, p)
   }
 
-  let couponPercent = 0
-  if (isDiscountActive && bodyPercent != null && bodyPercent > 0) {
-    if (!validateCouponPercent(bodyPercent, Boolean(checkoutUserId))) {
-      return NextResponse.json({ error: 'Invalid coupon discount' }, { status: 400 })
-    }
-    couponPercent = bodyPercent
-  } else if (!isDiscountActive) {
-    const loyalty = getLoyaltyByEmail(customer.email)
-    if (loyalty && loyalty.loyaltyPercent > 0) {
-      couponPercent = loyalty.loyaltyPercent / 100
-    }
-  }
-
   const now = new Date()
+
   for (const item of items) {
     const product = productMap.get(item.productId)
     if (!product) {
@@ -183,6 +189,10 @@ export async function POST(request: Request) {
     }
   }
 
+  let couponDiscount: CouponDiscount = { percent: 0 }
+  let appliedCouponId: string | null = null
+  let appliedCouponCode: string | null = null
+
   const luckySpin = checkoutUserId ? await getLuckySpinForCheckout(checkoutUserId, now) : null
   const lines = resolveCartLines(items, productMap)
 
@@ -190,9 +200,36 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'No valid items' }, { status: 400 })
   }
 
+  const cartSubtotalHuf = lines.reduce((s, l) => s + l.priceHuf * l.qty, 0)
+
+  if (couponCodeTrimmed) {
+    const resolved = await resolveCheckoutCoupon({
+      couponCode: couponCodeTrimmed,
+      checkoutUserId,
+      subtotalHuf: cartSubtotalHuf,
+      now,
+    })
+    if (!resolved.ok) {
+      return NextResponse.json({ code: resolved.code, error: resolved.error }, { status: 400 })
+    }
+    couponDiscount = resolved.discount
+    appliedCouponId = resolved.coupon.id
+    appliedCouponCode = resolved.coupon.code
+  } else if (hasClientCoupon) {
+    if (!validateCouponPercent(bodyPercent!, Boolean(checkoutUserId))) {
+      return NextResponse.json({ error: 'Invalid coupon discount' }, { status: 400 })
+    }
+    couponDiscount = { percent: bodyPercent! }
+  } else if (!isDiscountActive) {
+    const loyalty = getLoyaltyByEmail(customer.email)
+    if (loyalty && loyalty.loyaltyPercent > 0) {
+      couponDiscount = { percent: loyalty.loyaltyPercent / 100 }
+    }
+  }
+
   const prePointsTotals = computeCheckoutTotals({
     lines,
-    coupon: { percent: couponPercent },
+    coupon: couponDiscount,
     luckySpin,
     now,
   })
@@ -212,7 +249,7 @@ export async function POST(request: Request) {
 
   const totals = computeCheckoutTotals({
     lines,
-    coupon: { percent: couponPercent },
+    coupon: couponDiscount,
     luckySpin,
     points:
       validatedPointsHuf > 0 && checkoutUserId
@@ -260,6 +297,7 @@ export async function POST(request: Request) {
   const createdOrders = await createCheckoutOrders({
     orderGroupId,
     userId: checkoutUserId ?? undefined,
+    couponId: appliedCouponId ?? undefined,
     inStock: hasInStock
       ? {
           items: inStock.items,
@@ -306,6 +344,7 @@ export async function POST(request: Request) {
   for (const order of createdOrders) {
     if (order.totalHuf === 0 && (order.pointsUsed ?? 0) > 0) {
       await setOrderStatus(order.id, 'paid')
+      await recordCouponUsageOnPayment(order.id)
       await enqueueOrderPurchasePointsRedemption({
         id: order.id,
         userId: order.userId ?? checkoutUserId,
@@ -391,9 +430,29 @@ export async function POST(request: Request) {
     'checkout completed'
   )
 
+  const needsExternalPayment = paymentResults.some(
+    (p) => p.type === 'redirect' || p.type === 'client_secret'
+  )
+  if (!needsExternalPayment && createdOrders.length > 0) {
+    try {
+      const emailResult = await maybeSendOrderGroupConfirmationEmail(
+        createdOrders[0]!.id,
+        customer.email
+      )
+      if (!emailResult.ok) {
+        logger.error({ err: emailResult.error }, 'checkout: order confirmation email failed')
+      }
+    } catch (emailErr) {
+      logger.error({ err: emailErr }, 'checkout: order confirmation email error')
+    }
+  }
+
   const payload = {
     orderGroupId,
     payments: paymentResults,
+    couponApplied: appliedCouponCode
+      ? { code: appliedCouponCode, discountHuf: totals.couponDiscountHuf }
+      : undefined,
     luckySpinApplied: luckySpinDiscount.active
       ? {
           discountHuf: luckySpinDiscount.discountHuf,

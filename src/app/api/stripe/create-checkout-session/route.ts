@@ -1,3 +1,8 @@
+/**
+ * @deprecated Használd helyette POST /api/checkout – a StripeProvider integrációval.
+ * Ez a route a régi, egyszeres rendeléses Stripe Checkout flow-t szolgálja ki.
+ * Nem törlendő még – visszafelé kompatibilitás miatt megmarad.
+ */
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { z } from 'zod'

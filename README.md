@@ -12,6 +12,13 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+## Git & deploy branch
+
+- **Fejlesztési branch:** `master` (ez az alapértelmezett; nincs külön `main` deploy ág).
+- **Deploy forrás:** push a `master`-re → Railway deploy a **gulumen-webshop** service-re.
+- **GitHub Actions:** `.github/workflows/railway-deploy.yml` – csak `master` push-ra fut.
+- **Railway:** Settings → Source → branch **`master`**.
+
 ## Railway deploy (www.gulumen.com)
 
 ### 1. Helyes service
@@ -19,7 +26,7 @@ Open [http://localhost:3000](http://localhost:3000).
 Deploy **csak** a **gulumen-webshop** service-re (NE `dynamic-perfection`).
 
 - **Settings → Root Directory:** üres vagy `.` (ne legyen almappa)
-- **Source:** GitHub repo, branch `master`
+- **Source:** GitHub repo, branch **`master`** (deploy nem a `main` ágról megy)
 - **Build:** `npm run build` (nixpacks / railway.json)
 - **Start:** `npm run start` → `scripts/start.js`
 

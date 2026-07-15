@@ -55,6 +55,8 @@ export type Order = {
   userId?: string
   pointsDiscountHuf?: number
   pointsUsed?: number
+  couponId?: string
+  couponUsageRecorded?: boolean
 }
 
 const COUPON_PERCENT = 0.05
@@ -131,6 +133,8 @@ function dbOrderToOrder(row: {
   userId: string | null
   pointsDiscountHuf: number
   pointsUsed: number
+  couponId: string | null
+  couponUsageRecorded: boolean
   items: { productId: string; qty: number; fulfillmentType: string; priceHuf: number; name: string | null }[]
 }): Order {
   return {
@@ -147,6 +151,8 @@ function dbOrderToOrder(row: {
     userId: row.userId ?? undefined,
     pointsDiscountHuf: row.pointsDiscountHuf,
     pointsUsed: row.pointsUsed,
+    couponId: row.couponId ?? undefined,
+    couponUsageRecorded: row.couponUsageRecorded,
     stripeSessionId: row.stripeSessionId ?? undefined,
     paymentIntentId: row.paymentIntentId ?? undefined,
     amountPaid: row.amountPaid ?? undefined,
@@ -348,6 +354,7 @@ export function generateOrderGroupId(): string {
 export async function createCheckoutOrders(params: {
   orderGroupId: string
   userId?: string
+  couponId?: string
   inStock?: {
     items: OrderItem[]
     subtotalHuf: number
@@ -384,6 +391,7 @@ export async function createCheckoutOrders(params: {
           pointsDiscountHuf: params.inStock.pointsDiscountHuf ?? 0,
           pointsUsed: params.inStock.pointsUsed ?? 0,
           userId: params.userId ?? null,
+          couponId: params.couponId ?? null,
           currency,
           items: {
             create: params.inStock.items.map((i) => ({
@@ -408,6 +416,7 @@ export async function createCheckoutOrders(params: {
         pointsDiscountHuf: params.inStock.pointsDiscountHuf ?? 0,
         pointsUsed: params.inStock.pointsUsed ?? 0,
         userId: params.userId,
+        couponId: params.couponId,
         currency,
         createdAt: new Date().toISOString(),
       })
@@ -426,6 +435,7 @@ export async function createCheckoutOrders(params: {
           pointsDiscountHuf: params.sourcing.pointsDiscountHuf ?? 0,
           pointsUsed: params.sourcing.pointsUsed ?? 0,
           userId: params.userId ?? null,
+          couponId: params.couponId ?? null,
           currency,
           items: {
             create: params.sourcing.items.map((i) => ({
@@ -450,6 +460,7 @@ export async function createCheckoutOrders(params: {
         pointsDiscountHuf: params.sourcing.pointsDiscountHuf ?? 0,
         pointsUsed: params.sourcing.pointsUsed ?? 0,
         userId: params.userId,
+        couponId: params.couponId,
         currency,
         createdAt: new Date().toISOString(),
       })
@@ -468,6 +479,7 @@ export async function createCheckoutOrders(params: {
       subtotalHuf: params.inStock.subtotalHuf,
       discountHuf: params.inStock.discountHuf,
       totalHuf: params.inStock.totalHuf,
+      couponId: params.couponId,
       currency,
       createdAt: new Date().toISOString(),
     }
@@ -484,6 +496,7 @@ export async function createCheckoutOrders(params: {
       subtotalHuf: params.sourcing.subtotalHuf,
       discountHuf: params.sourcing.discountHuf,
       totalHuf: params.sourcing.totalHuf,
+      couponId: params.couponId,
       currency,
       createdAt: new Date().toISOString(),
     }

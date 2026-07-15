@@ -15,6 +15,7 @@ import { useToast } from '@/context/ToastContext'
 import { useEuroRate } from '@/context/EuroRateContext'
 import { useLuckySpin } from '@/hooks/useLuckySpin'
 import { CheckoutSourcingModal } from '@/components/CheckoutSourcingModal'
+import { CartEmptyState } from '@/components/empty-states/CartEmptyState'
 import {
   computeCheckoutTotals,
   applyLuckySpinLockedPrices,
@@ -199,11 +200,13 @@ export default function CartPage() {
         {justOrdered ? (
           <p className="text-foreground mb-4">{t('cart.thanksOrder')}</p>
         ) : (
-          <p className="text-muted mb-4">{t('cart.empty')}</p>
+          <CartEmptyState />
         )}
-        <Link href="/termekek" className="inline-block text-accent font-medium hover:underline">
-          {t('buttons.browseProducts')}
-        </Link>
+        {justOrdered && (
+          <Link href="/termekek" className="inline-block mt-4 text-accent font-medium hover:underline">
+            {t('buttons.browseProducts')}
+          </Link>
+        )}
       </div>
     )
   }

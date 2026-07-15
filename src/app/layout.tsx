@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import { Poppins, Inter } from 'next/font/google'
 import './globals.css'
 import { Header } from '@/components/Header'
@@ -17,8 +18,11 @@ import { OrganizationJsonLd } from '@/components/OrganizationJsonLd'
 import { Analytics } from '@/components/Analytics'
 import { WalletErrorGuard } from '@/components/WalletErrorGuard'
 import { CallUsStickyCTA } from '@/components/CallUsStickyCTA'
+import { MobileCartStickyBanner } from '@/components/MobileCartStickyBanner'
 import { Footer } from '@/components/Footer'
 import { BrowseHeartbeatTracker } from '@/components/BrowseHeartbeatTracker'
+import { HreflangLinks } from '@/components/HreflangLinks'
+import { getServerLocale } from '@/lib/locale-server'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -32,9 +36,6 @@ const inter = Inter({
 })
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://gulumen.hu'
-
-/** Build-time static generation off so Railway/build works without DB and useSearchParams is allowed. */
-export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'Gulumen – Gondosan válogatott, limitált minőségi termékek',
@@ -55,14 +56,17 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const htmlLang = await getServerLocale()
+
   return (
-    <html lang="hu" className={`${poppins.variable} ${inter.variable}`} suppressHydrationWarning>
+    <html lang={htmlLang} className={`${poppins.variable} ${inter.variable}`} suppressHydrationWarning>
       <head>
+        <HreflangLinks />
         <link rel="modulepreload" href="https://ajax.googleapis.com/ajax/libs/model-viewer/4.1.0/model-viewer.min.js" />
       </head>
       <body className="min-h-screen flex flex-col font-body">
@@ -78,7 +82,10 @@ export default function RootLayout({
                 <CartProvider>
                   <WishlistProvider>
                   <ToastProvider>
-                    <Header />
+                    <Suspense fallback={<div className="h-16 border-b border-[var(--border)] bg-[var(--card-bg)]" aria-hidden />}>
+                      <Header />
+                    </Suspense>
+                    <MobileCartStickyBanner />
                     <BrowseHeartbeatTracker />
                     <main className="flex-1">{children}</main>
                     <Footer />

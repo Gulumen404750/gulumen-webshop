@@ -1149,53 +1149,94 @@ export function getEarliestSourcingExpiry(products: Product[], now: Date = new D
   return earliest != null ? new Date(earliest) : null
 }
 
-// --- Async: DB-ből jönnek a termékek, ha konfigurált; különben mock (sync) fallback. ---
-async function getProductsSource(): Promise<Product[]> {
-  const { isDbConfigured } = await import('@/lib/prisma')
-  const { getAllProductsFromDb } = await import('@/lib/products')
-  if (isDbConfigured()) return getAllProductsFromDb()
-  return mockProducts
-}
+// --- Async storefront: DB-first; mockProducts csak dev + nincs DATABASE_URL. ---
 
-/** Async: termék slug alapján (DB vagy mock). */
-export async function getProductBySlugAsync(slug: string): Promise<Product | undefined> {
-  const { isDbConfigured } = await import('@/lib/prisma')
-  const { getProductBySlugFromDb } = await import('@/lib/products')
+async function loadFromDbOrMock<T>(
+  loadDb: () => Promise<T>,
+  loadMock: () => T,
+  empty: T
+): Promise<T> {
+  const { isDbConfigured, shouldUseMockProductsFallback } = await import('@/lib/prisma')
   if (isDbConfigured()) {
-    const p = await getProductBySlugFromDb(slug)
-    return p ?? undefined
+    try {
+      return await loadDb()
+    } catch {
+      // DB hiba: prod-ban vagy DB URL mellett ne essünk mock-ra
+    }
   }
-  return getProductBySlug(slug)
+  if (shouldUseMockProductsFallback()) {
+    return loadMock()
+  }
+  return empty
 }
 
-/** Async: termék id alapján (DB vagy mock). */
-export async function getProductByIdAsync(id: string): Promise<Product | undefined> {
-  const { isDbConfigured } = await import('@/lib/prisma')
-  const { getProductByIdFromDb } = await import('@/lib/products')
-  if (isDbConfigured()) {
-    const p = await getProductByIdFromDb(id)
-    return p ?? undefined
-  }
-  return getProductById(id)
-}
-
-/** Async: összes termék (DB vagy mock), storefront szűréssel. */
+/** Async: összes termék (DB-first), storefront szűréssel. */
 export async function getAllProductsAsync(): Promise<Product[]> {
-  try {
-    const { isDbConfigured } = await import('@/lib/prisma')
-    const { filterStorefrontProducts } = await import('@/lib/storefront-config')
-    const raw = await getProductsSource()
-    return filterStorefrontProducts(raw, !isDbConfigured())
-  } catch {
-    const { filterStorefrontProducts } = await import('@/lib/storefront-config')
-    return filterStorefrontProducts(mockProducts, true)
-  }
+  const { filterStorefrontProducts } = await import('@/lib/storefront-config')
+  const { shouldUseMockProductsFallback } = await import('@/lib/prisma')
+  const raw = await loadFromDbOrMock(
+    async () => {
+      const { getAllProductsFromDb } = await import('@/lib/products')
+      return getAllProductsFromDb()
+    },
+    () => mockProducts,
+    [] as Product[]
+  )
+  return filterStorefrontProducts(raw, shouldUseMockProductsFallback())
 }
 
-/** Async: beszerzésre rendelhető termékek (DB vagy mock). */
+/** Async: termék slug alapján (DB-first). */
+export async function getProductBySlugAsync(slug: string): Promise<Product | undefined> {
+  const result = await loadFromDbOrMock(
+    async () => {
+      const { getProductBySlugFromDb } = await import('@/lib/products')
+      return (await getProductBySlugFromDb(slug)) ?? undefined
+    },
+    () => getProductBySlug(slug),
+    undefined as Product | undefined
+  )
+  return result
+}
+
+/** Async: termék id alapján (DB-first). */
+export async function getProductByIdAsync(id: string): Promise<Product | undefined> {
+  const result = await loadFromDbOrMock(
+    async () => {
+      const { getProductByIdFromDb } = await import('@/lib/products')
+      return (await getProductByIdFromDb(id)) ?? undefined
+    },
+    () => getProductById(id),
+    undefined as Product | undefined
+  )
+  return result
+}
+
+/** Async: beszerzésre rendelhető termékek (DB-first). */
 export async function getSourcingDealProductsAsync(): Promise<Product[]> {
-  const { isDbConfigured } = await import('@/lib/prisma')
-  const { getSourcingDealProductsFromDb } = await import('@/lib/products')
-  if (isDbConfigured()) return getSourcingDealProductsFromDb()
-  return getSourcingDealProducts()
+  return loadFromDbOrMock(
+    async () => {
+      const { getSourcingDealProductsFromDb } = await import('@/lib/products')
+      return getSourcingDealProductsFromDb()
+    },
+    () => getSourcingDealProducts(),
+    [] as Product[]
+  )
+}
+
+/** Async: hasonló termékek (DB-first). */
+export async function getSimilarProductsAsync(product: Product, limit = 4): Promise<Product[]> {
+  return loadFromDbOrMock(
+    async () => {
+      const { getSimilarProductsFromDb } = await import('@/lib/products')
+      return getSimilarProductsFromDb(product.category, product.id, limit)
+    },
+    () =>
+      mockProducts
+        .filter(
+          (p) =>
+            p.category === product.category && p.id !== product.id && p.type !== 'sourcing_deal'
+        )
+        .slice(0, limit),
+    [] as Product[]
+  )
 }

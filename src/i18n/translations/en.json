@@ -155,7 +155,11 @@
     "blockPromoDispatch": "25% off the items above when you buy at least 10 from the list",
     "blockNormalTitle": "Regular items",
     "sourcingDisclaimerAccept": "I acknowledge that sourcing products are sourced after the order is placed (7–14 working days). If the order is cancelled after the sourcing process has started, the actually incurred costs may be deducted.",
-    "checkoutConfirmButton": "Proceed to payment"
+    "checkoutConfirmButton": "Proceed to payment",
+    "mobileStickyBanner": "{count} items in your cart – {total} HUF",
+    "mobileStickyBannerAria": "Cart summary",
+    "emptyStateTitle": "Your cart is empty",
+    "emptyStateCta": "Browse our deals"
   },
   "payment": {
     "title": "Payment",
@@ -164,6 +168,10 @@
     "payWithCard": "Pay by card",
     "secureNote": "Payment is processed on a secure checkout page. Never share card details by email or chat.",
     "securePayment": "Secure payment",
+    "trustBadgesLabel": "Purchase guarantees",
+    "trustBadgeSecure": "Secure payment",
+    "trustBadgeReturns": "14-day returns",
+    "trustBadgeShipping": "Fast shipping",
     "guestCheckout": "Guest checkout",
     "guestCheckoutNote": "Registration optional. Enter your email for the order.",
     "emailRequired": "Email address is required.",
@@ -254,6 +262,11 @@
     "backToImage": "Back to image",
     "color": "Color",
     "fullscreen3D": "Zoom / Fullscreen",
+    "view3DDesktopHint": "The 3D view works best on desktop.",
+    "openFullscreen3D": "Open fullscreen",
+    "share": "Share",
+    "shareCopied": "Link copied to clipboard!",
+    "shareNeedSelection": "Select colour and material first.",
     "similarProducts": "Similar products",
     "recentlyViewed": "Recently viewed",
     "like": "Like",
@@ -284,7 +297,15 @@
     "empty": "No favourite products yet.",
     "add": "Add to wishlist",
     "remove": "Remove from wishlist",
-    "loginRequired": "Log in to like products."
+    "loginRequired": "Log in to like products.",
+    "emptyStateHint": "Tap the hearts on products!",
+    "emptyStateCta": "Browse products"
+  },
+  "search": {
+    "noResultsTitle": "No results",
+    "noResultsHint": "Try a different search term or browse by category.",
+    "noResultsHintWithQuery": "No results for “{query}”. Try another term or explore the suggested categories.",
+    "suggestedCategories": "Suggested categories"
   },
   "coupon": {
     "title": "🎁 5% discount gift",
@@ -313,6 +334,7 @@
     "legal": "After placing the order, sourcing takes place through a dedicated sourcing channel.\n\nIf sourcing is successful, the product will be delivered within 7–14 business days.\n\nIf the product cannot be secured within the given price range, the order will be cancelled and the full amount will be refunded within 1–3 business days."
   },
   "register": {
+    "firstPurchasePromo": "Register and get {percent}% off your first purchase!",
     "intro": "Register with your email. If you accept that we send you product offers, you will receive a one-time 10% coupon for your first purchase.",
     "checkboxOffers": "I accept that Gulumen may send me product offers and news by email; in exchange I receive a one-time 10% coupon.",
     "errorEmail": "Please enter your email address.",
@@ -343,7 +365,12 @@
     "authErrorOAuthAccountNotLinked": "This Google account is already linked to another sign-in method.",
     "authErrorAccessDenied": "Google sign-in was cancelled or not permitted.",
     "authErrorConfiguration": "Google sign-in is misconfigured (OAuth keys or callback URL).",
-    "authErrorDefault": "Google sign-in failed. Please try again later."
+    "authErrorDefault": "Google sign-in failed. Please try again later.",
+    "loyaltyTierBronze": "Bronze",
+    "loyaltyTierSilver": "Silver",
+    "loyaltyTierGold": "Gold",
+    "loyaltyDiscountLabel": "{percent}% permanent loyalty discount",
+    "loyaltyQualifiedOrders": "{count} qualifying orders"
   },
   "gamification": {
     "pointsTitle": "Your points",
@@ -368,7 +395,17 @@
     "mechanicsRedeemTitle": "Redeem coupon",
     "mechanicsRedeem": "Collect {threshold} points to redeem a one-time {discount}% coupon (valid for {days} days, single use).",
     "mechanicsReset": "Browse bonuses reset at midnight; like points use a 12-hour window. Points may take 1–2 minutes to appear.",
-    "likeLimitReached": "Point-earning like limit reached (10 per 12 hours). You can still like products."
+    "likeLimitReached": "Point-earning like limit reached (10 per 12 hours). You can still like products.",
+    "historyTitle": "Point history",
+    "historyLoading": "Loading…",
+    "historyEmpty": "No point activity yet.",
+    "historyTypeBrowse": "Browsing",
+    "historyTypeLike": "Favourite",
+    "historyTypeRedeem": "Coupon redemption",
+    "historyTypeReversal": "Reversal",
+    "historyTypeOther": "Other",
+    "historyBalanceAfter": "Balance: {balance} pts",
+    "historyDevNote": "Point history is only available with a database in local dev mode."
   },
   "luckySpin": {
     "title": "Lucky Wheel",
@@ -403,6 +440,7 @@
     "sortNewest": "Newest",
     "sortPriceAsc": "Price: low to high",
     "sortPriceDesc": "Price: high to low",
+    "filters": "Filters",
     "filterPrice": "Price",
     "filterSize": "Size",
     "filterCondition": "Condition",
@@ -422,6 +460,12 @@
     "shippingTitle": "Shipping information",
     "returnsTitle": "Returns",
     "contactTitle": "Contact",
+    "contact": {
+      "introAi": "Have a question or complaint? Use the “Have a question? I can help!” button in the bottom-right corner – our AI support answers in Hungarian, English, German and Romanian.",
+      "introHuman": "If you prefer a human agent (e.g. complaint, legal matter), ask for handover in the chat – include your order ID and email.",
+      "emailLabel": "Email:",
+      "frogAria": "Decorative frog – drag it around"
+    },
     "registerTitle": "Registration",
     "registerHaveAccount": "Already have an account?",
     "shipping": {

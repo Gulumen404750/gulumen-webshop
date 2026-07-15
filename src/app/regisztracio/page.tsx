@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useCatCoupon } from '@/context/CatCouponContext'
 import { useLocale } from '@/context/LocaleContext'
 import { GoogleSignInButton } from '@/components/GoogleSignInButton'
+import { getRegistrationCouponPercentDisplay } from '@/lib/coupon-config'
 
 export default function RegistrationPage() {
   const { t } = useLocale()
@@ -18,6 +19,7 @@ export default function RegistrationPage() {
   const [acceptOffers, setAcceptOffers] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [couponGranted, setCouponGranted] = useState(false)
+  const registrationCouponPercent = getRegistrationCouponPercentDisplay()
 
   const handleGoogleRegister = () => {
     setError(null)
@@ -62,7 +64,9 @@ export default function RegistrationPage() {
   return (
     <div className="max-w-md mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <h1 className="font-heading text-2xl font-bold text-foreground mb-2">
-        {t('home.registerTitle')}
+        {registrationCouponPercent > 0
+          ? t('register.firstPurchasePromo', { percent: registrationCouponPercent })
+          : t('pages.registerTitle')}
       </h1>
       <p className="text-muted mb-6">{t('register.intro')}</p>
       <form onSubmit={handleSubmit} className="space-y-4">

@@ -14,7 +14,11 @@
     "convert-3d": "node scripts/convert-3d.mjs",
     "convert-3d:batch": "node scripts/convert-3d.mjs --batch",
     "convert-3d:webshop": "node scripts/convert-3d.mjs --webshop",
-    "seed:products": "npx tsx scripts/seed-products.ts"
+    "seed:products": "npx tsx scripts/seed-products.ts",
+    "test": "vitest",
+    "test:ci": "vitest run",
+    "test:e2e": "playwright test",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@prisma/client": "^6.0.0",
@@ -35,6 +39,7 @@
   },
   "devDependencies": {
     "@gltf-transform/cli": "^4.3.0",
+    "@playwright/test": "^1.61.1",
     "@polar3d/model-converter": "^1.1.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.0.0",
@@ -48,6 +53,7 @@
     "prisma": "^6.0.0",
     "tailwindcss": "^3.4.0",
     "three": "^0.170.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^4.1.10"
   }
 }

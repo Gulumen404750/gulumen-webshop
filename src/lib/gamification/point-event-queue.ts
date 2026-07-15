@@ -84,7 +84,6 @@ async function processBrowse5MinEvent(userId: string, payload: Record<string, un
       bonusGrantedCount: newCount,
       lastBonusGrantedAt: new Date(),
       sessionProgressSeconds: 0,
-      bonusGranted: newCount >= BROWSE_DAILY_MAX_BONUSES,
     },
   })
   return true
