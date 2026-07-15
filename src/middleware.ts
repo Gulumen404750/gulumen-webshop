@@ -10,6 +10,13 @@ const ADMIN_LOGIN = '/admin/login'
  * /admin/* (kivéve /admin/login) védve: admin_authorized cookie.
  */
 export function middleware(request: NextRequest) {
+  const host = request.nextUrl.hostname
+  if (host === 'gulumen.com') {
+    const wwwUrl = request.nextUrl.clone()
+    wwwUrl.hostname = 'www.gulumen.com'
+    return NextResponse.redirect(wwwUrl, 308)
+  }
+
   const pathname = request.nextUrl.pathname
   if (pathname.startsWith(ADMIN_PREFIX) && !pathname.startsWith(ADMIN_LOGIN)) {
     const authorized = request.cookies.get('admin_authorized')?.value === '1'
