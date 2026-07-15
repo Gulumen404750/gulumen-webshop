@@ -66,13 +66,13 @@ export function LuckySpinModal({ isOpen, onClose, data, onSpin, spinning }: Prop
   if (!isOpen) return null
 
   const handleSpin = async () => {
+    if (!termsAccepted) return
     setSpinError(null)
     setAnimating(true)
     try {
       const result = await onSpin()
       if (result?.isActive && result.spin) {
         setSpinData(result)
-        setTermsAccepted(false)
       } else if (!result) {
         setSpinError(t('luckySpin.spinFailed'))
       }
@@ -81,11 +81,6 @@ export function LuckySpinModal({ isOpen, onClose, data, onSpin, spinning }: Prop
     } finally {
       setTimeout(() => setAnimating(false), 2000)
     }
-  }
-
-  const handleActivate = () => {
-    if (!termsAccepted) return
-    onClose()
   }
 
   const isActive = displayData?.isActive && displayData.spin
@@ -165,11 +160,22 @@ export function LuckySpinModal({ isOpen, onClose, data, onSpin, spinning }: Prop
               </div>
             </div>
             <p className="text-sm text-center text-muted leading-tight max-w-sm px-2">{tierText}</p>
+            <label className="flex items-start gap-3 cursor-pointer group w-full max-w-sm px-2">
+              <input
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={(e) => setTermsAccepted(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 rounded border-2 border-[var(--border)] bg-background text-accent focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-[var(--card-bg)] accent-[var(--accent)]"
+              />
+              <span className="text-sm text-foreground leading-tight group-hover:text-accent transition-colors">
+                {t('luckySpin.acceptTerms')}
+              </span>
+            </label>
             <button
               type="button"
               onClick={handleSpin}
-              disabled={spinning || animating}
-              className="px-6 py-3 bg-accent text-white font-semibold rounded-xl hover:opacity-90 disabled:opacity-50 transition-opacity"
+              disabled={!termsAccepted || spinning || animating}
+              className="px-6 py-3 bg-accent text-white font-semibold rounded-xl hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
             >
               {spinning || animating ? t('luckySpin.spinning') : t('luckySpin.spinCta')}
             </button>
@@ -207,28 +213,6 @@ export function LuckySpinModal({ isOpen, onClose, data, onSpin, spinning }: Prop
                 </li>
               ))}
             </ul>
-
-            <div className="grid gap-3 pt-1 border-t border-[var(--border)]">
-              <label className="flex items-start gap-3 cursor-pointer group">
-                <input
-                  type="checkbox"
-                  checked={termsAccepted}
-                  onChange={(e) => setTermsAccepted(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 shrink-0 rounded border-2 border-[var(--border)] bg-background text-accent focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-[var(--card-bg)] accent-[var(--accent)]"
-                />
-                <span className="text-sm text-foreground leading-tight group-hover:text-accent transition-colors">
-                  {t('luckySpin.acceptTerms')}
-                </span>
-              </label>
-              <button
-                type="button"
-                onClick={handleActivate}
-                disabled={!termsAccepted}
-                className="w-full px-6 py-3 bg-accent text-white font-semibold rounded-xl hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
-              >
-                {t('luckySpin.activateCoupon')}
-              </button>
-            </div>
           </div>
         )}
 
