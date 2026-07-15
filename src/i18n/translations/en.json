@@ -355,6 +355,7 @@
     "loginCta": "Log in",
     "or": "or",
     "loginWithGoogle": "Sign in with Google",
+    "googleOffersIntro": "You can also sign in with Google. If you accept product offers before signing in, you get a one-time 10% coupon on your first purchase.",
     "noAccount": "Don't have an account?",
     "registerLink": "Register",
     "authErrorDbNotConfigured": "Google sign-in is unavailable: the database is not configured. Please try again later.",

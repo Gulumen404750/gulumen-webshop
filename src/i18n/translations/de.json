@@ -355,6 +355,7 @@
     "loginCta": "Anmelden",
     "or": "oder",
     "loginWithGoogle": "Mit Google anmelden",
+    "googleOffersIntro": "Du kannst dich auch mit Google anmelden. Wenn du vor der Anmeldung Produktangebote akzeptierst, erhältst du einen einmaligen 10-%-Gutschein für deinen ersten Einkauf.",
     "noAccount": "Noch kein Konto?",
     "registerLink": "Registrieren",
     "authErrorDbNotConfigured": "Google-Anmeldung nicht verfügbar: Datenbank nicht konfiguriert.",

@@ -330,6 +330,7 @@
     "loginCta": "Bejelentkezés",
     "or": "vagy",
     "loginWithGoogle": "Bejelentkezés Google-lel",
+    "googleOffersIntro": "Google-lel is bejelentkezhetsz. Ha bejelentkezés előtt elfogadod a termékajánlatokat, 10%-os egyszeri kupont kapsz az első vásárláshoz.",
     "noAccount": "Már nincs fiókod?",
     "registerLink": "Regisztráció",
     "authErrorDbNotConfigured": "A Google bejelentkezés nem érhető el: az adatbázis nincs konfigurálva. Kérjük, próbáld később.",

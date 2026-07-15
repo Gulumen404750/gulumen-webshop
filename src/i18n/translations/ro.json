@@ -340,6 +340,7 @@
     "loginCta": "Autentificare",
     "or": "sau",
     "loginWithGoogle": "Autentificare cu Google",
+    "googleOffersIntro": "Te poți autentifica și cu Google. Dacă accepți ofertele de produse înainte de autentificare, primești un cupon unic de 10% la prima achiziție.",
     "noAccount": "Nu ai cont?",
     "registerLink": "Înregistrare",
     "authErrorDbNotConfigured": "Autentificarea Google nu este disponibilă: baza de date nu este configurată.",
