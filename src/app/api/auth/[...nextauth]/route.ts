@@ -8,21 +8,11 @@ import { getAuthOptions } from '@/lib/auth-options'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-type NextAuthCtx = { params: Promise<{ nextauth: string[] }> }
-
-function copySetCookies(from: Response, to: NextResponse): void {
-  const setCookies =
-    typeof from.headers.getSetCookie === 'function' ? from.headers.getSetCookie() : []
-  for (const raw of setCookies) {
-    to.headers.append('Set-Cookie', raw)
-  }
-}
-
 /**
- * GET /api/auth/signin/:provider – auto-submit POST forma (CSRF + OAuth indítás).
- * A szerveroldali szintetikus POST nem működik App Routerben (next/headers cookie-k).
+ * GET /api/auth/signin/:provider – böngészőben CSRF lekérés + auto POST.
+ * Szerveroldali NextAuth rekurzió App Routerben 500-at okoz.
  */
-async function handleProviderSignInGet(req: NextRequest): Promise<NextResponse | null> {
+function handleProviderSignInGet(req: NextRequest): NextResponse | null {
   const url = req.nextUrl
   const segments = url.pathname.replace(/\/$/, '').split('/')
   const providerId = segments[segments.length - 1]
@@ -31,26 +21,9 @@ async function handleProviderSignInGet(req: NextRequest): Promise<NextResponse |
   if (parentSegment !== 'signin' || !providerId || providerId === 'signin') return null
 
   const authOrigin = resolveNextAuthUrl()
-  const csrfReq = new NextRequest(new URL('/api/auth/csrf', authOrigin), {
-    method: 'GET',
-    headers: req.headers,
-  })
-  const options = getAuthOptions()
-  const csrfRes = await NextAuth(options)(csrfReq, {
-    params: Promise.resolve({ nextauth: ['csrf'] }),
-  })
-
-  if (!(csrfRes instanceof Response) || !csrfRes.ok) {
-    console.error('[auth-handler] CSRF fetch failed for provider sign-in', {
-      providerId,
-      status: csrfRes instanceof Response ? csrfRes.status : 'not-a-response',
-    })
-    return null
-  }
-
-  const { csrfToken } = (await csrfRes.json()) as { csrfToken: string }
   const callbackUrl = url.searchParams.get('callbackUrl') ?? `${authOrigin}/profil`
   const postAction = `${authOrigin}/api/auth/signin/${providerId}`
+  const csrfUrl = `${authOrigin}/api/auth/csrf`
 
   const html = `<!DOCTYPE html>
 <html lang="hu">
@@ -60,25 +33,45 @@ async function handleProviderSignInGet(req: NextRequest): Promise<NextResponse |
 </head>
 <body>
   <p>Átirányítás a Google bejelentkezéshez…</p>
-  <form id="oauth-start" method="POST" action="${postAction}">
-    <input type="hidden" name="csrfToken" value="${csrfToken}" />
-    <input type="hidden" name="callbackUrl" value="${callbackUrl}" />
-  </form>
-  <script>document.getElementById('oauth-start').submit()</script>
+  <script>
+    (async function () {
+      try {
+        const csrfRes = await fetch(${JSON.stringify(csrfUrl)}, { credentials: 'include' });
+        if (!csrfRes.ok) throw new Error('CSRF ' + csrfRes.status);
+        const { csrfToken } = await csrfRes.json();
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = ${JSON.stringify(postAction)};
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfToken';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+        const cbInput = document.createElement('input');
+        cbInput.type = 'hidden';
+        cbInput.name = 'callbackUrl';
+        cbInput.value = ${JSON.stringify(callbackUrl)};
+        form.appendChild(cbInput);
+        document.body.appendChild(form);
+        form.submit();
+      } catch (e) {
+        document.body.innerHTML = '<p>Bejelentkezési hiba. <a href="/profil">Vissza a profilhoz</a></p>';
+        console.error('OAuth start failed', e);
+      }
+    })();
+  </script>
 </body>
 </html>`
 
-  console.log('[auth-handler] GET signin → auto-submit POST', { providerId, callbackUrl, postAction })
-  const response = new NextResponse(html, {
+  console.log('[auth-handler] GET signin → browser auto POST', { providerId, callbackUrl, postAction })
+  return new NextResponse(html, {
     status: 200,
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
   })
-  copySetCookies(csrfRes, response)
-  return response
 }
 
 /** Runtime handler – bootstrap + fresh options every request (NO_SECRET safe). */
-async function authHandler(req: NextRequest, ctx: NextAuthCtx) {
+async function authHandler(req: NextRequest, ctx: { params: Promise<{ nextauth: string[] }> }) {
   bootstrapAuthEnv()
   const url = req.nextUrl
   if (url.pathname.includes('/api/auth/')) {
@@ -86,12 +79,8 @@ async function authHandler(req: NextRequest, ctx: NextAuthCtx) {
   }
 
   if (req.method === 'GET') {
-    try {
-      const converted = await handleProviderSignInGet(req)
-      if (converted) return converted
-    } catch (error) {
-      console.error('[auth-handler] provider sign-in GET conversion failed', error)
-    }
+    const converted = handleProviderSignInGet(req)
+    if (converted) return converted
   }
 
   const options = getAuthOptions()
