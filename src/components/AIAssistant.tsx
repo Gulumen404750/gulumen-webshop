@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { getResponse } from '@/lib/ai-assistant'
 import {
   MOBILE_FAB_Z,
@@ -10,9 +11,18 @@ import {
   mobileFabRight,
 } from '@/lib/mobile-fab-layout'
 import { useLocale } from '@/context/LocaleContext'
+import { useProducts } from '@/context/ProductsContext'
+import { getProductById as getProductByIdFromData, getProductName, type Product } from '@/lib/data'
+import { useSaleActive } from '@/hooks/useSaleActive'
 import type { Locale } from '@/i18n/locales'
 
-type Message = { role: 'user' | 'assistant'; text: string; escalate?: boolean }
+type Message = { role: 'user' | 'assistant'; text: string; escalate?: boolean; productIds?: string[] }
+
+function parseProductIds(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const ids = value.filter((id): id is string => typeof id === 'string' && id.length > 0).slice(0, 2)
+  return ids.length > 0 ? ids : undefined
+}
 
 const SPEECH_LANG: Record<Locale, string> = {
   hu: 'hu-HU',
@@ -64,7 +74,16 @@ export function AIAssistant() {
         })
         const data = await res.json().catch(() => ({}))
         if (res.ok && typeof data?.text === 'string') {
-          setMessages((m) => [...m, { role: 'assistant', text: data.text, escalate: !!data.escalate }])
+          const productIds = parseProductIds(data.productIds)
+          setMessages((m) => [
+            ...m,
+            {
+              role: 'assistant',
+              text: data.text,
+              escalate: !!data.escalate,
+              ...(productIds ? { productIds } : {}),
+            },
+          ])
         } else {
           const { textKey, escalate } = getResponse(trimmed)
           const fallbackText = t(textKey)
@@ -237,6 +256,9 @@ export function AIAssistant() {
                     {m.escalate && (
                       <p className="mt-2 text-xs opacity-90">{t('ai.escalateNote')}</p>
                     )}
+                    {m.role === 'assistant' && m.productIds && m.productIds.length > 0 && (
+                      <ChatProductRecommendations productIds={m.productIds} />
+                    )}
                   </div>
                 </div>
               ))}
@@ -295,6 +317,86 @@ export function AIAssistant() {
         </div>
       )}
     </>
+  )
+}
+
+function ChatProductRecommendations({ productIds }: { productIds: string[] }) {
+  const { getProductById: getProductByIdFromContext } = useProducts()
+  const getProductById = useCallback(
+    (id: string) => getProductByIdFromContext(id) ?? getProductByIdFromData(id),
+    [getProductByIdFromContext]
+  )
+
+  const products = productIds
+    .map((id) => getProductById(id))
+    .filter((p): p is Product => p != null)
+
+  if (products.length === 0) return null
+
+  return (
+    <div className="mt-3 space-y-2">
+      {products.map((product) => (
+        <ChatProductCard key={product.id} product={product} />
+      ))}
+    </div>
+  )
+}
+
+function ChatProductCard({ product }: { product: Product }) {
+  const { locale, t } = useLocale()
+  const saleActive = useSaleActive(product)
+  const productName = getProductName(product, locale)
+  const priceHuf =
+    saleActive && product.discountPriceHuf != null ? product.discountPriceHuf : product.priceHuf
+  const hasDiscount = saleActive && product.discountPriceHuf != null
+  const hasImage = product.image?.startsWith('/') || product.image?.startsWith('http')
+  const isLocalImage = product.image?.startsWith('/')
+
+  return (
+    <Link
+      href={`/termek/${product.slug}`}
+      className="flex gap-2.5 p-2 rounded-xl bg-background/70 hover:bg-background border border-[var(--border)] transition-colors focus:outline-none focus:ring-2 focus:ring-accent"
+    >
+      <div className="relative w-14 h-14 shrink-0 rounded-lg overflow-hidden bg-[var(--border)]">
+        {hasImage ? (
+          isLocalImage ? (
+            <Image
+              src={product.image}
+              alt={productName}
+              fill
+              className="object-cover"
+              sizes="56px"
+            />
+          ) : (
+            <img
+              src={product.image}
+              alt={productName}
+              className="absolute inset-0 w-full h-full object-cover"
+              referrerPolicy="no-referrer"
+            />
+          )
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-muted text-[10px] px-1 text-center">
+            {t('product.noImage')}
+          </div>
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-medium text-foreground line-clamp-2 leading-snug">{productName}</p>
+        <div className="mt-0.5 flex items-baseline gap-1.5 flex-wrap">
+          {hasDiscount && (
+            <span className="text-[10px] text-muted line-through">
+              {product.priceHuf.toLocaleString('hu-HU')} Ft
+            </span>
+          )}
+          <span
+            className={`text-xs font-semibold ${hasDiscount ? 'text-discount' : 'text-foreground'}`}
+          >
+            {priceHuf.toLocaleString('hu-HU')} Ft
+          </span>
+        </div>
+      </div>
+    </Link>
   )
 }
 

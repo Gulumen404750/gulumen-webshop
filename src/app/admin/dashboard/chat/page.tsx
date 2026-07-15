@@ -1,4 +1,5 @@
 import ChatSettingsForm from '../settings/ChatSettingsForm'
+import { ChatTopQuestions } from '../settings/ChatTopQuestions'
 
 export default function AdminChatPage() {
   return (
@@ -9,6 +10,7 @@ export default function AdminChatPage() {
         <code className="rounded bg-[var(--border)] px-1">Setting</code> táblából olvassa; mentés
         nélkül az eredeti hardcoded alapértékek érvényesek.
       </p>
+      <ChatTopQuestions />
       <ChatSettingsForm />
     </div>
   )

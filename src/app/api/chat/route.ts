@@ -4,6 +4,7 @@ import { getTranslations, t } from '@/i18n/translations'
 import type { Locale } from '@/i18n/locales'
 import { isValidLocale } from '@/i18n/locales'
 import { rateLimit } from '@/lib/rate-limit'
+import { hashClientIp, logChatQuestion } from '@/lib/chat-log'
 import {
   getChatSettingsFromDb,
   getChatFallbackForLocale,
@@ -43,6 +44,9 @@ export async function POST(request: Request) {
     if (message.length > MAX_MESSAGE_LENGTH) {
       return NextResponse.json({ error: 'Túl hosszú üzenet' }, { status: 400 })
     }
+
+    const ipHash = hashClientIp(request)
+    void logChatQuestion({ question: message, locale, ipHash })
 
     const apiKey = process.env.OPENAI_API_KEY?.trim()
 
