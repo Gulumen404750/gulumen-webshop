@@ -4,10 +4,12 @@ import {
   computeCouponDiscountHuf,
   computePointsRedemption,
   computeShippingHuf,
+  calculateDiscount,
   FREE_SHIPPING_THRESHOLD,
   STANDARD_SHIPPING_FEE_HUF,
   type ResolvedCartLine,
 } from './checkout'
+import { computeLuckySpinDiscount } from './gamification/lucky-spin'
 
 function line(
   productId: string,
@@ -17,6 +19,57 @@ function line(
 ): ResolvedCartLine {
   return { productId, qty, priceHuf, fulfillmentType, name: productId }
 }
+
+describe('calculateDiscount', () => {
+  it('returns tiered discount by item count', () => {
+    expect(calculateDiscount(0)).toBe(0)
+    expect(calculateDiscount(1)).toBe(0.15)
+    expect(calculateDiscount(4)).toBe(0.15)
+    expect(calculateDiscount(5)).toBe(0.2)
+    expect(calculateDiscount(9)).toBe(0.2)
+    expect(calculateDiscount(10)).toBe(0.25)
+    expect(calculateDiscount(15)).toBe(0.25)
+  })
+
+  it('adds +5% when paying with points', () => {
+    expect(calculateDiscount(4, true)).toBe(0.2)
+    expect(calculateDiscount(5, true)).toBe(0.25)
+    expect(calculateDiscount(10, true)).toBe(0.3)
+  })
+})
+
+describe('computeLuckySpinDiscount', () => {
+  const spin = {
+    id: 'spin-1',
+    userId: 'u1',
+    weekId: '2026-W01',
+    productIds: ['a', 'b'],
+    priceSnapshot: { a: 1000, b: 2000 },
+    generatedAt: new Date('2026-01-01'),
+    expiresAt: new Date('2099-01-01'),
+  }
+
+  it('applies 15% from first qualifying item', () => {
+    const result = computeLuckySpinDiscount(
+      [{ productId: 'a', qty: 2, priceHuf: 1000 }],
+      spin
+    )
+    expect(result.active).toBe(true)
+    expect(result.discountPercent).toBe(0.15)
+    expect(result.discountHuf).toBe(300)
+  })
+
+  it('stacks +5% with points at 10+ items', () => {
+    const result = computeLuckySpinDiscount(
+      [{ productId: 'a', qty: 10, priceHuf: 1000 }],
+      spin,
+      new Date('2026-01-02'),
+      true
+    )
+    expect(result.discountPercent).toBe(0.3)
+    expect(result.discountHuf).toBe(3000)
+  })
+})
 
 describe('computeCouponDiscountHuf', () => {
   it('applies percent only to non-spin items', () => {

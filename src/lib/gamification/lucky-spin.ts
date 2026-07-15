@@ -2,12 +2,39 @@ import { prisma, isDbConfigured } from '@/lib/prisma'
 import {
   GAMIFICATION_TIMEZONE,
   LUCKY_SPIN_COOLDOWN_DAYS,
-  LUCKY_SPIN_DISCOUNT_PERCENT,
+  LUCKY_SPIN_DISCOUNT_TIER_HIGH,
+  LUCKY_SPIN_DISCOUNT_TIER_LOW,
+  LUCKY_SPIN_DISCOUNT_TIER_MID,
   LUCKY_SPIN_MIN_ITEMS,
   LUCKY_SPIN_MIN_LIKES,
+  LUCKY_SPIN_POINTS_EXTRA_PERCENT,
   LUCKY_SPIN_PRODUCT_COUNT,
   LUCKY_SPIN_VALIDITY_DAYS,
 } from './constants'
+
+/** Szerencsekerék kedvezmény % a listás termékek darabszáma és pontbeváltás alapján. */
+export function calculateLuckySpinDiscountPercent(
+  itemCount: number,
+  usePoints = false
+): number {
+  if (itemCount <= 0) return 0
+  let base =
+    itemCount >= LUCKY_SPIN_MIN_ITEMS
+      ? LUCKY_SPIN_DISCOUNT_TIER_HIGH
+      : itemCount >= 5
+        ? LUCKY_SPIN_DISCOUNT_TIER_MID
+        : LUCKY_SPIN_DISCOUNT_TIER_LOW
+  if (usePoints) base += LUCKY_SPIN_POINTS_EXTRA_PERCENT
+  return base
+}
+
+/** Következő kedvezményszintig hátralévő darabszám (null = max. szint). */
+export function getLuckySpinNextTierRemaining(itemCount: number): number | null {
+  if (itemCount <= 0) return 1
+  if (itemCount < 5) return 5 - itemCount
+  if (itemCount < LUCKY_SPIN_MIN_ITEMS) return LUCKY_SPIN_MIN_ITEMS - itemCount
+  return null
+}
 
 export type LuckySpinRecord = {
   id: string
@@ -270,11 +297,12 @@ export type LuckySpinDiscountResult = {
   spinProductIds: string[]
 }
 
-/** Per-termék 25% kedvezmény, csak LuckySpin listában lévő termékekre, ha >= 10 db. */
+/** Tier kedvezmény a LuckySpin listában lévő termékekre (1+ db). */
 export function computeLuckySpinDiscount(
   items: CartItemForDiscount[],
   spin: LuckySpinRecord | null,
-  now: Date = new Date()
+  now: Date = new Date(),
+  usePoints = false
 ): LuckySpinDiscountResult {
   const empty: LuckySpinDiscountResult = {
     active: false,
@@ -295,17 +323,25 @@ export function computeLuckySpinDiscount(
     const lockedPrice = spin.priceSnapshot?.[item.productId]
     const unitPrice = lockedPrice != null && lockedPrice > 0 ? lockedPrice : item.priceHuf
     qualifyingItemCount += item.qty
-    discountHuf += Math.round(unitPrice * item.qty * LUCKY_SPIN_DISCOUNT_PERCENT)
   }
 
-  if (qualifyingItemCount < LUCKY_SPIN_MIN_ITEMS) {
-    return { ...empty, qualifyingItemCount, spinProductIds: spin.productIds }
+  if (qualifyingItemCount <= 0) {
+    return { ...empty, spinProductIds: spin.productIds }
+  }
+
+  const discountPercent = calculateLuckySpinDiscountPercent(qualifyingItemCount, usePoints)
+
+  for (const item of items) {
+    if (!spinSet.has(item.productId)) continue
+    const lockedPrice = spin.priceSnapshot?.[item.productId]
+    const unitPrice = lockedPrice != null && lockedPrice > 0 ? lockedPrice : item.priceHuf
+    discountHuf += Math.round(unitPrice * item.qty * discountPercent)
   }
 
   return {
     active: true,
     qualifyingItemCount,
-    discountPercent: LUCKY_SPIN_DISCOUNT_PERCENT,
+    discountPercent,
     discountHuf,
     spinProductIds: spin.productIds,
   }

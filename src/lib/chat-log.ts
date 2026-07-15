@@ -7,6 +7,12 @@ export type TopChatQuestion = {
   lastAskedAt: Date
 }
 
+/** Admin listában megjelenő maximális kérdésszám. */
+export const TOP_CHAT_QUESTIONS_MAX = 100
+
+/** Egy oldalon megjelenő kérdések száma (kliens). */
+export const TOP_CHAT_QUESTIONS_PAGE_SIZE = 10
+
 function getClientIp(request: Request): string {
   const forwarded = request.headers.get('x-forwarded-for')
   const realIp = request.headers.get('x-real-ip')
@@ -62,7 +68,7 @@ export async function logChatQuestion(params: {
 }
 
 /** Leggyakoribb kérdések – questionNorm szerint csoportosítva. */
-export async function getTopChatQuestions(limit = 20): Promise<TopChatQuestion[]> {
+export async function getTopChatQuestions(limit = TOP_CHAT_QUESTIONS_MAX): Promise<TopChatQuestion[]> {
   if (!isDbConfigured()) return []
 
   try {

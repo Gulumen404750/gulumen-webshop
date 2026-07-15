@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Share2 } from 'lucide-react'
-import { getDisplayStock, getProductName, getSourcingDealStatus } from '@/lib/data'
+import { getDisplayStock, getProductName, getSourcingDealStatus, getProductById as getProductByIdFromData } from '@/lib/data'
 import { ProductTabs } from '@/components/ProductTabs'
 import { SourcingDealBox } from '@/components/SourcingDealBox'
 import { Breadcrumbs, productBreadcrumbs } from '@/components/Breadcrumbs'
@@ -38,6 +38,7 @@ import { useToast } from '@/context/ToastContext'
 import { trackAddToCart } from '@/lib/analytics'
 import { SaleCountdown } from '@/components/SaleCountdown'
 import { useSaleActive } from '@/hooks/useSaleActive'
+import { useLuckySpin } from '@/hooks/useLuckySpin'
 import type { Product } from '@/lib/data'
 
 const RECENTLY_VIEWED_KEY = 'gulumen-recently-viewed'
@@ -66,6 +67,7 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
   const { items, addItem, itemCount } = useCart()
   const { userId } = useAuth()
   const { syncFromServer, applyOptimisticToggle } = useWishlist()
+  const { data: luckySpinData } = useLuckySpin(!!userId)
   const { toast } = useToast()
   const [liked, setLiked] = useState(false)
   const [likesCount, setLikesCount] = useState<number | null>(null)
@@ -78,6 +80,7 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
   const stockFromSource = product.type === 'sourcing_deal' ? getDisplayStock(product, effectiveOrdersCount) : getDisplayStock(product)
   const maxAddable = product.type === 'sourcing_deal' ? stockFromSource : Math.max(0, stockFromSource - cartQty)
   const [addQty, setAddQty] = useState(1)
+  const [bundleQty, setBundleQty] = useState(1)
   const [mainImageIndex, setMainImageIndex] = useState(0)
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [view360Open, setView360Open] = useState(false)
@@ -97,6 +100,19 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
     () => sourcingStatus === 'closed' || sourcingStatus === 'soldout'
   )
   const safeAddQty = maxAddable > 0 ? Math.min(Math.max(1, addQty), maxAddable) : 1
+  const safeBundleQty = Math.min(Math.max(1, bundleQty), 99)
+
+  const isInLuckySpinBundle =
+    !!luckySpinData?.isActive &&
+    !!luckySpinData.spin?.productIds.includes(product.id)
+  const luckySpinProducts = luckySpinData?.spin?.products ?? []
+  const bundleHasColorable3D = luckySpinProducts.some((p) => {
+    const prod = getProductByIdFromData(p.id)
+    return prod && is3DProduct(prod) && prod.isColorable
+  })
+  const canAddBundle =
+    !bundleHasColorable3D ||
+    (selectedColor !== null && (!is3DWithMaterial || selectedMaterial !== null))
 
   const images = product.images?.length ? product.images : product.image ? [product.image] : []
   const mainImage = images[mainImageIndex] || product.image
@@ -164,6 +180,29 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
     addItem(product.id, safeAddQty, options, product)
     trackAddToCart(product.id, priceHuf * safeAddQty)
     toast(t('cart.toastAdded') || 'Termék a kosárban', {
+      action: { label: t('buttons.openCart') || 'Kosár megnyitása', href: '/kosar' },
+    })
+  }
+
+  const buildColorOptions = (prod: Product) => {
+    if (!prod.isColorable || !selectedColor) return undefined
+    const prodIs3D = is3DProduct(prod)
+    return {
+      colorName: getFilamentColorName(selectedColor, locale),
+      colorHex: selectedColor.hex,
+      ...(prodIs3D && selectedMaterial ? { materialName: selectedMaterial } : {}),
+    }
+  }
+
+  const handleAddFullBundle = () => {
+    if (!isInLuckySpinBundle || !canAddBundle) return
+    for (const spinProduct of luckySpinProducts) {
+      const prod = getProductByIdFromData(spinProduct.id)
+      if (!prod) continue
+      addItem(prod.id, safeBundleQty, buildColorOptions(prod), prod)
+      trackAddToCart(prod.id, (prod.discountPriceHuf ?? prod.priceHuf) * safeBundleQty)
+    }
+    toast(t('luckySpin.bundleAdded'), {
       action: { label: t('buttons.openCart') || 'Kosár megnyitása', href: '/kosar' },
     })
   }
@@ -571,6 +610,43 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                 >
                   {t('status.soldOut')}
                 </button>
+              )}
+              {isInLuckySpinBundle && luckySpinProducts.length > 0 && (
+                <div className="mt-6 p-4 rounded-xl border border-accent/30 bg-accent/5 grid gap-3">
+                  <p className="text-sm font-semibold text-accent leading-tight">
+                    {t('luckySpin.weeklyOffer')} – {t('luckySpin.discountTiers')}
+                  </p>
+                  {bundleHasColorable3D && !canAddBundle && (
+                    <p className="text-sm text-amber-600 dark:text-amber-400 leading-tight">
+                      {t('product.selectMaterialAndColorToAdd')}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label htmlFor="bundle-qty" className="text-sm font-medium text-foreground">
+                      {t('product.quantity')}:
+                    </label>
+                    <select
+                      id="bundle-qty"
+                      value={safeBundleQty}
+                      onChange={(e) => setBundleQty(Math.min(99, Math.max(1, parseInt(e.target.value, 10) || 1)))}
+                      className="rounded-lg border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-foreground min-w-[4rem]"
+                    >
+                      {Array.from({ length: 99 }, (_, i) => i + 1).map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={handleAddFullBundle}
+                      disabled={!canAddBundle}
+                      className="inline-block px-6 py-3 bg-accent text-white font-heading font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {t('luckySpin.addFullBundle')}
+                    </button>
+                  </div>
+                </div>
               )}
             </>
           )}

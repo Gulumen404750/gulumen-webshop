@@ -62,11 +62,19 @@ export const POINT_EVENT_BATCH_SIZE = 50
 /** Optimistic lock retry. */
 export const WALLET_UPDATE_MAX_RETRIES = 5
 
-/** Szerencsekerék: ennyi termék kell a kosárban a 25%-os kedvezményhez. */
+/** Szerencsekerék: teljes csomag (max. tier) darabszám. */
 export const LUCKY_SPIN_MIN_ITEMS = 10
 
-/** Szerencsekerék kedvezmény % (0–1). */
-export const LUCKY_SPIN_DISCOUNT_PERCENT = 0.25
+/** Szerencsekerék kedvezményszintek (0–1). */
+export const LUCKY_SPIN_DISCOUNT_TIER_LOW = 0.15
+export const LUCKY_SPIN_DISCOUNT_TIER_MID = 0.2
+export const LUCKY_SPIN_DISCOUNT_TIER_HIGH = 0.25
+
+/** Ponttal fizetés extra kedvezmény a Szerencsekerék szinten (halmozva). */
+export const LUCKY_SPIN_POINTS_EXTRA_PERCENT = 0.05
+
+/** @deprecated Használd calculateLuckySpinDiscountPercent-et a tényleges százalékhoz. */
+export const LUCKY_SPIN_DISCOUNT_PERCENT = LUCKY_SPIN_DISCOUNT_TIER_HIGH
 
 /** Szerencsekerék érvényesség (nap). */
 export const LUCKY_SPIN_VALIDITY_DAYS = 3
@@ -74,8 +82,8 @@ export const LUCKY_SPIN_VALIDITY_DAYS = 3
 /** Szerencsekerék: ennyi termék kerül kiválasztásra. */
 export const LUCKY_SPIN_PRODUCT_COUNT = 10
 
-/** Ponttal fizetés bónusz a Szerencsekerék akcióban (a felhasznált pontok %-a). */
-export const LUCKY_SPIN_POINTS_BONUS_PERCENT = 0.05
+/** @deprecated A +5% most checkout kedvezményként érvényesül (LUCKY_SPIN_POINTS_EXTRA_PERCENT). */
+export const LUCKY_SPIN_POINTS_BONUS_PERCENT = LUCKY_SPIN_POINTS_EXTRA_PERCENT
 
 /** Minimum nap két pörgetés között. */
 export const LUCKY_SPIN_COOLDOWN_DAYS = 7

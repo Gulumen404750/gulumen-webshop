@@ -105,6 +105,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (mounted) savePersistedCart(items)
   }, [items, mounted])
 
+  useEffect(() => {
+    if (!mounted || !authChecked || !isLoggedIn) return
+    const timer = window.setTimeout(() => {
+      if (items.length === 0) {
+        fetch('/api/me/cart', { method: 'DELETE', credentials: 'include' }).catch(() => {})
+      } else {
+        fetch('/api/me/cart', {
+          method: 'PUT',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items }),
+        }).catch(() => {})
+      }
+    }, 1500)
+    return () => window.clearTimeout(timer)
+  }, [items, mounted, authChecked, isLoggedIn])
+
   const addItem = useCallback(
     (productId: string, qty = 1, options?: CartItemOptions, productSnapshot?: Product) => {
     setItems((prev) => {

@@ -50,7 +50,7 @@ export default function RegistrationPage() {
       setError(t('register.errorOffers') || 'A 10%-os kuponhoz fogadd el a termékajánlatokat.')
       return
     }
-    const result = await register(trimmedEmail, password)
+    const result = await register(trimmedEmail, password, undefined, acceptOffers)
     if (!result.ok) {
       setError(result.error ?? 'Regisztráció sikertelen')
       return

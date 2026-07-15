@@ -4,7 +4,7 @@
  *
  * Sorrend:
  * 1. Regisztrációs / kupon kedvezmény (% vagy fix Ft) – csak teljes árú tételekre
- * 2. Szerencsekerék (25% a spin listában lévő termékek zárolt árából)
+ * 2. Szerencsekerék (15/20/25% a spin listában lévő termékek zárolt árából; +5% ponttal)
  * 3. Pontbeváltás (max. a fennmaradó összeg 30%-a)
  * 4. Szállítási díj (ha a végső áruösszeg < FREE_SHIPPING_THRESHOLD)
  */
@@ -19,6 +19,7 @@ import {
 } from '@/lib/gamification/constants'
 import {
   computeLuckySpinDiscount,
+  calculateLuckySpinDiscountPercent,
   type LuckySpinRecord,
   type LuckySpinDiscountResult,
 } from '@/lib/gamification/lucky-spin'
@@ -35,6 +36,11 @@ export {
   STANDARD_SHIPPING_FEE_HUF,
   POINTS_PER_HUF,
   MAX_CART_POINTS_COVERAGE,
+}
+
+/** Szerencsekerék kedvezmény % – darabszám és pontbeváltás alapján. */
+export function calculateDiscount(itemCount: number, usePoints = false): number {
+  return calculateLuckySpinDiscountPercent(itemCount, usePoints)
 }
 
 /** Engedélyezett kupon százalékok (macska 5%, regisztráció 10%, kombinált 15%). */
@@ -297,7 +303,8 @@ export function computeCheckoutTotals(params: ComputeCheckoutTotalsParams): Chec
     qty: l.qty,
     priceHuf: l.priceHuf,
   }))
-  const luckySpinResult = computeLuckySpinDiscount(discountItems, luckySpin, now)
+  const usePointsForSpin = !!(points && points.requestedDiscountHuf > 0)
+  const luckySpinResult = computeLuckySpinDiscount(discountItems, luckySpin, now, usePointsForSpin)
   const luckySpinDiscountHuf = luckySpinResult.discountHuf
 
   const afterCouponAndLuckyHuf = Math.max(0, subtotalHuf - couponDiscountHuf - luckySpinDiscountHuf)

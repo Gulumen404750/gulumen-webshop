@@ -6,6 +6,7 @@ import { markReservationsPaidByOrderId, markReservationsCanceledByOrderId } from
 import { enqueueOrderPurchasePointsRedemption } from '@/lib/gamification/order-points'
 import { maybeSendOrderGroupConfirmationEmail } from '@/lib/order-email'
 import { recordCouponUsageOnPayment } from '@/lib/coupon-checkout'
+import { clearUserCartSnapshot } from '@/lib/cart-snapshot'
 import type { PaymentTransactionStatus } from '@/lib/payment-transactions'
 
 /**
@@ -80,6 +81,10 @@ async function applyTransactionOutcome(
     await markReservationsPaidByOrderId(order.id)
 
     await recordCouponUsageOnPayment(order.id)
+
+    if (order.userId) {
+      await clearUserCartSnapshot(order.userId)
+    }
 
     try {
       const emailResult = await maybeSendOrderGroupConfirmationEmail(

@@ -34,7 +34,7 @@ import {
   POINTS_PER_HUF,
 } from '@/lib/gamification/constants'
 import { validatePurchasePoints } from '@/lib/gamification/purchase-points'
-import { enqueueOrderPurchasePointsRedemption, enqueueLuckySpinPointsBonus } from '@/lib/gamification/order-points'
+import { enqueueOrderPurchasePointsRedemption } from '@/lib/gamification/order-points'
 import { getLuckySpinForCheckout } from '@/lib/gamification/lucky-spin'
 import { getMaxQty } from '@/lib/data'
 import {
@@ -45,6 +45,7 @@ import {
 } from '@/lib/checkout'
 import { maybeSendOrderGroupConfirmationEmail } from '@/lib/order-email'
 import { resolveCheckoutCoupon, recordCouponUsageOnPayment } from '@/lib/coupon-checkout'
+import { getActivePromoDiscountPercent } from '@/lib/promo-coupons'
 import type { CouponDiscount } from '@/lib/checkout'
 
 const checkoutBodySchema = z.object({
@@ -216,10 +217,20 @@ export async function POST(request: Request) {
     appliedCouponId = resolved.coupon.id
     appliedCouponCode = resolved.coupon.code
   } else if (hasClientCoupon) {
-    if (!validateCouponPercent(bodyPercent!, Boolean(checkoutUserId))) {
+    if (!checkoutUserId) {
+      return NextResponse.json({ error: 'Login required for promo coupon' }, { status: 401 })
+    }
+    const serverPercent = await getActivePromoDiscountPercent(checkoutUserId)
+    if (serverPercent <= 0) {
+      return NextResponse.json(
+        { code: 'promo_coupon_inactive', error: 'No active promo coupon on this account' },
+        { status: 400 }
+      )
+    }
+    if (!validateCouponPercent(serverPercent, true)) {
       return NextResponse.json({ error: 'Invalid coupon discount' }, { status: 400 })
     }
-    couponDiscount = { percent: bodyPercent! }
+    couponDiscount = { percent: serverPercent }
   } else if (!isDiscountActive) {
     const loyalty = getLoyaltyByEmail(customer.email)
     if (loyalty && loyalty.loyaltyPercent > 0) {
@@ -351,13 +362,6 @@ export async function POST(request: Request) {
         pointsUsed: order.pointsUsed ?? 0,
         pointsDiscountHuf: order.pointsDiscountHuf ?? 0,
       })
-      if (luckySpinDiscount.active && (order.pointsUsed ?? 0) > 0) {
-        await enqueueLuckySpinPointsBonus({
-          orderId: order.id,
-          userId: order.userId ?? checkoutUserId!,
-          pointsUsed: order.pointsUsed ?? 0,
-        })
-      }
       paymentResults.push({
         orderId: order.id,
         orderType: order.orderType!,

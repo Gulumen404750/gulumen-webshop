@@ -51,6 +51,57 @@ function getLegacyKey(userId: string): string {
   return `${STORAGE_PREFIX_LEGACY}${normalizeCouponUserId(userId)}`
 }
 
+function writeStored(key: string, data: StoredCoupon): void {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(key, JSON.stringify(data))
+}
+
+async function syncPromoCouponsFromServer(uid: string | null): Promise<void> {
+  if (!uid || typeof window === 'undefined') return
+  try {
+    const res = await fetch('/api/me/promo-coupons', { credentials: 'include' })
+    if (!res.ok) return
+    const data = (await res.json()) as {
+      cat?: 'claimed' | 'used' | null
+      registration?: 'claimed' | 'used' | null
+    }
+    const normalized = normalizeCouponUserId(uid)
+    if (data.cat === 'claimed') {
+      writeStored(getCatKey(normalized), { status: 'claimed', percent: CAT_COUPON_PERCENT * 100 })
+    } else if (data.cat === 'used') {
+      writeStored(getCatKey(normalized), { status: 'used', percent: 5 })
+    }
+    if (data.registration === 'claimed') {
+      writeStored(getRegKey(normalized), { status: 'claimed', percent: REGISTRATION_COUPON_PERCENT * 100 })
+    } else if (data.registration === 'used') {
+      writeStored(getRegKey(normalized), { status: 'used', percent: 10 })
+    }
+  } catch {
+    // offline / nincs DB – localStorage marad
+  }
+}
+
+async function claimPromoOnServer(kind: 'cat' | 'registration'): Promise<void> {
+  try {
+    await fetch('/api/me/promo-coupons', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind }),
+    })
+  } catch {
+    // localStorage fallback
+  }
+}
+
+async function markPromoUsedOnServer(): Promise<void> {
+  try {
+    await fetch('/api/me/promo-coupons', { method: 'PATCH', credentials: 'include' })
+  } catch {
+    // ignore
+  }
+}
+
 function readStored(key: string): StoredCoupon | null {
   if (typeof window === 'undefined') return null
   const raw = localStorage.getItem(key)
@@ -133,7 +184,7 @@ function combinedPercent(userId: string | null): number {
 }
 
 export function CatCouponProvider({ children }: { children: ReactNode }) {
-  const { userId } = useAuth()
+  const { userId, authChecked } = useAuth()
   const [status, setStatus] = useState<CatCouponStatus>('not_claimed')
   const [catStatus, setCatStatus] = useState<CatCouponStatus>('not_claimed')
   const [registrationStatus, setRegistrationStatus] = useState<CatCouponStatus>('not_claimed')
@@ -147,6 +198,18 @@ export function CatCouponProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
+    if (!userId || !authChecked) return
+    void (async () => {
+      await syncPromoCouponsFromServer(userId)
+      const cat = readCat(userId)
+      const reg = readReg(userId)
+      if (cat?.status === 'claimed') await claimPromoOnServer('cat')
+      if (reg?.status === 'claimed') await claimPromoOnServer('registration')
+      refresh(userId)
+    })()
+  }, [userId, authChecked, refresh])
+
+  useEffect(() => {
     refresh(userId)
   }, [userId, refresh])
 
@@ -156,6 +219,7 @@ export function CatCouponProvider({ children }: { children: ReactNode }) {
     if (cat?.status) return false
     const payload: StoredCoupon = { status: 'claimed', percent: CAT_COUPON_PERCENT * 100 }
     localStorage.setItem(getCatKey(userId), JSON.stringify(payload))
+    void claimPromoOnServer('cat')
     refresh(userId)
     return true
   }, [userId, refresh])
@@ -169,6 +233,7 @@ export function CatCouponProvider({ children }: { children: ReactNode }) {
       const payload: StoredCoupon = { status: 'claimed', percent: REGISTRATION_COUPON_PERCENT * 100 }
       localStorage.setItem(getRegKey(normalized), JSON.stringify(payload))
       if (userId && normalizeCouponUserId(userId) === normalized) {
+        void claimPromoOnServer('registration')
         refresh(userId)
       }
       return true
@@ -182,6 +247,7 @@ export function CatCouponProvider({ children }: { children: ReactNode }) {
     if (!pending?.acceptOffers) return
     clearGoogleAuthPending()
     claimRegistrationCoupon(userId)
+    void claimPromoOnServer('registration')
   }, [userId, claimRegistrationCoupon])
 
   const markUsed = useCallback(() => {
@@ -194,6 +260,7 @@ export function CatCouponProvider({ children }: { children: ReactNode }) {
     if (reg?.status === 'claimed') {
       localStorage.setItem(getRegKey(userId), JSON.stringify({ status: 'used', percent: 10 }))
     }
+    void markPromoUsedOnServer()
     refresh(userId)
   }, [userId, refresh])
 

@@ -18,7 +18,12 @@ type AuthContextValue = {
   authChecked: boolean
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>
   loginWithGoogle: (options?: GoogleAuthOptions) => void
-  register: (email: string, password: string, name?: string) => Promise<{ ok: boolean; error?: string; email?: string }>
+  register: (
+    email: string,
+    password: string,
+    name?: string,
+    acceptOffers?: boolean
+  ) => Promise<{ ok: boolean; error?: string; email?: string }>
   logout: () => Promise<void>
 }
 
@@ -57,12 +62,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { ok: false, error: data.error || 'Bejelentkezés sikertelen' }
   }, [])
 
-  const register = useCallback(async (email: string, password: string, name?: string) => {
+  const register = useCallback(async (email: string, password: string, name?: string, acceptOffers?: boolean) => {
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ email: email.trim().toLowerCase(), password, name: name?.trim() || undefined }),
+      body: JSON.stringify({
+        email: email.trim().toLowerCase(),
+        password,
+        name: name?.trim() || undefined,
+        acceptOffers: acceptOffers === true,
+      }),
     })
     const data = await res.json().catch(() => ({}))
     if (res.ok && data.user?.email) {

@@ -20,7 +20,7 @@ import {
   MAX_CART_POINTS_COVERAGE,
   POINTS_PER_HUF,
 } from '@/lib/checkout'
-import { LUCKY_SPIN_MIN_ITEMS, LUCKY_SPIN_DISCOUNT_PERCENT } from '@/lib/gamification/constants'
+import { getLuckySpinNextTierRemaining } from '@/lib/gamification/lucky-spin'
 import { PaymentTrustBadges } from '@/components/PaymentTrustBadges'
 
 function createCheckoutIdempotencyKey(): string {
@@ -149,6 +149,8 @@ export default function PaymentPage() {
   }, [items, lockedLines, spinProductIds])
 
   const luckySpinDiscountActive = luckySpinDiscount.active
+  const luckySpinDiscountPercent = luckySpinDiscount.discountPercent
+  const luckySpinNextTierRemaining = getLuckySpinNextTierRemaining(luckySpinDiscount.qualifyingItemCount)
 
   useEffect(() => {
     if (couponActive) setCouponExpanded(true)
@@ -207,8 +209,8 @@ export default function PaymentPage() {
     const unitPriceHuf = line?.priceHuf ?? 0
     const isPromo = spinProductIds.has(item.productId)
     const showPromoPrice = isPromo && luckySpinDiscountActive
-    const discountedUnitHuf = showPromoPrice
-      ? Math.round(unitPriceHuf * (1 - LUCKY_SPIN_DISCOUNT_PERCENT))
+    const discountedUnitHuf = showPromoPrice && luckySpinDiscountPercent > 0
+      ? Math.round(unitPriceHuf * (1 - luckySpinDiscountPercent))
       : unitPriceHuf
     const lineKey = `${item.productId}-${item.options?.colorHex ?? ''}-${item.options?.colorName ?? ''}-${item.options?.materialName ?? ''}`
 
@@ -407,11 +409,11 @@ export default function PaymentPage() {
           </div>
         )}
 
-        {luckySpinRecord && !luckySpinDiscount.active && luckySpinDiscount.qualifyingItemCount > 0 && (
-          <p className="text-xs text-muted mb-3">
+        {luckySpinRecord && luckySpinNextTierRemaining != null && luckySpinDiscount.qualifyingItemCount > 0 && (
+          <p className="text-xs text-muted mb-3 leading-tight">
             {t('luckySpin.cartProgress').replace(
               '{remaining}',
-              String(LUCKY_SPIN_MIN_ITEMS - luckySpinDiscount.qualifyingItemCount)
+              String(luckySpinNextTierRemaining)
             )}
           </p>
         )}
@@ -443,7 +445,7 @@ export default function PaymentPage() {
                   <div className="flex justify-between text-discount">
                     <span>
                       {t('payment.luckySpinDiscountLine', {
-                        percent: Math.round(LUCKY_SPIN_DISCOUNT_PERCENT * 100),
+                        percent: Math.round(luckySpinDiscountPercent * 100),
                       })}
                     </span>
                     <span className="tabular-nums">−{luckySpinDiscount.discountHuf.toLocaleString('hu-HU')} Ft</span>

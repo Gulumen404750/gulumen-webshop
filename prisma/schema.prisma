@@ -108,8 +108,43 @@ model User {
   pointEvents PointEvent[]
   dailyActivities UserDailyActivity[]
   gamificationCoupons Coupon[] @relation("GamificationCoupons")
+  promoCoupons        UserPromoCoupon[]
+  cartSnapshot        UserCartSnapshot?
   likePointWindow UserLikePointWindow?
   luckySpins LuckySpin[]
+}
+
+/// Bejelentkezett felhasználó kosár pillanatképe (elhagyott kosár adminhoz).
+model UserCartSnapshot {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items           Json
+  itemCount       Int      @default(0)
+  subtotalHuf     Int      @default(0)
+  lastUpdatedAt   DateTime @updatedAt
+  createdAt       DateTime @default(now())
+  lastOfferAt     DateTime?
+  lastOfferPercent Int?
+  lastOfferCouponId String?
+  @@index([lastUpdatedAt])
+  @@index([itemCount])
+}
+
+/// Macska (5%) és regisztrációs (10%) egyszeri kupon – szerver oldali napló (admin láthatóság).
+model UserPromoCoupon {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// cat | registration
+  kind      String
+  /// claimed | used
+  status    String   @default("claimed")
+  claimedAt DateTime @default(now())
+  usedAt    DateTime?
+  @@unique([userId, kind])
+  @@index([kind, status])
+  @@index([claimedAt])
 }
 
 model Order {
@@ -389,7 +424,7 @@ model UserLikePointWindow {
   updatedAt           DateTime @updatedAt
 }
 
-/// Heti Szerencsekerék – 10 kedvelt termék, 3 napig érvényes, 25% kedvezmény 10+ db esetén.
+/// Heti Szerencsekerék – 10 kedvelt termék, 3 napig érvényes, tier kedvezmény (15/20/25%).
 model LuckySpin {
   id          String   @id @default(cuid())
   userId      String

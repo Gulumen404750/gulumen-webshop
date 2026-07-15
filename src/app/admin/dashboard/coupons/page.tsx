@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { AdminPromoCouponsSection } from './PromoCouponsSection'
 
 type Coupon = {
   id: string
@@ -469,9 +470,12 @@ export default function AdminCouponsPage() {
           <option value="">Összes forrás</option>
           <option value="admin">Admin</option>
           <option value="gamification">Gamification</option>
-          <option value="registration">Regisztráció</option>
+          <option value="registration">Regisztráció (DB kód)</option>
+          <option value="cat">Macska (DB kód)</option>
         </select>
       </div>
+
+      <AdminPromoCouponsSection />
 
       {loading ? (
         <p className="text-muted">Betöltés…</p>

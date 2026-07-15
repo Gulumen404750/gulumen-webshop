@@ -17,7 +17,6 @@ import {
   computeCheckoutTotals,
   applyLuckySpinLockedPrices,
 } from '@/lib/checkout'
-import { LUCKY_SPIN_DISCOUNT_PERCENT } from '@/lib/gamification/constants'
 
 type Props = { isOpen: boolean; onClose: () => void }
 
@@ -84,6 +83,7 @@ export function CartDrawer({ isOpen, onClose }: Props) {
     merchandiseTotalHuf,
   } = checkoutPreview
   const luckySpinDiscountActive = checkoutPreview.luckySpin.active
+  const luckySpinDiscountPercent = checkoutPreview.luckySpin.discountPercent
 
   const sortedItems = useMemo(() => {
     const promo: typeof items = []
@@ -152,8 +152,8 @@ export function CartDrawer({ isOpen, onClose }: Props) {
                 const lockedUnitHuf = luckySpinRecord?.priceSnapshot?.[item.productId]
                 const unitPriceHuf = lockedUnitHuf != null && lockedUnitHuf > 0 ? lockedUnitHuf : catalogUnitHuf
                 const showPromoPrice = isPromo && luckySpinDiscountActive
-                const discountedUnitHuf = showPromoPrice
-                  ? Math.round(unitPriceHuf * (1 - LUCKY_SPIN_DISCOUNT_PERCENT))
+                const discountedUnitHuf = showPromoPrice && luckySpinDiscountPercent > 0
+                  ? Math.round(unitPriceHuf * (1 - luckySpinDiscountPercent))
                   : unitPriceHuf
                 const img = product?.image?.trim() ? product.image : ''
                 const isLocalImg = img?.startsWith('/')

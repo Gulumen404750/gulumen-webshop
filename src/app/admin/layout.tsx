@@ -8,6 +8,7 @@ const nav = [
   { href: '/admin/dashboard/products', label: 'Termékek' },
   { href: '/admin/dashboard/orders', label: 'Rendelések' },
   { href: '/admin/dashboard/coupons', label: 'Kuponok' },
+  { href: '/admin/dashboard/abandoned-carts', label: 'Elhagyott kosarak' },
   { href: '/admin/dashboard/gamification', label: 'Gamification' },
   { href: '/admin/dashboard/users', label: 'Felhasználók' },
   { href: '/admin/dashboard/chat', label: 'Chat / AI' },

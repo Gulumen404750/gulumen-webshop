@@ -20,7 +20,7 @@ import {
   computeCheckoutTotals,
   applyLuckySpinLockedPrices,
 } from '@/lib/checkout'
-import { LUCKY_SPIN_DISCOUNT_PERCENT } from '@/lib/gamification/constants'
+import { getLuckySpinNextTierRemaining } from '@/lib/gamification/lucky-spin'
 
 export default function CartPage() {
   const searchParams = useSearchParams()
@@ -93,6 +93,10 @@ export default function CartPage() {
     freeShippingRemainingHuf,
   } = checkoutPreview
   const luckySpinDiscountActive = checkoutPreview.luckySpin.active
+  const luckySpinDiscountPercent = checkoutPreview.luckySpin.discountPercent
+  const luckySpinNextTierRemaining = getLuckySpinNextTierRemaining(
+    checkoutPreview.luckySpin.qualifyingItemCount
+  )
   const displayTotalHuf = merchandiseTotalHuf
 
   const { stockItems, threeDItems, sourcingItems, promoItems } = useMemo(() => {
@@ -223,6 +227,11 @@ export default function CartPage() {
         <section className="mb-8">
           <h2 className="font-heading text-lg font-semibold text-foreground mb-1">{t('cart.blockPromoTitle')}</h2>
           <p className="text-sm text-muted mb-3">{t('cart.blockPromoDispatch')}</p>
+          {luckySpinRecord && luckySpinNextTierRemaining != null && checkoutPreview.luckySpin.qualifyingItemCount > 0 && (
+            <p className="text-xs text-muted mb-3 leading-tight">
+              {t('luckySpin.cartProgress').replace('{remaining}', String(luckySpinNextTierRemaining))}
+            </p>
+          )}
           <ul className="space-y-4">
             {promoItems.map((item) => (
               <CartLineRow
@@ -230,6 +239,7 @@ export default function CartPage() {
                 item={item}
                 isPromo
                 luckySpinDiscountActive={luckySpinDiscountActive}
+                luckySpinDiscountPercent={luckySpinDiscountPercent}
                 lockedUnitPriceHuf={luckySpinRecord?.priceSnapshot?.[item.productId]}
                 getProductById={getProductById}
                 locale={locale}
@@ -507,7 +517,11 @@ export default function CartPage() {
         )}
         {luckySpinDiscountHuf > 0 && (
           <div className="flex justify-between text-discount">
-            <span>{t('luckySpin.cartDiscount')}</span>
+            <span>
+              {t('payment.luckySpinDiscountLine', {
+                percent: Math.round(luckySpinDiscountPercent * 100),
+              })}
+            </span>
             <span>−{luckySpinDiscountHuf.toLocaleString('hu-HU')} Ft <span className="text-muted">(€{formatEur(luckySpinDiscountEur)})</span></span>
           </div>
         )}
@@ -540,6 +554,7 @@ type CartLineRowProps = {
   item: CartItem
   isPromo?: boolean
   luckySpinDiscountActive?: boolean
+  luckySpinDiscountPercent?: number
   lockedUnitPriceHuf?: number
   getProductById: (id: string) => ReturnType<typeof getProductByIdFromData> | undefined
   locale: string
@@ -557,6 +572,7 @@ function CartLineRow({
   item,
   isPromo = false,
   luckySpinDiscountActive = false,
+  luckySpinDiscountPercent = 0,
   lockedUnitPriceHuf,
   getProductById,
   locale,
@@ -576,8 +592,8 @@ function CartLineRow({
     : (product ? getMaxQty(product) : 0)
   const catalogUnitHuf = product ? (product.discountPriceHuf ?? product.priceHuf) : 0
   const unitPriceHuf = lockedUnitPriceHuf != null && lockedUnitPriceHuf > 0 ? lockedUnitPriceHuf : catalogUnitHuf
-  const discountedUnitHuf = isPromo && luckySpinDiscountActive
-    ? Math.round(unitPriceHuf * (1 - LUCKY_SPIN_DISCOUNT_PERCENT))
+  const discountedUnitHuf = isPromo && luckySpinDiscountActive && luckySpinDiscountPercent > 0
+    ? Math.round(unitPriceHuf * (1 - luckySpinDiscountPercent))
     : unitPriceHuf
   const displayUnitHuf = isPromo && luckySpinDiscountActive ? discountedUnitHuf : unitPriceHuf
   const priceEur = hufToEur(displayUnitHuf)
