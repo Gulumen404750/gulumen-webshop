@@ -69,9 +69,9 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
         setProducts((prev) => {
           if (nextProds.length >= nextIds.length) return nextProds
           return nextIds
-            .map(
-              (id: string) =>
-                nextProds.find((p) => p.id === id) ?? prev.find((p) => p.id === id)
+            .map((id: string) =>
+              nextProds.find((p: Product) => p.id === id) ??
+              prev.find((p: Product) => p.id === id)
             )
             .filter((p): p is Product => p != null)
         })
