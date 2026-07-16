@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useLocale } from '@/context/LocaleContext'
+import { localizePath } from '@/i18n/routing'
 
 type Props = { isOpen: boolean; onClose: () => void }
 
@@ -10,7 +11,7 @@ export function SearchModal({ isOpen, onClose }: Props) {
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
 
   useEffect(() => {
     if (isOpen) {
@@ -34,13 +35,13 @@ export function SearchModal({ isOpen, onClose }: Props) {
       if (q) {
         const params = new URLSearchParams()
         params.set('kereses', q)
-        router.push(`/termekek?${params.toString()}`)
+        router.push(localizePath('/termekek', locale, `?${params.toString()}`))
       } else {
-        router.push('/termekek')
+        router.push(localizePath('/termekek', locale))
       }
       onClose()
     },
-    [query, router, onClose]
+    [query, router, onClose, locale]
   )
 
   if (!isOpen) return null

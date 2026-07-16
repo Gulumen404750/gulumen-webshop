@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import { LocaleLink as Link } from '@/components/LocaleLink'
 import Image from 'next/image'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
@@ -18,6 +18,7 @@ import { useLocale } from '@/context/LocaleContext'
 import { useCart } from '@/context/CartContext'
 import { useWishlist } from '@/context/WishlistContext'
 import { LOCALES, type Locale } from '@/i18n/locales'
+import { toInternalPath } from '@/i18n/routing'
 import { categories, getCategoryName } from '@/lib/data'
 import { SearchModal } from '@/components/SearchModal'
 import { CartDrawer } from '@/components/CartDrawer'
@@ -61,6 +62,7 @@ const helpDropdownItems: { href: string; labelKey: string }[] = [
 
 export function Header() {
   const pathname = usePathname()
+  const internalPath = toInternalPath(pathname || '/')
   const searchParams = useSearchParams()
   const { t, locale, setLocale } = useLocale()
   const { itemCount } = useCart()
@@ -145,7 +147,7 @@ export function Header() {
                 type="button"
                 onClick={() => setProductsOpen((o) => !o)}
                 className={`text-sm font-medium leading-none transition-colors flex items-center gap-1 whitespace-nowrap shrink-0 h-full ${
-                  pathname === '/termekek' ? 'text-accent' : 'text-foreground hover:text-accent'
+                  internalPath === '/termekek' ? 'text-accent' : 'text-foreground hover:text-accent'
                 }`}
                 aria-expanded={productsOpen}
                 aria-haspopup="true"
@@ -162,7 +164,7 @@ export function Header() {
                     <Link
                       href="/termekek"
                       className={`flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium transition-colors ${
-                        pathname === '/termekek' && !searchParams.get('kategoria')
+                        internalPath === '/termekek' && !searchParams.get('kategoria')
                           ? 'bg-[var(--border)] text-accent font-semibold'
                           : 'text-foreground hover:bg-[var(--border)] hover:text-accent'
                       }`}
@@ -175,7 +177,7 @@ export function Header() {
                   {categories.map((cat) => {
                     const CategoryIcon = categoryIconMap[cat.slug] ?? DefaultCategoryIcon
                     const iconColor = categoryIconColorMap[cat.slug] ?? defaultCategoryIconColor
-                    const isActive = pathname === '/termekek' && searchParams.get('kategoria') === cat.slug
+                    const isActive = internalPath === '/termekek' && searchParams.get('kategoria') === cat.slug
                     return (
                       <li key={cat.slug}>
                         <Link
@@ -203,7 +205,7 @@ export function Header() {
                   href={href}
                   onClick={() => setMobileNavOpen(false)}
                   className={`text-sm font-medium leading-none transition-colors whitespace-nowrap shrink-0 inline-flex items-center ${
-                    pathname === href ? 'text-accent' : 'text-foreground hover:text-accent'
+                    internalPath === href ? 'text-accent' : 'text-foreground hover:text-accent'
                   } ${isDeals ? 'relative z-10' : ''}`}
                 >
                   {t(labelKey)}
@@ -228,7 +230,7 @@ export function Header() {
                       href={href}
                       onClick={() => setMobileNavOpen(false)}
                       className={`nav-sourcing-link text-sm font-medium leading-none transition-colors shrink-0 inline-flex items-center justify-center h-full relative z-10 ${
-                        pathname === href ? 'text-accent' : 'text-foreground hover:text-accent'
+                        internalPath === href ? 'text-accent' : 'text-foreground hover:text-accent'
                       }`}
                       aria-label={t('nav.sourcing')}
                     >
@@ -249,7 +251,7 @@ export function Header() {
                 type="button"
                 onClick={() => setHelpOpen((o) => !o)}
                 className={`text-sm font-medium leading-none transition-colors flex items-center gap-1 whitespace-nowrap shrink-0 h-full ${
-                  helpDropdownItems.some(({ href }) => pathname === href) ? 'text-accent' : 'text-foreground hover:text-accent'
+                  helpDropdownItems.some(({ href }) => internalPath === href) ? 'text-accent' : 'text-foreground hover:text-accent'
                 }`}
                 aria-expanded={helpOpen}
                 aria-haspopup="true"

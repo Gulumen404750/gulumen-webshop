@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import { LocaleLink as Link } from '@/components/LocaleLink'
 import { useLocale } from '@/context/LocaleContext'
 
 export default function PaymentCancelPage() {

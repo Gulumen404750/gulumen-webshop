@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, useLayoutEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
+import { LocaleLink as Link } from '@/components/LocaleLink'
 import { ProductCard } from '@/components/ProductCard'
 import { useLocale } from '@/context/LocaleContext'
 import type { Product } from '@/lib/data'

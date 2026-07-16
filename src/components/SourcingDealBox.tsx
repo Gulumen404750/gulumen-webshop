@@ -14,6 +14,7 @@ import { useCart } from '@/context/CartContext'
 import { useLocale } from '@/context/LocaleContext'
 import { useToast } from '@/context/ToastContext'
 import { useEuroRate } from '@/context/EuroRateContext'
+import { localizePath } from '@/i18n/routing'
 
 function formatCountdown(ms: number): string {
   if (ms <= 0) return '0 nap 00:00:00'
@@ -37,7 +38,7 @@ export function SourcingDealBox({
   serverNow?: number
   onExpired?: () => void
 }) {
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   const router = useRouter()
   const { toast } = useToast()
   const { placeOrder } = useSourcingDealOrders()
@@ -127,7 +128,7 @@ export function SourcingDealBox({
     }
     placeOrder(product.id, safeAddQty)
     addItem(product.id, safeAddQty, undefined, product)
-    router.push('/kosar')
+    router.push(localizePath('/kosar', locale))
   }
 
   const saleFromDate = product.saleFrom ? new Date(product.saleFrom) : null
