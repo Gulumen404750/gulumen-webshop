@@ -49,8 +49,8 @@
     "new": "Neu"
   },
   "home": {
-    "heroTitle": "Sorgfältig ausgewählte Qualitätsprodukte in limitierter Stückzahl.",
-    "heroSubtitle": "Ein kleines, ausgewähltes Sortiment zu günstigen Preisen.",
+    "heroTitle": "Premium 3D-gedruckte Wohn- und Funktionsartikel – Sorgfältige Ausführung, einzigartiges Design.",
+    "heroSubtitle": "Direkt vom ungarischen Hersteller – individuell gestaltete, funktionale 3D-gedruckte Produkte für dein Zuhause.",
     "catchTheCat": "Sortiment entdecken",
     "new": "Neu",
     "deals": "Angebote",
@@ -61,11 +61,11 @@
     "trustReturns": "EU-Rückgaberecht",
     "trustChat": "KI-Kundenservice",
     "whyGoodPriceTitle": "Warum sind die Preise so günstig?",
-    "whyGoodPriceText": "Gulumen bezieht Produkte in kleinen Mengen aus ausgewählten Quellen und kann sie daher zu günstigeren Preisen anbieten.",
+    "whyGoodPriceText": "Gulumen fertigt die eigenen 3D-gedruckten Produkte in Ungarn und verkauft sie direkt – ohne Händleraufschlag, ohne Dropshipping, ohne Zwischenhändler. Bestelle aus einem Sortiment von über 3000 Produkten direkt beim Hersteller.",
     "loyaltyTitle": "Treuerabatt",
     "loyaltyText": "Das Treueprogramm ist an die E-Mail-Adresse geknüpft: Nach jeder erfolgreich bezahlten Bestellung über 50.000 Ft wird an diese E-Mail automatisch ein dauerhafter Rabatt vergeben: +1 % pro qualifizierter Bestellung, maximal 8 %. Der Treuerabatt kann nicht mit anderen Gutscheinen (z. B. Erstkauf- oder Geschenkgutschein) kombiniert werden.",
     "aboutUsTitle": "Über uns",
-    "aboutUsText": "Gulumen möchte qualitativ hochwertige, etikettierte Produkte zu fairen Preisen ohne überflüssige Aufschläge anbieten.",
+    "aboutUsText": "Gulumen ist ein ungarischer Hersteller von Premium-3D-gedruckten Wohn- und Funktionsartikeln. Du bestellst direkt bei uns: fachkundiges Design, sorgfältige Ausführung, individuelle Fertigung – kein Wiederverkauf und kein Dropshipping.",
     "registerTitle": "Registrieren und einmaligen 10-% Gutschein erhalten",
     "registerDesc": "E-Mail angeben; bei Einwilligung zu Produktangeboten erhältst du einen einmaligen 10-% Gutschein."
   },
@@ -280,8 +280,8 @@
     "previewNotStarted": "Vorschau – der Verkauf hat noch nicht begonnen."
   },
   "pages": {
-    "productsTitle": "Produkte",
-    "products3DSubtitle": "Ungarische Fertigung, auf Bestellung gefertigte Produkte",
+    "productsTitle": "Premium 3D-gedruckte Wohn- und Funktionsartikel – Sorgfältige Ausführung, einzigartiges Design.",
+    "products3DSubtitle": "Ungarischer Hersteller – Direktvertrieb, auf Bestellung gefertigte 3D-Druck-Produkte",
     "newTitle": "Neu",
     "dealsTitle": "Angebote",
     "shippingTitle": "Versandinformationen",

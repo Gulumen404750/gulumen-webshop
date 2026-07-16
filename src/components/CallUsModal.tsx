@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useLocale } from '@/context/LocaleContext'
+import { localizePath } from '@/i18n/routing'
 
 const SUPPORT_PHONE = process.env.NEXT_PUBLIC_SUPPORT_PHONE || '+36301234567'
 const TEL_LINK = `tel:${SUPPORT_PHONE.replace(/\s/g, '')}`
@@ -12,7 +13,7 @@ const QR_URL = `https://api.qrserver.com/v1/create-qr-code/?size=${QR_SIZE}x${QR
 type Props = { isOpen: boolean; onClose: () => void }
 
 export function CallUsModal({ isOpen, onClose }: Props) {
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   const [activeTab, setActiveTab] = useState<'call' | 'callback'>('call')
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
@@ -164,7 +165,10 @@ export function CallUsModal({ isOpen, onClose }: Props) {
               <p className="text-xs text-muted">{t('callUs.qrHint')}</p>
               <p className="text-xs text-muted">
                 {t('callUs.recordingNotice')}{' '}
-                <a href="/kapcsolat#telefonos-adatkezeles" className="text-accent hover:underline">
+                <a
+                  href={`${localizePath('/kapcsolat', locale)}#telefonos-adatkezeles`}
+                  className="text-accent hover:underline"
+                >
                   {t('callUs.recordingNoticeLink')}
                 </a>
               </p>

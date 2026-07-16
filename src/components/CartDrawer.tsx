@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import { LocaleLink as Link } from '@/components/LocaleLink'
 import Image from 'next/image'
 import { useEffect, useRef, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -8,6 +8,7 @@ import { getProductName, getProductById as getProductByIdFromData } from '@/lib/
 import { useCart } from '@/context/CartContext'
 import { useProducts } from '@/context/ProductsContext'
 import { useLocale } from '@/context/LocaleContext'
+import { localizePath } from '@/i18n/routing'
 import { CheckoutSourcingModal } from '@/components/CheckoutSourcingModal'
 
 type Props = { isOpen: boolean; onClose: () => void }
@@ -134,7 +135,7 @@ export function CartDrawer({ isOpen, onClose }: Props) {
                 if (hasSourcingItems) {
                   setShowCheckoutModal(true)
                 } else {
-                  router.push('/fizetes')
+                  router.push(localizePath('/fizetes', locale))
                 }
               }}
               className="block w-full py-3 text-center bg-accent text-white font-heading font-semibold rounded-lg hover:opacity-90 transition-opacity"
@@ -149,7 +150,7 @@ export function CartDrawer({ isOpen, onClose }: Props) {
         onClose={() => setShowCheckoutModal(false)}
         onConfirm={() => {
           setShowCheckoutModal(false)
-          router.push('/fizetes')
+          router.push(localizePath('/fizetes', locale))
         }}
       />
     </>

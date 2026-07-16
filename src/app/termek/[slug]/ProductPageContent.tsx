@@ -1,7 +1,7 @@
 'use client'
 
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
+import { LocaleLink as Link } from '@/components/LocaleLink'
 import Image from 'next/image'
 import { useState, useEffect } from 'react'
 import { getDisplayStock, getProductName, getSourcingDealStatus, mockProducts } from '@/lib/data'
@@ -23,6 +23,7 @@ const ProductModelViewer = dynamic(
 import { is3DProduct } from '@/lib/data'
 import { FILAMENT_COLORS, getFilamentColorName, type FilamentColor } from '@/lib/filamentColors'
 import { useLocale } from '@/context/LocaleContext'
+import { localizePath } from '@/i18n/routing'
 import { useCart } from '@/context/CartContext'
 import { useAuth } from '@/context/AuthContext'
 import { useWishlist } from '@/context/WishlistContext'
@@ -121,7 +122,7 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
     addItem(product.id, safeAddQty, options, product)
     trackAddToCart(product.id, priceHuf * safeAddQty)
     toast(t('cart.toastAdded') || 'Termék a kosárban', {
-      action: { label: t('buttons.openCart') || 'Kosár megnyitása', href: '/kosar' },
+      action: { label: t('buttons.openCart') || 'Kosár megnyitása', href: localizePath('/kosar', locale) },
     })
   }
 

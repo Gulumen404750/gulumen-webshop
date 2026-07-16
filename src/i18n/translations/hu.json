@@ -49,8 +49,8 @@
     "new": "Új"
   },
   "home": {
-    "heroTitle": "Gondosan válogatott, limitált darabszámú minőségi termékek.",
-    "heroSubtitle": "Kis mennyiségben elérhető kínálat, kedvező áron.",
+    "heroTitle": "Prémium 3D nyomtatott otthoni és funkcionális tárgyak – Gondos kivitelezés, egyedi tervezés.",
+    "heroSubtitle": "Közvetlenül a magyar gyártótól – egyedi tervezésű, funkcionális 3D nyomtatott termékek otthonodba.",
     "catchTheCat": "Kapd el a macskát",
     "new": "Újdonságok",
     "deals": "Akciók",
@@ -61,11 +61,11 @@
     "trustReturns": "EU visszaküldés",
     "trustChat": "AI ügyfélszolgálat",
     "whyGoodPriceTitle": "Miért ilyen kedvező az ár?",
-    "whyGoodPriceText": "A Gulumen kis mennyiségben, válogatott forrásból szerzi be a termékeket, így kedvezőbb áron tudja kínálni őket.",
+    "whyGoodPriceText": "A Gulumen saját 3D nyomtatott termékeit közvetlenül gyártja Magyarországon – nincs viszonteladói felár, dropshipping vagy köztes kereskedő. A 3000+ termékből álló kínálatot a gyártótól rendelve kapod.",
     "loyaltyTitle": "Hűségkedvezmény",
     "loyaltyText": "A hűségprogram e-mail címhez kötött: a 50 000 Ft feletti, sikeresen fizetett vásárlásaid után az adott e-mail címedhez automatikusan jár állandó kedvezmény: minden ilyen rendelés +1%, maximum 8%. A hűségkedvezmény nem vonható össze más kuponnal (pl. első vásárlási vagy ajándék kuponnal).",
     "aboutUsTitle": "Rólunk",
-    "aboutUsText": "A Gulumen célja, hogy minőségi, címkés termékeket tegyen elérhetővé kedvezőbb áron, felesleges túlárazás nélkül.",
+    "aboutUsText": "A Gulumen prémium 3D nyomtatott otthoni és funkcionális tárgyak magyar gyártója. Közvetlenül tőlünk rendelsz: szakértői tervezés, gondos kivitelezés, egyedi gyártás – nem viszonteladás és nem dropshipping.",
     "registerTitle": "Regisztrálj, és kapj 10%-os egyszeri kupont",
     "registerDesc": "Add meg az e-mail címed; ha elfogadod a termékajánlatokat, 10%-os egyszeri kupont kapsz."
   },
@@ -280,8 +280,8 @@
     "previewNotStarted": "Előnézet – vásárlás még nem indult el."
   },
   "pages": {
-    "productsTitle": "Termékek",
-    "products3DSubtitle": "Magyar gyártású, rendelésre készülő termékek",
+    "productsTitle": "Prémium 3D nyomtatott otthoni és funkcionális tárgyak – Gondos kivitelezés, egyedi tervezés.",
+    "products3DSubtitle": "Magyar gyártó – közvetlen értékesítés, rendelésre készülő 3D nyomtatott termékek",
     "newTitle": "Újdonságok",
     "dealsTitle": "Akciók",
     "shippingTitle": "Szállítási információk",

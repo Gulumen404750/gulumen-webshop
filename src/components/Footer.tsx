@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import { LocaleLink as Link } from '@/components/LocaleLink'
 import { useState } from 'react'
 import { useLocale } from '@/context/LocaleContext'
 import { CallUsModal } from '@/components/CallUsModal'

@@ -1,11 +1,24 @@
+import type { Metadata } from 'next'
 import { getAllProductsAsync } from '@/lib/data'
 import HomePageClient from './HomePageClient'
+import { getRequestLocale } from '@/lib/locale-server'
+import { buildPageMetadata, getSiteDescription, getSiteTitle } from '@/i18n/seo'
 
 /**
  * Főoldal: Újdonságok és Akciók blokk az adatbázisból (adminban beállított termékek).
  * Rövid revalidate (10 s), hogy a készletváltozás gyorsan megjelenjen.
  */
 export const revalidate = 10
+
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getRequestLocale()
+  return buildPageMetadata({
+    locale,
+    title: getSiteTitle(locale),
+    description: getSiteDescription(locale),
+    internalPath: '/',
+  })
+}
 
 export default async function HomePage() {
   const all = await getAllProductsAsync()

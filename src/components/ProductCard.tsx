@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import { LocaleLink as Link } from '@/components/LocaleLink'
 import Image from 'next/image'
 import { useCallback, useEffect, useState } from 'react'
 import type { Product } from '@/lib/data'

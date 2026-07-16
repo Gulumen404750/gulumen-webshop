@@ -49,8 +49,8 @@
     "new": "New"
   },
   "home": {
-    "heroTitle": "Carefully curated, limited-quantity quality products.",
-    "heroSubtitle": "A small-batch selection at favourable prices.",
+    "heroTitle": "Premium 3D printed home and functional products – Careful craftsmanship, unique design.",
+    "heroSubtitle": "Directly from the Hungarian manufacturer – uniquely designed, functional 3D printed products for your home.",
     "catchTheCat": "Browse the selection",
     "new": "New",
     "deals": "Deals",
@@ -61,11 +61,11 @@
     "trustReturns": "EU returns",
     "trustChat": "AI customer service",
     "whyGoodPriceTitle": "Why are the prices so good?",
-    "whyGoodPriceText": "Gulumen sources products in small quantities from curated suppliers, so we can offer them at better prices.",
+    "whyGoodPriceText": "Gulumen manufactures its own 3D printed products in Hungary and sells them directly – no reseller markup, no dropshipping, no middlemen. Order from a 3000+ product catalogue straight from the manufacturer.",
     "loyaltyTitle": "Loyalty discount",
     "loyaltyText": "The loyalty programme is tied to your email address: after each successfully paid order over 50,000 Ft, a permanent discount is automatically applied to that email: +1% per qualifying order, up to 8% maximum. The loyalty discount cannot be combined with other coupons (e.g. first purchase or gift coupon).",
     "aboutUsTitle": "About us",
-    "aboutUsText": "Gulumen’s aim is to make quality, labelled products available at better prices, without unnecessary markups.",
+    "aboutUsText": "Gulumen is a Hungarian manufacturer of premium 3D printed home and functional products. You order directly from us: expert design, careful craftsmanship, custom production – not resale and not dropshipping.",
     "registerTitle": "Register and get a one-time 10% coupon",
     "registerDesc": "Enter your email; if you accept product offers, you'll get a one-time 10% coupon."
   },
@@ -280,8 +280,8 @@
     "previewNotStarted": "Preview – sale has not started yet."
   },
   "pages": {
-    "productsTitle": "Products",
-    "products3DSubtitle": "Hungarian made, made-to-order products",
+    "productsTitle": "Premium 3D printed home and functional products – Careful craftsmanship, unique design.",
+    "products3DSubtitle": "Hungarian manufacturer – direct sales, made-to-order 3D printed products",
     "newTitle": "New",
     "dealsTitle": "Deals",
     "shippingTitle": "Shipping information",

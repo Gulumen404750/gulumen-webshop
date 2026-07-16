@@ -1,6 +1,7 @@
 'use client'
 
-import Link from 'next/link'
+import { LocaleLink as Link } from '@/components/LocaleLink'
+import { localizePath } from '@/i18n/routing'
 import Image from 'next/image'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useEffect, useRef, useMemo, useState } from 'react'
@@ -76,7 +77,7 @@ export default function CartPage() {
     const maxQty = getMaxQty(product, ordersOverride)
     if (currentQty >= maxQty) {
       toast(t('cart.allAvailableAdded'))
-      router.replace('/kosar')
+      router.replace(localizePath('/kosar', locale))
       return
     }
     processedAddIdRef.current = addId
@@ -89,8 +90,8 @@ export default function CartPage() {
     if (addQty < requestedQty) {
       toast(t('cart.allAvailableAdded'))
     }
-    router.replace('/kosar')
-  }, [searchParams, router, addItem, placeOrder, items, t, toast, getProductById, products])
+    router.replace(localizePath('/kosar', locale))
+  }, [searchParams, router, addItem, placeOrder, items, t, toast, getProductById, products, locale])
 
   const handleCompleteOrder = () => {
     let corrected = false
@@ -107,7 +108,7 @@ export default function CartPage() {
       }
     }
     if (corrected) return
-    router.push('/fizetes')
+    router.push(localizePath('/fizetes', locale))
   }
 
   const handleCheckoutClick = () => {
