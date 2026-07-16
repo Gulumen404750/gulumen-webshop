@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import { LocaleLink as Link } from '@/components/LocaleLink'
 import { useRouter } from 'next/navigation'
 import { useCart } from '@/context/CartContext'
 import { useCatCoupon } from '@/context/CatCouponContext'
 import { useAuth } from '@/context/AuthContext'
 import { useLocale } from '@/context/LocaleContext'
+import { localizePath } from '@/i18n/routing'
 import { useEuroRate } from '@/context/EuroRateContext'
 import { trackBeginCheckout } from '@/lib/analytics'
 import { getProductById as getProductByIdFromData, getProductName } from '@/lib/data'
@@ -45,7 +46,7 @@ export default function PaymentPage() {
 
   useEffect(() => {
     if (items.length === 0) {
-      router.replace('/kosar')
+      router.replace(localizePath('/kosar', locale))
     }
   }, [items.length, router])
 
@@ -101,14 +102,14 @@ export default function PaymentPage() {
         setCheckoutResult({ orderGroupId: data.orderGroupId, payments: data.payments })
         setLoading(false)
         setTimeout(() => {
-          router.push(`/fizetes/siker?order_group_id=${encodeURIComponent(data.orderGroupId)}`)
+          router.push(localizePath('/fizetes/siker', locale, `?order_group_id=${encodeURIComponent(data.orderGroupId)}`))
         }, 2000)
         return
       }
       setCheckoutResult({ orderGroupId: data.orderGroupId, payments: data.payments || [] })
       setLoading(false)
       setTimeout(() => {
-        router.push(`/fizetes/siker?order_group_id=${encodeURIComponent(data.orderGroupId)}`)
+        router.push(localizePath('/fizetes/siker', locale, `?order_group_id=${encodeURIComponent(data.orderGroupId)}`))
       }, 2500)
     } catch {
       setError(t('payment.errorCreateSession'))

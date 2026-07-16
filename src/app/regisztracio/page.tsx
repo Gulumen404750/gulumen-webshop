@@ -1,14 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
+import { LocaleLink as Link } from '@/components/LocaleLink'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { useCatCoupon } from '@/context/CatCouponContext'
 import { useLocale } from '@/context/LocaleContext'
+import { localizePath } from '@/i18n/routing'
 
 export default function RegistrationPage() {
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   const router = useRouter()
   const { register } = useAuth()
   const { claimRegistrationCoupon } = useCatCoupon()
@@ -37,7 +38,7 @@ export default function RegistrationPage() {
     if (acceptOffers) {
       claimRegistrationCoupon(trimmedEmail)
     }
-    router.push('/termekek')
+    router.push(localizePath('/termekek', locale))
   }
 
   return (

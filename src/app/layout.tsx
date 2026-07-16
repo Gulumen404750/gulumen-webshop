@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import { Poppins, Inter } from 'next/font/google'
 import './globals.css'
 import { Header } from '@/components/Header'
@@ -14,10 +15,20 @@ import { WishlistProvider } from '@/context/WishlistContext'
 import { ToastProvider } from '@/context/ToastContext'
 import { EuroRateProvider } from '@/context/EuroRateContext'
 import { OrganizationJsonLd } from '@/components/OrganizationJsonLd'
+import { HreflangLinks } from '@/components/HreflangLinks'
 import { Analytics } from '@/components/Analytics'
 import { WalletErrorGuard } from '@/components/WalletErrorGuard'
 import { CallUsStickyCTA } from '@/components/CallUsStickyCTA'
 import { Footer } from '@/components/Footer'
+import { getRequestLocale } from '@/lib/locale-server'
+import {
+  BASE_URL,
+  buildPageMetadata,
+  getSiteDescription,
+  getSiteTitle,
+} from '@/i18n/seo'
+import { headers } from 'next/headers'
+import { PATHNAME_HEADER, toInternalPath } from '@/i18n/routing'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -30,68 +41,68 @@ const inter = Inter({
   variable: '--font-inter',
 })
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://gulumen.hu'
-
 /** Build-time static generation off so Railway/build works without DB and useSearchParams is allowed. */
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
-  title: 'Gulumen – Gondosan válogatott, limitált minőségi termékek',
-  description: 'Gondosan válogatott, limitált darabszámú minőségi termékek – táskák, ruházat, kiegészítők, kedvező áron.',
-  openGraph: {
-    title: 'Gulumen – Gondosan válogatott, limitált minőségi termékek',
-    description: 'Gondosan válogatott, limitált darabszámú minőségi termékek – táskák, ruházat, kiegészítők, kedvező áron.',
-    url: BASE_URL,
-    siteName: 'Gulumen',
-    type: 'website',
-    images: [{ url: `${BASE_URL}/img/logo.png`, width: 512, height: 512, alt: 'Gulumen' }],
-    locale: 'hu_HU',
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Gulumen – Gondosan válogatott, limitált minőségi termékek',
-    description: 'Gondosan válogatott, limitált darabszámú minőségi termékek – táskák, ruházat, kiegészítők, kedvező áron.',
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await getRequestLocale()
+  return {
+    metadataBase: new URL(BASE_URL),
+    ...buildPageMetadata({
+      locale,
+      title: getSiteTitle(locale),
+      description: getSiteDescription(locale),
+      internalPath: '/',
+    }),
+  }
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const locale = await getRequestLocale()
+  const h = await headers()
+  const publicPath = h.get(PATHNAME_HEADER) || '/'
+  const internalPath = toInternalPath(publicPath)
+
   return (
-    <html lang="hu" className={`${poppins.variable} ${inter.variable}`} suppressHydrationWarning>
+    <html lang={locale} className={`${poppins.variable} ${inter.variable}`} suppressHydrationWarning>
       <head>
         <link rel="modulepreload" href="https://ajax.googleapis.com/ajax/libs/model-viewer/4.1.0/model-viewer.min.js" />
+        <HreflangLinks internalPath={internalPath === '/' ? '/' : internalPath} />
       </head>
       <body className="min-h-screen flex flex-col font-body">
         <WalletErrorGuard />
         <Analytics />
-        <OrganizationJsonLd />
-        <LocaleProvider>
-          <EuroRateProvider>
-          <SourcingDealOrdersProvider>
-            <AuthProvider>
-              <CatCouponProvider>
-                <ProductsProvider>
-                <CartProvider>
-                  <WishlistProvider>
-                  <ToastProvider>
-                    <Header />
-                    <main className="flex-1">{children}</main>
-                    <Footer />
-                    <CallUsStickyCTA />
-                    <DealPopup />
-                    <AIAssistant />
-                  </ToastProvider>
-                  </WishlistProvider>
-                </CartProvider>
-                </ProductsProvider>
-              </CatCouponProvider>
-            </AuthProvider>
-          </SourcingDealOrdersProvider>
-          </EuroRateProvider>
-        </LocaleProvider>
+        <OrganizationJsonLd locale={locale} />
+        <Suspense fallback={null}>
+          <LocaleProvider initialLocale={locale}>
+            <EuroRateProvider>
+            <SourcingDealOrdersProvider>
+              <AuthProvider>
+                <CatCouponProvider>
+                  <ProductsProvider>
+                  <CartProvider>
+                    <WishlistProvider>
+                    <ToastProvider>
+                      <Header />
+                      <main className="flex-1">{children}</main>
+                      <Footer />
+                      <CallUsStickyCTA />
+                      <DealPopup />
+                      <AIAssistant />
+                    </ToastProvider>
+                    </WishlistProvider>
+                  </CartProvider>
+                  </ProductsProvider>
+                </CatCouponProvider>
+              </AuthProvider>
+            </SourcingDealOrdersProvider>
+            </EuroRateProvider>
+          </LocaleProvider>
+        </Suspense>
       </body>
     </html>
   )

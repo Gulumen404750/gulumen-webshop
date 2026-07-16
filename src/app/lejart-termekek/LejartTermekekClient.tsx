@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import Link from 'next/link'
+import { LocaleLink as Link } from '@/components/LocaleLink'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { ProductCard } from '@/components/ProductCard'

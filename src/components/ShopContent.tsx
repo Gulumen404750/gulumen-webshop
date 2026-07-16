@@ -7,6 +7,7 @@ import type { Product } from '@/lib/data'
 import { ProductCard } from '@/components/ProductCard'
 import { HungarianFlagIcon } from '@/components/HungarianFlagIcon'
 import { useLocale } from '@/context/LocaleContext'
+import { localizePath } from '@/i18n/routing'
 
 const defaultStockProducts = mockProducts.filter((p) => p.type !== 'sourcing_deal')
 /** Összes termék és a többi kategória: csak nem 3D termékek. 3D kategória: csak 3D termékek – külön "doboz". */
@@ -55,9 +56,10 @@ export function ShopContent({ initialProducts }: ShopContentProps = {}) {
         if (value === '' || value === 'newest') next.delete(key)
         else next.set(key, value)
       }
-      router.replace(`/termekek?${next.toString()}`, { scroll: false })
+      const qs = next.toString()
+      router.replace(localizePath('/termekek', locale, qs ? `?${qs}` : ''), { scroll: false })
     },
-    [router, searchParams]
+    [router, searchParams, locale]
   )
   const setSub = useCallback(
     (sub: string) => setParams({ sub }),
@@ -107,7 +109,9 @@ export function ShopContent({ initialProducts }: ShopContentProps = {}) {
     new Set(productsForView.flatMap((p) => p.variants?.map((v) => v.size).filter(Boolean) ?? []))
   ).filter(Boolean) as string[]
   const cat = categoryParam ? categories.find((c) => c.slug === categoryParam) : null
-  const pageTitle = cat ? getCategoryName(cat, locale) : t('pages.productsTitle')
+  /** Egységes SEO H1: „3D nyomtatott” kiemeléssel a fő- és kategóriaoldalakon. */
+  const pageTitle = t('pages.productsTitle')
+  const categoryLabel = cat ? getCategoryName(cat, locale) : null
 
   const INITIAL_PAGE_SIZE = 12
   const PAGE_SIZE = 12
@@ -127,7 +131,10 @@ export function ShopContent({ initialProducts }: ShopContentProps = {}) {
   return (
     <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 ${is3DPage ? 'three-d-page' : ''}`}>
       <h1 className="font-heading text-2xl font-bold text-foreground mb-2">{pageTitle}</h1>
-      {is3DPage && (
+      {categoryLabel && (
+        <p className="text-foreground/80 font-medium mb-2">{categoryLabel}</p>
+      )}
+      {(is3DPage || Boolean(categoryLabel)) && (
         <p className="text-muted text-sm mb-2 flex items-center gap-2">
           <HungarianFlagIcon />
           {t('pages.products3DSubtitle')}

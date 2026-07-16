@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import Link from 'next/link'
+import { LocaleLink as Link } from '@/components/LocaleLink'
 import { useSearchParams } from 'next/navigation'
 import { useLocale } from '@/context/LocaleContext'
 import { useCart } from '@/context/CartContext'

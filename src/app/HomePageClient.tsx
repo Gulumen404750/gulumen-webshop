@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import { LocaleLink as Link } from '@/components/LocaleLink'
 import type { Product } from '@/lib/data'
 import { ProductCard } from '@/components/ProductCard'
 import { HeroCat } from '@/components/HeroCat'

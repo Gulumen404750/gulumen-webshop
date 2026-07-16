@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import { LocaleLink as Link } from '@/components/LocaleLink'
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
 
 export type ToastAction = { label: string; href: string }
