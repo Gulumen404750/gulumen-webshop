@@ -1,6 +1,8 @@
 import bpy
 import os
 import math
+import sys
+from mathutils import Vector
 
 # --- 1. MŰTEREM TISZTÍTÁSA ---
 bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -12,7 +14,7 @@ cam_object = bpy.data.objects.new(name='Kamera', object_data=cam_data)
 bpy.context.scene.collection.objects.link(cam_object)
 bpy.context.scene.camera = cam_object
 
-# Kamera pozíciója (45 fokos szögben, kicsit magasabbról)
+# Alap kamera pozíció (45 fokos szögben, kicsit magasabbról) – modellekhez skálázva
 cam_object.location = (4, -4, 3)
 cam_object.rotation_euler = (math.radians(60), 0, math.radians(45))
 
@@ -37,15 +39,16 @@ scene = bpy.context.scene
 scene.render.engine = 'CYCLES'  # Vagy 'BLENDER_EEVEE' a villámgyors rendereléshez
 scene.render.resolution_x = 1080
 scene.render.resolution_y = 1080
+scene.render.image_settings.file_format = 'PNG'
+scene.render.film_transparent = False
 
 # Mappa útvonala (Blender --python alatt __file__ nem mindig elérhető)
 try:
     mappa_utvonal = os.path.dirname(os.path.abspath(__file__))
 except NameError:
-    mappa_utvonal = os.path.dirname(os.path.abspath(bpy.context.space_data.text.filepath)) if bpy.context.space_data and getattr(bpy.context.space_data, "text", None) else os.getcwd()
+    mappa_utvonal = os.getcwd()
 
 # Ha CLI-ből futtatjuk: blender --python script.py -- /út/a/mappához
-import sys
 if "--" in sys.argv:
     args = sys.argv[sys.argv.index("--") + 1:]
     if args:
@@ -55,50 +58,88 @@ if "--" in sys.argv:
 scene.cycles.samples = 64
 scene.cycles.use_denoising = True
 
+
+def frame_object(cam, obj, margin=1.35):
+    """Kamerát a mesh bounding boxjához igazítja (45°-os stúdió nézet)."""
+    bpy.context.view_layer.update()
+    bbox_corners = [obj.matrix_world @ Vector(corner) for corner in obj.bound_box]
+    center = sum(bbox_corners, Vector((0, 0, 0))) / 8.0
+    radius = max((corner - center).length for corner in bbox_corners)
+    if radius < 1e-6:
+        radius = 1.0
+
+    # 45° / kissé felülről – irányvektor normalizálva
+    direction = Vector((1.0, -1.0, 0.75)).normalized()
+    # Perspektív kamera: FOV alapján távolság
+    sensor = cam.data.sensor_width
+    focal = cam.data.lens
+    fov = 2.0 * math.atan((sensor / 2.0) / focal)
+    distance = (radius * margin) / math.tan(fov / 2.0)
+
+    cam.location = center + direction * distance
+    cam.rotation_euler = (math.radians(60), 0, math.radians(45))
+    # Pontos look-at a modell közepére
+    look = center - cam.location
+    cam.rotation_euler = look.to_track_quat('-Z', 'Y').to_euler()
+
+
 print("--- GULUMEN 3D AUTOMATA RENDERELÉS INDUL ---")
 print(f"Mappa: {mappa_utvonal}")
 
+SUPPORTED = (".stl", ".3mf")
+
 # --- 5. AUTOMATIKUS MODELL-FELDOLGOZÁS ---
 for fajlnev in sorted(os.listdir(mappa_utvonal)):
-    if fajlnev.endswith(".stl") or fajlnev.endswith(".3mf"):
-        fajl_utvonal = os.path.join(mappa_utvonal, fajlnev)
-        print(f"Feldolgozás: {fajlnev}")
+    if not fajlnev.lower().endswith(SUPPORTED):
+        continue
 
-        # Importálás típus alapján
-        bpy.ops.object.select_all(action='DESELECT')
-        if fajlnev.endswith(".stl"):
-            bpy.ops.wm.stl_import(filepath=fajl_utvonal)
-        elif fajlnev.endswith(".3mf"):
-            # Pythonban a "3mf_import" attribútumnév érvénytelen → getattr
-            threemf_import = getattr(bpy.ops.wm, "3mf_import", None) or getattr(bpy.ops.import_mesh, "threemf", None)
-            if threemf_import is None:
-                print(f"  FIGYELEM: nincs 3MF import operátor, kihagyva: {fajlnev}")
-                continue
-            threemf_import(filepath=fajl_utvonal)
+    fajl_utvonal = os.path.join(mappa_utvonal, fajlnev)
+    print(f"Feldolgozás: {fajlnev}")
 
-        # A betöltött tárgy kijelölése és középre igazítása
-        imported_objs = [obj for obj in bpy.context.selected_objects if obj.type == 'MESH']
-        if not imported_objs:
-            # Fallback: legutóbb létrejött mesh
-            imported_objs = [obj for obj in bpy.context.scene.objects if obj.type == 'MESH']
-        if imported_objs:
-            obj = imported_objs[0]
-            bpy.context.view_layer.objects.active = obj
-            obj.select_set(True)
-            bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
-            obj.location = (0, 0, 0)
+    # Importálás típus alapján
+    bpy.ops.object.select_all(action='DESELECT')
+    if fajlnev.lower().endswith(".stl"):
+        bpy.ops.wm.stl_import(filepath=fajl_utvonal)
+    elif fajlnev.lower().endswith(".3mf"):
+        # Pythonban a "3mf_import" attribútumnév érvénytelen → getattr
+        threemf_import = getattr(bpy.ops.wm, "3mf_import", None) or getattr(bpy.ops.import_mesh, "threemf", None)
+        if threemf_import is None:
+            print(f"  FIGYELEM: nincs 3MF import operátor, kihagyva: {fajlnev}")
+            continue
+        threemf_import(filepath=fajl_utvonal)
 
-            # Kép kimentése
-            kimeneti_kep = os.path.join(mappa_utvonal, f"{os.path.splitext(fajlnev)[0]}.png")
-            scene.render.filepath = kimeneti_kep
-            bpy.ops.render.render(write_still=True)
-            print(f"  Mentve: {kimeneti_kep}")
+    # A betöltött tárgy kijelölése és középre igazítása
+    imported_objs = [obj for obj in bpy.context.selected_objects if obj.type == 'MESH']
+    if not imported_objs:
+        imported_objs = [obj for obj in bpy.context.scene.objects if obj.type == 'MESH']
 
-            # Tárgy törlése a következő előtt
-            bpy.ops.object.select_all(action='DESELECT')
-            obj.select_set(True)
-            bpy.ops.object.delete()
-        else:
-            print(f"  FIGYELEM: nem sikerült mesh-et importálni: {fajlnev}")
+    if not imported_objs:
+        print(f"  FIGYELEM: nem sikerült mesh-et importálni: {fajlnev}")
+        continue
+
+    # Több mesh esetén egyesítés egy aktív objektummá a framinghez
+    for obj in imported_objs:
+        obj.select_set(True)
+    bpy.context.view_layer.objects.active = imported_objs[0]
+    if len(imported_objs) > 1:
+        bpy.ops.object.join()
+        obj = bpy.context.view_layer.objects.active
+    else:
+        obj = imported_objs[0]
+
+    bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
+    obj.location = (0, 0, 0)
+    frame_object(cam_object, obj)
+
+    # Kép kimentése
+    kimeneti_kep = os.path.join(mappa_utvonal, f"{os.path.splitext(fajlnev)[0]}.png")
+    scene.render.filepath = kimeneti_kep
+    bpy.ops.render.render(write_still=True)
+    print(f"  Mentve: {kimeneti_kep}")
+
+    # Tárgy törlése a következő előtt
+    bpy.ops.object.select_all(action='DESELECT')
+    obj.select_set(True)
+    bpy.ops.object.delete()
 
 print("--- KÉSZ! A képek a mappában vannak. ---")
