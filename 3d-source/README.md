@@ -6,8 +6,8 @@ Ide tedd a webshop 3D modelljeihez tartozó STL fájlokat (relatív útvonalon, 
 
 | Fájlnév a mappában      | Eredeti forrás (példa) |
 |-------------------------|-------------------------|
-| `noveny-kotozo.stl`     | pl. plantssupportstrapl80.stl (Növény kötöző) |
-| `szalveta-tarto-korok.stl` | pl. krouzek stromecek.stl (Szalvéta tartó) |
+| `noveny-kotozo.stl`     | plantssupportstrapl80 (Növény kötöző) |
+| `szalveta-tarto-korok.stl` | krouzek stromecek (Szalvéta tartó) |
 
 Ha a fájlok máshol vannak (pl. asztalon egy mappában), másold át őket ide a fenti nevekkel.
 
