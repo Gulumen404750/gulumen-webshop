@@ -18,3 +18,13 @@ npm run convert-3d:webshop
 ```
 
 A kimenet: `public/models/noveny-kotozo.glb` és `public/models/szalveta-tarto-korok.glb`.
+
+## PNG preview render (Blender)
+
+Automatikus stúdió-render minden `.stl` / `.3mf` fájlhoz:
+
+```bash
+blender --background --python 3d-source/gulumen_auto_render.py -- 3d-source
+```
+
+A kimenet: ugyanabban a mappában `*.png` (pl. `noveny-kotozo.png`).
