@@ -81,9 +81,9 @@ export default function RegistrationPage() {
       const claimed = claimRegistrationCoupon(uid)
       if (claimed) setCouponGranted(true)
     }
-    // Születésnapi kupon azonnal – irány profil, ahol a kód látszik
+    // Születési dátum mentve – profilon látja a rögzített állapotot (kupon csak születésnapon)
     if (birthDate.trim()) {
-      router.push('/profil?birthdayCoupon=1')
+      router.push('/profil')
       return
     }
     router.push('/termekek')

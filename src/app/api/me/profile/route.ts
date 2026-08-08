@@ -7,6 +7,7 @@ import {
   findActiveBirthdayCoupon,
   formatBirthDateForInput,
   grantBirthdayCouponForUser,
+  isBirthdayToday,
   parseBirthDateInput,
 } from '@/lib/birthday-coupon'
 
@@ -63,7 +64,7 @@ const patchSchema = z.object({
 
 /**
  * PATCH /api/me/profile – születési dátum / név frissítés.
- * Születési dátum megadásakor automatikus 15% kupon + e-mail.
+ * birthDate egyszer állítható be; kupon csak ha ma van a születésnap.
  */
 export async function PATCH(request: Request) {
   const session = await getSession(request)
@@ -103,20 +104,25 @@ export async function PATCH(request: Request) {
   }
 
   const data: { birthDate?: Date | null; name?: string | null } = {}
-  let birthDateNewlySet = false
+  let birthDateJustSaved: Date | null = null
 
   if (parsed.data.birthDate !== undefined) {
+    // Már beállított születési dátum nem módosítható / törölhető
+    if (before.birthDate) {
+      return NextResponse.json(
+        { error: 'A születési dátum már rögzítve van, nem módosítható.' },
+        { status: 400 }
+      )
+    }
     const birth = parseBirthDateInput(parsed.data.birthDate)
     if (birth === 'invalid') {
       return NextResponse.json({ error: 'Érvénytelen születési dátum' }, { status: 400 })
     }
-    data.birthDate = birth
-    if (birth && !before.birthDate) {
-      birthDateNewlySet = true
-    } else if (birth && before.birthDate) {
-      // Dátum módosítás is: ha még nincs aktív kuponja az idén, adjuk
-      birthDateNewlySet = true
+    if (!birth) {
+      return NextResponse.json({ error: 'Születési dátum megadása kötelező a mentéshez.' }, { status: 400 })
     }
+    data.birthDate = birth
+    birthDateJustSaved = birth
   }
 
   if (parsed.data.name !== undefined) {
@@ -144,9 +150,11 @@ export async function PATCH(request: Request) {
     created?: boolean
     emailed?: boolean
     emailError?: string
+    deferred?: boolean
   } | null = null
 
-  if (birthDateNewlySet && user.birthDate) {
+  // Kupon csak ha ma van a születésnap (edge case: ma adja meg ÉS ma született)
+  if (birthDateJustSaved && isBirthdayToday(birthDateJustSaved)) {
     const grant = await grantBirthdayCouponForUser(userId, { sendEmail: true })
     if (grant.ok) {
       birthdayCoupon = grant.coupon
@@ -158,6 +166,8 @@ export async function PATCH(request: Request) {
     } else if (grant.reason === 'already_sent_this_year') {
       birthdayCoupon = await findActiveBirthdayCoupon(userId)
     }
+  } else if (birthDateJustSaved) {
+    birthdayGrant = { deferred: true }
   }
 
   return NextResponse.json({

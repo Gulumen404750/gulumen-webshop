@@ -331,7 +331,7 @@
     "firstPurchasePromo": "Regisztrálj és kapj {percent}% kedvezményt az első vásárlásra!",
     "intro": "Hozz létre fiókot e-mail címeddel. Az ÁSZF és az adatkezelés elfogadása kötelező; a kedvezménykupon és az ajánlat e-mailek opcionálisak.",
     "birthDateLabel": "Születési dátum",
-    "birthDateHint": "Add meg a születési dátumodat, és azonnal megkapod a 15%-os exkluzív kupont e-mailben és a profilodon!",
+    "birthDateHint": "Add meg a születési dátumodat – a 15%-os exkluzív kupont a születésnapodon küldjük e-mailben és a profilodra.",
     "requiredLabel": "Kötelező",
     "optionalLabel": "opcionális",
     "checkboxPrivacy": "Elfogadom az ÁSZF-et és az Adatkezelési tájékoztatót (adatok belső kezelése és elmentése)",
@@ -359,11 +359,11 @@
     "email": "E-mail",
     "password": "Jelszó",
     "birthDateLabel": "Születési dátum",
-    "birthDateHint": "Add meg a születési dátumodat, és azonnal megkapod a 15%-os exkluzív kupont e-mailben és itt a profilodon!",
+    "birthDateHint": "Egyszer adhatod meg. A 15%-os exkluzív kupont a tényleges születésnapodon kapod meg e-mailben és itt a profilodon.",
     "birthDateSave": "Születési dátum mentése",
     "birthDateSaving": "Mentés…",
     "birthDateSaved": "Születési dátum elmentve.",
-    "birthdayCouponGranted": "Kész! {percent}% exkluzív kuponod: {code}. E-mailben is elküldtük.",
+    "birthdayCouponGranted": "Boldog születésnapot! {percent}% exkluzív kuponod: {code}. E-mailben is elküldtük.",
     "birthdayCouponTitle": "{percent}% születésnapi / exkluzív kuponod",
     "birthdayCouponValidUntil": "Érvényes: {date}-ig",
     "birthdayCouponCopy": "Kód másolása",
@@ -387,7 +387,10 @@
     "loyaltyTierSilver": "Ezüst",
     "loyaltyTierGold": "Arany",
     "loyaltyDiscountLabel": "{percent}% állandó hűségkedvezmény",
-    "loyaltyQualifiedOrders": "{count} minősített rendelés"
+    "loyaltyQualifiedOrders": "{count} minősített rendelés",
+    "birthDateSavedDeferred": "Születési dátum elmentve. A 15%-os kupont a születésnapodon kapod meg.",
+    "birthDateLockedTitle": "Születési dátumod rögzítve",
+    "birthDateLockedHint": "A dátum nem módosítható. A 15%-os születésnapi kupont a születésnapodon aktiváljuk."
   },
   "gamification": {
     "pointsTitle": "Pontjaid",
@@ -608,4 +611,3 @@
     "voiceUnsupported": "A hangbevitel nem támogatott ebben a böngészőben. Írd be a kérdésed."
   }
 }
-

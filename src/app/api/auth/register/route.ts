@@ -11,7 +11,7 @@ import {
   isUniqueEmailConstraintError,
   normalizeEmail,
 } from '@/lib/user-email'
-import { grantBirthdayCouponForUser, parseBirthDateInput } from '@/lib/birthday-coupon'
+import { grantBirthdayCouponForUser, isBirthdayToday, parseBirthDateInput } from '@/lib/birthday-coupon'
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -95,7 +95,8 @@ export async function POST(request: Request) {
         validUntil: string
         active: boolean
       } | null = null
-      if (birthParsed) {
+      // Kupon csak ha ma van a születésnap (különben a napi cron adja)
+      if (birthParsed && isBirthdayToday(birthParsed)) {
         const grant = await grantBirthdayCouponForUser(user.id, { sendEmail: true })
         if (grant.ok) birthdayCoupon = grant.coupon
       }

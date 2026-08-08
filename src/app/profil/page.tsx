@@ -23,6 +23,7 @@ type BirthdayCouponInfo = {
 function BirthDateProfileSection() {
   const { t } = useLocale()
   const [birthDate, setBirthDate] = useState('')
+  const [birthDateLocked, setBirthDateLocked] = useState(false)
   const [birthdayCoupon, setBirthdayCoupon] = useState<BirthdayCouponInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -36,7 +37,12 @@ function BirthDateProfileSection() {
       .then(async (r) => {
         const data = await r.json().catch(() => ({}))
         if (!r.ok) throw new Error(data.error || 'Betöltési hiba')
-        setBirthDate(typeof data.user?.birthDate === 'string' ? data.user.birthDate : '')
+        const saved =
+          typeof data.user?.birthDate === 'string' && data.user.birthDate.trim()
+            ? data.user.birthDate.trim()
+            : ''
+        setBirthDate(saved)
+        setBirthDateLocked(Boolean(saved))
         setBirthdayCoupon(data.birthdayCoupon ?? null)
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Betöltési hiba'))
@@ -45,6 +51,7 @@ function BirthDateProfileSection() {
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (birthDateLocked) return
     setSaving(true)
     setMessage(null)
     setError(null)
@@ -57,7 +64,12 @@ function BirthDateProfileSection() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || 'Mentés sikertelen')
-      setBirthDate(typeof data.user?.birthDate === 'string' ? data.user.birthDate : '')
+      const saved =
+        typeof data.user?.birthDate === 'string' && data.user.birthDate.trim()
+          ? data.user.birthDate.trim()
+          : ''
+      setBirthDate(saved)
+      setBirthDateLocked(Boolean(saved))
       setBirthdayCoupon(data.birthdayCoupon ?? null)
       if (data.birthdayGrant?.created && data.birthdayCoupon?.code) {
         setMessage(
@@ -66,6 +78,8 @@ function BirthDateProfileSection() {
             code: data.birthdayCoupon.code,
           })
         )
+      } else if (data.birthdayGrant?.deferred) {
+        setMessage(t('profile.birthDateSavedDeferred'))
       } else {
         setMessage(t('profile.birthDateSaved'))
       }
@@ -120,45 +134,63 @@ function BirthDateProfileSection() {
         </div>
       )}
 
-      <form
-        onSubmit={save}
-        className="rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-4 space-y-3"
-      >
-        <div>
-          <label htmlFor="profile-birthDate" className="block text-sm font-medium text-foreground mb-1">
-            {t('profile.birthDateLabel')}{' '}
-            <span className="text-muted font-normal">({t('register.optionalLabel')})</span>
-          </label>
-          <input
-            id="profile-birthDate"
-            type="date"
-            value={birthDate}
-            onChange={(e) => setBirthDate(e.target.value)}
-            max={new Date().toISOString().slice(0, 10)}
-            disabled={loading || saving}
-            className="w-full max-w-xs px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground disabled:opacity-60"
-            autoComplete="bday"
-          />
-          <p className="mt-1.5 text-xs text-muted leading-relaxed">{t('profile.birthDateHint')}</p>
-        </div>
-        {message && (
-          <p className="text-sm text-green-700 dark:text-green-400" role="status">
-            {message}
-          </p>
-        )}
-        {error && (
-          <p className="text-sm text-red-600 dark:text-red-400" role="alert">
-            {error}
-          </p>
-        )}
-        <button
-          type="submit"
-          disabled={loading || saving}
-          className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:opacity-90 disabled:opacity-60"
+      {/* Születési dátum mező csak ha még nincs rögzítve */}
+      {!birthDateLocked ? (
+        <form
+          onSubmit={save}
+          className="rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-4 space-y-3"
         >
-          {saving ? t('profile.birthDateSaving') : t('profile.birthDateSave')}
-        </button>
-      </form>
+          <div>
+            <label htmlFor="profile-birthDate" className="block text-sm font-medium text-foreground mb-1">
+              {t('profile.birthDateLabel')}{' '}
+              <span className="text-muted font-normal">({t('register.optionalLabel')})</span>
+            </label>
+            <input
+              id="profile-birthDate"
+              type="date"
+              value={birthDate}
+              onChange={(e) => setBirthDate(e.target.value)}
+              max={new Date().toISOString().slice(0, 10)}
+              disabled={loading || saving}
+              className="w-full max-w-xs px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground disabled:opacity-60"
+              autoComplete="bday"
+            />
+            <p className="mt-1.5 text-xs text-muted leading-relaxed">{t('profile.birthDateHint')}</p>
+          </div>
+          {message && (
+            <p className="text-sm text-green-700 dark:text-green-400" role="status">
+              {message}
+            </p>
+          )}
+          {error && (
+            <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+              {error}
+            </p>
+          )}
+          <button
+            type="submit"
+            disabled={loading || saving || !birthDate.trim()}
+            className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:opacity-90 disabled:opacity-60"
+          >
+            {saving ? t('profile.birthDateSaving') : t('profile.birthDateSave')}
+          </button>
+        </form>
+      ) : (
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-4 space-y-1">
+          <p className="text-sm font-medium text-foreground">{t('profile.birthDateLockedTitle')}</p>
+          <p className="text-sm text-muted">{t('profile.birthDateLockedHint')}</p>
+          {message && (
+            <p className="text-sm text-green-700 dark:text-green-400 pt-1" role="status">
+              {message}
+            </p>
+          )}
+          {error && (
+            <p className="text-sm text-red-600 dark:text-red-400 pt-1" role="alert">
+              {error}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   )
 }

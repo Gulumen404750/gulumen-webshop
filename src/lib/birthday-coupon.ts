@@ -1,7 +1,8 @@
 /**
  * Születésnapi 15% kupon:
- * - azonnal, amikor a user megadja a születési dátumát
- * - és/vagy a napi cron a tényleges születésnapon (ha az idén még nem kapott)
+ * - csak a felhasználó tényleges születésnapján (hó+nap egyezés, Europe/Budapest)
+ * - napi cron, vagy ha a dátum mentése / regisztráció napja épp a születésnap
+ * - egy felhasználó egy naptári évben legfeljebb 1 alkalommal (`birthdayCouponLastSentYear`)
  */
 import { randomBytes } from 'crypto'
 import { prisma, isDbConfigured } from '@/lib/prisma'
@@ -27,7 +28,17 @@ export type GrantBirthdayCouponResult =
       coupon: BirthdayCouponInfo
       emailError?: string
     }
-  | { ok: false; reason: 'no_db' | 'user_not_found' | 'already_sent_this_year' | 'error'; error?: string }
+  | {
+      ok: false
+      reason:
+        | 'no_db'
+        | 'user_not_found'
+        | 'no_birth_date'
+        | 'not_birthday_today'
+        | 'already_sent_this_year'
+        | 'error'
+      error?: string
+    }
 
 export type BirthdayCouponRunResult = {
   ok: true
@@ -50,6 +61,13 @@ function budapestParts(now = new Date()): { year: number; month: number; day: nu
   }).formatToParts(now)
   const get = (type: string) => Number(parts.find((p) => p.type === type)?.value || 0)
   return { year: get('year'), month: get('month'), day: get('day') }
+}
+
+/** Születési dátum hónap+napja egyezik-e a mai nappal (Europe/Budapest). */
+export function isBirthdayToday(birthDate: Date | null | undefined, now = new Date()): boolean {
+  if (!birthDate) return false
+  const { month, day } = budapestParts(now)
+  return birthDate.getUTCMonth() + 1 === month && birthDate.getUTCDate() === day
 }
 
 function randomCouponSuffix(): string {
@@ -103,7 +121,7 @@ export async function findActiveBirthdayCoupon(userId: string): Promise<Birthday
 
 /**
  * Születésnapi kupon kiadása egy usernek (e-mail + DB kód).
- * Idempotens: ha már van aktív kuponja, azt adja vissza; ha az idén már kapott, skip.
+ * Csak a születésnapján (hó+nap). Idempotens: aktív kupon → visszaadja; idén már kapott → skip.
  */
 export async function grantBirthdayCouponForUser(
   userId: string,
@@ -126,6 +144,11 @@ export async function grantBirthdayCouponForUser(
     },
   })
   if (!user) return { ok: false, reason: 'user_not_found' }
+  if (!user.birthDate) return { ok: false, reason: 'no_birth_date' }
+
+  if (!isBirthdayToday(user.birthDate, now)) {
+    return { ok: false, reason: 'not_birthday_today' }
+  }
 
   const existingActive = await findActiveBirthdayCoupon(userId)
   if (existingActive) {
