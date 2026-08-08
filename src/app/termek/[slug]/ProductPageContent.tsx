@@ -116,8 +116,10 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
   const isColorable = !!product.isColorable
   const availableColors = getAvailableColorVariants(product.colorImages, isColorable)
   const usesColorGalleries = hasAnyColorImages(product.colorImages)
-  /** Színválasztónál nincs alapértelmezett szín – a felhasználónak kell választania. */
-  const [selectedColor, setSelectedColor] = useState<ColorVariant | null>(null)
+  /** Alapértelmezés: az első elérhető szín – a Kosárba gomb azonnal aktív. */
+  const [selectedColor, setSelectedColor] = useState<ColorVariant | null>(() =>
+    availableColors.length > 0 ? availableColors[0] : null
+  )
   const sourcingStatus =
     product.type === 'sourcing_deal'
       ? getSourcingDealStatus(product, new Date(serverNow ?? Date.now()), effectiveOrdersCount)
@@ -150,17 +152,34 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
   const availableColorIds = availableColors.map((c) => c.id).join(',')
 
   useEffect(() => {
-    if (!showColorPicker) return
-    const colorParam = searchParams.get('color')
-    if (!colorParam) return
-    const normalized = normalizeHexColor(colorParam, '')
-    if (!normalized) return
-    const colors = getAvailableColorVariants(product.colorImages, isColorable)
-    const color = colors.find((c) => c.hex.toLowerCase() === normalized)
-    if (color) {
-      setSelectedColor(color)
-      setMainImageIndex(0)
+    if (!showColorPicker) {
+      setSelectedColor(null)
+      return
     }
+    const colors = getAvailableColorVariants(product.colorImages, isColorable)
+    if (colors.length === 0) {
+      setSelectedColor(null)
+      return
+    }
+
+    const colorParam = searchParams.get('color')
+    if (colorParam) {
+      const normalized = normalizeHexColor(colorParam, '')
+      if (normalized) {
+        const fromUrl = colors.find((c) => c.hex.toLowerCase() === normalized)
+        if (fromUrl) {
+          setSelectedColor(fromUrl)
+          setMainImageIndex(0)
+          return
+        }
+      }
+    }
+
+    // URL-ben nincs érvényes szín → tartsuk meg a jelenlegi érvényes választást, különben az első szín
+    setSelectedColor((prev) => {
+      if (prev && colors.some((c) => c.id === prev.id)) return prev
+      return colors[0]
+    })
   }, [searchParams, showColorPicker, availableColorIds, product.colorImages, isColorable])
 
   const handleSelectColor = (color: ColorVariant) => {
