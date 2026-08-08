@@ -9,6 +9,8 @@ type UserRow = {
   email: string
   name: string | null
   createdAt: string
+  birthDate?: string | null
+  age?: number | null
   ordersCount: number
   marketingOptIn: boolean
   marketingOptInSource?: string | null
@@ -153,6 +155,20 @@ function UserDetailModal({ userId, onClose }: UserDetailModalProps) {
               <div>
                 <p className="text-muted">Rendelések</p>
                 <p className="font-medium text-foreground">{detail.user.ordersCount}</p>
+              </div>
+              <div>
+                <p className="text-muted">Születési dátum</p>
+                <p className="font-medium text-foreground">
+                  {detail.user.birthDate
+                    ? new Date(`${detail.user.birthDate}T12:00:00Z`).toLocaleDateString('hu-HU')
+                    : '–'}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted">Életkor</p>
+                <p className="font-medium text-foreground">
+                  {detail.user.age != null ? `${detail.user.age} év` : '–'}
+                </p>
               </div>
             </div>
 
@@ -378,6 +394,7 @@ export default function AdminUsersPage() {
   const [marketingFilter, setMarketingFilter] = useState<MarketingFilter>('all')
   const [emailOpen, setEmailOpen] = useState(false)
   const [sending, setSending] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [toast, setToast] = useState<{ type: 'ok' | 'error'; text: string } | null>(null)
 
   const loadUsers = useCallback((marketing: MarketingFilter) => {
@@ -468,6 +485,40 @@ export default function AdminUsersPage() {
         subscribedUsers.filter((u) => userStartsWithLetter(u, L)).map((u) => u.id)
       )
     )
+  }
+
+  const deleteUser = async (user: UserRow) => {
+    const ok = window.confirm(
+      `Biztosan törölni szeretnéd ezt a felhasználót?\n\n${user.email}\n\nA rendelések megmaradnak, a fiók és a kapcsolódó tesztadatok törlődnek – ugyanazzal az e-maillel újra lehet regisztrálni.`
+    )
+    if (!ok) return
+    setDeletingId(user.id)
+    setToast(null)
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error ?? 'Törlés sikertelen')
+      setUsers((prev) => prev.filter((u) => u.id !== user.id))
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        next.delete(user.id)
+        return next
+      })
+      if (selectedUserId === user.id) setSelectedUserId(null)
+      setToast({
+        type: 'ok',
+        text: `Felhasználó törölve: ${user.email}${
+          data.ordersDetached ? ` (${data.ordersDetached} rendelés megőrizve)` : ''
+        }`,
+      })
+    } catch (e) {
+      setToast({ type: 'error', text: e instanceof Error ? e.message : 'Törlés sikertelen' })
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   const sendBulkEmail = async (subject: string, body: string) => {
@@ -611,7 +662,7 @@ export default function AdminUsersPage() {
       )}
 
       {loading ? (
-        <AdminTableSkeleton columns={6} rows={10} />
+        <AdminTableSkeleton columns={8} rows={10} />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
           <table className="w-full text-left text-sm">
@@ -631,13 +682,17 @@ export default function AdminUsersPage() {
                 <th className="p-3 font-medium">Email</th>
                 <th className="p-3 font-medium">Név</th>
                 <th className="p-3 font-medium">Hírlevél / Marketing</th>
+                <th className="p-3 font-medium">Születésnap</th>
+                <th className="p-3 font-medium">Életkor</th>
                 <th className="p-3 font-medium">Regisztráció</th>
                 <th className="p-3 font-medium">Rendelések</th>
+                <th className="p-3 font-medium">Műveletek</th>
               </tr>
             </thead>
             <tbody>
               {users.map((u) => {
                 const checked = selectedIds.has(u.id)
+                const busy = deletingId === u.id
                 return (
                   <tr
                     key={u.id}
@@ -678,6 +733,20 @@ export default function AdminUsersPage() {
                       className="p-3 text-muted cursor-pointer"
                       onClick={() => setSelectedUserId(u.id)}
                     >
+                      {u.birthDate
+                        ? new Date(`${u.birthDate}T12:00:00Z`).toLocaleDateString('hu-HU')
+                        : '–'}
+                    </td>
+                    <td
+                      className="p-3 text-muted cursor-pointer"
+                      onClick={() => setSelectedUserId(u.id)}
+                    >
+                      {u.age != null ? `${u.age} év` : '–'}
+                    </td>
+                    <td
+                      className="p-3 text-muted cursor-pointer"
+                      onClick={() => setSelectedUserId(u.id)}
+                    >
                       {new Date(u.createdAt).toLocaleDateString('hu-HU')}
                     </td>
                     <td
@@ -685,6 +754,31 @@ export default function AdminUsersPage() {
                       onClick={() => setSelectedUserId(u.id)}
                     >
                       {u.ordersCount}
+                    </td>
+                    <td className="p-3">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => deleteUser(u)}
+                        className="inline-flex items-center justify-center rounded-lg border border-red-500/40 bg-red-500/10 p-1.5 text-red-700 dark:text-red-300 hover:bg-red-500/20 disabled:opacity-50"
+                        title="Felhasználó törlése"
+                        aria-label={`Törlés: ${u.email}`}
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          aria-hidden="true"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3m-7 0h8"
+                          />
+                        </svg>
+                      </button>
                     </td>
                   </tr>
                 )

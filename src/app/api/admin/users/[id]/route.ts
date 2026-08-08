@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { prisma, isDbConfigured } from '@/lib/prisma'
+import { ageFromBirthDate, formatBirthDateForInput } from '@/lib/birthday-coupon'
 
 /**
  * GET /api/admin/users/[id]
@@ -44,6 +45,9 @@ export async function GET(
       email: user.email,
       name: user.name,
       createdAt: user.createdAt.toISOString(),
+      birthDate: formatBirthDateForInput(user.birthDate) || null,
+      age: user.birthDate ? ageFromBirthDate(user.birthDate) : null,
+      marketingOptIn: user.marketingOptIn,
       ordersCount: user._count.orders,
     },
     wallet: user.pointWallet
@@ -74,4 +78,64 @@ export async function GET(
       createdAt: c.createdAt.toISOString(),
     })),
   })
+}
+
+/**
+ * DELETE /api/admin/users/[id]
+ * Felhasználó + kapcsolódó tesztadatok törlése (újra regisztrálható legyen ugyanazzal az e-maillel).
+ * Lezárt / meglévő rendelések megmaradnak (userId → null).
+ */
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const ok = await requireAdmin()
+  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!isDbConfigured()) {
+    return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
+  }
+
+  const { id } = await params
+  const user = await prisma.user.findUnique({
+    where: { id },
+    select: { id: true, email: true, _count: { select: { orders: true } } },
+  })
+  if (!user) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Rendelések megőrzése – csak a user kapcsolat leválasztása
+      await tx.order.updateMany({
+        where: { userId: id },
+        data: { userId: null },
+      })
+      // Személyes kuponok inaktiválása (forráskódok megmaradhatnak auditnak, user leválik SetNull-lal)
+      await tx.coupon.updateMany({
+        where: { userId: id },
+        data: { active: false, userId: null },
+      })
+      // MarketingConsent az e-mailhez – töröljük, hogy tiszta újra-regisztráció / checkout teszt legyen
+      await tx.marketingConsent.deleteMany({
+        where: { email: user.email },
+      })
+      // PointSnapshot nincs FK-reláció – kézzel töröljük
+      await tx.pointSnapshot.deleteMany({ where: { userId: id } })
+      await tx.user.delete({ where: { id } })
+    })
+
+    return NextResponse.json({
+      ok: true,
+      deletedUserId: id,
+      email: user.email,
+      ordersDetached: user._count.orders,
+    })
+  } catch (e) {
+    console.error('[api/admin/users/[id]] DELETE', e)
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : 'Törlés sikertelen' },
+      { status: 500 }
+    )
+  }
 }

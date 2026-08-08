@@ -16,12 +16,14 @@ type Product = {
   onSale: boolean
   priceHuf: number
   stock: number
+  viewsCount?: number
   sourcingEnabled: boolean
   dealEndAt: string | null
   saleEndAt: string | null
 }
 
 type StatusTab = 'active' | 'inactive' | 'archived' | 'all'
+type SortMode = 'updated' | 'popular'
 type PriceMode = 'fixed' | 'percent'
 
 type BulkPriceModalProps = {
@@ -165,6 +167,7 @@ export default function AdminProductsPage() {
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
   const [statusTab, setStatusTab] = useState<StatusTab>('active')
+  const [sortMode, setSortMode] = useState<SortMode>('updated')
   const [lowStockFilter, setLowStockFilter] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
@@ -187,6 +190,7 @@ export default function AdminProductsPage() {
     } else if (statusTab !== 'all') {
       params.set('status', statusTab)
     }
+    if (sortMode === 'popular') params.set('sort', 'popular')
     fetch(`/api/admin/products?${params}`, { credentials: 'include' })
       .then((r) => {
         if (r.status === 401) {
@@ -210,13 +214,15 @@ export default function AdminProductsPage() {
       })
       .catch(() => setError('Hálózati hiba. Próbáld újra.'))
       .finally(() => setLoading(false))
-  }, [search, typeFilter, statusTab, lowStockFilter])
+  }, [search, typeFilter, statusTab, lowStockFilter, sortMode])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const low = params.get('lowStock') === '1' || params.get('lowStock') === 'true'
     setLowStockFilter(low)
     if (low) setStatusTab('active')
+    const sort = params.get('sort')
+    if (sort === 'popular' || sort === 'views') setSortMode('popular')
   }, [])
 
   useEffect(() => {
@@ -391,6 +397,23 @@ export default function AdminProductsPage() {
           <option value="">Összes típus</option>
           <option value="stock">Készlet</option>
         </select>
+        <select
+          value={sortMode}
+          onChange={(e) => {
+            const next = e.target.value === 'popular' ? 'popular' : 'updated'
+            setSortMode(next)
+            const params = new URLSearchParams(window.location.search)
+            if (next === 'popular') params.set('sort', 'popular')
+            else params.delete('sort')
+            const qs = params.toString()
+            router.replace(qs ? `/admin/dashboard/products?${qs}` : '/admin/dashboard/products')
+          }}
+          className="rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
+          aria-label="Rendezés"
+        >
+          <option value="updated">Legutóbb módosított</option>
+          <option value="popular">Legnépszerűbb termékek</option>
+        </select>
       </div>
 
       {lowStockFilter && (
@@ -457,6 +480,7 @@ export default function AdminProductsPage() {
                 <th className="p-3 font-medium">Kategória</th>
                 <th className="p-3 font-medium">Típus</th>
                 <th className="p-3 font-medium">Ár (Ft)</th>
+                <th className="p-3 font-medium">Megtekintések</th>
                 <th className="p-3 font-medium">Státusz</th>
                 <th className="p-3 font-medium">Műveletek</th>
               </tr>
@@ -492,6 +516,9 @@ export default function AdminProductsPage() {
                       </span>
                     </td>
                     <td className="p-3">{p.priceHuf.toLocaleString('hu-HU')}</td>
+                    <td className="p-3 tabular-nums">
+                      {(p.viewsCount ?? 0).toLocaleString('hu-HU')}
+                    </td>
                     <td className={`p-3 font-medium ${statusColor}`}>{statusLabel}</td>
                     <td className="p-3">
                       <div className="flex flex-wrap items-center gap-2">

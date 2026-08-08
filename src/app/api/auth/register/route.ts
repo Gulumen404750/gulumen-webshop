@@ -11,12 +11,14 @@ import {
   isUniqueEmailConstraintError,
   normalizeEmail,
 } from '@/lib/user-email'
+import { parseBirthDateInput } from '@/lib/birthday-coupon'
 
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8, 'Legalább 8 karakter'),
   name: z.string().max(200).optional(),
   acceptOffers: z.boolean().optional(),
+  birthDate: z.union([z.string(), z.null()]).optional(),
 })
 
 const EMAIL_ALREADY_REGISTERED = 'Ezzel az e-mail címmel már regisztráltak. Jelentkezz be.'
@@ -39,8 +41,12 @@ export async function POST(request: Request) {
       { status: 400 }
     )
   }
-  const { email, password, name, acceptOffers } = parsed.data
+  const { email, password, name, acceptOffers, birthDate: birthDateRaw } = parsed.data
   const emailNorm = normalizeEmail(email)
+  const birthParsed = parseBirthDateInput(birthDateRaw)
+  if (birthParsed === 'invalid') {
+    return NextResponse.json({ error: 'Érvénytelen születési dátum' }, { status: 400 })
+  }
 
   try {
     if (isDbConfigured()) {
@@ -59,6 +65,7 @@ export async function POST(request: Request) {
             email: emailNorm,
             passwordHash,
             name: name?.trim() || null,
+            birthDate: birthParsed,
             marketingOptIn: wantsMarketing,
             marketingOptInAt: wantsMarketing ? now : null,
             marketingOptInSource: wantsMarketing ? 'registration' : null,

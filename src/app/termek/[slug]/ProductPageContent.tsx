@@ -60,6 +60,26 @@ function useRecentlyViewed(productId: string, productSlug: string) {
   }, [productId, productSlug])
 }
 
+/** Szerver oldali viewsCount növelés – bot/admin a API-n kiszűrve. */
+function useProductViewCount(productId: string) {
+  useEffect(() => {
+    if (!productId) return
+    const key = `gulumen-viewed-${productId}`
+    try {
+      // Sessionenként egyszer (ugyanarra a termékre ne pörögjön feleslegesen)
+      if (sessionStorage.getItem(key) === '1') return
+      sessionStorage.setItem(key, '1')
+    } catch {
+      // sessionStorage nem elérhető – akkor is elküldjük
+    }
+    void fetch(`/api/products/${encodeURIComponent(productId)}/view`, {
+      method: 'POST',
+      credentials: 'include',
+      keepalive: true,
+    }).catch(() => {})
+  }, [productId])
+}
+
 const showLikesForProduct = (type: string | undefined) => type === 'stock' || type === 'sourcing_deal'
 
 type Props = { product: Product; slug: string; serverNow?: number; similarProducts: Product[] }
@@ -76,6 +96,7 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
   const [pointLimitReached, setPointLimitReached] = useState(false)
   const { hufToEur, formatEur } = useEuroRate()
   useRecentlyViewed(product.id, product.slug)
+  useProductViewCount(product.id)
   const productName = getProductName(product, locale)
   const cartQty = items.find((x) => x.productId === product.id)?.qty ?? 0
   const effectiveOrdersCount = (product.ordersCount ?? 0) + cartQty

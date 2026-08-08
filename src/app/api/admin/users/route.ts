@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { prisma, isDbConfigured } from '@/lib/prisma'
+import { ageFromBirthDate, formatBirthDateForInput } from '@/lib/birthday-coupon'
 
 /**
  * GET /api/admin/users?marketing=all|subscribed|unsubscribed
@@ -30,6 +31,7 @@ export async function GET(request: Request) {
       email: true,
       name: true,
       createdAt: true,
+      birthDate: true,
       marketingOptIn: true,
       marketingOptInAt: true,
       marketingOptInSource: true,
@@ -43,6 +45,8 @@ export async function GET(request: Request) {
       email: u.email,
       name: u.name,
       createdAt: u.createdAt.toISOString(),
+      birthDate: formatBirthDateForInput(u.birthDate) || null,
+      age: u.birthDate ? ageFromBirthDate(u.birthDate) : null,
       marketingOptIn: u.marketingOptIn,
       marketingOptInAt: u.marketingOptInAt?.toISOString() ?? null,
       marketingOptInSource: u.marketingOptInSource,

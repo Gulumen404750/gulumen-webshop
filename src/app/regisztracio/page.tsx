@@ -18,6 +18,7 @@ export default function RegistrationPage() {
   const [password, setPassword] = useState('')
   const [acceptPrivacy, setAcceptPrivacy] = useState(false)
   const [acceptOffers, setAcceptOffers] = useState(false)
+  const [birthDate, setBirthDate] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [couponGranted, setCouponGranted] = useState(false)
 
@@ -55,7 +56,13 @@ export default function RegistrationPage() {
       setError(t('register.errorPrivacy') || 'A regisztrációhoz fogadd el az ÁSZF-et és az adatkezelési tájékoztatót.')
       return
     }
-    const result = await register(trimmedEmail, password, undefined, acceptOffers)
+    const result = await register(
+      trimmedEmail,
+      password,
+      undefined,
+      acceptOffers,
+      birthDate.trim() || null
+    )
     if (!result.ok) {
       const msg = result.error ?? ''
       const already =
@@ -119,6 +126,24 @@ export default function RegistrationPage() {
             className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
             autoComplete="new-password"
           />
+        </div>
+        <div>
+          <label htmlFor="reg-birthDate" className="block text-sm font-medium text-foreground mb-1">
+            {t('register.birthDateLabel')}{' '}
+            <span className="text-muted font-normal">({t('register.optionalLabel')})</span>
+          </label>
+          <input
+            id="reg-birthDate"
+            type="date"
+            value={birthDate}
+            onChange={(e) => setBirthDate(e.target.value)}
+            max={new Date().toISOString().slice(0, 10)}
+            className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
+            autoComplete="bday"
+          />
+          <p className="mt-1.5 text-xs text-muted leading-relaxed">
+            {t('register.birthDateHint')}
+          </p>
         </div>
 
         <RegistrationConsentFields

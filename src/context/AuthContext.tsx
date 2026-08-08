@@ -27,7 +27,8 @@ type AuthContextValue = {
     email: string,
     password: string,
     name?: string,
-    acceptOffers?: boolean
+    acceptOffers?: boolean,
+    birthDate?: string | null
   ) => Promise<{ ok: boolean; error?: string; email?: string }>
   logout: () => Promise<void>
 }
@@ -72,7 +73,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { ok: false, error: data.error || 'Bejelentkezés sikertelen' }
   }, [])
 
-  const register = useCallback(async (email: string, password: string, name?: string, acceptOffers?: boolean) => {
+  const register = useCallback(async (
+    email: string,
+    password: string,
+    name?: string,
+    acceptOffers?: boolean,
+    birthDate?: string | null
+  ) => {
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -82,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
         name: name?.trim() || undefined,
         acceptOffers: acceptOffers === true,
+        ...(birthDate ? { birthDate } : {}),
       }),
     })
     const data = await res.json().catch(() => ({}))

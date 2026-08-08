@@ -33,6 +33,7 @@ export async function GET(request: Request) {
   const type = searchParams.get('type')?.trim() || ''
   const lowStock =
     searchParams.get('lowStock') === '1' || searchParams.get('lowStock') === 'true'
+  const sort = searchParams.get('sort')?.trim() || ''
 
   const where: Record<string, unknown> = {}
   if (lowStock) {
@@ -61,9 +62,14 @@ export async function GET(request: Request) {
     ]
   }
 
+  const orderBy =
+    sort === 'popular' || sort === 'views'
+      ? [{ viewsCount: 'desc' as const }, { updatedAt: 'desc' as const }]
+      : [{ updatedAt: 'desc' as const }]
+
   const products = await prisma.product.findMany({
     where,
-    orderBy: { updatedAt: 'desc' },
+    orderBy,
     take: 200,
   })
 

@@ -10,6 +10,12 @@ export const REGISTRATION_COUPON_PERCENT = 0.1
  */
 export const WELCOME_CHECKOUT_COUPON_PERCENT = 0.1
 
+/** Születésnapi exkluzív kupon (0–1). */
+export const BIRTHDAY_COUPON_PERCENT = 0.15
+
+/** Születésnapi kupon érvényesség napokban a kiküldéstől. */
+export const BIRTHDAY_COUPON_VALID_DAYS = 7
+
 /** Kijelzéshez: 5, 10, 15 … Ha nincs regisztrációs kupon, 0. */
 export function getRegistrationCouponPercentDisplay(): number {
   if (REGISTRATION_COUPON_PERCENT <= 0) return 0
@@ -19,4 +25,9 @@ export function getRegistrationCouponPercentDisplay(): number {
 export function getWelcomeCheckoutCouponPercentDisplay(): number {
   if (WELCOME_CHECKOUT_COUPON_PERCENT <= 0) return 0
   return Math.round(WELCOME_CHECKOUT_COUPON_PERCENT * 100)
+}
+
+export function getBirthdayCouponPercentDisplay(): number {
+  if (BIRTHDAY_COUPON_PERCENT <= 0) return 0
+  return Math.round(BIRTHDAY_COUPON_PERCENT * 100)
 }
