@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-// deploy: marketing consent admin (master → Railway)
+// deploy: welcome 10% checkout offer (master → Railway) 2026-08-08
 import { Suspense } from 'react'
 import { Poppins, Inter } from 'next/font/google'
 import './globals.css'

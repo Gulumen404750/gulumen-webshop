@@ -1,5 +1,7 @@
 'use client'
 
+// railway-deploy-trigger: welcome checkout coupon
+
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useCatCoupon } from '@/context/CatCouponContext'
