@@ -76,6 +76,71 @@ async function sendViaResend(params: {
   }
 }
 
+export type SendAbandonedCartReminderEmailParams = {
+  to: string
+  name: string | null
+  lines: CartSnapshotLine[]
+  subtotalHuf: number
+}
+
+/** Alap rendszer-emlékeztető kupon nélkül. */
+export async function sendAbandonedCartReminderEmail(
+  params: SendAbandonedCartReminderEmailParams
+): Promise<SendAbandonedCartOfferEmailResult> {
+  const greeting = params.name?.trim() ? `Kedves ${params.name.trim()}!` : 'Kedves Vásárlónk!'
+
+  const itemsHtml = params.lines
+    .map((line) => {
+      const opts: string[] = []
+      if (line.options?.colorName) opts.push(line.options.colorName)
+      if (line.options?.materialName) opts.push(line.options.materialName)
+      const optSuffix = opts.length ? ` (${opts.join(', ')})` : ''
+      return `<li>${escapeHtml(line.name)}${escapeHtml(optSuffix)} – ${line.qty} db × ${formatHuf(line.unitPriceHuf)}</li>`
+    })
+    .join('')
+
+  const itemsText = params.lines
+    .map((line) => {
+      const opts: string[] = []
+      if (line.options?.colorName) opts.push(line.options.colorName)
+      if (line.options?.materialName) opts.push(line.options.materialName)
+      const optSuffix = opts.length ? ` (${opts.join(', ')})` : ''
+      return `- ${line.name}${optSuffix} – ${line.qty} db × ${formatHuf(line.unitPriceHuf)}`
+    })
+    .join('\n')
+
+  const cartUrl = `${APP_URL}/kosar`
+  const subject = 'Emlékeztető: termékek várnak a kosaradban – Gulumen'
+
+  const html = `
+    <p>${escapeHtml(greeting)}</p>
+    <p>Ez egy automatikus rendszerüzenet a Gulumen webshopból.</p>
+    <p>Észrevettük, hogy termékeket hagytál a kosaradban. Ha szeretnéd befejezni a vásárlást, itt folytathatod:</p>
+    <h3>Kosár tartalma</h3>
+    <ul>${itemsHtml}</ul>
+    <p><strong>Részösszeg:</strong> ${formatHuf(params.subtotalHuf)}</p>
+    <p><a href="${cartUrl}">Kosár megnyitása</a></p>
+    <p style="color:#666;font-size:13px;">Ha már megvásároltad, vagy nem szeretnél emlékeztetőt, nyugodtan hagyd figyelmen kívül ezt az e-mailt.</p>
+  `.trim()
+
+  const text = [
+    greeting,
+    '',
+    'Ez egy automatikus rendszerüzenet a Gulumen webshopból.',
+    '',
+    'Észrevettük, hogy termékeket hagytál a kosaradban. Ha szeretnéd befejezni a vásárlást, itt folytathatod:',
+    '',
+    'Kosár tartalma:',
+    itemsText,
+    '',
+    `Részösszeg: ${formatHuf(params.subtotalHuf)}`,
+    '',
+    `Kosár: ${cartUrl}`,
+  ].join('\n')
+
+  return sendViaResend({ to: params.to, subject, html, text })
+}
+
 export async function sendAbandonedCartOfferEmail(
   params: SendAbandonedCartOfferEmailParams
 ): Promise<SendAbandonedCartOfferEmailResult> {

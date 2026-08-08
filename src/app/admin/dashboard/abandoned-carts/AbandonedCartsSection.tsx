@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ABANDONED_CART_OFFER_PERCENTS,
+  type AbandonedCartOfferPercent,
   type AdminCartSnapshotRow,
 } from '@/lib/cart-snapshot'
 
@@ -56,8 +57,9 @@ export function AbandonedCartsSection() {
   const [filter, setFilter] = useState<Filter>('abandoned')
   const [search, setSearch] = useState('')
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [offerPercent, setOfferPercent] = useState<Record<string, AbandonedCartOfferPercent>>({})
   const [sending, setSending] = useState<string | null>(null)
-  const [toast, setToast] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ type: 'ok' | 'error'; text: string } | null>(null)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -99,8 +101,12 @@ export function AbandonedCartsSection() {
     })
   }
 
-  const sendOffer = async (userId: string, percent: number) => {
-    const key = `${userId}-${percent}`
+  const percentFor = (userId: string): AbandonedCartOfferPercent =>
+    offerPercent[userId] ?? ABANDONED_CART_OFFER_PERCENTS[0]
+
+  const sendOffer = async (userId: string) => {
+    const percent = percentFor(userId)
+    const key = `offer-${userId}`
     setSending(key)
     setToast(null)
     try {
@@ -112,12 +118,37 @@ export function AbandonedCartsSection() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Küldési hiba')
-      setToast(
-        `Kupon elküldve: ${data.couponCode}${data.emailSent ? ' (e-mail is ment)' : ' (e-mail nélkül – nincs Resend)'}`
-      )
+      setToast({
+        type: 'ok',
+        text: `Kedvezmény e-mail elküldve (${percent}%): ${data.couponCode}${
+          data.emailSent ? '' : ' – figyelmeztetés: e-mail szolgáltatás nem erősítette meg a küldést'
+        }`,
+      })
       load()
     } catch (e) {
-      setToast(e instanceof Error ? e.message : 'Küldési hiba')
+      setToast({ type: 'error', text: e instanceof Error ? e.message : 'Küldési hiba' })
+    } finally {
+      setSending(null)
+    }
+  }
+
+  const sendReminder = async (userId: string) => {
+    const key = `remind-${userId}`
+    setSending(key)
+    setToast(null)
+    try {
+      const res = await fetch(`/api/admin/abandoned-carts/${userId}/remind`, {
+        method: 'POST',
+        credentials: 'include',
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Küldési hiba')
+      setToast({
+        type: 'ok',
+        text: `Alap emlékeztető e-mail elküldve: ${data.to ?? 'a vásárló címére'}`,
+      })
+    } catch (e) {
+      setToast({ type: 'error', text: e instanceof Error ? e.message : 'Küldési hiba' })
     } finally {
       setSending(null)
     }
@@ -163,8 +194,14 @@ export function AbandonedCartsSection() {
       </div>
 
       {toast && (
-        <p className="text-sm rounded-lg border border-green-600/30 bg-green-600/10 text-green-800 dark:text-green-300 px-3 py-2">
-          {toast}
+        <p
+          className={`text-sm rounded-lg border px-3 py-2 ${
+            toast.type === 'ok'
+              ? 'border-green-600/30 bg-green-600/10 text-green-800 dark:text-green-300'
+              : 'border-red-600/30 bg-red-600/10 text-red-700 dark:text-red-300'
+          }`}
+        >
+          {toast.text}
         </p>
       )}
 
@@ -182,7 +219,11 @@ export function AbandonedCartsSection() {
       <div className="space-y-3">
         {filtered.map((cart) => {
           const isOpen = expanded.has(cart.userId)
-          const canOffer = cart.isAbandoned && !cart.purchasedSinceUpdate
+          const canAct = !cart.purchasedSinceUpdate && cart.itemCount > 0 && Boolean(cart.email)
+          const busyOffer = sending === `offer-${cart.userId}`
+          const busyRemind = sending === `remind-${cart.userId}`
+          const busy = sending != null
+
           return (
             <article
               key={cart.userId}
@@ -232,35 +273,80 @@ export function AbandonedCartsSection() {
                     onClick={() => toggleExpand(cart.userId)}
                     className="text-sm text-accent hover:underline"
                   >
-                    {isOpen ? 'Összecsuk' : 'Tartalom'}
+                    {isOpen ? 'Összecsuk' : 'Megnyitás'}
                   </button>
                 </div>
               </div>
 
               {isOpen && (
-                <div className="border-t border-[var(--border)] pt-3">
-                  <CartLines lines={cart.lines} />
-                </div>
-              )}
+                <div className="border-t border-[var(--border)] pt-3 space-y-4">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted mb-2">
+                      Kosár tartalma
+                    </p>
+                    <CartLines lines={cart.lines} />
+                  </div>
 
-              {canOffer && (
-                <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-[var(--border)]">
-                  <span className="text-sm text-muted mr-1">Kedvezmény küldése:</span>
-                  {ABANDONED_CART_OFFER_PERCENTS.map((pct) => {
-                    const key = `${cart.userId}-${pct}`
-                    const busy = sending === key
-                    return (
-                      <button
-                        key={pct}
-                        type="button"
-                        disabled={busy || sending != null}
-                        onClick={() => sendOffer(cart.userId, pct)}
-                        className="rounded-lg bg-accent text-accent-foreground px-3 py-1.5 text-sm font-medium disabled:opacity-50 hover:opacity-90"
-                      >
-                        {busy ? '…' : `${pct}%`}
-                      </button>
-                    )
-                  })}
+                  {canAct ? (
+                    <div className="rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-3 space-y-3">
+                      <p className="text-sm font-medium">Műveletek – {cart.email}</p>
+
+                      <div className="flex flex-wrap items-end gap-2">
+                        <label className="flex flex-col gap-1 text-sm min-w-[140px]">
+                          <span className="text-muted">Kedvezmény mértéke</span>
+                          <select
+                            value={percentFor(cart.userId)}
+                            onChange={(e) =>
+                              setOfferPercent((prev) => ({
+                                ...prev,
+                                [cart.userId]: Number(e.target.value) as AbandonedCartOfferPercent,
+                              }))
+                            }
+                            disabled={busy}
+                            className="rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-sm"
+                          >
+                            {ABANDONED_CART_OFFER_PERCENTS.map((pct) => (
+                              <option key={pct} value={pct}>
+                                {pct}%
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => sendOffer(cart.userId)}
+                          className="rounded-lg bg-accent text-accent-foreground px-3 py-2 text-sm font-medium disabled:opacity-50 hover:opacity-90"
+                        >
+                          {busyOffer ? 'Küldés…' : 'Kedvezmény e-mail küldése'}
+                        </button>
+                      </div>
+                      <p className="text-xs text-muted">
+                        Személyes kuponkódot generál (egyszer használható, 14 nap), és elküldi a
+                        fenti e-mail címre.
+                      </p>
+
+                      <div className="border-t border-[var(--border)] pt-3 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => sendReminder(cart.userId)}
+                          className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm font-medium hover:bg-[var(--border)]/30 disabled:opacity-50"
+                        >
+                          {busyRemind ? 'Küldés…' : 'Alap emlékeztető e-mail'}
+                        </button>
+                        <span className="text-xs text-muted">
+                          Kupon nélküli rendszerüzenet: „termékek várnak a kosaradban”.
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted">
+                      {cart.purchasedSinceUpdate
+                        ? 'Ehhez a kosárhoz nem küldhető ajánlat – már történt vásárlás.'
+                        : 'Nincs e-mail cím vagy üres a kosár.'}
+                    </p>
+                  )}
                 </div>
               )}
             </article>

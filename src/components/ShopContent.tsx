@@ -133,14 +133,8 @@ export function ShopContent({ initialProducts }: ShopContentProps = {}) {
   const visibleProducts = filtered.slice(0, visibleCount)
   const hasMore = filtered.length > visibleCount
 
-  const threeDTabDesignClass = is3DPage && subParam
-    ? `three-d-tab-${subParam}`
-    : is3DPage
-    ? 'three-d-tab-all'
-    : ''
-
   return (
-    <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 ${is3DPage ? 'three-d-page' : ''}`}>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <h1 className="font-heading text-2xl font-bold text-foreground mb-2">{pageTitle}</h1>
       {is3DPage && (
         <p className="text-muted text-sm mb-2 flex items-center gap-2">
@@ -177,7 +171,7 @@ export function ShopContent({ initialProducts }: ShopContentProps = {}) {
         </div>
       )}
 
-      <div className={`flex flex-col lg:flex-row gap-8 ${threeDTabDesignClass}`}>
+      <div className="flex flex-col lg:flex-row gap-8">
         {showFilters && (
           <aside className="hidden lg:block lg:w-56 shrink-0">
             <div className="sticky top-24">

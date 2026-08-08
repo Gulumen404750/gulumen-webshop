@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const description =
     descText.slice(0, 155) ||
     `${product.name}. ${categoryName}. ${product.condition}. ${(product.discountPriceHuf ?? product.priceHuf).toLocaleString('hu-HU')} Ft.`
-  const canonical = `${BASE_URL}/termek/${product.slug}`
+  const canonical = `${BASE_URL}/termek/${encodeURIComponent(product.slug)}`
   const ogImageUrl = getProductOgImageUrl(product.slug)
 
   return {

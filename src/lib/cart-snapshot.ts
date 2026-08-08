@@ -220,6 +220,12 @@ export async function sendAbandonedCartOffer(
   if (!snapshot || snapshot.itemCount <= 0) {
     return { ok: false, error: 'No cart snapshot for user' }
   }
+  if (!snapshot.user.email?.trim()) {
+    return { ok: false, error: 'Nincs e-mail cím ehhez a kosárhoz' }
+  }
+  if (await userPurchasedSince(userId, snapshot.lastUpdatedAt)) {
+    return { ok: false, error: 'A vásárló már vásárolt a kosár frissítése óta' }
+  }
 
   const items = parseItems(snapshot.items)
   const { lines, subtotalHuf } = await computeLines(items)
@@ -267,4 +273,46 @@ export async function sendAbandonedCartOffer(
   })
 
   return { ok: true, couponCode: code, emailSent: emailResult.ok }
+}
+
+/** Alap emlékeztető e-mail kupon nélkül a kosár e-mail címére. */
+export async function sendAbandonedCartReminder(
+  userId: string
+): Promise<{ ok: true; emailSent: boolean; to: string } | { ok: false; error: string }> {
+  if (!isDbConfigured()) {
+    return { ok: false, error: 'Database not configured' }
+  }
+
+  const snapshot = await prisma.userCartSnapshot.findUnique({
+    where: { userId },
+    include: { user: { select: { email: true, name: true } } },
+  })
+  if (!snapshot || snapshot.itemCount <= 0) {
+    return { ok: false, error: 'No cart snapshot for user' }
+  }
+  if (!snapshot.user.email?.trim()) {
+    return { ok: false, error: 'Nincs e-mail cím ehhez a kosárhoz' }
+  }
+
+  const purchased = await userPurchasedSince(userId, snapshot.lastUpdatedAt)
+  if (purchased) {
+    return { ok: false, error: 'A vásárló már vásárolt a kosár frissítése óta' }
+  }
+
+  const items = parseItems(snapshot.items)
+  const { lines, subtotalHuf } = await computeLines(items)
+
+  const { sendAbandonedCartReminderEmail } = await import('@/lib/abandoned-cart-email')
+  const emailResult = await sendAbandonedCartReminderEmail({
+    to: snapshot.user.email,
+    name: snapshot.user.name,
+    lines,
+    subtotalHuf,
+  })
+
+  if (!emailResult.ok) {
+    return { ok: false, error: emailResult.error }
+  }
+
+  return { ok: true, emailSent: true, to: snapshot.user.email }
 }

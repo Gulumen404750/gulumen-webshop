@@ -1,5 +1,6 @@
 import type { Product } from '@/lib/data'
 import { isSaleActive } from '@/lib/storefront-config'
+import { decodeProductSlug } from '@/lib/slug'
 
 export const OG_IMAGE_WIDTH = 1200
 export const OG_IMAGE_HEIGHT = 630
@@ -7,7 +8,8 @@ export const OG_IMAGE_HEIGHT = 630
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://gulumen.hu'
 
 export function getProductOgImagePath(slug: string): string {
-  return `/termek/${encodeURIComponent(slug)}/opengraph-image`
+  // Dekódolás előbb, hogy ne legyen dupla percent-encode (Mad%25C3%25A1…).
+  return `/termek/${encodeURIComponent(decodeProductSlug(slug))}/opengraph-image`
 }
 
 export function getProductOgImageUrl(slug: string): string {

@@ -6,6 +6,7 @@
 const TIME_API_URL = 'https://worldtimeapi.org/api/ip'
 const TIMEOUT_MS = 2000
 const CACHE_MS = 5000 // max 5 mp cache, hogy ne terheljük az API-t
+const AI_TIMEZONE = 'Europe/Budapest'
 
 let cached: { nowMs: number; at: number } | null = null
 
@@ -35,4 +36,38 @@ export async function getServerTimeMs(): Promise<number> {
     cached = null
     return Date.now()
   }
+}
+
+/** Olvasható budapesti dátum/óra az AI system promptba. */
+export async function getAiDateTimeContext(): Promise<string> {
+  const ms = await getServerTimeMs()
+  const d = new Date(ms)
+  const human = new Intl.DateTimeFormat('hu-HU', {
+    timeZone: AI_TIMEZONE,
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(d)
+  const compact = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: AI_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(d)
+
+  return [
+    `AKTUÁLIS IDŐ (${AI_TIMEZONE}, megbízható forrásból): ${human}.`,
+    `ISO-szerű: ${compact}.`,
+    'Ha dátumot, napot vagy órát kérdeznek, CSAK ezt az értéket használd.',
+    'Ne találj ki más dátumot vagy időt, és ne mondd, hogy nem tudod.',
+  ].join(' ')
 }

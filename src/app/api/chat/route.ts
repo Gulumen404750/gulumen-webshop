@@ -11,6 +11,7 @@ import {
   resolveOpenAiModels,
   type ChatSettings,
 } from '@/lib/chat-settings'
+import { getAiDateTimeContext, getServerTimeMs } from '@/lib/server-time'
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'
 
@@ -60,9 +61,13 @@ export async function POST(request: Request) {
 
       const lang = langNames[locale] ?? 'magyarul'
       const models = resolveOpenAiModels(settings.openaiModel)
+      const nowContext = await getAiDateTimeContext()
 
       const openAiMessages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
-        { role: 'system', content: `${settings.systemPrompt}\n\nVálaszolj ${lang}.` },
+        {
+          role: 'system',
+          content: `${settings.systemPrompt}\n\n${nowContext}\n\nVálaszolj ${lang}.`,
+        },
         ...history,
         { role: 'user', content: message },
       ]
@@ -107,7 +112,51 @@ export async function POST(request: Request) {
   }
 }
 
-function fallbackResponse(userMessage: string, locale: Locale, settings: ChatSettings) {
+function isDateTimeQuestion(message: string): boolean {
+  const msg = message.toLowerCase()
+  return (
+    /\b(hányadika|hányadikán|milyen nap|mi a dátum|hány óra|mennyi az idő|mi az idő|hány perc)\b/i.test(
+      msg
+    ) ||
+    /\b(what (day|date|time)|current (date|time)|what'?s the (date|time))\b/i.test(msg) ||
+    /\b(welcher tag|welches datum|wie spät|uhrzeit)\b/i.test(msg) ||
+    /\b(ce dată|ce zi|cât e ceasul|ora exactă)\b/i.test(msg)
+  )
+}
+
+async function answerDateTimeQuestion(locale: Locale): Promise<string> {
+  const ms = await getServerTimeMs()
+  const d = new Date(ms)
+  const localeTag =
+    locale === 'en' ? 'en-GB' : locale === 'de' ? 'de-DE' : locale === 'ro' ? 'ro-RO' : 'hu-HU'
+  const formatted = new Intl.DateTimeFormat(localeTag, {
+    timeZone: 'Europe/Budapest',
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).format(d)
+
+  if (locale === 'en') {
+    return `Right now in Budapest it is ${formatted}.`
+  }
+  if (locale === 'de') {
+    return `Aktuell in Budapest: ${formatted}.`
+  }
+  if (locale === 'ro') {
+    return `Acum la Budapesta este ${formatted}.`
+  }
+  return `Most Budapesten: ${formatted}.`
+}
+
+async function fallbackResponse(userMessage: string, locale: Locale, settings: ChatSettings) {
+  if (isDateTimeQuestion(userMessage)) {
+    return NextResponse.json({ text: await answerDateTimeQuestion(locale), escalate: false })
+  }
   const { textKey, escalate } = getResponse(userMessage)
   if (textKey === 'ai.default') {
     const text = getChatFallbackForLocale(settings, locale)

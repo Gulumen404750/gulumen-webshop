@@ -6,8 +6,9 @@ export default function AdminAbandonedCartsPage() {
       <div>
         <h1 className="text-2xl font-heading font-bold">Elhagyott kosarak</h1>
         <p className="text-sm text-muted mt-1">
-          Bejelentkezett vásárlók kosara. Ha 7 napja nem vásároltak, személyes kedvezményt
-          küldhetsz (10–25%) a kosár tartalmára – e-mailben és egy egyszer használható kuponnal.
+          Bejelentkezett vásárlók meg nem vásárolt kosarai. Megnyitás után választhatsz
+          kedvezményt (10–25%, kupon + e-mail), vagy küldhetsz alap emlékeztető e-mailt kupon
+          nélkül a vásárló címére.
         </p>
       </div>
       <AbandonedCartsSection />

@@ -2,7 +2,24 @@ import { NextResponse } from 'next/server'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { requireAdmin } from '@/lib/admin-auth'
+import { slugifyProduct } from '@/lib/slug'
 import { z } from 'zod'
+
+async function uniqueProductSlug(base: string, excludeId: string): Promise<string> {
+  const root = slugifyProduct(base)
+  let candidate = root
+  let n = 2
+  while (
+    await prisma.product.findFirst({
+      where: { slug: candidate, NOT: { id: excludeId } },
+      select: { id: true },
+    })
+  ) {
+    candidate = `${root}-${n}`
+    n += 1
+  }
+  return candidate
+}
 
 const updateProductSchema = z.object({
   slug: z.string().min(1).optional(),
@@ -78,15 +95,17 @@ export async function PATCH(
   }
 
   const d = parsed.data
-  if (d.slug) {
-    const existing = await prisma.product.findFirst({ where: { slug: d.slug, NOT: { id } } })
-    if (existing) return NextResponse.json({ error: 'Slug already in use' }, { status: 409 })
+  let nextSlug: string | undefined
+  if (d.slug !== undefined) {
+    // Csak ha nem URL-safe (ékezet, szóköz, nagybetű): átírjuk. Meglévő tiszta slugot nem bántjuk.
+    const safe = /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(d.slug)
+    nextSlug = safe ? d.slug : await uniqueProductSlug(d.slug, id)
   }
 
   const product = await prisma.product.update({
     where: { id },
     data: {
-      ...(d.slug !== undefined && { slug: d.slug }),
+      ...(nextSlug !== undefined && { slug: nextSlug }),
       ...(d.name !== undefined && { name: d.name }),
       ...(d.nameEn !== undefined && { nameEn: d.nameEn }),
       ...(d.nameDe !== undefined && { nameDe: d.nameDe }),

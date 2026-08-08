@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { categories, threeDSubcategories } from '@/lib/data'
 import { ProductImageUploader } from '@/components/ProductImageUploader'
+import { slugifyProduct } from '@/lib/slug'
 
 type Product = {
   id: string
@@ -51,13 +52,16 @@ export default function AdminProductEditPage() {
   const router = useRouter()
   const id = params?.id as string
   const isNew = id === 'new'
-  const [product, setProduct] = useState<Partial<Product> | null>(isNew ? {} : null)
+  const [product, setProduct] = useState<Partial<Product> | null>(
+    isNew ? { category: '3d-konyha', slug: '' } : null
+  )
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null)
   const modelInputRef = useRef<HTMLInputElement>(null)
   const [modelUploading, setModelUploading] = useState(false)
   const [modelError, setModelError] = useState<string | null>(null)
+  const [slugTouched, setSlugTouched] = useState(false)
 
   useEffect(() => {
     if (isNew) return
@@ -101,7 +105,7 @@ export default function AdminProductEditPage() {
             description_de: product.description_de ?? product.description ?? '',
             description_ro: product.description_ro ?? product.description ?? '',
             condition: product.condition || 'Új',
-            category: product.category || 'taskak',
+            category: product.category || '3d-konyha',
             image: product.image || '',
             images: product.images || [],
             images360: product.images360 || [],
@@ -136,7 +140,7 @@ export default function AdminProductEditPage() {
             description_de: product.description_de ?? product.description ?? '',
             description_ro: product.description_ro ?? product.description ?? '',
             condition: product.condition ?? 'Új',
-            category: product.category ?? 'taskak',
+            category: product.category ?? '3d-konyha',
             image: product.image ?? '',
             images: product.images ?? [],
             images360: product.images360 ?? [],
@@ -214,16 +218,22 @@ export default function AdminProductEditPage() {
             <label className="block text-sm font-medium mb-1">Slug *</label>
             <input
               value={product?.slug ?? ''}
-              onChange={(e) => setProduct((p) => ({ ...p, slug: e.target.value }))}
+              onChange={(e) => {
+                setSlugTouched(true)
+                setProduct((p) => ({ ...p, slug: slugifyProduct(e.target.value) || e.target.value }))
+              }}
               required
               className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
             />
+            <p className="mt-1 text-xs text-muted">
+              URL-azonosító: csak a–z, 0–9 és kötőjel. Ékezetek automatikusan átíródnak (pl. Madáretető → madareteto).
+            </p>
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Kategória</label>
             <div className="space-y-2">
               <select
-                value={product?.category?.startsWith('3d-') ? '3d-nyomtatott' : (product?.category || 'taskak')}
+                value={product?.category?.startsWith('3d-') ? '3d-nyomtatott' : (product?.category || '3d-konyha')}
                 onChange={(e) => {
                   const main = e.target.value
                   if (main !== '3d-nyomtatott') setProduct((p) => ({ ...p, category: main }))
@@ -235,7 +245,7 @@ export default function AdminProductEditPage() {
                   <option key={c.slug} value={c.slug}>{c.name}</option>
                 ))}
               </select>
-              {(product?.category?.startsWith('3d-') || (product?.category || 'taskak') === '3d-nyomtatott') && (
+              {(product?.category?.startsWith('3d-') || (product?.category || '3d-konyha') === '3d-nyomtatott') && (
                 <select
                   value={product?.category?.startsWith('3d-') ? product.category : '3d-konyha'}
                   onChange={(e) => setProduct((p) => ({ ...p, category: e.target.value }))}
@@ -254,7 +264,14 @@ export default function AdminProductEditPage() {
           <label className="block text-sm font-medium mb-1">Név (HU) *</label>
           <input
             value={product?.name ?? ''}
-            onChange={(e) => setProduct((p) => ({ ...p, name: e.target.value }))}
+            onChange={(e) => {
+              const name = e.target.value
+              setProduct((p) => ({
+                ...p,
+                name,
+                ...(isNew && !slugTouched ? { slug: slugifyProduct(name) } : {}),
+              }))
+            }}
             required
             className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
           />

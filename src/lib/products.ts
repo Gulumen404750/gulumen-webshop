@@ -4,6 +4,7 @@
  */
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import type { Product, Condition } from '@/lib/data'
+import { productSlugLookupCandidates } from '@/lib/slug'
 
 function mapCondition(c: string): Condition {
   const allowed: Condition[] = ['Új', 'Új, címkés', 'Új kinézetű', 'Kiváló', 'Jó']
@@ -104,8 +105,9 @@ export async function getAllProductsFromDb(): Promise<Product[]> {
 /** Slug alapján egy termék. */
 export async function getProductBySlugFromDb(slug: string): Promise<Product | null> {
   if (!isDbConfigured()) return null
+  const candidates = productSlugLookupCandidates(slug)
   const row = await prisma.product.findFirst({
-    where: { slug, active: true, archived: false },
+    where: { slug: { in: candidates }, active: true, archived: false },
   })
   return row ? dbProductToProduct(row) : null
 }

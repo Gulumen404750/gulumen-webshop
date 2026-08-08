@@ -2,7 +2,19 @@ import { NextResponse } from 'next/server'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { requireAdmin } from '@/lib/admin-auth'
+import { slugifyProduct } from '@/lib/slug'
 import { z } from 'zod'
+
+async function uniqueProductSlug(base: string): Promise<string> {
+  const root = slugifyProduct(base)
+  let candidate = root
+  let n = 2
+  while (await prisma.product.findUnique({ where: { slug: candidate }, select: { id: true } })) {
+    candidate = `${root}-${n}`
+    n += 1
+  }
+  return candidate
+}
 
 /**
  * GET /api/admin/products
@@ -117,14 +129,11 @@ export async function POST(request: Request) {
   }
 
   const d = parsed.data
-  const slugExists = await prisma.product.findUnique({ where: { slug: d.slug } })
-  if (slugExists) {
-    return NextResponse.json({ error: 'Slug already exists' }, { status: 409 })
-  }
+  const slug = await uniqueProductSlug(d.slug || d.name)
 
   const product = await prisma.product.create({
     data: {
-      slug: d.slug,
+      slug,
       name: d.name,
       nameEn: d.nameEn ?? null,
       nameDe: d.nameDe ?? null,

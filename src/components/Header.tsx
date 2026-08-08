@@ -317,7 +317,7 @@ export function Header() {
             <PointsDisplay compact className="hidden sm:flex" />
             <Link
               href="/kedvencek"
-              className="hidden sm:flex p-2 rounded-lg text-muted hover:text-foreground hover:bg-[var(--border)]"
+              className="flex p-2 rounded-lg text-muted hover:text-foreground hover:bg-[var(--border)]"
               aria-label={t('wishlist.title') || 'Kedvencek'}
             >
               <HeartIcon className="w-5 h-5" />

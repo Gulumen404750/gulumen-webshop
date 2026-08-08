@@ -1,3 +1,5 @@
+import { productSlugLookupCandidates } from '@/lib/slug'
+
 export type Condition = 'Új' | 'Új, címkés' | 'Új kinézetű' | 'Kiváló' | 'Jó'
 
 export type ProductType = 'stock' | 'sourcing_deal'
@@ -1104,7 +1106,8 @@ function get3DMockProducts(): Product[] {
 
 /** Termék slug alapján. Készlet/kijelzés: mindig a canonical listából (getStockById / product.stock a visszaadott másolaton). A kosár nem módosíthatja a készletet. */
 export function getProductBySlug(slug: string): Product | undefined {
-  const p = mockProducts.find((x) => x.slug === slug)
+  const candidates = productSlugLookupCandidates(slug)
+  const p = mockProducts.find((x) => candidates.includes(x.slug))
   return p ? { ...p } : undefined
 }
 
