@@ -50,12 +50,12 @@ export async function sendBirthdayCouponEmail(
 
   const footer = await marketingFooter(params.to)
 
-  const subject = `🎂 Boldog születésnapot! ${params.percent}% exkluzív kuponod vár`
+  const subject = `Ajándékod megérkezett: ${params.percent}% exkluzív Gulumen kupon`
   const html = `
     <div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;color:#222">
       <p>${escapeHtml(greeting)}</p>
-      <p>Boldog születésnapot kíván a Gulumen csapata! 🎉</p>
-      <p>Ajándékunk: egy <strong>${params.percent}%-os</strong> exkluzív kupon, amely <strong>${escapeHtml(validUntilHu)}</strong>-ig érvényes.</p>
+      <p>Köszönjük, hogy megadtad a születési dátumodat – itt az ajándékunk! 🎉</p>
+      <p>Egy <strong>${params.percent}%-os</strong> exkluzív kupon, amely <strong>${escapeHtml(validUntilHu)}</strong>-ig érvényes. A kódot a profilodon és a fizetés oldalon is megtalálod.</p>
       <p style="font-size:22px;letter-spacing:0.05em;margin:20px 0">
         <code style="background:#f4f4f4;padding:10px 14px;border-radius:8px">${escapeHtml(params.couponCode)}</code>
       </p>
@@ -67,8 +67,9 @@ export async function sendBirthdayCouponEmail(
   const text = [
     greeting,
     '',
-    'Boldog születésnapot kíván a Gulumen csapata!',
+    'Köszönjük, hogy megadtad a születési dátumodat – itt az ajándékunk!',
     `Ajándékunk: ${params.percent}% exkluzív kupon (${params.couponCode}), érvényes: ${validUntilHu}-ig.`,
+    'A kódot a profilodon és a fizetés oldalon is megtalálod.',
     `Vásárlás: ${shopUrl}`,
     footer.text,
   ].join('\n')

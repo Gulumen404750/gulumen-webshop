@@ -78,7 +78,7 @@ export async function resolveCheckoutCoupon(params: {
     }
   }
 
-  const ownerSources = new Set(['gamification', 'registration', 'abandoned_cart'])
+  const ownerSources = new Set(['gamification', 'registration', 'abandoned_cart', 'birthday'])
   if (coupon.userId && ownerSources.has(coupon.source ?? '')) {
     if (!params.checkoutUserId) {
       return { ok: false, error: 'Login required for this coupon', code: 'coupon_login_required' }

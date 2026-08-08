@@ -11,7 +11,7 @@ import {
   isUniqueEmailConstraintError,
   normalizeEmail,
 } from '@/lib/user-email'
-import { parseBirthDateInput } from '@/lib/birthday-coupon'
+import { grantBirthdayCouponForUser, parseBirthDateInput } from '@/lib/birthday-coupon'
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -89,6 +89,17 @@ export async function POST(request: Request) {
         })
       }
 
+      let birthdayCoupon: {
+        code: string
+        percent: number
+        validUntil: string
+        active: boolean
+      } | null = null
+      if (birthParsed) {
+        const grant = await grantBirthdayCouponForUser(user.id, { sendEmail: true })
+        if (grant.ok) birthdayCoupon = grant.coupon
+      }
+
       const token = await createSession(user.id, user.email)
       const response = NextResponse.json({
         user: {
@@ -97,6 +108,7 @@ export async function POST(request: Request) {
           name: user.name,
           marketingOptIn: user.marketingOptIn,
         },
+        birthdayCoupon,
       })
       response.headers.set('Set-Cookie', getSessionCookieHeader(token))
       return response

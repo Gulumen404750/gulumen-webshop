@@ -48,6 +48,11 @@ export default function PaymentPage() {
   const [couponExpanded, setCouponExpanded] = useState(false)
   const [couponCodeInput, setCouponCodeInput] = useState('')
   const [couponMessage, setCouponMessage] = useState<string | null>(null)
+  const [birthdayCouponBanner, setBirthdayCouponBanner] = useState<{
+    code: string
+    percent: number
+    validUntil: string
+  } | null>(null)
   /** Checkout welcome 10% + hírlevél (csak ha még nem feliratkozott / nem váltotta be). */
   const [welcomeOfferEligible, setWelcomeOfferEligible] = useState(false)
   const [welcomeOfferAccepted, setWelcomeOfferAccepted] = useState(false)
@@ -97,9 +102,15 @@ export default function PaymentPage() {
 
   const lockedLines = applyLuckySpinLockedPrices(cartLines, luckySpinRecord)
 
+  const birthdayCodeActive =
+    !!birthdayCouponBanner &&
+    couponCodeInput.trim().toUpperCase() === birthdayCouponBanner.code.toUpperCase()
+
   let effectiveCouponPercent = 0
   let usingWelcomeOffer = false
-  if (welcomeOfferAccepted && !couponActive) {
+  if (birthdayCodeActive && birthdayCouponBanner) {
+    effectiveCouponPercent = birthdayCouponBanner.percent / 100
+  } else if (welcomeOfferAccepted && !couponActive) {
     effectiveCouponPercent = WELCOME_CHECKOUT_COUPON_PERCENT
     usingWelcomeOffer = true
   } else if (couponActive && discountPercent > 0) {
@@ -165,6 +176,38 @@ export default function PaymentPage() {
   useEffect(() => {
     if (couponActive) setCouponExpanded(true)
   }, [couponActive])
+
+  // Születésnapi kupon betöltése profilból → kód kitöltése + banner
+  useEffect(() => {
+    if (!userId) {
+      setBirthdayCouponBanner(null)
+      return
+    }
+    let cancelled = false
+    fetch('/api/me/profile', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.birthdayCoupon?.code) return
+        const bc = data.birthdayCoupon as { code: string; percent: number; validUntil: string }
+        setBirthdayCouponBanner({
+          code: bc.code,
+          percent: bc.percent,
+          validUntil: bc.validUntil,
+        })
+        setCouponCodeInput((prev) => prev || bc.code)
+        setCouponExpanded(true)
+        setCouponMessage(
+          t('payment.birthdayCouponReady', {
+            percent: bc.percent,
+            code: bc.code,
+          })
+        )
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [userId, t])
 
   useEffect(() => {
     if (!couponActive && !welcomeOfferAccepted && userId) {
@@ -282,6 +325,20 @@ export default function PaymentPage() {
 
   const handleCouponApply = () => {
     setCouponMessage(null)
+    const code = couponCodeInput.trim().toUpperCase()
+    if (
+      birthdayCouponBanner &&
+      code &&
+      code === birthdayCouponBanner.code.toUpperCase()
+    ) {
+      setCouponMessage(
+        t('payment.birthdayCouponReady', {
+          percent: birthdayCouponBanner.percent,
+          code: birthdayCouponBanner.code,
+        })
+      )
+      return
+    }
     if (!userId) {
       setCouponMessage(t('coupon.loggedInRequired'))
       return
@@ -299,8 +356,9 @@ export default function PaymentPage() {
       setCouponCodeInput('')
       return
     }
-    if (couponCodeInput.trim()) {
-      setCouponMessage(t('payment.couponInvalid'))
+    if (code) {
+      // Egyéb DB kupon (gamification / elhagyott kosár stb.) – a szerver ellenőrzi fizetéskor
+      setCouponMessage(t('payment.couponWillApplyAtCheckout'))
       return
     }
     setCouponMessage(t('payment.couponNoneAvailable'))
@@ -406,9 +464,15 @@ export default function PaymentPage() {
             ...(options && (options.colorName != null || options.colorHex != null || options.materialName != null) ? { options } : {}),
           })),
           customer: { email },
-          isDiscountActive: couponActive && !welcomeOfferAccepted,
-          discountPercent: couponActive && !welcomeOfferAccepted ? discountPercent : undefined,
-          welcomeOfferAccepted: welcomeOfferAccepted || undefined,
+          isDiscountActive:
+            couponActive && !welcomeOfferAccepted && !birthdayCodeActive,
+          discountPercent:
+            couponActive && !welcomeOfferAccepted && !birthdayCodeActive
+              ? discountPercent
+              : undefined,
+          couponCode: couponCodeInput.trim() || undefined,
+          welcomeOfferAccepted:
+            welcomeOfferAccepted && !birthdayCodeActive ? true : undefined,
           pointsDiscountHuf: pointsDiscountHuf > 0 ? pointsDiscountHuf : undefined,
         }),
       })
@@ -460,6 +524,8 @@ export default function PaymentPage() {
     couponActive,
     discountPercent,
     welcomeOfferAccepted,
+    birthdayCodeActive,
+    couponCodeInput,
     pointsDiscountHuf,
     refreshWallet,
     router,
@@ -727,6 +793,36 @@ export default function PaymentPage() {
           {userId && luckySpinDiscount.active && usePoints && (
             <p className="text-xs text-accent mt-1 ml-7">{t('luckySpin.pointsBonusHint')}</p>
           )}
+        </section>
+      )}
+
+      {birthdayCouponBanner && (
+        <section className="mb-4 p-4 rounded-xl border border-accent/40 bg-accent/5">
+          <p className="text-sm font-semibold text-foreground">
+            {t('payment.birthdayCouponTitle', { percent: birthdayCouponBanner.percent })}
+          </p>
+          <p className="text-sm text-muted mt-1">
+            {t('payment.birthdayCouponHint', {
+              code: birthdayCouponBanner.code,
+              date: new Date(birthdayCouponBanner.validUntil).toLocaleDateString('hu-HU'),
+            })}
+          </p>
+          <button
+            type="button"
+            className="mt-2 text-sm font-medium text-accent hover:underline"
+            onClick={() => {
+              setCouponCodeInput(birthdayCouponBanner.code)
+              setCouponExpanded(true)
+              setCouponMessage(
+                t('payment.birthdayCouponReady', {
+                  percent: birthdayCouponBanner.percent,
+                  code: birthdayCouponBanner.code,
+                })
+              )
+            }}
+          >
+            {t('payment.birthdayCouponApply')}
+          </button>
         </section>
       )}
 
