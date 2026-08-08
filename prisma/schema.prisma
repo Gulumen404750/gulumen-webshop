@@ -107,6 +107,8 @@ model User {
   marketingOptOutAt    DateTime?
   /// registration | newsletter | checkout | admin | unsubscribe
   marketingOptInSource String?
+  /// Checkout welcome 10% hírlevél-kupon egyszer felhasználva (ne lehessen újra).
+  hasRedeemedWelcomeCoupon Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   orders    Order[]
@@ -133,6 +135,8 @@ model MarketingConsent {
   optedInAt   DateTime?
   optedOutAt  DateTime?
   unsubToken  String    @unique @default(cuid())
+  /// Vendég checkout welcome 10% – e-mailhez kötve, hogy ne lehessen újra.
+  hasRedeemedWelcomeCoupon Boolean @default(false)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   @@index([optedIn, confirmed])

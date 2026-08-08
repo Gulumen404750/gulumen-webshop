@@ -128,7 +128,21 @@ export async function POST(request: Request) {
       await recordCouponUsageOnPayment(orderId)
 
       const updatedOrder = await getOrderById(orderId)
+      if (customerEmail || updatedOrder?.customerEmail) {
+        try {
+          const { markWelcomeCouponRedeemed } = await import('@/lib/welcome-checkout-offer')
+          await markWelcomeCouponRedeemed(customerEmail ?? updatedOrder?.customerEmail ?? '')
+        } catch {
+          /* non-fatal */
+        }
+      }
       if (updatedOrder?.userId) {
+        try {
+          const { markUserPromoCouponsUsed } = await import('@/lib/promo-coupons')
+          await markUserPromoCouponsUsed(updatedOrder.userId)
+        } catch {
+          /* non-fatal */
+        }
         await clearUserCartSnapshot(updatedOrder.userId)
       }
       if (updatedOrder) {

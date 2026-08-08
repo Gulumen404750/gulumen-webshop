@@ -22,6 +22,7 @@ import {
 } from '@/lib/checkout'
 import { getLuckySpinNextTierRemaining } from '@/lib/gamification/lucky-spin'
 import { PaymentTrustBadges } from '@/components/PaymentTrustBadges'
+import { WELCOME_CHECKOUT_COUPON_PERCENT } from '@/lib/coupon-config'
 
 function createCheckoutIdempotencyKey(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -47,6 +48,11 @@ export default function PaymentPage() {
   const [couponExpanded, setCouponExpanded] = useState(false)
   const [couponCodeInput, setCouponCodeInput] = useState('')
   const [couponMessage, setCouponMessage] = useState<string | null>(null)
+  /** Checkout welcome 10% + hírlevél (csak ha még nem feliratkozott / nem váltotta be). */
+  const [welcomeOfferEligible, setWelcomeOfferEligible] = useState(false)
+  const [welcomeOfferAccepted, setWelcomeOfferAccepted] = useState(false)
+  const [welcomeOfferBusy, setWelcomeOfferBusy] = useState(false)
+  const [welcomeOfferError, setWelcomeOfferError] = useState<string | null>(null)
   const [checkoutResult, setCheckoutResult] = useState<{
     orderGroupId: string
     payments: Array<{ orderType: 'in_stock' | 'sourcing'; type: string; url?: string; clientSecret?: string; message?: string }>
@@ -92,7 +98,11 @@ export default function PaymentPage() {
   const lockedLines = applyLuckySpinLockedPrices(cartLines, luckySpinRecord)
 
   let effectiveCouponPercent = 0
-  if (couponActive && discountPercent > 0) {
+  let usingWelcomeOffer = false
+  if (welcomeOfferAccepted && !couponActive) {
+    effectiveCouponPercent = WELCOME_CHECKOUT_COUPON_PERCENT
+    usingWelcomeOffer = true
+  } else if (couponActive && discountPercent > 0) {
     effectiveCouponPercent = discountPercent
   } else if (!couponActive && loyaltyPercent > 0) {
     effectiveCouponPercent = loyaltyPercent / 100
@@ -157,7 +167,7 @@ export default function PaymentPage() {
   }, [couponActive])
 
   useEffect(() => {
-    if (!couponActive && userId) {
+    if (!couponActive && !welcomeOfferAccepted && userId) {
       fetch(`/api/loyalty?email=${encodeURIComponent(userId)}`)
         .then((r) => r.json())
         .then((d) => setLoyaltyPercent(d.loyaltyPercent ?? 0))
@@ -165,16 +175,110 @@ export default function PaymentPage() {
     } else {
       setLoyaltyPercent(0)
     }
-  }, [couponActive, userId])
+  }, [couponActive, welcomeOfferAccepted, userId])
 
-  const loyaltyDiscountOnTotal = !couponActive && loyaltyPercent > 0 ? couponDiscountOnTotal : 0
+  // Welcome ajánlat elérhetőség (bejelentkezett vagy érvényes vendég e-mail)
+  useEffect(() => {
+    const email = (userId || guestEmail).trim().toLowerCase()
+    if (couponActive) {
+      setWelcomeOfferEligible(false)
+      return
+    }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      // Vendég: e-mail nélkül is mutathatjuk a dobozt, de elfogadáshoz kell e-mail
+      if (!userId) {
+        setWelcomeOfferEligible(true)
+      } else {
+        setWelcomeOfferEligible(false)
+      }
+      return
+    }
+
+    let cancelled = false
+    fetch(`/api/checkout/welcome-offer?email=${encodeURIComponent(email)}`, {
+      credentials: 'include',
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return
+        if (data.claimedPending) {
+          // Előzőleg elfogadta (még nem fizetett) – tartsuk a 10%-ot
+          setWelcomeOfferAccepted(true)
+          setWelcomeOfferEligible(false)
+          return
+        }
+        setWelcomeOfferEligible(Boolean(data.eligible))
+        if (!data.eligible && data.hasRedeemedWelcomeCoupon) {
+          setWelcomeOfferAccepted(false)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setWelcomeOfferEligible(false)
+      })
+    return () => {
+      cancelled = true
+    }
+    // welcomeOfferAccepted szándékosan nincs a deps-ben (ne loopoljon)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, guestEmail, couponActive])
+
+  const loyaltyDiscountOnTotal =
+    !couponActive && !usingWelcomeOffer && loyaltyPercent > 0 ? couponDiscountOnTotal : 0
   const effectiveCouponDiscountHuf =
-    couponActive && couponDiscountOnTotal > 0
+    (couponActive || usingWelcomeOffer) && couponDiscountOnTotal > 0
       ? couponDiscountOnTotal
       : loyaltyDiscountOnTotal > 0
         ? loyaltyDiscountOnTotal
         : 0
   const totalEur = hufToEur(cardTotalHuf)
+
+  const handleWelcomeOfferToggle = async (checked: boolean) => {
+    setWelcomeOfferError(null)
+    if (!checked) {
+      setWelcomeOfferAccepted(false)
+      return
+    }
+    const email = (userId || guestEmail).trim().toLowerCase()
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setWelcomeOfferError(
+        t('payment.welcomeOfferEmailRequired') ||
+          'A 10% kedvezményhez add meg az e-mail címed (vendég vásárlás).'
+      )
+      setWelcomeOfferAccepted(false)
+      return
+    }
+    if (couponActive) {
+      setWelcomeOfferError(
+        t('payment.welcomeOfferCouponConflict') ||
+          'Már van aktív kuponod – a welcome 10% nem kombinálható vele.'
+      )
+      return
+    }
+
+    setWelcomeOfferBusy(true)
+    try {
+      const res = await fetch('/api/checkout/welcome-offer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setWelcomeOfferAccepted(false)
+        setWelcomeOfferEligible(false)
+        setWelcomeOfferError(data.error || t('payment.welcomeOfferError') || 'Az ajánlat nem elérhető.')
+        return
+      }
+      setWelcomeOfferAccepted(true)
+      setWelcomeOfferEligible(false)
+    } catch {
+      setWelcomeOfferAccepted(false)
+      setWelcomeOfferError(t('payment.welcomeOfferError') || 'Az ajánlat nem elérhető.')
+    } finally {
+      setWelcomeOfferBusy(false)
+    }
+  }
 
   const handleCouponApply = () => {
     setCouponMessage(null)
@@ -302,8 +406,9 @@ export default function PaymentPage() {
             ...(options && (options.colorName != null || options.colorHex != null || options.materialName != null) ? { options } : {}),
           })),
           customer: { email },
-          isDiscountActive: couponActive,
-          discountPercent: couponActive ? discountPercent : undefined,
+          isDiscountActive: couponActive && !welcomeOfferAccepted,
+          discountPercent: couponActive && !welcomeOfferAccepted ? discountPercent : undefined,
+          welcomeOfferAccepted: welcomeOfferAccepted || undefined,
           pointsDiscountHuf: pointsDiscountHuf > 0 ? pointsDiscountHuf : undefined,
         }),
       })
@@ -354,6 +459,7 @@ export default function PaymentPage() {
     items,
     couponActive,
     discountPercent,
+    welcomeOfferAccepted,
     pointsDiscountHuf,
     refreshWallet,
     router,
@@ -453,20 +559,29 @@ export default function PaymentPage() {
                   <div className="flex justify-between text-discount">
                     <span className="inline-flex items-center gap-1.5">
                       <span>
-                        {couponActive
-                          ? t('payment.couponDiscountWithCode', {
-                              percent: Math.round((couponActive ? discountPercent : loyaltyPercent / 100) * 100),
-                            })
-                          : t('payment.loyaltyDiscountLine', { percent: loyaltyPercent })}
+                        {usingWelcomeOffer
+                          ? t('payment.welcomeOfferDiscountLine', {
+                              percent: Math.round(WELCOME_CHECKOUT_COUPON_PERCENT * 100),
+                            }) ||
+                            `Hírlevél welcome kedvezmény (${Math.round(WELCOME_CHECKOUT_COUPON_PERCENT * 100)}%)`
+                          : couponActive
+                            ? t('payment.couponDiscountWithCode', {
+                                percent: Math.round(
+                                  (couponActive ? discountPercent : loyaltyPercent / 100) * 100
+                                ),
+                              })
+                            : t('payment.loyaltyDiscountLine', { percent: loyaltyPercent })}
                       </span>
-                      <button
-                        type="button"
-                        title={t('payment.couponScopeHint')}
-                        aria-label={t('payment.couponScopeHint')}
-                        className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-current text-[10px] leading-none opacity-70 hover:opacity-100"
-                      >
-                        i
-                      </button>
+                      {!usingWelcomeOffer && (
+                        <button
+                          type="button"
+                          title={t('payment.couponScopeHint')}
+                          aria-label={t('payment.couponScopeHint')}
+                          className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-current text-[10px] leading-none opacity-70 hover:opacity-100"
+                        >
+                          i
+                        </button>
+                      )}
                     </span>
                     <span className="tabular-nums">−{effectiveCouponDiscountHuf.toLocaleString('hu-HU')} Ft</span>
                   </div>
@@ -528,6 +643,65 @@ export default function PaymentPage() {
             className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground mb-2"
           />
           <p className="text-xs text-muted">{t('payment.guestCheckoutNote') || 'Regisztráció opcionális. A rendeléshez add meg az e-mail címed.'}</p>
+        </section>
+      )}
+
+      {(welcomeOfferEligible || welcomeOfferAccepted) && !couponActive && (
+        <section
+          className={`mb-8 rounded-xl border-2 p-5 transition-colors ${
+            welcomeOfferAccepted
+              ? 'border-emerald-600/50 bg-emerald-600/10'
+              : 'border-accent/50 bg-gradient-to-br from-accent/10 via-[var(--card-bg)] to-amber-500/10'
+          }`}
+        >
+          <p className="text-xs font-semibold uppercase tracking-wide text-accent mb-2">
+            {t('payment.welcomeOfferBadge') || 'Exkluzív ajánlat'}
+          </p>
+          <h2 className="font-heading text-lg font-bold text-foreground mb-2">
+            {t('payment.welcomeOfferTitle') ||
+              'Szeretnél 10% kedvezményt ebből a vásárlásból?'}
+          </h2>
+          <p className="text-sm text-muted mb-4">
+            {t('payment.welcomeOfferDesc') ||
+              'Iratkozz fel hírlevelünkre, és a kedvezményt azonnal levonjuk a végösszegből!'}
+          </p>
+          <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-[var(--border)] bg-background/80 p-3">
+            <input
+              id="welcome-offer"
+              type="checkbox"
+              checked={welcomeOfferAccepted}
+              disabled={welcomeOfferBusy || (welcomeOfferAccepted && !welcomeOfferEligible)}
+              onChange={(e) => void handleWelcomeOfferToggle(e.target.checked)}
+              className="mt-1 w-4 h-4 rounded border-[var(--border)] text-accent focus:ring-accent"
+            />
+            <span className="text-sm text-foreground font-medium">
+              {t('payment.welcomeOfferCheckbox') ||
+                'Igen, kérem a 10% kedvezményt, és elfogadom a marketing megkereséseket!'}
+            </span>
+          </label>
+          {welcomeOfferBusy && (
+            <p className="text-xs text-muted mt-2 flex items-center gap-1.5">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              {t('payment.welcomeOfferSaving') || 'Kedvezmény aktiválása…'}
+            </p>
+          )}
+          {welcomeOfferAccepted && !welcomeOfferBusy && (
+            <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-2 font-medium">
+              {t('payment.welcomeOfferApplied') ||
+                '✓ 10% kedvezmény alkalmazva. Hírlevél feliratkozás rögzítve.'}
+            </p>
+          )}
+          {welcomeOfferError && (
+            <p className="text-xs text-red-600 dark:text-red-400 mt-2" role="alert">
+              {welcomeOfferError}
+            </p>
+          )}
+          {!userId && !guestEmail.trim() && (
+            <p className="text-xs text-muted mt-2">
+              {t('payment.welcomeOfferEmailHint') ||
+                'Vendégként előbb add meg az e-mail címed a fenti mezőben.'}
+            </p>
+          )}
         </section>
       )}
 

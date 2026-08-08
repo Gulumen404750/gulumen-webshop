@@ -208,7 +208,18 @@
     "successProcessingTitle": "Plată în curs de procesare",
     "successProcessingMessage": "Comanda ta a fost înregistrată. Confirmarea plății poate dura câteva secunde.",
     "statusProcessing": "În curs",
-    "successPendingTimeout": "Dacă suma a fost debitată dar statusul nu s-a actualizat, contactează-ne cu ID-ul comenzii."
+    "successPendingTimeout": "Dacă suma a fost debitată dar statusul nu s-a actualizat, contactează-ne cu ID-ul comenzii.",
+    "welcomeOfferBadge": "Ofertă exclusivă",
+    "welcomeOfferTitle": "Vrei 10% reducere la această comandă?",
+    "welcomeOfferDesc": "Abonează-te la newsletter și aplicăm imediat reducerea la total!",
+    "welcomeOfferCheckbox": "Da, doresc reducerea de 10% și accept e-mailurile de marketing!",
+    "welcomeOfferApplied": "✓ Reducere 10% aplicată. Abonarea la newsletter a fost salvată.",
+    "welcomeOfferSaving": "Se activează reducerea…",
+    "welcomeOfferError": "Oferta nu este disponibilă.",
+    "welcomeOfferEmailRequired": "Pentru 10% reducere introdu e-mailul (checkout oaspete).",
+    "welcomeOfferEmailHint": "Ca oaspete, introdu mai întâi e-mailul în câmpul de mai sus.",
+    "welcomeOfferCouponConflict": "Ai deja un cupon activ – reducerea welcome de 10% nu se combină.",
+    "welcomeOfferDiscountLine": "Reducere welcome newsletter ({percent}%)"
   },
   "checkout": {
     "statusStock": "Produse în stoc: procesare plată…",

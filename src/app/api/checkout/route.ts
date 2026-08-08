@@ -46,6 +46,8 @@ import {
 import { maybeSendOrderGroupConfirmationEmail } from '@/lib/order-email'
 import { resolveCheckoutCoupon, recordCouponUsageOnPayment } from '@/lib/coupon-checkout'
 import { getActivePromoDiscountPercent } from '@/lib/promo-coupons'
+import { acceptWelcomeCheckoutOffer } from '@/lib/welcome-checkout-offer'
+import { WELCOME_CHECKOUT_COUPON_PERCENT } from '@/lib/coupon-config'
 import type { CouponDiscount } from '@/lib/checkout'
 
 const checkoutBodySchema = z.object({
@@ -74,6 +76,11 @@ const checkoutBodySchema = z.object({
   pointsDiscountHuf: z.number().int().min(0).optional(),
   /** DB kupon kód – nem kombinálható macska/regisztrációs kuponnal vagy loyalty-val. */
   couponCode: z.string().min(1).optional(),
+  /**
+   * Checkout welcome 10% + hírlevél ajánlat (vendégnek is).
+   * Nem kombinálható más kliens kuponnal / kuponkóddal.
+   */
+  welcomeOfferAccepted: z.boolean().optional(),
 })
 
 export async function POST(request: Request) {
@@ -120,15 +127,27 @@ export async function POST(request: Request) {
     discountPercent: bodyPercent,
     pointsDiscountHuf: requestedPointsHuf = 0,
     couponCode: bodyCouponCode,
+    welcomeOfferAccepted,
   } = parsed.data
 
   const couponCodeTrimmed = bodyCouponCode?.trim() ?? ''
   const hasClientCoupon = Boolean(isDiscountActive && bodyPercent != null && bodyPercent > 0)
+  const wantsWelcomeOffer = welcomeOfferAccepted === true
+
   if (couponCodeTrimmed && hasClientCoupon) {
     return NextResponse.json(
       {
         code: 'coupon_conflict',
         error: 'A kuponkód nem kombinálható a macska vagy regisztrációs kuponnal.',
+      },
+      { status: 400 }
+    )
+  }
+  if (wantsWelcomeOffer && (hasClientCoupon || couponCodeTrimmed)) {
+    return NextResponse.json(
+      {
+        code: 'coupon_conflict',
+        error: 'A welcome 10% hírlevél-kedvezmény nem kombinálható más kuponnal.',
       },
       { status: 400 }
     )
@@ -216,6 +235,22 @@ export async function POST(request: Request) {
     couponDiscount = resolved.discount
     appliedCouponId = resolved.coupon.id
     appliedCouponCode = resolved.coupon.code
+  } else if (wantsWelcomeOffer) {
+    const welcome = await acceptWelcomeCheckoutOffer({
+      email: customer.email,
+      userId: checkoutUserId,
+    })
+    if (!welcome.ok) {
+      return NextResponse.json(
+        { code: welcome.code, error: welcome.error },
+        { status: 400 }
+      )
+    }
+    const percent = welcome.percent || WELCOME_CHECKOUT_COUPON_PERCENT
+    if (!validateCouponPercent(percent, true)) {
+      return NextResponse.json({ error: 'Invalid welcome coupon discount' }, { status: 400 })
+    }
+    couponDiscount = { percent }
   } else if (hasClientCoupon) {
     if (!checkoutUserId) {
       return NextResponse.json({ error: 'Login required for promo coupon' }, { status: 401 })
@@ -356,6 +391,22 @@ export async function POST(request: Request) {
     if (order.totalHuf === 0 && (order.pointsUsed ?? 0) > 0) {
       await setOrderStatus(order.id, 'paid')
       await recordCouponUsageOnPayment(order.id)
+      if (wantsWelcomeOffer) {
+        try {
+          const { markWelcomeCouponRedeemed } = await import('@/lib/welcome-checkout-offer')
+          await markWelcomeCouponRedeemed(customer.email)
+        } catch {
+          /* non-fatal */
+        }
+      }
+      if (checkoutUserId) {
+        try {
+          const { markUserPromoCouponsUsed } = await import('@/lib/promo-coupons')
+          await markUserPromoCouponsUsed(checkoutUserId)
+        } catch {
+          /* non-fatal */
+        }
+      }
       await enqueueOrderPurchasePointsRedemption({
         id: order.id,
         userId: order.userId ?? checkoutUserId,

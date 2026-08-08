@@ -82,7 +82,22 @@ async function applyTransactionOutcome(
 
     await recordCouponUsageOnPayment(order.id)
 
+    const paidEmail = customerEmail ?? order.customerEmail ?? null
+    if (paidEmail) {
+      try {
+        const { markWelcomeCouponRedeemed } = await import('@/lib/welcome-checkout-offer')
+        await markWelcomeCouponRedeemed(paidEmail)
+      } catch {
+        /* non-fatal */
+      }
+    }
     if (order.userId) {
+      try {
+        const { markUserPromoCouponsUsed } = await import('@/lib/promo-coupons')
+        await markUserPromoCouponsUsed(order.userId)
+      } catch {
+        /* non-fatal */
+      }
       await clearUserCartSnapshot(order.userId)
     }
 
