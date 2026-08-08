@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+// deploy: marketing consent admin (master → Railway)
 import { Suspense } from 'react'
 import { Poppins, Inter } from 'next/font/google'
 import './globals.css'
