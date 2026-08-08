@@ -27,6 +27,40 @@ export function getCdnBaseUrl(): string {
 }
 
 /**
+ * Storage Zone neve (pl. gulumen).
+ * Kliensen is elérhető NEXT_PUBLIC_ változat kell a path tisztításhoz.
+ */
+export function getStorageZoneName(): string {
+  const fromEnv =
+    process.env.NEXT_PUBLIC_BUNNY_STORAGE_ZONE?.trim() ||
+    process.env.BUNNY_STORAGE_ZONE?.trim()
+  if (fromEnv) return fromEnv
+  // Alapértelmezés: a pull zone host első címkéje (gulumen.b-cdn.net → gulumen)
+  const host = getCdnHost()
+  const first = host.split('.')[0]?.trim()
+  return first || 'gulumen'
+}
+
+/**
+ * Eltávolítja a Storage Zone nevet a path elejéről.
+ * storage.bunnycdn.com/gulumen/kuka/x.jpg → /kuka/x.jpg
+ * gulumen.b-cdn.net/gulumen/kuka/x.jpg → /kuka/x.jpg (hibásan bemásolt link)
+ */
+function stripStorageZonePrefix(pathname: string): string {
+  const zone = getStorageZoneName()
+  if (!zone) return pathname
+  const lower = pathname.toLowerCase()
+  const prefix = `/${zone.toLowerCase()}/`
+  if (lower.startsWith(prefix)) {
+    return pathname.slice(zone.length + 1) || '/'
+  }
+  if (lower === `/${zone.toLowerCase()}`) {
+    return '/'
+  }
+  return pathname
+}
+
+/**
  * Path szegmensek biztonságos kódolása: szóköz, ékezet, speciális karakterek.
  * A / elválasztókat megtartja; a fájlnév/mappa részeket encodeURIComponent-tel kódolja.
  */
@@ -96,18 +130,11 @@ export function cleanCdnUrl(input: string | null | undefined): string {
     url = `https://${url}`
   }
 
-  // storage.bunnycdn.com → CDN pull zone (path: /{zone}/{file} → /{file} ha zone prefix)
+  // storage.bunnycdn.com → CDN pull zone (path: /{zone}/{file} → /{file})
   if (STORAGE_HOST_RE.test(url)) {
     try {
       const parsed = new URL(url.startsWith('http') ? url : `https://${url.replace(/^\/+/, '')}`)
-      let path = parsed.pathname || '/'
-      // Gyakori forma: /storageZoneName/folder/file.jpg → /folder/file.jpg
-      const zone = process.env.BUNNY_STORAGE_ZONE?.trim()
-      if (zone && path.toLowerCase().startsWith(`/${zone.toLowerCase()}/`)) {
-        path = path.slice(zone.length + 1)
-      } else if (zone && path.toLowerCase() === `/${zone.toLowerCase()}`) {
-        path = '/'
-      }
+      const path = stripStorageZonePrefix(parsed.pathname || '/')
       url = `${getCdnBaseUrl()}${path}${parsed.search}${parsed.hash}`
     } catch {
       url = url.replace(STORAGE_HOST_RE, getCdnBaseUrl())
@@ -117,6 +144,11 @@ export function cleanCdnUrl(input: string | null | undefined): string {
   // Már CDN host, vagy egyéb abszolút URL — kimenet mindig https://
   try {
     const parsed = new URL(url)
+    // Ha valaki a zone nevet is bemásolta a pull zone URL-be, vágjuk le
+    const cdnHost = getCdnHost().toLowerCase()
+    if (parsed.hostname.toLowerCase() === cdnHost || parsed.hostname.toLowerCase().endsWith('.b-cdn.net')) {
+      parsed.pathname = stripStorageZonePrefix(parsed.pathname || '/')
+    }
     return ensureHttpsAbsoluteUrl(parsed)
   } catch {
     // Nem érvényes abszolút URL – path-ként a CDN pull zone alá

@@ -42,6 +42,7 @@ export function CdnImageManager({
   const [dragOver, setDragOver] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [brokenUrls, setBrokenUrls] = useState<Record<string, boolean>>({})
   const inputRef = useRef<HTMLInputElement>(null)
 
   const list = multiple ? (values ?? []) : value ? [value] : []
@@ -49,6 +50,16 @@ export function CdnImageManager({
   const clearFeedback = useCallback(() => {
     setError(null)
     setSuccess(null)
+  }, [])
+
+  const markBroken = useCallback((url: string) => {
+    setBrokenUrls((prev) => (prev[url] ? prev : { ...prev, [url]: true }))
+    const isCdn = /b-cdn\.net|bunnycdn\.com/i.test(url)
+    setError(
+      isCdn
+        ? 'A CDN kép nem tölthető be. Ellenőrizd a Bunny Pull Zone-t (gulumen.b-cdn.net ne legyen suspended/not configured), és hogy a fájl pathja helyes-e (ne tartalmazza a storage zone nevét kétszer).'
+        : 'A kép nem tölthető be. Ellenőrizd az URL-t.'
+    )
   }, [])
 
   const applyUrl = useCallback(
@@ -220,15 +231,17 @@ export function CdnImageManager({
               <div className="relative w-full aspect-[4/3] max-h-[220px] bg-[var(--border)]/30">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={url || PLACEHOLDER_IMAGE}
+                  src={brokenUrls[url] ? PLACEHOLDER_IMAGE : url || PLACEHOLDER_IMAGE}
                   alt={`Kép ${i + 1}`}
                   className="w-full h-full object-contain"
                   referrerPolicy="no-referrer"
-                  onError={(e) => {
-                    const el = e.currentTarget
-                    if (el.src !== PLACEHOLDER_IMAGE) el.src = PLACEHOLDER_IMAGE
-                  }}
+                  onError={() => markBroken(url)}
                 />
+                {brokenUrls[url] && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 px-3 text-center text-xs text-white">
+                    CDN kép nem elérhető
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2 px-3 py-2">
                 <p className="flex-1 text-xs text-muted truncate" title={url}>
