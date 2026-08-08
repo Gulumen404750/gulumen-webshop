@@ -1,10 +1,25 @@
 /**
- * Termékek seedelése az adatbázisba (production bootstrap).
- * Futtatás: npm run seed:products
- * Csak hiányzó slug-okat hoz létre; meglévőknél csak üres mezőket tölt ki.
+ * Termékek seedelése az adatbázisba – CSAK manuálisan, soha nem fut deploy/start során.
+ *
+ * Biztonság:
+ * - Indításkor NEM fut (scripts/start.js nem hívja).
+ * - Csak ALLOW_PRODUCT_SEED=1 mellett futtatható.
+ * - Meglévő termékeket nem írja felül agresszíven: csak create hiányzó slugnál;
+ *   meglévőnél csak üres mezőket tölt (név/kép érintetlen ha már be van állítva).
+ * - Nem archivál idegen slugokat.
+ *
+ * Futtatás: ALLOW_PRODUCT_SEED=1 npm run seed:products
  */
 
 import { PrismaClient, type Prisma, type Product } from '@prisma/client'
+
+if (process.env.ALLOW_PRODUCT_SEED !== '1') {
+  console.error(
+    'Seed megtagadva: a manuális termékek védelme érdekében állítsd be: ALLOW_PRODUCT_SEED=1\n' +
+      'Példa: ALLOW_PRODUCT_SEED=1 npm run seed:products'
+  )
+  process.exit(1)
+}
 
 const prisma = new PrismaClient()
 
@@ -505,8 +520,6 @@ const sourcingDeals = [
   },
 ]
 
-const CANONICAL_SLUGS = [...stockProducts, ...sourcingDeals].map((p) => p.slug)
-
 type SeedProduct = (typeof stockProducts)[number] | (typeof sourcingDeals)[number]
 
 function productPayload(p: SeedProduct): Prisma.ProductUncheckedCreateInput {
@@ -652,19 +665,8 @@ export async function seedProducts(): Promise<void> {
     }
   }
 
-  console.log(`[seed] created ${created}, skipped ${skipped} existing`)
-
-  const archived = await prisma.product.updateMany({
-    where: {
-      slug: { notIn: CANONICAL_SLUGS },
-      archived: false,
-    },
-    data: { active: false, archived: true },
-  })
-  if (archived.count > 0) {
-    console.log(`[seed] Archived ${archived.count} legacy/test product(s) not in catalog.`)
-  }
-  console.log('[seed] Done.')
+  console.log(`[seed] created ${created}, skipped ${skipped} existing (empty fields filled only)`)
+  console.log('[seed] Done. (No archive of non-canonical products.)')
 }
 
 async function main() {

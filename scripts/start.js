@@ -24,11 +24,9 @@ if (!process.env.DATABASE_URL?.trim()) {
 run('npx', ['prisma', 'generate'])
 run('npx', ['prisma', 'migrate', 'deploy'])
 
-console.log('[start] Seeding canonical storefront catalog...')
-const seed = spawnSync('npx', ['tsx', 'scripts/seed-products.ts'], { stdio: 'inherit', shell: true })
-if (seed.status !== 0) {
-  console.warn('[start] Product seed failed (non-fatal) – storefront may show stale DB data')
-}
+// Seed NEM fut automatikusan – manuális termékek védelme (Railway restart ne írja felül a képeket).
+// Manuális futtatás: ALLOW_PRODUCT_SEED=1 npm run seed:products
+console.log('[start] Product seed skipped (manual only: ALLOW_PRODUCT_SEED=1 npm run seed:products)')
 
 // Railway: PORT env (gyakran 8080) + 0.0.0.0 – különben a proxy nem éri el a konténert
 const port = process.env.PORT || '3000'

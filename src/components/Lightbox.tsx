@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useCallback, useRef, useState } from 'react'
-import Image from 'next/image'
 import { useLocale } from '@/context/LocaleContext'
+import { resolveImageUrl, PLACEHOLDER_IMAGE } from '@/lib/cdn'
 
 const MIN_SCALE = 1
 const MAX_SCALE = 3
@@ -20,8 +20,11 @@ export function Lightbox({ images, productName, currentIndex, onClose, onIndexCh
   const [scale, setScale] = useState(1)
   const [translate, setTranslate] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
+  const [imgFailed, setImgFailed] = useState(false)
   const dragStart = useRef({ x: 0, y: 0, tx: 0, ty: 0 })
   const containerRef = useRef<HTMLDivElement>(null)
+  const src = resolveImageUrl(images[currentIndex])
+  const hasMultiple = images.length > 1
 
   const goPrev = useCallback(() => {
     onIndexChange(currentIndex <= 0 ? images.length - 1 : currentIndex - 1)
@@ -35,7 +38,8 @@ export function Lightbox({ images, productName, currentIndex, onClose, onIndexCh
   useEffect(() => {
     setScale(1)
     setTranslate({ x: 0, y: 0 })
-  }, [currentIndex])
+    setImgFailed(false)
+  }, [currentIndex, src])
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -108,9 +112,6 @@ export function Lightbox({ images, productName, currentIndex, onClose, onIndexCh
       }
     }
   }, [isDragging, handleMouseMove, handleMouseUp])
-
-  const src = images[currentIndex]
-  const hasMultiple = images.length > 1
 
   return (
     <div
@@ -189,32 +190,24 @@ export function Lightbox({ images, productName, currentIndex, onClose, onIndexCh
         onMouseDown={handleMouseDown}
         style={{ cursor: isDragging ? 'grabbing' : scale > 1 ? 'grab' : 'zoom-in' }}
       >
-        {src && (src.startsWith('/') || src.startsWith('http')) ? (
+        {src ? (
           <div
             className="transition-transform duration-150 select-none"
             style={{
               transform: `scale(${scale}) translate(${translate.x}px, ${translate.y}px)`,
             }}
           >
-            {src.startsWith('/') && !src.startsWith('/uploads/') ? (
-              <Image
-                src={src}
-                alt={`${productName} – ${currentIndex + 1}. kép`}
-                width={1200}
-                height={1200}
-                className="max-h-[85vh] w-auto object-contain pointer-events-none"
-                unoptimized={src.startsWith('/uploads/')}
-                draggable={false}
-              />
-            ) : (
-              <img
-                src={src}
-                alt={`${productName} – ${currentIndex + 1}. kép`}
-                className="max-h-[85vh] w-auto object-contain pointer-events-none"
-                draggable={false}
-                referrerPolicy="no-referrer"
-              />
-            )}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={imgFailed ? PLACEHOLDER_IMAGE : src}
+              alt={`${productName} – ${currentIndex + 1}. kép`}
+              className="max-h-[85vh] w-auto object-contain pointer-events-none"
+              draggable={false}
+              referrerPolicy="no-referrer"
+              onError={() => {
+                if (!imgFailed) setImgFailed(true)
+              }}
+            />
           </div>
         ) : null}
       </div>

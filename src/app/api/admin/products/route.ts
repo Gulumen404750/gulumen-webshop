@@ -3,6 +3,11 @@ import { prisma, isDbConfigured } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { requireAdmin } from '@/lib/admin-auth'
 import { slugifyProduct } from '@/lib/slug'
+import {
+  sanitizeColorImages,
+  sanitizeProductImageFields,
+} from '@/lib/product-images'
+import { revalidateShopProducts } from '@/lib/revalidate-shop'
 import { z } from 'zod'
 
 async function uniqueProductSlug(base: string): Promise<string> {
@@ -155,6 +160,18 @@ export async function POST(request: Request) {
   const d = parsed.data
   const slug = await uniqueProductSlug(d.slug || d.name)
 
+  const images = sanitizeProductImageFields({
+    image: d.image,
+    images: d.images,
+    images360: d.images360,
+  })
+  const colorImages =
+    d.colorImages === null
+      ? Prisma.JsonNull
+      : d.colorImages !== undefined
+        ? (sanitizeColorImages(d.colorImages) as Prisma.InputJsonValue)
+        : undefined
+
   const product = await prisma.product.create({
     data: {
       slug,
@@ -168,15 +185,10 @@ export async function POST(request: Request) {
       description_ro: d.description_ro ?? '',
       condition: d.condition ?? 'Új',
       category: d.category,
-      image: d.image ?? '',
-      images: d.images ?? [],
-      images360: d.images360 ?? [],
-      colorImages:
-        d.colorImages === null
-          ? Prisma.JsonNull
-          : d.colorImages !== undefined
-            ? d.colorImages
-            : undefined,
+      image: images.image,
+      images: images.images,
+      images360: images.images360,
+      colorImages,
       modelUrl: d.modelUrl ?? null,
       priceHuf: d.priceHuf,
       priceEur: d.priceEur,
@@ -201,5 +213,6 @@ export async function POST(request: Request) {
     },
   })
 
+  revalidateShopProducts(product.slug)
   return NextResponse.json({ product })
 }

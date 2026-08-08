@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { categories, threeDSubcategories } from '@/lib/data'
-import { ProductImageUploader } from '@/components/ProductImageUploader'
+import { CdnImageManager } from '@/components/CdnImageManager'
 import { ProductColorImagesEditor } from '@/components/ProductColorImagesEditor'
 import {
   normalizeColorVariants,
@@ -12,6 +12,7 @@ import {
   type ColorVariant,
 } from '@/lib/filamentColors'
 import { buildProductGallery, normalizeImageUrls, normalizeImageUrl } from '@/lib/product-images'
+import { cleanCdnUrl, cleanCdnUrls } from '@/lib/cdn'
 import { UNLIMITED_STOCK_VALUE } from '@/lib/data'
 import { slugifyProduct } from '@/lib/slug'
 
@@ -95,11 +96,21 @@ export default function AdminProductEditPage() {
           const stock = data.product.stock
           const unlimited = stock == null || stock < 0
           setStockInput(unlimited ? '' : String(stock))
+          const image = cleanCdnUrl(data.product.image)
+          const images = cleanCdnUrls(
+            buildProductGallery(data.product.image, data.product.images)
+          )
+          const colorImages = normalizeColorVariants(data.product.colorImages).map((v) => ({
+            ...v,
+            images: cleanCdnUrls(v.images),
+          }))
           setProduct({
             ...data.product,
             stock: unlimited ? null : stock,
-            images: buildProductGallery(data.product.image, data.product.images),
-            colorImages: normalizeColorVariants(data.product.colorImages),
+            image,
+            images,
+            images360: cleanCdnUrls(data.product.images360),
+            colorImages,
           })
         }
       })
@@ -123,10 +134,15 @@ export default function AdminProductEditPage() {
     try {
       const url = isNew ? '/api/admin/products' : `/api/admin/products/${id}`
       const method = isNew ? 'POST' : 'PATCH'
-      const cleanedImages = normalizeImageUrls(product.images)
-      const mainImage = normalizeImageUrl(product.image || cleanedImages[0] || '')
+      const cleanedImages = cleanCdnUrls(normalizeImageUrls(product.images))
+      const mainImage = cleanCdnUrl(normalizeImageUrl(product.image || cleanedImages[0] || ''))
       const gallery = buildProductGallery(mainImage, cleanedImages)
-      const colorVariants = serializeColorVariants(normalizeColorVariants(product.colorImages))
+      const colorVariants = serializeColorVariants(
+        normalizeColorVariants(product.colorImages).map((v) => ({
+          ...v,
+          images: cleanCdnUrls(v.images),
+        }))
+      )
       const stock = resolveStockForSave()
       const body = isNew
         ? {
@@ -143,7 +159,7 @@ export default function AdminProductEditPage() {
             category: product.category || '3d-konyha',
             image: mainImage,
             images: gallery,
-            images360: normalizeImageUrls(product.images360),
+            images360: cleanCdnUrls(normalizeImageUrls(product.images360)),
             colorImages: colorVariants,
             modelUrl: product.modelUrl || undefined,
             priceHuf: product.priceHuf ?? 0,
@@ -157,7 +173,7 @@ export default function AdminProductEditPage() {
             archived: product.archived ?? false,
             saleStartAt: product.saleStartAt || undefined,
             saleEndAt: product.saleEndAt || undefined,
-            isColorable: product.isColorable ?? false,
+            isColorable: false,
             type: 'stock',
             sourcingEnabled: false,
             dealStartAt: product.dealStartAt || undefined,
@@ -179,7 +195,7 @@ export default function AdminProductEditPage() {
             category: product.category ?? '3d-konyha',
             image: mainImage,
             images: gallery,
-            images360: normalizeImageUrls(product.images360),
+            images360: cleanCdnUrls(normalizeImageUrls(product.images360)),
             colorImages: colorVariants,
             modelUrl: product.modelUrl ?? undefined,
             priceHuf: product.priceHuf ?? 0,
@@ -193,7 +209,7 @@ export default function AdminProductEditPage() {
             archived: product.archived ?? false,
             saleStartAt: product.saleStartAt || undefined,
             saleEndAt: product.saleEndAt || undefined,
-            isColorable: product.isColorable ?? false,
+            isColorable: false,
             type: 'stock',
             sourcingEnabled: false,
             dealStartAt: product.dealStartAt || undefined,
@@ -615,84 +631,41 @@ export default function AdminProductEditPage() {
               Hagyd üresen → „Készleten” (végtelen). Szám megadása → pontos darabszám (a vásárlás csökkenti).
             </p>
           </div>
-          <div className="sm:col-span-2">
-            <ProductImageUploader
-              label="Fő kép"
-              value={product?.image ?? ''}
-              onChange={(url) => setProduct((p) => (p ? { ...p, image: url } : p))}
-              showUrlInput={true}
-              urlPlaceholder="https://… vagy húzd ide / kattints a feltöltéshez"
-            />
-            <p className="text-xs text-muted mt-2">
-              Gépről: húzd a képet vagy kattints — JPEG, PNG, WebP, GIF (max 25 MB). Külső link: pl. Google Drive közvetlen képlink.
-            </p>
-          </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-1">Galéria (több kép URL)</label>
-          <p className="text-xs text-muted mb-2">
-            A fő kép alatt megjelenő képek. Tölts fel a gépről, vagy adj meg közvetlen kép-URL-t
-            (https://… vagy /uploads/…). Mentéskor az üres sorok kiszűrésre kerülnek.
-          </p>
-          <div className="space-y-2">
-            {(product?.images?.length ? product.images : []).map((url, i) => (
-              <div key={i} className="flex gap-2 items-center">
-                {url.trim() && (url.startsWith('/') || url.startsWith('http')) ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={url.trim()}
-                    alt=""
-                    className="w-12 h-12 rounded border border-[var(--border)] object-cover shrink-0 bg-[var(--border)]/30"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <div className="w-12 h-12 rounded border border-dashed border-[var(--border)] shrink-0 bg-[var(--border)]/20" />
-                )}
-                <input
-                  value={url}
-                  onChange={(e) => {
-                    const next = [...(product?.images ?? [])]
-                    next[i] = e.target.value
-                    setProduct((p) => ({ ...p, images: next }))
-                  }}
-                  className="flex-1 rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground text-sm"
-                  placeholder="https://… vagy /uploads/…"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = (product?.images ?? []).filter((_, j) => j !== i)
-                    setProduct((p) => ({ ...p, images: next }))
-                  }}
-                  className="shrink-0 rounded-lg border border-red-500/50 px-3 py-2 text-red-600 text-sm hover:bg-red-500/10"
-                >
-                  Törlés
-                </button>
-              </div>
-            ))}
-            <div className="flex flex-wrap gap-2 items-start">
-              <ProductImageUploader
-                label="+ Kép feltöltése a gépről (húzd ide vagy kattints)"
-                value=""
-                onChange={() => {}}
-                showUrlInput={false}
-                mode="add"
-                onAddUrl={(url) =>
-                  setProduct((p) =>
-                    p ? { ...p, images: normalizeImageUrls([...(p.images ?? []), url]) } : p
-                  )
-                }
-              />
-              <button
-                type="button"
-                onClick={() => setProduct((p) => ({ ...p, images: [...(p?.images ?? []), ''] }))}
-                className="rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-sm text-muted hover:bg-[var(--border)]/20"
-              >
-                + Kép URL hozzáadása
-              </button>
-            </div>
-          </div>
+        <div className="space-y-6 border-t border-[var(--border)] pt-4">
+          <CdnImageManager
+            label="Fő termékfotó"
+            value={product?.image ?? ''}
+            onChange={(url) =>
+              setProduct((p) => {
+                if (!p) return p
+                const cleaned = cleanCdnUrl(url)
+                const gallery = [...(p.images ?? [])]
+                if (!gallery.length && cleaned) gallery.push(cleaned)
+                else if (gallery.length && gallery[0] === (p.image || '')) gallery[0] = cleaned
+                return { ...p, image: cleaned, images: gallery.filter(Boolean) }
+              })
+            }
+            multiple={false}
+          />
+
+          <CdnImageManager
+            label="Galéria"
+            values={product?.images ?? []}
+            onChangeMultiple={(urls) =>
+              setProduct((p) =>
+                p
+                  ? {
+                      ...p,
+                      images: cleanCdnUrls(urls),
+                      image: p.image || urls[0] || '',
+                    }
+                  : p
+              )
+            }
+            multiple
+          />
         </div>
 
         <div>
@@ -846,21 +819,6 @@ export default function AdminProductEditPage() {
             </div>
           </div>
         )}
-
-        <div className="flex flex-wrap gap-4">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={product?.isColorable ?? false}
-              onChange={(e) => setProduct((p) => ({ ...p, isColorable: e.target.checked }))}
-              className="rounded border-[var(--border)]"
-            />
-            Színezhető (3D modell tint)
-          </label>
-        </div>
-        <p className="text-xs text-muted -mt-2">
-          A 3D jelölő a modell színezéséhez kell. Színvariációk és színhez kötött fotók alább bármely terméknél megadhatók.
-        </p>
 
         <ProductColorImagesEditor
           value={normalizeColorVariants(product?.colorImages)}

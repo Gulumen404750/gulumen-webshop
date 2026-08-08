@@ -14,7 +14,7 @@
     "convert-3d": "node scripts/convert-3d.mjs",
     "convert-3d:batch": "node scripts/convert-3d.mjs --batch",
     "convert-3d:webshop": "node scripts/convert-3d.mjs --webshop",
-    "seed:products": "npx tsx scripts/seed-products.ts",
+    "seed:products": "ALLOW_PRODUCT_SEED=1 npx tsx scripts/seed-products.ts",
     "test": "vitest",
     "test:ci": "vitest run",
     "test:e2e": "playwright test",

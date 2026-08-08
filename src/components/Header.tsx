@@ -109,9 +109,9 @@ export function Header() {
       <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
       <CartDrawer isOpen={cartDrawerOpen} onClose={() => setCartDrawerOpen(false)} />
       <CallUsModal isOpen={callUsModalOpen} onClose={() => setCallUsModalOpen(false)} />
-      <header className="sticky top-0 z-50 bg-background border-b border-[var(--border)] overflow-x-hidden">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-1.5 sm:gap-3 h-14 sm:h-16 min-w-0">
+      <header className="sticky top-0 z-[100] bg-background border-b border-[var(--border)] overflow-visible">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 overflow-visible">
+          <div className="flex items-center gap-1.5 sm:gap-3 h-14 sm:h-16 min-w-0 overflow-visible">
             <Link href="/" className="flex items-center gap-2 min-w-0 shrink-0" onClick={closeMobileNav}>
               <span className="flex w-9 h-9 sm:w-10 sm:h-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--card-bg)] border border-[var(--border)]">
                 <Image src="/img/logo.png" alt="Gulumen" width={40} height={40} className="object-cover w-full h-full" />
@@ -154,7 +154,7 @@ export function Header() {
                     (!searchParams.get('kategoria') || searchParams.get('kategoria') === '3d-nyomtatott')
                   const is3DParentActive = is3DNav && !subParam
                   return (
-                    <div className="absolute left-0 top-full pt-1 min-w-[240px] z-50">
+                    <div className="absolute left-0 top-full pt-1 min-w-[240px] z-[130]">
                       <ul className="nav-dropdown-panel py-2 min-w-[240px] max-h-[70vh] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--card-bg)] shadow-lg">
                         {threeDCat && (
                           <li>

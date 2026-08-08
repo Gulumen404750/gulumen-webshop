@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
+import { SafeProductImage } from '@/components/SafeProductImage'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useEffect, useRef, useMemo, useState, useCallback } from 'react'
 import { getProductById as getProductByIdFromData, getAddToCartReason, getMaxQty, getProductName, is3DProduct } from '@/lib/data'
@@ -272,17 +272,18 @@ export default function CartPage() {
               const priceHuf = product ? (product.discountPriceHuf ?? product.priceHuf) : 0
               const priceEur = hufToEur(priceHuf)
               const img = product?.image?.trim() ? product.image : ''
-              const isLocalImg = img?.startsWith('/')
               const lineKey = `${item.productId}-${item.options?.colorHex ?? item.options?.colorName ?? ''}-${item.options?.materialName ?? ''}`
               return (
                 <li key={lineKey} className="flex gap-4 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
                   <div className="w-20 h-20 shrink-0 rounded-lg bg-[var(--border)] relative overflow-hidden">
                     {img ? (
-                      isLocalImg ? (
-                        <Image src={img} alt={product ? getProductName(product, locale) : ''} fill className="object-cover" sizes="80px" />
-                      ) : (
-                        <img src={img} alt={product ? getProductName(product, locale) : ''} className="absolute inset-0 w-full h-full object-cover" referrerPolicy="no-referrer" />
-                      )
+                      <SafeProductImage
+                        src={img}
+                        alt={product ? getProductName(product, locale) : ''}
+                        fit="cover"
+                        fill
+                        sizes="80px"
+                      />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center text-muted text-xs">{t('product.noImage')}</div>
                     )}
@@ -339,17 +340,18 @@ export default function CartPage() {
               const priceHuf = product ? (product.discountPriceHuf ?? product.priceHuf) : 0
               const priceEur = hufToEur(priceHuf)
               const img = product?.image?.trim() ? product.image : ''
-              const isLocalImg = img?.startsWith('/')
               const lineKey = `${item.productId}-${item.options?.colorHex ?? item.options?.colorName ?? ''}-${item.options?.materialName ?? ''}`
               return (
                 <li key={lineKey} className="flex gap-4 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
                   <div className="w-20 h-20 shrink-0 rounded-lg bg-[var(--border)] relative overflow-hidden">
                     {img ? (
-                      isLocalImg ? (
-                        <Image src={img} alt={product ? getProductName(product, locale) : ''} fill className="object-cover" sizes="80px" />
-                      ) : (
-                        <img src={img} alt={product ? getProductName(product, locale) : ''} className="absolute inset-0 w-full h-full object-cover" referrerPolicy="no-referrer" />
-                      )
+                      <SafeProductImage
+                        src={img}
+                        alt={product ? getProductName(product, locale) : ''}
+                        fit="cover"
+                        fill
+                        sizes="80px"
+                      />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center text-muted text-xs">{t('product.noImage')}</div>
                     )}
@@ -406,16 +408,17 @@ export default function CartPage() {
               const priceHuf = product ? (product.discountPriceHuf ?? product.priceHuf) : 0
               const priceEur = hufToEur(priceHuf)
               const img = product?.image?.trim() ? product.image : ''
-              const isLocalImg = img?.startsWith('/')
               return (
                 <li key={item.productId} className="flex gap-4 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
                   <div className="w-20 h-20 shrink-0 rounded-lg bg-[var(--border)] relative overflow-hidden">
                     {img ? (
-                      isLocalImg ? (
-                        <Image src={img} alt={product ? getProductName(product, locale) : ''} fill className="object-cover" sizes="80px" />
-                      ) : (
-                        <img src={img} alt={product ? getProductName(product, locale) : ''} className="absolute inset-0 w-full h-full object-cover" referrerPolicy="no-referrer" />
-                      )
+                      <SafeProductImage
+                        src={img}
+                        alt={product ? getProductName(product, locale) : ''}
+                        fit="cover"
+                        fill
+                        sizes="80px"
+                      />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center text-muted text-xs">{t('product.noImage')}</div>
                     )}
@@ -592,21 +595,22 @@ function CartLineRow({
   const displayUnitHuf = isPromo && luckySpinDiscountActive ? discountedUnitHuf : unitPriceHuf
   const priceEur = hufToEur(displayUnitHuf)
   const img = product?.image?.trim() ? product.image : ''
-  const isLocalImg = img?.startsWith('/')
   const lineKey = `${item.productId}-${item.options?.colorHex ?? item.options?.colorName ?? ''}-${item.options?.materialName ?? ''}`
 
   return (
     <li key={lineKey} className="flex gap-4 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
       <div className="w-20 h-20 shrink-0 rounded-lg bg-[var(--border)] relative overflow-hidden">
         {img ? (
-          isLocalImg ? (
-            <Image src={img} alt={product ? getProductName(product, locale) : ''} fill className="object-cover" sizes="80px" />
-          ) : (
-            <img src={img} alt={product ? getProductName(product, locale) : ''} className="absolute inset-0 w-full h-full object-cover" referrerPolicy="no-referrer" />
-          )
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-muted text-xs">{t('product.noImage')}</div>
-        )}
+                      <SafeProductImage
+                        src={img}
+                        alt={product ? getProductName(product, locale) : ''}
+                        fit="cover"
+                        fill
+                        sizes="80px"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center text-muted text-xs">{t('product.noImage')}</div>
+                    )}
       </div>
       <div className="flex-1 min-w-0">
         <p className="font-medium text-foreground truncate">{product ? getProductName(product, locale) : item.productId}</p>

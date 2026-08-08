@@ -2,12 +2,13 @@
 
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import Image from 'next/image'
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Share2 } from 'lucide-react'
 import { getDisplayStock, getProductName, getSourcingDealStatus, isUnlimitedStock } from '@/lib/data'
 import { isValidImageUrl, normalizeImageUrl } from '@/lib/product-images'
+import { cleanCdnUrls, resolveImageUrl } from '@/lib/cdn'
+import { SafeProductImage } from '@/components/SafeProductImage'
 import { ProductTabs } from '@/components/ProductTabs'
 import { SourcingDealBox } from '@/components/SourcingDealBox'
 import { Breadcrumbs, productBreadcrumbs } from '@/components/Breadcrumbs'
@@ -112,7 +113,6 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [view360Open, setView360Open] = useState(false)
   const [show3DViewer, setShow3DViewer] = useState(false)
-  const [mainImageError, setMainImageError] = useState(false)
   const isColorable = !!product.isColorable
   const availableColors = getAvailableColorVariants(product.colorImages, isColorable)
   const usesColorGalleries = hasAnyColorImages(product.colorImages)
@@ -127,15 +127,15 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
   )
   const safeAddQty = maxAddable > 0 ? Math.min(Math.max(1, addQty), maxAddable) : 1
 
-  const images = getGalleryImagesForColor(product, selectedColor?.id).map(normalizeImageUrl).filter(isValidImageUrl)
-  const mainImage = images[mainImageIndex] || images[0] || (isValidImageUrl(normalizeImageUrl(product.image || '')) ? normalizeImageUrl(product.image) : '')
+  const images = cleanCdnUrls(
+    getGalleryImagesForColor(product, selectedColor?.id).map(normalizeImageUrl).filter(isValidImageUrl)
+  )
+  const mainImage = resolveImageUrl(
+    images[mainImageIndex] || images[0] || (isValidImageUrl(normalizeImageUrl(product.image || '')) ? normalizeImageUrl(product.image) : '')
+  )
   const hasMultipleImages = images.length > 1
   const has360 = product.images360 && product.images360.length > 0
   const has3DModel = is3DProduct(product) && product.modelUrl
-
-  useEffect(() => {
-    setMainImageError(false)
-  }, [mainImage])
 
   const saleActive = useSaleActive(product)
   const priceHuf = saleActive && product.discountPriceHuf ? product.discountPriceHuf : product.priceHuf
@@ -160,14 +160,12 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
     if (color) {
       setSelectedColor(color)
       setMainImageIndex(0)
-      setMainImageError(false)
     }
   }, [searchParams, showColorPicker, availableColorIds, product.colorImages, isColorable])
 
   const handleSelectColor = (color: ColorVariant) => {
     setSelectedColor(color)
     setMainImageIndex(0)
-    setMainImageError(false)
   }
 
   const handleShareConfiguration = useCallback(async () => {
@@ -293,33 +291,14 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                 onKeyDown={(e) => e.key === 'Enter' && setLightboxOpen(true)}
                 aria-label={t('product.openGallery') || 'Kép nagyítása / Galéria'}
               >
-                {mainImage && !mainImageError ? (
-                  mainImage.startsWith('/') && !mainImage.startsWith('/uploads/') && !has3DModel ? (
-                    <Image
-                      src={mainImage}
-                      alt={productName}
-                      fill
-                      className="object-contain"
-                      sizes="(max-width: 1024px) 100vw, 50vw"
-                      priority
-                      onError={() => setMainImageError(true)}
-                    />
-                  ) : (
-                    // Feltöltött / külső / 3D: natív img – megbízhatóbb a galéria bélyegképeknél is
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={mainImage}
-                      alt={productName}
-                      className="absolute inset-0 w-full h-full object-contain"
-                      referrerPolicy="no-referrer"
-                      onError={() => setMainImageError(true)}
-                    />
-                  )
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-muted">
-                    {mainImageError ? (t('product.noImage') || 'Kép nem tölthető') : (t('product.noImage') || 'Nincs kép')}
-                  </div>
-                )}
+                <SafeProductImage
+                  src={mainImage}
+                  alt={productName}
+                  fit="contain"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  priority
+                />
                 {showSoldOverlay && <SoldImpactOverlay className="rounded-xl" label={t('status.expired')} />}
               </div>
             )}
@@ -383,23 +362,14 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                 <button
                   key={`${img}-${i}`}
                   type="button"
-                  onClick={() => {
-                    setMainImageIndex(i)
-                    setMainImageError(false)
-                  }}
+                  onClick={() => setMainImageIndex(i)}
                   className={`w-20 h-20 shrink-0 rounded-lg border-2 bg-[var(--card-bg)] relative overflow-hidden transition-colors ${
                     mainImageIndex === i ? 'border-accent ring-2 ring-accent/30' : 'border-[var(--border)] hover:border-accent/50'
                   }`}
                   aria-label={`${productName} ${i + 1}`}
                   aria-pressed={mainImageIndex === i}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={img}
-                    alt=""
-                    className="absolute inset-0 w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
+                  <SafeProductImage src={img} alt="" fit="cover" fill sizes="80px" />
                 </button>
               ))}
               {has360 && (

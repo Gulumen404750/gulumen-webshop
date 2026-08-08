@@ -9,8 +9,8 @@ import {
   slugifyColorId,
   type ColorVariant,
 } from '@/lib/filamentColors'
-import { ProductImageUploader } from '@/components/ProductImageUploader'
-import { isValidImageUrl, normalizeImageUrl } from '@/lib/product-images'
+import { CdnImageManager } from '@/components/CdnImageManager'
+import { cleanCdnUrls } from '@/lib/cdn'
 
 type Props = {
   value: ColorVariant[] | Record<string, string[]> | null | undefined
@@ -85,7 +85,7 @@ export function ProductColorImagesEditor({ value, onChange }: Props) {
   }
 
   const setActiveImages = (images: string[]) => {
-    updateActive({ images: images.map(normalizeImageUrl).filter(isValidImageUrl) })
+    updateActive({ images: cleanCdnUrls(images) })
   }
 
   return (
@@ -214,74 +214,13 @@ export function ProductColorImagesEditor({ value, onChange }: Props) {
             </button>
           </div>
 
-          {active.images.length > 0 && (
-            <ul className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {active.images.map((url, i) => (
-                <li
-                  key={`${url}-${i}`}
-                  className="relative rounded-lg border border-[var(--border)] overflow-hidden bg-background"
-                >
-                  <div className="relative aspect-square">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={url}
-                      alt={`${active.name || 'Szín'} ${i + 1}`}
-                      className="w-full h-full object-contain"
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setActiveImages(active.images.filter((_, j) => j !== i))
-                    }
-                    className="absolute top-1 right-1 rounded bg-red-600/90 px-2 py-0.5 text-xs text-white hover:bg-red-700"
-                  >
-                    Törlés
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <ProductImageUploader
-            label={`+ Kép feltöltése: ${active.name || active.hex}`}
-            value=""
-            onChange={() => {}}
-            showUrlInput={false}
-            mode="add"
-            onAddUrl={(url) => setActiveImages([...active.images, url])}
+          <CdnImageManager
+            label={`Képek: ${active.name || active.hex}`}
+            multiple
+            values={active.images}
+            onChangeMultiple={setActiveImages}
+            showGuide
           />
-
-          <div className="flex gap-2">
-            <input
-              type="url"
-              placeholder="Vagy kép URL hozzáadása…"
-              className="flex-1 rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground text-sm"
-              onKeyDown={(e) => {
-                if (e.key !== 'Enter') return
-                e.preventDefault()
-                const input = e.currentTarget
-                const url = normalizeImageUrl(input.value)
-                if (!isValidImageUrl(url)) return
-                setActiveImages([...active.images, url])
-                input.value = ''
-              }}
-            />
-            <button
-              type="button"
-              onClick={(e) => {
-                const wrap = e.currentTarget.previousElementSibling as HTMLInputElement | null
-                const url = wrap ? normalizeImageUrl(wrap.value) : ''
-                if (!isValidImageUrl(url) || !wrap) return
-                setActiveImages([...active.images, url])
-                wrap.value = ''
-              }}
-              className="shrink-0 rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-foreground hover:bg-[var(--border)]/20"
-            >
-              Hozzáad
-            </button>
-          </div>
         </div>
       ) : (
         <p className="text-sm text-muted border-t border-[var(--border)] pt-3">

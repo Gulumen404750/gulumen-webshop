@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
 import { useEffect, useRef, useMemo, useState } from 'react'
+import { SafeProductImage } from '@/components/SafeProductImage'
 import { useRouter } from 'next/navigation'
 import { getProductName, getProductById as getProductByIdFromData } from '@/lib/data'
 import { useCart } from '@/context/CartContext'
@@ -156,17 +156,12 @@ export function CartDrawer({ isOpen, onClose }: Props) {
                   ? Math.round(unitPriceHuf * (1 - luckySpinDiscountPercent))
                   : unitPriceHuf
                 const img = product?.image?.trim() ? product.image : ''
-                const isLocalImg = img?.startsWith('/')
                 const lineKey = `${item.productId}-${item.options?.colorHex ?? item.options?.colorName ?? ''}-${item.options?.materialName ?? ''}`
                 return (
                   <li key={lineKey} className="flex gap-3 p-3 rounded-lg border border-[var(--border)]">
                     <div className="w-14 h-14 shrink-0 rounded-lg bg-[var(--border)] relative overflow-hidden">
                       {img ? (
-                        isLocalImg ? (
-                          <Image src={img} alt="" fill className="object-cover" sizes="56px" />
-                        ) : (
-                          <img src={img} alt="" className="absolute inset-0 w-full h-full object-cover" referrerPolicy="no-referrer" />
-                        )
+                        <SafeProductImage src={img} alt="" fit="cover" fill sizes="56px" />
                       ) : null}
                     </div>
                     <div className="flex-1 min-w-0">
