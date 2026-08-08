@@ -80,6 +80,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUserId(normalized)
       return { ok: true, email: normalized }
     }
+    if (res.status === 409) {
+      return {
+        ok: false,
+        error:
+          typeof data.error === 'string' && data.error
+            ? data.error
+            : 'Ezzel az e-mail címmel már regisztráltak. Jelentkezz be.',
+      }
+    }
     return { ok: false, error: data.error || 'Regisztráció sikertelen' }
   }, [])
 

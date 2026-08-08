@@ -24,7 +24,8 @@ function formatPriceHuf(product: Product): string {
 }
 
 function formatAvailability(stock: number): string {
-  return stock > 0 ? 'in stock' : 'out of stock'
+  // stock < 0 = végtelen / készleten
+  return stock !== 0 ? 'in stock' : 'out of stock'
 }
 
 export function buildMerchantFeedXml(products: Product[]): string {

@@ -39,7 +39,7 @@ export function SearchNoResultsEmptyState({ query }: { query?: string }) {
           </Link>
         ))}
         <Link
-          href="/akciok"
+          href="/termekek"
           className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-accent/40 bg-accent/5 text-sm font-medium text-accent hover:bg-accent/10 transition-colors"
         >
           {t('nav.deals')}

@@ -42,10 +42,11 @@ export function getSaleDiscountPercent(product: Product): number | null {
   return Math.round((1 - product.discountPriceHuf / product.priceHuf) * 100)
 }
 
-/** Storefront: csak aktív, nem archivált termékek. */
+/** Storefront: csak aktív, nem archivált, nem időkorlátozott/beszerzéses termékek. */
 export function isStorefrontVisible(product: Product): boolean {
   if (product.active === false) return false
   if (product.archived === true) return false
+  if (product.type === 'sourcing_deal') return false
   return true
 }
 
@@ -73,10 +74,9 @@ export function getFeaturedProducts(products: Product[], limit = FEATURED_PRODUC
   return stock3D.slice(0, limit)
 }
 
-export function getActiveDealProducts(products: Product[]): Product[] {
-  return products.filter(
-    (p) => p.type !== 'sourcing_deal' && isStorefrontVisible(p) && isSaleActive(p)
-  )
+/** Időkorlátos akciók kikapcsolva – a boltban nincs akciós / limitált szekció. */
+export function getActiveDealProducts(_products: Product[]): Product[] {
+  return []
 }
 
 export function getNewProducts(products: Product[]): Product[] {

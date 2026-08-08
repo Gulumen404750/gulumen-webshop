@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useCallback, useEffect, useState } from 'react'
 import type { Product } from '@/lib/data'
-import { getSourcingDealStatus, getProductName, getDisplayStock, is3DProduct } from '@/lib/data'
+import { getSourcingDealStatus, getProductName, getDisplayStock, is3DProduct, isUnlimitedStock } from '@/lib/data'
 import { SourcingDealCardCountdown } from '@/components/SourcingDealCardCountdown'
 import { SaleCountdown } from '@/components/SaleCountdown'
 import { SoldImpactOverlay } from '@/components/SoldImpactOverlay'
@@ -94,7 +94,12 @@ export function ProductCard({
   const [pointLimitReached, setPointLimitReached] = useState(false)
   const showLikes = showLikesForProduct(product)
   const availableStock = getAvailableStock(product, serverNow)
-  const showFomoBadge = showLikes && likesCount > 20 && availableStock < 10
+  const showFomoBadge =
+    showLikes &&
+    likesCount > 20 &&
+    !isUnlimitedStock(product) &&
+    availableStock > 0 &&
+    availableStock < 10
 
   // Like állapot és számláló csak API-ból (user-specifikus liked, publikus likesCount)
   useEffect(() => {

@@ -1,7 +1,9 @@
 /**
- * Filament színek a 3D nyomtatott termékekhez.
- * Bővíthető további színekkel.
+ * Filament színek a 3D nyomtatott termékekhez + dinamikus színvariációk.
  */
+
+import { normalizeImageUrls } from '@/lib/product-images'
+
 export type FilamentColor = {
   id: string
   name: string
@@ -11,57 +13,19 @@ export type FilamentColor = {
   hex: string
 }
 
-/** Színenkénti termékfotók: filament color id → kép URL-ek. */
+/** Adminban / shopban használt színvariáció (név + HEX + képek). */
+export type ColorVariant = {
+  id: string
+  name: string
+  nameEn?: string
+  nameDe?: string
+  nameRo?: string
+  hex: string
+  images: string[]
+}
+
+/** Színenkénti termékfotók: color id → kép URL-ek (legacy + belső map). */
 export type ColorImagesMap = Record<string, string[]>
-
-/** DB / JSON → tisztított colorImages térkép (üres tömbök kihagyva). */
-export function normalizeColorImages(value: unknown): ColorImagesMap {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
-  const out: ColorImagesMap = {}
-  for (const [key, urls] of Object.entries(value as Record<string, unknown>)) {
-    if (typeof key !== 'string' || !key.trim()) continue
-    if (!Array.isArray(urls)) continue
-    const cleaned = urls.filter((u): u is string => typeof u === 'string' && u.trim().length > 0)
-    if (cleaned.length > 0) out[key] = cleaned
-  }
-  return out
-}
-
-/** Van-e legalább egy színhez feltöltött kép. */
-export function hasAnyColorImages(colorImages?: ColorImagesMap | null): boolean {
-  if (!colorImages) return false
-  return Object.values(colorImages).some((urls) => Array.isArray(urls) && urls.length > 0)
-}
-
-/**
- * Shopban megjelenő színek.
- * Ha van színenkénti kép → csak azok (fotókkal).
- * Egyébként színezhető 3D terméknél → teljes filament lista (modell színezéshez).
- */
-export function getAvailableFilamentColors(
-  colorImages: ColorImagesMap | null | undefined,
-  isColorable: boolean
-): FilamentColor[] {
-  if (!isColorable) return []
-  const map = colorImages ?? {}
-  const withImages = FILAMENT_COLORS.filter((c) => (map[c.id]?.length ?? 0) > 0)
-  if (withImages.length > 0) return withImages
-  return FILAMENT_COLORS
-}
-
-/** Galéria egy színhez; ha nincs, a termék általános képei. */
-export function getGalleryImagesForColor(
-  product: { image?: string; images?: string[]; colorImages?: ColorImagesMap | null },
-  colorId?: string | null
-): string[] {
-  if (colorId) {
-    const byColor = product.colorImages?.[colorId]
-    if (byColor?.length) return byColor
-  }
-  if (product.images?.length) return product.images
-  if (product.image) return [product.image]
-  return []
-}
 
 export const FILAMENT_COLORS: FilamentColor[] = [
   { id: 'white', name: 'Fehér', nameEn: 'White', nameDe: 'Weiß', nameRo: 'Alb', hex: '#FFFFFF' },
@@ -86,7 +50,7 @@ export function getFilamentColorById(id: string): FilamentColor | undefined {
   return FILAMENT_COLORS.find((c) => c.id === id)
 }
 
-export function getFilamentColorName(color: FilamentColor, locale: string): string {
+export function getFilamentColorName(color: FilamentColor | ColorVariant, locale: string): string {
   switch (locale) {
     case 'hu':
       return color.name
@@ -99,4 +63,177 @@ export function getFilamentColorName(color: FilamentColor, locale: string): stri
     default:
       return color.nameEn ?? color.name
   }
+}
+
+/** HEX normalizálás (#rrggbb); érvénytelen esetén fallback. */
+export function normalizeHexColor(value: string, fallback = '#888888'): string {
+  const trimmed = value.trim()
+  if (!trimmed) return fallback
+  let hex = trimmed.startsWith('#') ? trimmed : `#${trimmed}`
+  if (/^#[0-9A-Fa-f]{3}$/.test(hex)) {
+    hex = `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`
+  }
+  if (!/^#[0-9A-Fa-f]{6}$/.test(hex)) return fallback
+  return hex.toLowerCase()
+}
+
+/** Id generálás színnévből / hexből. */
+export function slugifyColorId(name: string, hex?: string): string {
+  const base = name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  if (base) return base.slice(0, 40)
+  const h = normalizeHexColor(hex || '', '').replace('#', '')
+  return h ? `color-${h}` : `color-${Date.now().toString(36)}`
+}
+
+function filamentToVariant(c: FilamentColor, images: string[] = []): ColorVariant {
+  return {
+    id: c.id,
+    name: c.name,
+    nameEn: c.nameEn,
+    nameDe: c.nameDe,
+    nameRo: c.nameRo,
+    hex: normalizeHexColor(c.hex),
+    images,
+  }
+}
+
+/** DB / JSON → ColorVariant tömb (array vagy legacy Record formátum). */
+export function normalizeColorVariants(value: unknown): ColorVariant[] {
+  if (!value) return []
+
+  if (Array.isArray(value)) {
+    const out: ColorVariant[] = []
+    const seen = new Set<string>()
+    for (const item of value) {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) continue
+      const row = item as Record<string, unknown>
+      const name = typeof row.name === 'string' ? row.name.trim() : ''
+      const hexRaw = typeof row.hex === 'string' ? row.hex : ''
+      const hex = normalizeHexColor(hexRaw || name)
+      const idRaw = typeof row.id === 'string' ? row.id.trim() : ''
+      const id = idRaw || slugifyColorId(name || hex, hex)
+      if (!id || seen.has(id)) continue
+      const images = normalizeImageUrls(row.images)
+      const filament = getFilamentColorById(id)
+      out.push({
+        id,
+        name: name || filament?.name || hex.toUpperCase(),
+        nameEn: typeof row.nameEn === 'string' ? row.nameEn : filament?.nameEn,
+        nameDe: typeof row.nameDe === 'string' ? row.nameDe : filament?.nameDe,
+        nameRo: typeof row.nameRo === 'string' ? row.nameRo : filament?.nameRo,
+        hex,
+        images,
+      })
+      seen.add(id)
+    }
+    return out
+  }
+
+  if (typeof value === 'object') {
+    const map = value as Record<string, unknown>
+    const out: ColorVariant[] = []
+    for (const [key, urls] of Object.entries(map)) {
+      if (!key.trim() || key.startsWith('__')) continue
+      if (!Array.isArray(urls)) continue
+      const images = normalizeImageUrls(urls)
+      if (images.length === 0) continue
+      const filament = getFilamentColorById(key)
+      out.push(
+        filament
+          ? filamentToVariant(filament, images)
+          : {
+              id: key,
+              name: key,
+              hex: normalizeHexColor(key.startsWith('#') ? key : '#888888'),
+              images,
+            }
+      )
+    }
+    return out
+  }
+
+  return []
+}
+
+/** ColorVariant[] → legacy map (API / getGalleryImagesForColor). */
+export function colorVariantsToMap(variants: ColorVariant[]): ColorImagesMap {
+  const out: ColorImagesMap = {}
+  for (const v of variants) {
+    const images = normalizeImageUrls(v.images)
+    if (images.length > 0) out[v.id] = images
+  }
+  return out
+}
+
+/** Mentéshez: csak érvényes variánsok tömbje. */
+export function serializeColorVariants(variants: ColorVariant[]): ColorVariant[] {
+  return normalizeColorVariants(variants).filter((v) => v.images.length > 0 || v.name.trim().length > 0)
+}
+
+/** DB / JSON → tisztított colorImages térkép (üres tömbök kihagyva). */
+export function normalizeColorImages(value: unknown): ColorImagesMap {
+  return colorVariantsToMap(normalizeColorVariants(value))
+}
+
+/** Van-e legalább egy színhez feltöltött kép. */
+export function hasAnyColorImages(colorImages?: ColorImagesMap | ColorVariant[] | null): boolean {
+  const variants = normalizeColorVariants(colorImages)
+  return variants.some((v) => v.images.length > 0)
+}
+
+/**
+ * Shopban megjelenő színek.
+ * Ha van színenkénti kép → azok a variánsok.
+ * Egyébként színezhető 3D terméknél → teljes filament lista (modell színezéshez).
+ */
+export function getAvailableFilamentColors(
+  colorImages: ColorImagesMap | ColorVariant[] | null | undefined,
+  isColorable: boolean
+): FilamentColor[] {
+  return getAvailableColorVariants(colorImages, isColorable).map((v) => ({
+    id: v.id,
+    name: v.name,
+    nameEn: v.nameEn,
+    nameDe: v.nameDe,
+    nameRo: v.nameRo,
+    hex: v.hex,
+  }))
+}
+
+/** Shop színválasztó: ColorVariant listával (képekkel együtt). */
+export function getAvailableColorVariants(
+  colorImages: ColorImagesMap | ColorVariant[] | null | undefined,
+  isColorable: boolean
+): ColorVariant[] {
+  const variants = normalizeColorVariants(colorImages)
+  const withImages = variants.filter((v) => v.images.length > 0)
+  if (withImages.length > 0) return withImages
+  if (isColorable) return FILAMENT_COLORS.map((c) => filamentToVariant(c, []))
+  return []
+}
+
+/** Galéria egy színhez; ha nincs, a termék általános képei. */
+export function getGalleryImagesForColor(
+  product: { image?: string; images?: string[]; colorImages?: ColorImagesMap | ColorVariant[] | null },
+  colorId?: string | null
+): string[] {
+  if (colorId) {
+    const variants = normalizeColorVariants(product.colorImages)
+    const byColor = variants.find((v) => v.id === colorId)
+    if (byColor?.images?.length) return byColor.images
+    const map = normalizeColorImages(product.colorImages)
+    if (map[colorId]?.length) return map[colorId]
+  }
+  const fromImages = normalizeImageUrls(product.images)
+  if (fromImages.length) return fromImages
+  if (product.image && typeof product.image === 'string') {
+    const main = product.image.trim()
+    if (main) return [main]
+  }
+  return []
 }

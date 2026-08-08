@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
-import { prisma, isDbConfigured } from '@/lib/prisma'
+import { isDbConfigured } from '@/lib/prisma'
 import { createSession, getSessionCookieHeader, isJwtConfigured } from '@/lib/auth'
 import { devVerifyUser } from '@/lib/dev-auth'
+import { findUserByEmail, normalizeEmail } from '@/lib/user-email'
 import {
   loginRateLimitCheck,
   loginRateLimitRecordFailure,
@@ -42,10 +43,10 @@ export async function POST(request: Request) {
     )
   }
   const { email, password } = parsed.data
-  const emailNorm = email.trim().toLowerCase()
+  const emailNorm = normalizeEmail(email)
 
   if (isDbConfigured()) {
-    const user = await prisma.user.findUnique({ where: { email: emailNorm } })
+    const user = await findUserByEmail(emailNorm)
     if (!user) {
       loginRateLimitRecordFailure(request)
       return NextResponse.json(

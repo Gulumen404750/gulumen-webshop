@@ -5,6 +5,11 @@ import { prisma, isDbConfigured } from '@/lib/prisma'
 import { createSession, getSessionCookieHeader, isJwtConfigured } from '@/lib/auth'
 import { devCreateUser, devFindUserByEmail } from '@/lib/dev-auth'
 import { claimUserPromoCoupon } from '@/lib/promo-coupons'
+import {
+  findUserByEmail,
+  isUniqueEmailConstraintError,
+  normalizeEmail,
+} from '@/lib/user-email'
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -12,6 +17,8 @@ const registerSchema = z.object({
   name: z.string().max(200).optional(),
   acceptOffers: z.boolean().optional(),
 })
+
+const EMAIL_ALREADY_REGISTERED = 'Ezzel az e-mail címmel már regisztráltak. Jelentkezz be.'
 
 export async function POST(request: Request) {
   if (!isJwtConfigured()) {
@@ -32,26 +39,31 @@ export async function POST(request: Request) {
     )
   }
   const { email, password, name, acceptOffers } = parsed.data
-  const emailNorm = email.trim().toLowerCase()
+  const emailNorm = normalizeEmail(email)
 
   try {
     if (isDbConfigured()) {
-      const existing = await prisma.user.findUnique({ where: { email: emailNorm } })
+      const existing = await findUserByEmail(emailNorm)
       if (existing) {
-        return NextResponse.json(
-          { error: 'Ezzel az e-mail címmel már regisztráltak' },
-          { status: 409 }
-        )
+        return NextResponse.json({ error: EMAIL_ALREADY_REGISTERED }, { status: 409 })
       }
 
       const passwordHash = await bcrypt.hash(password, 12)
-      const user = await prisma.user.create({
-        data: {
-          email: emailNorm,
-          passwordHash,
-          name: name?.trim() || null,
-        },
-      })
+      let user
+      try {
+        user = await prisma.user.create({
+          data: {
+            email: emailNorm,
+            passwordHash,
+            name: name?.trim() || null,
+          },
+        })
+      } catch (createError) {
+        if (isUniqueEmailConstraintError(createError)) {
+          return NextResponse.json({ error: EMAIL_ALREADY_REGISTERED }, { status: 409 })
+        }
+        throw createError
+      }
 
       if (acceptOffers) {
         await claimUserPromoCoupon(user.id, 'registration')
@@ -66,10 +78,7 @@ export async function POST(request: Request) {
     }
 
     if (devFindUserByEmail(emailNorm)) {
-      return NextResponse.json(
-        { error: 'Ezzel az e-mail címmel már regisztráltak' },
-        { status: 409 }
-      )
+      return NextResponse.json({ error: EMAIL_ALREADY_REGISTERED }, { status: 409 })
     }
 
     const user = await devCreateUser(emailNorm, password, name)
@@ -81,6 +90,9 @@ export async function POST(request: Request) {
     response.headers.set('Set-Cookie', getSessionCookieHeader(token))
     return response
   } catch (e) {
+    if (isUniqueEmailConstraintError(e)) {
+      return NextResponse.json({ error: EMAIL_ALREADY_REGISTERED }, { status: 409 })
+    }
     console.error('[api/auth/register] POST', e)
     return NextResponse.json({ error: 'Regisztráció sikertelen' }, { status: 500 })
   }

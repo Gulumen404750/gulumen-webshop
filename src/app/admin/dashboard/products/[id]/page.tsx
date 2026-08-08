@@ -6,7 +6,13 @@ import Link from 'next/link'
 import { categories, threeDSubcategories } from '@/lib/data'
 import { ProductImageUploader } from '@/components/ProductImageUploader'
 import { ProductColorImagesEditor } from '@/components/ProductColorImagesEditor'
-import { normalizeColorImages, type ColorImagesMap } from '@/lib/filamentColors'
+import {
+  normalizeColorVariants,
+  serializeColorVariants,
+  type ColorVariant,
+} from '@/lib/filamentColors'
+import { buildProductGallery, normalizeImageUrls, normalizeImageUrl } from '@/lib/product-images'
+import { UNLIMITED_STOCK_VALUE } from '@/lib/data'
 import { slugifyProduct } from '@/lib/slug'
 
 type Product = {
@@ -26,13 +32,14 @@ type Product = {
   image: string
   images: string[]
   images360: string[]
-  colorImages: ColorImagesMap | null
+  colorImages: ColorVariant[] | Record<string, string[]> | null
   modelUrl: string | null
   priceHuf: number
   priceEur: number
   discountPriceHuf: number | null
   discountPriceEur: number | null
-  stock: number
+  /** -1 = végtelen / üres mező; 0 = elfogyott; >0 = darabszám */
+  stock: number | null
   variants: unknown
   isNew: boolean
   onSale: boolean
@@ -56,8 +63,10 @@ export default function AdminProductEditPage() {
   const id = params?.id as string
   const isNew = id === 'new'
   const [product, setProduct] = useState<Partial<Product> | null>(
-    isNew ? { category: '3d-konyha', slug: '' } : null
+    isNew ? { category: '3d-konyha', slug: '', stock: null, colorImages: [] } : null
   )
+  /** Készlet mező szöveges értéke (üres = végtelen). */
+  const [stockInput, setStockInput] = useState('')
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null)
@@ -83,15 +92,28 @@ export default function AdminProductEditPage() {
       })
       .then((data: { product?: Product }) => {
         if (data.product) {
+          const stock = data.product.stock
+          const unlimited = stock == null || stock < 0
+          setStockInput(unlimited ? '' : String(stock))
           setProduct({
             ...data.product,
-            colorImages: normalizeColorImages(data.product.colorImages),
+            stock: unlimited ? null : stock,
+            images: buildProductGallery(data.product.image, data.product.images),
+            colorImages: normalizeColorVariants(data.product.colorImages),
           })
         }
       })
       .catch(() => setMessage({ type: 'error', text: 'Hálózati hiba.' }))
       .finally(() => setLoading(false))
   }, [id, isNew])
+
+  const resolveStockForSave = (): number => {
+    const trimmed = stockInput.trim()
+    if (!trimmed) return UNLIMITED_STOCK_VALUE
+    const n = Number(trimmed)
+    if (!Number.isFinite(n) || n < 0) return UNLIMITED_STOCK_VALUE
+    return Math.floor(n)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -101,6 +123,11 @@ export default function AdminProductEditPage() {
     try {
       const url = isNew ? '/api/admin/products' : `/api/admin/products/${id}`
       const method = isNew ? 'POST' : 'PATCH'
+      const cleanedImages = normalizeImageUrls(product.images)
+      const mainImage = normalizeImageUrl(product.image || cleanedImages[0] || '')
+      const gallery = buildProductGallery(mainImage, cleanedImages)
+      const colorVariants = serializeColorVariants(normalizeColorVariants(product.colorImages))
+      const stock = resolveStockForSave()
       const body = isNew
         ? {
             slug: product.slug || '',
@@ -114,16 +141,16 @@ export default function AdminProductEditPage() {
             description_ro: product.description_ro ?? product.description ?? '',
             condition: product.condition || 'Új',
             category: product.category || '3d-konyha',
-            image: product.image || '',
-            images: product.images || [],
-            images360: product.images360 || [],
-            colorImages: normalizeColorImages(product.colorImages),
+            image: mainImage,
+            images: gallery,
+            images360: normalizeImageUrls(product.images360),
+            colorImages: colorVariants,
             modelUrl: product.modelUrl || undefined,
             priceHuf: product.priceHuf ?? 0,
             priceEur: product.priceEur ?? 0,
             discountPriceHuf: product.discountPriceHuf ?? undefined,
             discountPriceEur: product.discountPriceEur ?? undefined,
-            stock: product.stock ?? 0,
+            stock,
             isNew: product.isNew ?? false,
             onSale: product.onSale ?? false,
             active: product.active ?? true,
@@ -131,8 +158,8 @@ export default function AdminProductEditPage() {
             saleStartAt: product.saleStartAt || undefined,
             saleEndAt: product.saleEndAt || undefined,
             isColorable: product.isColorable ?? false,
-            type: product.type || 'stock',
-            sourcingEnabled: product.sourcingEnabled ?? false,
+            type: 'stock',
+            sourcingEnabled: false,
             dealStartAt: product.dealStartAt || undefined,
             dealEndAt: product.dealEndAt || undefined,
             previewFrom: product.previewFrom || undefined,
@@ -150,16 +177,16 @@ export default function AdminProductEditPage() {
             description_ro: product.description_ro ?? product.description ?? '',
             condition: product.condition ?? 'Új',
             category: product.category ?? '3d-konyha',
-            image: product.image ?? '',
-            images: product.images ?? [],
-            images360: product.images360 ?? [],
-            colorImages: normalizeColorImages(product.colorImages),
+            image: mainImage,
+            images: gallery,
+            images360: normalizeImageUrls(product.images360),
+            colorImages: colorVariants,
             modelUrl: product.modelUrl ?? undefined,
             priceHuf: product.priceHuf ?? 0,
             priceEur: product.priceEur ?? 0,
             discountPriceHuf: product.discountPriceHuf ?? undefined,
             discountPriceEur: product.discountPriceEur ?? undefined,
-            stock: product.stock ?? 0,
+            stock,
             isNew: product.isNew ?? false,
             onSale: product.onSale ?? false,
             active: product.active ?? true,
@@ -167,8 +194,8 @@ export default function AdminProductEditPage() {
             saleStartAt: product.saleStartAt || undefined,
             saleEndAt: product.saleEndAt || undefined,
             isColorable: product.isColorable ?? false,
-            type: product.type || 'stock',
-            sourcingEnabled: product.sourcingEnabled ?? false,
+            type: 'stock',
+            sourcingEnabled: false,
             dealStartAt: product.dealStartAt || undefined,
             dealEndAt: product.dealEndAt || undefined,
             previewFrom: product.previewFrom || undefined,
@@ -566,10 +593,27 @@ export default function AdminProductEditPage() {
             <label className="block text-sm font-medium mb-1">Készlet</label>
             <input
               type="number"
-              value={product?.stock ?? ''}
-              onChange={(e) => setProduct((p) => ({ ...p, stock: Number(e.target.value) || 0 }))}
+              min={0}
+              value={stockInput}
+              onChange={(e) => {
+                const v = e.target.value
+                setStockInput(v)
+                if (!v.trim()) {
+                  setProduct((p) => ({ ...p, stock: null }))
+                  return
+                }
+                const n = Number(v)
+                setProduct((p) => ({
+                  ...p,
+                  stock: Number.isFinite(n) && n >= 0 ? Math.floor(n) : null,
+                }))
+              }}
+              placeholder="Üres = végtelen / készleten"
               className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
             />
+            <p className="mt-1 text-xs text-muted">
+              Hagyd üresen → „Készleten” (végtelen). Szám megadása → pontos darabszám (a vásárlás csökkenti).
+            </p>
           </div>
           <div className="sm:col-span-2">
             <ProductImageUploader
@@ -587,10 +631,24 @@ export default function AdminProductEditPage() {
 
         <div>
           <label className="block text-sm font-medium mb-1">Galéria (több kép URL)</label>
-          <p className="text-xs text-muted mb-2">A fő kép alatt megjelenő képek. Add hozzá az URL-eket, tölts fel a gépről, vagy töröld őket.</p>
+          <p className="text-xs text-muted mb-2">
+            A fő kép alatt megjelenő képek. Tölts fel a gépről, vagy adj meg közvetlen kép-URL-t
+            (https://… vagy /uploads/…). Mentéskor az üres sorok kiszűrésre kerülnek.
+          </p>
           <div className="space-y-2">
             {(product?.images?.length ? product.images : []).map((url, i) => (
-              <div key={i} className="flex gap-2">
+              <div key={i} className="flex gap-2 items-center">
+                {url.trim() && (url.startsWith('/') || url.startsWith('http')) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={url.trim()}
+                    alt=""
+                    className="w-12 h-12 rounded border border-[var(--border)] object-cover shrink-0 bg-[var(--border)]/30"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded border border-dashed border-[var(--border)] shrink-0 bg-[var(--border)]/20" />
+                )}
                 <input
                   value={url}
                   onChange={(e) => {
@@ -599,7 +657,7 @@ export default function AdminProductEditPage() {
                     setProduct((p) => ({ ...p, images: next }))
                   }}
                   className="flex-1 rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground text-sm"
-                  placeholder="Kép URL"
+                  placeholder="https://… vagy /uploads/…"
                 />
                 <button
                   type="button"
@@ -620,7 +678,11 @@ export default function AdminProductEditPage() {
                 onChange={() => {}}
                 showUrlInput={false}
                 mode="add"
-                onAddUrl={(url) => setProduct((p) => (p ? { ...p, images: [...(p?.images ?? []), url] } : p))}
+                onAddUrl={(url) =>
+                  setProduct((p) =>
+                    p ? { ...p, images: normalizeImageUrls([...(p.images ?? []), url]) } : p
+                  )
+                }
               />
               <button
                 type="button"
@@ -789,72 +851,21 @@ export default function AdminProductEditPage() {
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
-              checked={product?.type === 'sourcing_deal'}
-              onChange={(e) => setProduct((p) => ({ ...p, type: e.target.checked ? 'sourcing_deal' : 'stock', sourcingEnabled: e.target.checked }))}
-              className="rounded border-[var(--border)]"
-            />
-            Beszerzéses deal
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
               checked={product?.isColorable ?? false}
               onChange={(e) => setProduct((p) => ({ ...p, isColorable: e.target.checked }))}
               className="rounded border-[var(--border)]"
             />
-            Színezhető (3D)
+            Színezhető (3D modell tint)
           </label>
         </div>
+        <p className="text-xs text-muted -mt-2">
+          A 3D jelölő a modell színezéséhez kell. Színvariációk és színhez kötött fotók alább bármely terméknél megadhatók.
+        </p>
 
-        {product?.isColorable && (
-          <ProductColorImagesEditor
-            value={product.colorImages}
-            onChange={(colorImages) => setProduct((p) => ({ ...p, colorImages }))}
-          />
-        )}
-
-        {product?.type === 'sourcing_deal' && (
-          <div className="grid gap-4 sm:grid-cols-2 border-t border-[var(--border)] pt-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Sorrend (beszerzésre rendelhető listán)</label>
-              <input
-                type="number"
-                value={product?.sortOrder ?? ''}
-                onChange={(e) => setProduct((p) => ({ ...p, sortOrder: e.target.value === '' ? null : Number(e.target.value) }))}
-                placeholder="Üres = automatikus (lejárat szerint)"
-                className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
-              />
-              <p className="text-xs text-muted mt-1">Kisebb szám = előrébb. Pl. 1, 2, 3.</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Vásárlás indul (ISO)</label>
-              <input
-                value={product?.dealStartAt?.slice(0, 16) ?? ''}
-                onChange={(e) => setProduct((p) => ({ ...p, dealStartAt: e.target.value ? new Date(e.target.value).toISOString() : null }))}
-                type="datetime-local"
-                className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Vásárlás vége (ISO)</label>
-              <input
-                value={product?.dealEndAt?.slice(0, 16) ?? ''}
-                onChange={(e) => setProduct((p) => ({ ...p, dealEndAt: e.target.value ? new Date(e.target.value).toISOString() : null }))}
-                type="datetime-local"
-                className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Max rendelések</label>
-              <input
-                type="number"
-                value={product?.maxOrders ?? ''}
-                onChange={(e) => setProduct((p) => ({ ...p, maxOrders: e.target.value ? Number(e.target.value) : null }))}
-                className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
-              />
-            </div>
-          </div>
-        )}
+        <ProductColorImagesEditor
+          value={normalizeColorVariants(product?.colorImages)}
+          onChange={(colorImages) => setProduct((p) => ({ ...p, colorImages }))}
+        />
 
         <div className="flex gap-4 pt-4">
           <button

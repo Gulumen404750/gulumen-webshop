@@ -28,10 +28,19 @@ export interface Product {
   images: string[]
   /** Opcionális 360° megtekintés: képkockák URL-jei (körbe húzva lapozható). */
   images360?: string[]
-  /** Színenkénti galéria (filament color id → képek). Shopban csak ezek a színek jelennek meg. */
-  colorImages?: Record<string, string[]>
+  /**
+   * Színenkénti galéria: legacy map (id → képek) vagy ColorVariant tömb
+   * ({ id, name, hex, images }[]). Shopban a képpel rendelkező színek jelennek meg.
+   */
+  colorImages?: Record<string, string[]> | import('@/lib/filamentColors').ColorVariant[]
   /** 3D termék: GLB modell URL (pl. /models/noveny-kotozo.glb), körbe forgatható megjelenítéshez. */
   modelUrl?: string
+  /**
+   * Készlet:
+   * - negatív (pl. -1) vagy null/undefined → végtelen / „Készleten”
+   * - 0 → elfogyott
+   * - pozitív → pontos darabszám
+   */
   stock: number
   variants?: { size?: string; color?: string }[]
   /** Leírás (mock: egyetlen mező; DB: getProductDescription használja a _hu/_en/_de mezőket). */
@@ -215,13 +224,26 @@ export function getAddToCartReason(
     if (status === 'closed') return { canAdd: false, reasonKey: 'status.expired' }
     return { canAdd: false, reasonKey: 'addToCartReason.previewNotStarted' }
   }
-  const stock = is3DProduct(product) ? UNLIMITED_STOCK_CAP : Math.max(0, product.stock ?? 0)
+  if (isUnlimitedStock(product)) return { canAdd: true }
+  const stock = Math.max(0, product.stock ?? 0)
   if (stock <= 0) return { canAdd: false, reasonKey: 'status.soldOut' }
   return { canAdd: true }
 }
 
 /**
+ * Végtelen / nem számozott készlet: stock < 0 (admin üresen hagyta → -1).
+ * Legacy: 3D termék stock === 0 is végtelennek számít (korábbi viselkedés).
+ */
+export function isUnlimitedStock(product: Product): boolean {
+  if (product.type === 'sourcing_deal') return false
+  if (product.stock == null || product.stock < 0) return true
+  if (product.stock === 0 && is3DProduct(product)) return true
+  return false
+}
+
+/**
  * Kijelzett készlet a termék típusa szerint.
+ * - unlimited → UNLIMITED_STOCK_CAP (UI: „Készleten”, darabszám nélkül)
  * - stock: product.stock
  * - sourcing_deal: maxOrders - ordersCount (rendelhető maradék)
  */
@@ -231,6 +253,7 @@ export function getDisplayStock(product: Product, ordersCountOverride?: number):
     const count = ordersCountOverride ?? product.ordersCount ?? 0
     return Math.max(0, maxOrders - count)
   }
+  if (isUnlimitedStock(product)) return UNLIMITED_STOCK_CAP
   return Math.max(0, product.stock ?? 0)
 }
 
@@ -242,13 +265,15 @@ export function getDisplayStock(product: Product, ordersCountOverride?: number):
  * - Cart Quantity (kosárban lévő): külön, pl. "Kosárban: X db".
  * - Max in cart (max. kosárban): getMaxQty(product) = getStockById(id) készletes terméknél; validáció: cartQty + addQty <= getMaxQty.
  */
-/** 3D nyomtatott termékeknél nincs készletlimit – ennyi db-ig lehet egyszerre választani (gyakorlatilag bármennyit). */
-const UNLIMITED_STOCK_CAP = 999
+/** Végtelen készletnél ennyi db-ig lehet egyszerre választani a kosárban. */
+export const UNLIMITED_STOCK_CAP = 999
+/** Admin üres készletmező → ezt mentjük (végtelen / készleten). */
+export const UNLIMITED_STOCK_VALUE = -1
 
 export function getStockById(productId: string): number {
   const p = mockProducts.find((x) => x.id === productId)
   if (!p) return 0
-  if (is3DProduct(p)) return UNLIMITED_STOCK_CAP
+  if (isUnlimitedStock(p)) return UNLIMITED_STOCK_CAP
   return Math.max(0, p.stock ?? 0)
 }
 
@@ -271,7 +296,7 @@ export function getMaxQty(
     const count = ordersCountOverride ?? product.ordersCount ?? 0
     return Math.max(0, maxOrders - count)
   }
-  if (is3DProduct(product)) return UNLIMITED_STOCK_CAP
+  if (isUnlimitedStock(product)) return UNLIMITED_STOCK_CAP
   return Math.max(0, product.stock ?? 0)
 }
 
@@ -612,7 +637,6 @@ export const mockProducts: Product[] = [
     description: 'SENDIA® ágytakaró pléd, 100% poliészter. 180x200 cm. Piros alapon fehér hópirosos minta.',
     onSale: true,
   },
-  ...getSourcingDealMockProducts(),
   // 3D nyomtatott termékek (kategória = 3d-*)
   ...get3DMockProducts(),
 ]
@@ -1216,16 +1240,9 @@ export async function getProductByIdAsync(id: string): Promise<Product | undefin
   return result
 }
 
-/** Async: beszerzésre rendelhető termékek (DB-first). */
+/** Async: beszerzésre rendelhető termékek – kikapcsolva. */
 export async function getSourcingDealProductsAsync(): Promise<Product[]> {
-  return loadFromDbOrMock(
-    async () => {
-      const { getSourcingDealProductsFromDb } = await import('@/lib/products')
-      return getSourcingDealProductsFromDb()
-    },
-    () => getSourcingDealProducts(),
-    [] as Product[]
-  )
+  return []
 }
 
 /** Async: hasonló termékek (DB-first). */

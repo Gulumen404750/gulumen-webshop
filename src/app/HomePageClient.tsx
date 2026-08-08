@@ -63,17 +63,25 @@ export default function HomePageClient({ featuredProducts, dealProducts, newProd
             </Link>
 
             {showRegisterCta && registrationCouponPercent > 0 && (
-              <div className="register-cta-blink w-full max-w-2xl rounded-2xl border-2 border-[var(--border)] bg-[var(--card-bg)]/90 backdrop-blur-sm p-6 sm:p-8 text-center">
+              <div className="register-cta-blink w-full max-w-2xl rounded-2xl border-2 border-[var(--border)] bg-[var(--card-bg)]/90 backdrop-blur-sm p-5 sm:p-8 text-center overflow-hidden">
                 <h2 className="font-heading text-xl sm:text-2xl font-bold text-foreground leading-snug">
                   {t('register.firstPurchasePromo', { percent: registrationCouponPercent })}
                 </h2>
                 <p className="mt-2 text-sm sm:text-base text-muted leading-relaxed">{t('home.registerDesc')}</p>
-                <Link
-                  href="/regisztracio"
-                  className="inline-block mt-5 px-8 py-3 bg-accent text-white font-heading font-semibold rounded-xl hover:opacity-90 transition-opacity"
-                >
-                  {t('buttons.register')}
-                </Link>
+                <div className="mt-5 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2 sm:gap-4 max-w-md mx-auto pb-1">
+                  <Link
+                    href="/regisztracio"
+                    className="inline-flex items-center justify-center px-6 sm:px-8 py-3 bg-accent text-white font-heading font-semibold rounded-xl hover:opacity-90 transition-opacity"
+                  >
+                    {t('buttons.register')}
+                  </Link>
+                  <Link
+                    href="/profil"
+                    className="inline-flex items-center justify-center px-6 sm:px-8 py-3 rounded-xl border-2 border-[var(--border)] bg-background text-foreground font-heading font-semibold hover:border-accent/50 hover:bg-[var(--border)]/40 transition-colors"
+                  >
+                    {t('buttons.login')}
+                  </Link>
+                </div>
               </div>
             )}
           </div>
@@ -107,25 +115,6 @@ export default function HomePageClient({ featuredProducts, dealProducts, newProd
           />
         </div>
       </section>
-
-      {/* Akciók */}
-      {dealProducts.length > 0 && (
-        <section className="py-16">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between mb-10">
-              <h2 className="font-heading text-2xl sm:text-3xl font-bold text-foreground">{t('home.deals')}</h2>
-              <Link href="/akciok" className="text-discount font-medium hover:underline">
-                {t('home.allDeals')}
-              </Link>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-              {dealProducts.map((p) => (
-                <ProductCard key={p.id} product={p} />
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* Miért minket */}
       <section className="py-16 lg:py-20 bg-[var(--card-bg)] border-y border-[var(--border)]">

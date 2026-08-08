@@ -390,7 +390,6 @@ export default function AdminProductsPage() {
         >
           <option value="">Összes típus</option>
           <option value="stock">Készlet</option>
-          <option value="sourcing_deal">Beszerzés</option>
         </select>
       </div>
 

@@ -1,121 +1,239 @@
 'use client'
 
 import { useState } from 'react'
-import Image from 'next/image'
-import { ProductImageUploader } from '@/components/ProductImageUploader'
 import {
   FILAMENT_COLORS,
-  normalizeColorImages,
-  type ColorImagesMap,
+  normalizeColorVariants,
+  normalizeHexColor,
+  serializeColorVariants,
+  slugifyColorId,
+  type ColorVariant,
 } from '@/lib/filamentColors'
+import { ProductImageUploader } from '@/components/ProductImageUploader'
+import { isValidImageUrl, normalizeImageUrl } from '@/lib/product-images'
 
 type Props = {
-  value: ColorImagesMap | null | undefined
-  onChange: (next: ColorImagesMap) => void
+  value: ColorVariant[] | Record<string, string[]> | null | undefined
+  onChange: (next: ColorVariant[]) => void
+}
+
+function ensureUniqueId(base: string, existing: ColorVariant[], excludeIndex?: number): string {
+  let id = base || `color-${Date.now().toString(36)}`
+  let n = 2
+  while (existing.some((v, i) => i !== excludeIndex && v.id === id)) {
+    id = `${base}-${n}`
+    n += 1
+  }
+  return id
 }
 
 export function ProductColorImagesEditor({ value, onChange }: Props) {
-  const colorImages = normalizeColorImages(value)
-  const [activeColorId, setActiveColorId] = useState(FILAMENT_COLORS[0]?.id ?? 'white')
-  const activeColor = FILAMENT_COLORS.find((c) => c.id === activeColorId) ?? FILAMENT_COLORS[0]
-  const activeImages = colorImages[activeColorId] ?? []
+  const variants = normalizeColorVariants(value)
+  const [activeIndex, setActiveIndex] = useState(0)
+  const safeIndex = variants.length === 0 ? 0 : Math.min(activeIndex, variants.length - 1)
+  const active = variants[safeIndex] ?? null
 
-  const setColorUrls = (colorId: string, urls: string[]) => {
-    const next = { ...colorImages }
-    const cleaned = urls.filter((u) => typeof u === 'string' && u.trim().length > 0)
-    if (cleaned.length === 0) delete next[colorId]
-    else next[colorId] = cleaned
-    onChange(next)
+  const commit = (next: ColorVariant[]) => {
+    onChange(serializeColorVariants(next))
+  }
+
+  const updateActive = (patch: Partial<ColorVariant>) => {
+    if (!active) return
+    const next = [...variants]
+    next[safeIndex] = { ...active, ...patch }
+    commit(next)
+  }
+
+  const addCustomVariant = () => {
+    const id = ensureUniqueId(slugifyColorId(`szin-${variants.length + 1}`), variants)
+    const next: ColorVariant[] = [
+      ...variants,
+      { id, name: '', hex: '#888888', images: [] },
+    ]
+    commit(next)
+    setActiveIndex(next.length - 1)
+  }
+
+  const addFilamentVariant = (filamentId: string) => {
+    const filament = FILAMENT_COLORS.find((c) => c.id === filamentId)
+    if (!filament) return
+    const existingIdx = variants.findIndex((v) => v.id === filament.id)
+    if (existingIdx >= 0) {
+      setActiveIndex(existingIdx)
+      return
+    }
+    const next: ColorVariant[] = [
+      ...variants,
+      {
+        id: filament.id,
+        name: filament.name,
+        nameEn: filament.nameEn,
+        nameDe: filament.nameDe,
+        nameRo: filament.nameRo,
+        hex: normalizeHexColor(filament.hex),
+        images: [],
+      },
+    ]
+    commit(next)
+    setActiveIndex(next.length - 1)
+  }
+
+  const removeVariant = (index: number) => {
+    const next = variants.filter((_, i) => i !== index)
+    commit(next)
+    setActiveIndex((i) => Math.max(0, Math.min(i, next.length - 1)))
+  }
+
+  const setActiveImages = (images: string[]) => {
+    updateActive({ images: images.map(normalizeImageUrl).filter(isValidImageUrl) })
   }
 
   return (
     <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-4">
       <div>
         <label className="block text-sm font-medium text-foreground mb-1">
-          Színek és képek
+          Színvariációk és színhez kötött képek
         </label>
         <p className="text-xs text-muted">
-          Válassz színt, majd tölts fel hozzá képeket. A shopban csak azok a színek jelennek meg,
-          amelyekhez van legalább egy kép. Kattintáskor a vásárló az adott szín képeit látja.
+          Adj hozzá színeket névvel vagy HEX kóddal, majd tölts fel hozzájuk képeket.
+          A termékoldalon a vásárló színválasztáskor az adott szín galériáját látja.
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-2" role="listbox" aria-label="Elérhető színek">
-        {FILAMENT_COLORS.map((color) => {
-          const count = colorImages[color.id]?.length ?? 0
-          const isActive = color.id === activeColorId
+      <div className="flex flex-wrap gap-2">
+        {variants.map((v, i) => {
+          const isActive = i === safeIndex
           return (
             <button
-              key={color.id}
+              key={`${v.id}-${i}`}
               type="button"
-              role="option"
-              aria-selected={isActive}
-              onClick={() => setActiveColorId(color.id)}
+              onClick={() => setActiveIndex(i)}
               className={`flex items-center gap-2 rounded-lg border-2 px-2.5 py-1.5 text-sm transition-colors ${
                 isActive
                   ? 'border-accent bg-accent/10 text-foreground'
                   : 'border-[var(--border)] bg-background text-foreground hover:border-accent/50'
               }`}
-              title={`${color.name}${count ? ` (${count} kép)` : ''}`}
+              title={v.name || v.hex}
             >
               <span
                 className="w-4 h-4 rounded-full shrink-0 border border-[var(--border)] shadow-inner"
-                style={{ backgroundColor: color.hex }}
+                style={{ backgroundColor: v.hex }}
                 aria-hidden
               />
-              <span>{color.name}</span>
-              {count > 0 && (
-                <span className="text-xs text-muted tabular-nums">{count}</span>
+              <span>{v.name || v.hex}</span>
+              {v.images.length > 0 && (
+                <span className="text-xs text-muted tabular-nums">{v.images.length}</span>
               )}
             </button>
           )
         })}
+        <button
+          type="button"
+          onClick={addCustomVariant}
+          className="rounded-lg border border-dashed border-[var(--border)] px-3 py-1.5 text-sm text-muted hover:bg-[var(--border)]/20"
+        >
+          + Színvariáció
+        </button>
       </div>
 
-      {activeColor && (
-        <div className="space-y-3 border-t border-[var(--border)] pt-3">
-          <p className="text-sm font-medium text-foreground flex items-center gap-2">
-            <span
-              className="w-4 h-4 rounded-full border border-[var(--border)]"
-              style={{ backgroundColor: activeColor.hex }}
-              aria-hidden
+      <div className="flex flex-wrap gap-1.5">
+        <span className="text-xs text-muted self-center mr-1">Gyors hozzáadás:</span>
+        {FILAMENT_COLORS.map((c) => {
+          const added = variants.some((v) => v.id === c.id)
+          return (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => addFilamentVariant(c.id)}
+              disabled={added}
+              className="w-6 h-6 rounded-full border border-[var(--border)] disabled:opacity-40 hover:ring-2 hover:ring-accent/40"
+              style={{ backgroundColor: c.hex }}
+              title={added ? `${c.name} (már hozzáadva)` : c.name}
+              aria-label={c.name}
             />
-            {activeColor.name} – képek
-          </p>
+          )
+        })}
+      </div>
 
-          {activeImages.length > 0 && (
+      {active ? (
+        <div className="space-y-3 border-t border-[var(--border)] pt-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="block text-xs font-medium text-muted mb-1">Szín neve</label>
+              <input
+                value={active.name}
+                onChange={(e) => {
+                  const name = e.target.value
+                  const nextId = ensureUniqueId(
+                    slugifyColorId(name || active.hex, active.hex),
+                    variants,
+                    safeIndex
+                  )
+                  updateActive({ name, id: active.name ? active.id : nextId })
+                }}
+                placeholder="pl. Fekete, Fehér, Piros"
+                className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted mb-1">HEX színkód</label>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="color"
+                  value={normalizeHexColor(active.hex)}
+                  onChange={(e) => updateActive({ hex: normalizeHexColor(e.target.value) })}
+                  className="h-10 w-12 rounded border border-[var(--border)] bg-background cursor-pointer"
+                  aria-label="Színválasztó"
+                />
+                <input
+                  value={active.hex}
+                  onChange={(e) => updateActive({ hex: e.target.value })}
+                  onBlur={(e) => updateActive({ hex: normalizeHexColor(e.target.value, active.hex) })}
+                  placeholder="#1a1a1a"
+                  className="flex-1 rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground text-sm font-mono"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-foreground flex items-center gap-2">
+              <span
+                className="w-4 h-4 rounded-full border border-[var(--border)]"
+                style={{ backgroundColor: active.hex }}
+                aria-hidden
+              />
+              {active.name || active.hex} – képek
+            </p>
+            <button
+              type="button"
+              onClick={() => removeVariant(safeIndex)}
+              className="text-xs text-red-600 hover:underline"
+            >
+              Színvariáció törlése
+            </button>
+          </div>
+
+          {active.images.length > 0 && (
             <ul className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {activeImages.map((url, i) => (
+              {active.images.map((url, i) => (
                 <li
                   key={`${url}-${i}`}
                   className="relative rounded-lg border border-[var(--border)] overflow-hidden bg-background"
                 >
                   <div className="relative aspect-square">
-                    {url.startsWith('/') ? (
-                      <Image
-                        src={url}
-                        alt={`${activeColor.name} ${i + 1}`}
-                        fill
-                        className="object-contain"
-                        sizes="160px"
-                        unoptimized={url.startsWith('/uploads/')}
-                      />
-                    ) : (
-                      <img
-                        src={url}
-                        alt={`${activeColor.name} ${i + 1}`}
-                        className="w-full h-full object-contain"
-                        referrerPolicy="no-referrer"
-                      />
-                    )}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={url}
+                      alt={`${active.name || 'Szín'} ${i + 1}`}
+                      className="w-full h-full object-contain"
+                      referrerPolicy="no-referrer"
+                    />
                   </div>
                   <button
                     type="button"
                     onClick={() =>
-                      setColorUrls(
-                        activeColorId,
-                        activeImages.filter((_, j) => j !== i)
-                      )
+                      setActiveImages(active.images.filter((_, j) => j !== i))
                     }
                     className="absolute top-1 right-1 rounded bg-red-600/90 px-2 py-0.5 text-xs text-white hover:bg-red-700"
                   >
@@ -127,12 +245,12 @@ export function ProductColorImagesEditor({ value, onChange }: Props) {
           )}
 
           <ProductImageUploader
-            label={`+ Kép feltöltése: ${activeColor.name}`}
+            label={`+ Kép feltöltése: ${active.name || active.hex}`}
             value=""
             onChange={() => {}}
             showUrlInput={false}
             mode="add"
-            onAddUrl={(url) => setColorUrls(activeColorId, [...activeImages, url])}
+            onAddUrl={(url) => setActiveImages([...active.images, url])}
           />
 
           <div className="flex gap-2">
@@ -144,19 +262,19 @@ export function ProductColorImagesEditor({ value, onChange }: Props) {
                 if (e.key !== 'Enter') return
                 e.preventDefault()
                 const input = e.currentTarget
-                const url = input.value.trim()
-                if (!url) return
-                setColorUrls(activeColorId, [...activeImages, url])
+                const url = normalizeImageUrl(input.value)
+                if (!isValidImageUrl(url)) return
+                setActiveImages([...active.images, url])
                 input.value = ''
               }}
             />
             <button
               type="button"
               onClick={(e) => {
-                const wrap = (e.currentTarget.previousElementSibling as HTMLInputElement | null)
-                const url = wrap?.value?.trim()
-                if (!url || !wrap) return
-                setColorUrls(activeColorId, [...activeImages, url])
+                const wrap = e.currentTarget.previousElementSibling as HTMLInputElement | null
+                const url = wrap ? normalizeImageUrl(wrap.value) : ''
+                if (!isValidImageUrl(url) || !wrap) return
+                setActiveImages([...active.images, url])
                 wrap.value = ''
               }}
               className="shrink-0 rounded-lg border border-[var(--border)] px-3 py-2 text-sm text-foreground hover:bg-[var(--border)]/20"
@@ -165,6 +283,10 @@ export function ProductColorImagesEditor({ value, onChange }: Props) {
             </button>
           </div>
         </div>
+      ) : (
+        <p className="text-sm text-muted border-t border-[var(--border)] pt-3">
+          Még nincs színvariáció. Kattints a „+ Színvariáció” gombra, vagy válassz a gyors színek közül.
+        </p>
       )}
     </div>
   )

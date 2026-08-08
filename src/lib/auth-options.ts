@@ -16,6 +16,7 @@ import {
   isProductionRuntime,
 } from '@/lib/bootstrap-auth-env'
 import { checkDbConnectivity } from '@/lib/prisma'
+import { findUserByEmail, normalizeEmail } from '@/lib/user-email'
 
 const AUTH_ERROR_BASE = '/profil'
 
@@ -142,19 +143,26 @@ function buildAuthOptions(): NextAuthOptions {
           return authErrorRedirect('db_unreachable')
         }
 
-        const emailNorm = user.email.trim().toLowerCase()
+        const emailNorm = normalizeEmail(user.email)
         try {
-          let dbUser = await prisma.user.findUnique({ where: { email: emailNorm } })
+          let dbUser = await findUserByEmail(emailNorm)
           let isNewUser = false
           if (!dbUser) {
             isNewUser = true
-            dbUser = await prisma.user.create({
-              data: {
-                email: emailNorm,
-                name: user.name ?? null,
-                passwordHash: null,
-              },
-            })
+            try {
+              dbUser = await prisma.user.create({
+                data: {
+                  email: emailNorm,
+                  name: user.name ?? null,
+                  passwordHash: null,
+                },
+              })
+            } catch (createError) {
+              // Párhuzamos regisztráció / race: már létezik a fiók.
+              dbUser = await findUserByEmail(emailNorm)
+              if (!dbUser) throw createError
+              isNewUser = false
+            }
           }
           console.error('[auth] signIn callback success', {
             userId: dbUser.id,

@@ -85,13 +85,30 @@ const createProductSchema = z.object({
   image: z.string().optional(),
   images: z.array(z.string()).optional(),
   images360: z.array(z.string()).optional(),
-  colorImages: z.record(z.string(), z.array(z.string())).optional().nullable(),
+  colorImages: z
+    .union([
+      z.record(z.string(), z.array(z.string())),
+      z.array(
+        z.object({
+          id: z.string(),
+          name: z.string(),
+          hex: z.string(),
+          images: z.array(z.string()),
+          nameEn: z.string().optional(),
+          nameDe: z.string().optional(),
+          nameRo: z.string().optional(),
+        })
+      ),
+    ])
+    .optional()
+    .nullable(),
   modelUrl: z.string().optional(),
   priceHuf: z.number().int().min(0),
   priceEur: z.number().int().min(0),
   discountPriceHuf: z.number().int().min(0).optional(),
   discountPriceEur: z.number().int().min(0).optional(),
-  stock: z.number().int().min(0).optional(),
+  /** -1 = végtelen készlet; 0 = elfogyott; >0 = darabszám */
+  stock: z.number().int().min(-1).optional(),
   variants: z.unknown().optional(),
   isNew: z.boolean().optional(),
   onSale: z.boolean().optional(),
@@ -159,7 +176,7 @@ export async function POST(request: Request) {
       priceEur: d.priceEur,
       discountPriceHuf: d.discountPriceHuf ?? null,
       discountPriceEur: d.discountPriceEur ?? null,
-      stock: d.stock ?? 0,
+      stock: d.stock === undefined ? -1 : d.stock,
       variants: d.variants === null ? Prisma.JsonNull : (d.variants ?? undefined),
       isNew: d.isNew ?? false,
       onSale: d.onSale ?? false,

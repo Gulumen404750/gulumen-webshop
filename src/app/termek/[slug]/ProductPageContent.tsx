@@ -6,7 +6,8 @@ import Image from 'next/image'
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Share2 } from 'lucide-react'
-import { getDisplayStock, getProductName, getSourcingDealStatus } from '@/lib/data'
+import { getDisplayStock, getProductName, getSourcingDealStatus, isUnlimitedStock } from '@/lib/data'
+import { isValidImageUrl, normalizeImageUrl } from '@/lib/product-images'
 import { ProductTabs } from '@/components/ProductTabs'
 import { SourcingDealBox } from '@/components/SourcingDealBox'
 import { Breadcrumbs, productBreadcrumbs } from '@/components/Breadcrumbs'
@@ -24,16 +25,14 @@ const ProductModelViewer = dynamic(
 )
 import { is3DProduct } from '@/lib/data'
 import {
-  getAvailableFilamentColors,
+  getAvailableColorVariants,
   getFilamentColorName,
   getGalleryImagesForColor,
   hasAnyColorImages,
-  type FilamentColor,
+  normalizeHexColor,
+  type ColorVariant,
 } from '@/lib/filamentColors'
-import {
-  buildColorableProductShareUrl,
-  findFilamentColorByHex,
-} from '@/lib/product-share-url'
+import { buildColorableProductShareUrl } from '@/lib/product-share-url'
 import { useLocale } from '@/context/LocaleContext'
 import { useCart } from '@/context/CartContext'
 import { useAuth } from '@/context/AuthContext'
@@ -80,8 +79,13 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
   const productName = getProductName(product, locale)
   const cartQty = items.find((x) => x.productId === product.id)?.qty ?? 0
   const effectiveOrdersCount = (product.ordersCount ?? 0) + cartQty
+  const unlimitedStock = product.type !== 'sourcing_deal' && isUnlimitedStock(product)
   const stockFromSource = product.type === 'sourcing_deal' ? getDisplayStock(product, effectiveOrdersCount) : getDisplayStock(product)
-  const maxAddable = product.type === 'sourcing_deal' ? stockFromSource : Math.max(0, stockFromSource - cartQty)
+  const maxAddable = product.type === 'sourcing_deal'
+    ? stockFromSource
+    : unlimitedStock
+      ? Math.max(0, stockFromSource - cartQty)
+      : Math.max(0, stockFromSource - cartQty)
   const [addQty, setAddQty] = useState(1)
   const [mainImageIndex, setMainImageIndex] = useState(0)
   const [lightboxOpen, setLightboxOpen] = useState(false)
@@ -89,10 +93,10 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
   const [show3DViewer, setShow3DViewer] = useState(false)
   const [mainImageError, setMainImageError] = useState(false)
   const isColorable = !!product.isColorable
-  const availableColors = getAvailableFilamentColors(product.colorImages, isColorable)
+  const availableColors = getAvailableColorVariants(product.colorImages, isColorable)
   const usesColorGalleries = hasAnyColorImages(product.colorImages)
-  /** Színezhetőnél nincs alapértelmezett szín – a felhasználónak kell választania. */
-  const [selectedColor, setSelectedColor] = useState<FilamentColor | null>(null)
+  /** Színválasztónál nincs alapértelmezett szín – a felhasználónak kell választania. */
+  const [selectedColor, setSelectedColor] = useState<ColorVariant | null>(null)
   const sourcingStatus =
     product.type === 'sourcing_deal'
       ? getSourcingDealStatus(product, new Date(serverNow ?? Date.now()), effectiveOrdersCount)
@@ -102,19 +106,23 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
   )
   const safeAddQty = maxAddable > 0 ? Math.min(Math.max(1, addQty), maxAddable) : 1
 
-  const images = getGalleryImagesForColor(product, selectedColor?.id)
-  const mainImage = images[mainImageIndex] || images[0] || product.image
+  const images = getGalleryImagesForColor(product, selectedColor?.id).map(normalizeImageUrl).filter(isValidImageUrl)
+  const mainImage = images[mainImageIndex] || images[0] || (isValidImageUrl(normalizeImageUrl(product.image || '')) ? normalizeImageUrl(product.image) : '')
   const hasMultipleImages = images.length > 1
   const has360 = product.images360 && product.images360.length > 0
   const has3DModel = is3DProduct(product) && product.modelUrl
+
+  useEffect(() => {
+    setMainImageError(false)
+  }, [mainImage])
 
   const saleActive = useSaleActive(product)
   const priceHuf = saleActive && product.discountPriceHuf ? product.discountPriceHuf : product.priceHuf
   const priceEur = hufToEur(priceHuf)
   const hasDiscount = saleActive && !!product.discountPriceHuf
 
-  /** Színezhető terméknél a szín kötelező; anyagválasztás nincs (PLA/PETG eltávolítva). */
-  const showColorPicker = isColorable && availableColors.length > 0
+  /** Színvariációknál / színezhető 3D-nél a szín kötelező. */
+  const showColorPicker = availableColors.length > 0
   const canAddToCart = !showColorPicker || selectedColor !== null
   const canShareConfiguration = showColorPicker && selectedColor !== null
 
@@ -124,14 +132,18 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
     if (!showColorPicker) return
     const colorParam = searchParams.get('color')
     if (!colorParam) return
-    const color = findFilamentColorByHex(colorParam)
-    if (color && availableColorIds.split(',').includes(color.id)) {
+    const normalized = normalizeHexColor(colorParam, '')
+    if (!normalized) return
+    const colors = getAvailableColorVariants(product.colorImages, isColorable)
+    const color = colors.find((c) => c.hex.toLowerCase() === normalized)
+    if (color) {
       setSelectedColor(color)
       setMainImageIndex(0)
+      setMainImageError(false)
     }
-  }, [searchParams, showColorPicker, availableColorIds])
+  }, [searchParams, showColorPicker, availableColorIds, product.colorImages, isColorable])
 
-  const handleSelectColor = (color: FilamentColor) => {
+  const handleSelectColor = (color: ColorVariant) => {
     setSelectedColor(color)
     setMainImageIndex(0)
     setMainImageError(false)
@@ -261,27 +273,19 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                 aria-label={t('product.openGallery') || 'Kép nagyítása / Galéria'}
               >
                 {mainImage && !mainImageError ? (
-                  mainImage.startsWith('/') ? (
-                    has3DModel ? (
-                      <img
-                        src={mainImage}
-                        alt={productName}
-                        className="absolute inset-0 w-full h-full object-contain"
-                        onError={() => setMainImageError(true)}
-                      />
-                    ) : (
-                      <Image
-                        src={mainImage}
-                        alt={productName}
-                        fill
-                        className="object-contain"
-                        sizes="(max-width: 1024px) 100vw, 50vw"
-                        priority
-                        unoptimized={mainImage.startsWith('/uploads/')}
-                        onError={() => setMainImageError(true)}
-                      />
-                    )
-                  ) : mainImage.startsWith('http') ? (
+                  mainImage.startsWith('/') && !mainImage.startsWith('/uploads/') && !has3DModel ? (
+                    <Image
+                      src={mainImage}
+                      alt={productName}
+                      fill
+                      className="object-contain"
+                      sizes="(max-width: 1024px) 100vw, 50vw"
+                      priority
+                      onError={() => setMainImageError(true)}
+                    />
+                  ) : (
+                    // Feltöltött / külső / 3D: natív img – megbízhatóbb a galéria bélyegképeknél is
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={mainImage}
                       alt={productName}
@@ -289,7 +293,7 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                       referrerPolicy="no-referrer"
                       onError={() => setMainImageError(true)}
                     />
-                  ) : null
+                  )
                 ) : (
                   <div className="absolute inset-0 flex items-center justify-center text-muted">
                     {mainImageError ? (t('product.noImage') || 'Kép nem tölthető') : (t('product.noImage') || 'Nincs kép')}
@@ -354,26 +358,27 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
           </div>
           {(hasMultipleImages || has360 || has3DModel) && (
             <div className="flex gap-2 overflow-x-auto items-center">
-              {images.slice(0, 6).map((img, i) => (
+              {images.slice(0, 12).map((img, i) => (
                 <button
-                  key={i}
+                  key={`${img}-${i}`}
                   type="button"
-                  onClick={() => setMainImageIndex(i)}
+                  onClick={() => {
+                    setMainImageIndex(i)
+                    setMainImageError(false)
+                  }}
                   className={`w-20 h-20 shrink-0 rounded-lg border-2 bg-[var(--card-bg)] relative overflow-hidden transition-colors ${
                     mainImageIndex === i ? 'border-accent ring-2 ring-accent/30' : 'border-[var(--border)] hover:border-accent/50'
                   }`}
                   aria-label={`${productName} ${i + 1}`}
                   aria-pressed={mainImageIndex === i}
                 >
-                  {img.startsWith('/') ? (
-                    has3DModel ? (
-                      <img src={img} alt="" className="absolute inset-0 w-full h-full object-cover" />
-                    ) : (
-                      <Image src={img} alt="" fill className="object-cover" sizes="80px" unoptimized={img.startsWith('/uploads/')} />
-                    )
-                  ) : img.startsWith('http') ? (
-                    <img src={img} alt="" className="absolute inset-0 w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  ) : null}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={img}
+                    alt=""
+                    className="absolute inset-0 w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
                 </button>
               ))}
               {has360 && (
@@ -559,7 +564,11 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
               )}
               <p className="mt-2 text-sm text-foreground">
                 <strong>{t('product.inStock')}</strong>
-                {has3DModel ? ` – ${t('product.inStockUnlimited') || 'rendelhető bármennyi darab'}` : ` – ${t('product.inStockCount', { count: stockFromSource })}`}
+                {unlimitedStock || has3DModel
+                  ? ` – ${t('product.inStockUnlimited') || 'rendelhető'}`
+                  : stockFromSource > 0
+                    ? ` – ${t('product.inStockCount', { count: stockFromSource })}`
+                    : ''}
               </p>
               {cartQty > 0 && (
                 <p className="mt-1 text-sm text-muted">
@@ -587,7 +596,7 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                         onChange={(e) => setAddQty(Math.min(maxAddable, Math.max(1, parseInt(e.target.value, 10) || 1)))}
                         className="rounded-lg border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-foreground min-w-[4rem]"
                       >
-                        {Array.from({ length: has3DModel ? Math.min(maxAddable, 99) : maxAddable }, (_, i) => i + 1).map((n) => (
+                        {Array.from({ length: unlimitedStock || has3DModel ? Math.min(maxAddable, 99) : maxAddable }, (_, i) => i + 1).map((n) => (
                           <option key={n} value={n}>
                             {n}
                           </option>

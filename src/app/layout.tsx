@@ -4,7 +4,6 @@ import { Poppins, Inter } from 'next/font/google'
 import './globals.css'
 import { Header } from '@/components/Header'
 import { AIAssistant } from '@/components/AIAssistant'
-import { DealPopup } from '@/components/DealPopup'
 import { LocaleProvider } from '@/context/LocaleContext'
 import { SourcingDealOrdersProvider } from '@/context/SourcingDealOrdersContext'
 import { AuthProvider } from '@/context/AuthContext'
@@ -87,10 +86,9 @@ export default async function RootLayout({
                     </Suspense>
                     <MobileCartStickyBanner />
                     <BrowseHeartbeatTracker />
-                    <main className="flex-1">{children}</main>
+                    <main className="flex-1 min-w-0 overflow-x-hidden">{children}</main>
                     <Footer />
                     <CallUsStickyCTA />
-                    <DealPopup />
                     <AIAssistant />
                   </ToastProvider>
                   </WishlistProvider>

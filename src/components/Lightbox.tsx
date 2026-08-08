@@ -196,7 +196,7 @@ export function Lightbox({ images, productName, currentIndex, onClose, onIndexCh
               transform: `scale(${scale}) translate(${translate.x}px, ${translate.y}px)`,
             }}
           >
-            {src.startsWith('/') ? (
+            {src.startsWith('/') && !src.startsWith('/uploads/') ? (
               <Image
                 src={src}
                 alt={`${productName} – ${currentIndex + 1}. kép`}

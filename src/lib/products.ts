@@ -4,7 +4,8 @@
  */
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import type { Product, Condition } from '@/lib/data'
-import { normalizeColorImages } from '@/lib/filamentColors'
+import { normalizeColorImages, normalizeColorVariants } from '@/lib/filamentColors'
+import { buildProductGallery, normalizeImageUrl, isValidImageUrl } from '@/lib/product-images'
 import { productSlugLookupCandidates } from '@/lib/slug'
 
 function mapCondition(c: string): Condition {
@@ -54,7 +55,13 @@ function dbProductToProduct(row: {
 }): Product {
   const variants = row.variants as { size?: string; color?: string }[] | null
   const descEn = row.description_en || row.description_hu || row.description_de || row.description_ro
+  const colorVariants = normalizeColorVariants(row.colorImages)
   const colorImages = normalizeColorImages(row.colorImages)
+  const mainImage =
+    typeof row.image === 'string' && isValidImageUrl(normalizeImageUrl(row.image))
+      ? normalizeImageUrl(row.image)
+      : ''
+  const gallery = buildProductGallery(mainImage, row.images)
   return {
     id: row.id,
     slug: row.slug,
@@ -69,10 +76,15 @@ function dbProductToProduct(row: {
     description_ro: row.description_ro || undefined,
     condition: mapCondition(row.condition),
     category: row.category,
-    image: row.image,
-    images: row.images?.length ? row.images : [row.image],
-    images360: row.images360?.length ? row.images360 : undefined,
-    colorImages: Object.keys(colorImages).length > 0 ? colorImages : undefined,
+    image: mainImage || gallery[0] || row.image || '',
+    images: gallery,
+    images360: row.images360?.length ? row.images360.filter((u) => typeof u === 'string' && u.trim()) : undefined,
+    colorImages:
+      colorVariants.length > 0
+        ? colorVariants
+        : Object.keys(colorImages).length > 0
+          ? colorImages
+          : undefined,
     modelUrl: row.modelUrl ?? undefined,
     priceHuf: row.priceHuf,
     priceEur: row.priceEur,
@@ -135,14 +147,9 @@ export async function getProductsByIdsFromDb(ids: string[]): Promise<Product[]> 
   return ids.map((id) => byId.get(id)).filter((p): p is Product => p != null)
 }
 
-/** Csak sourcing_deal típusú, aktív termékek (beszerzésre rendelhető oldalhoz). sortOrder szerint, majd dealEndAt. */
+/** Beszerzés / időkorlátos ajánlatok kikapcsolva – üres lista. */
 export async function getSourcingDealProductsFromDb(): Promise<Product[]> {
-  if (!isDbConfigured()) return []
-  const rows = await prisma.product.findMany({
-    where: { active: true, archived: false, type: 'sourcing_deal', sourcingEnabled: true },
-    orderBy: [{ sortOrder: { sort: 'asc', nulls: 'last' } }, { dealEndAt: 'asc' }],
-  })
-  return rows.map(dbProductToProduct)
+  return []
 }
 
 /** Stock típusú termékek (nem sourcing), pl. shop grid. */

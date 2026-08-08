@@ -36,13 +36,30 @@ const updateProductSchema = z.object({
   image: z.string().optional(),
   images: z.array(z.string()).optional(),
   images360: z.array(z.string()).optional(),
-  colorImages: z.record(z.string(), z.array(z.string())).optional().nullable(),
+  colorImages: z
+    .union([
+      z.record(z.string(), z.array(z.string())),
+      z.array(
+        z.object({
+          id: z.string(),
+          name: z.string(),
+          hex: z.string(),
+          images: z.array(z.string()),
+          nameEn: z.string().optional(),
+          nameDe: z.string().optional(),
+          nameRo: z.string().optional(),
+        })
+      ),
+    ])
+    .optional()
+    .nullable(),
   modelUrl: z.string().optional().nullable(),
   priceHuf: z.number().int().min(0).optional(),
   priceEur: z.number().int().min(0).optional(),
   discountPriceHuf: z.number().int().min(0).optional().nullable(),
   discountPriceEur: z.number().int().min(0).optional().nullable(),
-  stock: z.number().int().min(0).optional(),
+  /** -1 = végtelen készlet; 0 = elfogyott; >0 = darabszám */
+  stock: z.number().int().min(-1).optional(),
   variants: z.unknown().optional().nullable(),
   isNew: z.boolean().optional(),
   onSale: z.boolean().optional(),

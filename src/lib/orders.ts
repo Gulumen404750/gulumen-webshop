@@ -269,20 +269,38 @@ export async function setOrderPaid(params: {
     if (!existing) return null
     if (existing.status === 'paid') return dbOrderToOrder(existing)
     if (existing.paidWebhookEventId === params.webhookEventId) return dbOrderToOrder(existing)
-    await prisma.order.update({
-      where: { id: params.orderId },
-      data: {
-        status: 'paid',
-        stripeSessionId: params.stripeSessionId,
-        paymentIntentId: params.paymentIntentId ?? null,
-        amountPaid: params.amountPaid,
-        currencyPaid: params.currencyPaid,
-        paidAt: new Date(),
-        paidWebhookEventId: params.webhookEventId ?? null,
-        customerEmail: params.customerEmail ?? existing.customerEmail,
-        refundStatus: existing.refundStatus ?? 'none',
-        refundedAmount: existing.refundedAmount ?? 0,
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: params.orderId },
+        data: {
+          status: 'paid',
+          stripeSessionId: params.stripeSessionId,
+          paymentIntentId: params.paymentIntentId ?? null,
+          amountPaid: params.amountPaid,
+          currencyPaid: params.currencyPaid,
+          paidAt: new Date(),
+          paidWebhookEventId: params.webhookEventId ?? null,
+          customerEmail: params.customerEmail ?? existing.customerEmail,
+          refundStatus: existing.refundStatus ?? 'none',
+          refundedAmount: existing.refundedAmount ?? 0,
+        },
+      })
+
+      // Korlátozott készletű raktári tételek: fizetéskor csökkentjük a darabszámot.
+      for (const item of existing.items) {
+        if (item.fulfillmentType !== 'stock' || item.qty <= 0) continue
+        const product = await tx.product.findUnique({
+          where: { id: item.productId },
+          select: { id: true, stock: true, type: true },
+        })
+        if (!product || product.type === 'sourcing_deal') continue
+        if (product.stock == null || product.stock < 0) continue // végtelen
+        if (product.stock <= 0) continue
+        await tx.product.update({
+          where: { id: product.id },
+          data: { stock: Math.max(0, product.stock - item.qty) },
+        })
+      }
     })
     return getOrderById(params.orderId)
   }

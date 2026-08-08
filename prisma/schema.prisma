@@ -30,14 +30,15 @@ model Product {
   image            String
   images           String[] @default([])
   images360        String[] @default([])
-  /// Színenkénti galéria: { [filamentColorId]: string[] }. Csak azok a színek jelennek meg a shopban, amikhez van kép.
+  /// Színenkénti galéria: ColorVariant[] vagy legacy { [colorId]: string[] }.
   colorImages      Json?
   modelUrl         String?
   priceHuf         Int
   priceEur         Int
   discountPriceHuf Int?
   discountPriceEur Int?
-  stock            Int      @default(0)
+  /// Készlet: -1 = végtelen/készleten; 0 = elfogyott; >0 = darabszám.
+  stock            Int      @default(-1)
   variants         Json?    // [{ size?, color? }]
   isNew            Boolean  @default(false)
   onSale           Boolean  @default(false)

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
@@ -12,7 +12,7 @@ import { getRegistrationCouponPercentDisplay } from '@/lib/coupon-config'
 export default function RegistrationPage() {
   const { t } = useLocale()
   const router = useRouter()
-  const { register, loginWithGoogle } = useAuth()
+  const { isLoggedIn, register, loginWithGoogle } = useAuth()
   const { claimRegistrationCoupon } = useCatCoupon()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -21,6 +21,10 @@ export default function RegistrationPage() {
   const [error, setError] = useState<string | null>(null)
   const [couponGranted, setCouponGranted] = useState(false)
   const registrationCouponPercent = getRegistrationCouponPercentDisplay()
+
+  useEffect(() => {
+    if (isLoggedIn) router.replace('/profil')
+  }, [isLoggedIn, router])
 
   const handleGoogleRegister = () => {
     setError(null)
@@ -53,7 +57,16 @@ export default function RegistrationPage() {
     }
     const result = await register(trimmedEmail, password, undefined, acceptOffers)
     if (!result.ok) {
-      setError(result.error ?? 'Regisztráció sikertelen')
+      const msg = result.error ?? ''
+      const already =
+        /már regisztráltak|already registered|already exists|409/i.test(msg) ||
+        msg.includes('Ezzel az e-mail')
+      setError(
+        already
+          ? t('register.errorEmailTaken') ||
+            'Ezzel az e-mail címmel már regisztráltak. Jelentkezz be.'
+          : msg || (t('register.errorGeneric') || 'Regisztráció sikertelen')
+      )
       return
     }
     if (acceptOffers) {
@@ -62,6 +75,14 @@ export default function RegistrationPage() {
       if (claimed) setCouponGranted(true)
     }
     router.push('/termekek')
+  }
+
+  if (isLoggedIn) {
+    return (
+      <div className="max-w-md mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <p className="text-muted">{t('profile.loggedInAs')}</p>
+      </div>
+    )
   }
 
   return (
