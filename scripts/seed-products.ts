@@ -4,11 +4,13 @@
  * Biztonság:
  * - Indításkor NEM fut (scripts/start.js nem hívja).
  * - Csak ALLOW_PRODUCT_SEED=1 mellett futtatható.
+ * - Productionban plusz: ALLOW_PRODUCT_SEED_IN_PRODUCTION=1 kell.
+ * - NINCS deleteMany(), NINCS idegen slug archiválás.
  * - Meglévő termékeket nem írja felül agresszíven: csak create hiányzó slugnál;
- *   meglévőnél csak üres mezőket tölt (név/kép érintetlen ha már be van állítva).
- * - Nem archivál idegen slugokat.
+ *   meglévőnél csak üres mezőket tölt (név/kép/ár/készlet érintetlen ha már be van állítva).
  *
  * Futtatás: ALLOW_PRODUCT_SEED=1 npm run seed:products
+ * Production: ALLOW_PRODUCT_SEED=1 ALLOW_PRODUCT_SEED_IN_PRODUCTION=1 npm run seed:products
  */
 
 import { PrismaClient, type Prisma, type Product } from '@prisma/client'
@@ -17,6 +19,18 @@ if (process.env.ALLOW_PRODUCT_SEED !== '1') {
   console.error(
     'Seed megtagadva: a manuális termékek védelme érdekében állítsd be: ALLOW_PRODUCT_SEED=1\n' +
       'Példa: ALLOW_PRODUCT_SEED=1 npm run seed:products'
+  )
+  process.exit(1)
+}
+
+if (
+  process.env.NODE_ENV === 'production' &&
+  process.env.ALLOW_PRODUCT_SEED_IN_PRODUCTION !== '1'
+) {
+  console.error(
+    'Seed megtagadva productionban. Ha tényleg akarod: ' +
+      'ALLOW_PRODUCT_SEED=1 ALLOW_PRODUCT_SEED_IN_PRODUCTION=1 npm run seed:products\n' +
+      'Figyelem: a seed NEM töröl termékeket, de productionban ritkán kell.'
   )
   process.exit(1)
 }
@@ -647,7 +661,9 @@ function buildEmptyFieldPatch(
 export async function seedProducts(): Promise<void> {
   let created = 0
   let skipped = 0
+  let filled = 0
 
+  // TILTOTT: deleteMany / updateMany(archived) idegen slugokra – soha ne ürítse az admin termékeket.
   for (const p of [...stockProducts, ...sourcingDeals]) {
     const data = productPayload(p)
     const existing = await prisma.product.findUnique({ where: { slug: p.slug } })
@@ -662,11 +678,14 @@ export async function seedProducts(): Promise<void> {
     const patch = buildEmptyFieldPatch(existing, data)
     if (Object.keys(patch).length > 0) {
       await prisma.product.update({ where: { slug: p.slug }, data: patch })
+      filled++
     }
   }
 
-  console.log(`[seed] created ${created}, skipped ${skipped} existing (empty fields filled only)`)
-  console.log('[seed] Done. (No archive of non-canonical products.)')
+  console.log(
+    `[seed] created ${created}, existing ${skipped} (empty fields filled on ${filled}). ` +
+      'No deleteMany, no archive of other products.'
+  )
 }
 
 async function main() {

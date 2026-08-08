@@ -122,4 +122,6 @@ npm run build
 npm start
 ```
 
-`npm run build` futtatja a `prisma generate`-et, majd a `next build`-et. A seed (`scripts/seed-products.ts`) **start**-kor fut, nem buildkor.
+`npm run build` futtatja a `prisma generate`-et, majd a `next build`-et.  
+**Start (Railway):** csak `prisma migrate deploy` + `next start` — **seed NEM fut**, termékeket nem töröl / nem archivál.  
+Manuális seed: `ALLOW_PRODUCT_SEED=1 npm run seed:products` (create-only / üres mezők kitöltése, nincs `deleteMany`).
