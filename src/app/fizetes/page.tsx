@@ -35,7 +35,7 @@ export default function PaymentPage() {
   const router = useRouter()
   const { t, locale } = useLocale()
   const { userId } = useAuth()
-  const { items } = useCart()
+  const { items, clearCart } = useCart()
   const { getProductById: getProductByIdFromContext } = useProducts()
   const getProductById = (id: string) => getProductByIdFromContext(id) ?? getProductByIdFromData(id)
   const { isDiscountActive: couponActive, discountPercent, activate, catStatus, status: couponStatusValue } = useCatCoupon()
@@ -487,6 +487,7 @@ export default function PaymentPage() {
       }
       const redirectPayment = data.payments?.find((p: { type: string }) => p.type === 'redirect')
       if (redirectPayment?.url) {
+        // Stripe / külső redirect: kosár a siker oldalon ürül (megszakításkor megmarad)
         window.location.href = redirectPayment.url
         return
       }
@@ -495,6 +496,7 @@ export default function PaymentPage() {
         setCheckoutResult({ orderGroupId: data.orderGroupId, payments: data.payments })
         checkoutInFlightRef.current = false
         setLoading(false)
+        clearCart()
         setTimeout(() => {
           router.push(`/fizetes/siker?order_group_id=${encodeURIComponent(data.orderGroupId)}`)
         }, 2000)
@@ -504,6 +506,7 @@ export default function PaymentPage() {
       void refreshWallet()
       checkoutInFlightRef.current = false
       setLoading(false)
+      clearCart()
       setTimeout(() => {
         router.push(`/fizetes/siker?order_group_id=${encodeURIComponent(data.orderGroupId)}`)
       }, 2500)
@@ -529,9 +532,10 @@ export default function PaymentPage() {
     pointsDiscountHuf,
     refreshWallet,
     router,
+    clearCart,
   ])
 
-  if (items.length === 0) {
+  if (items.length === 0 && !checkoutResult) {
     return (
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <p className="text-muted">{t('cart.empty')}</p>

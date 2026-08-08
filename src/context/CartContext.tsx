@@ -172,6 +172,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const clearCart = useCallback(() => {
     setItems([])
     clearPersistedCart()
+    // Szerver snapshot azonnal (ne várjon a 1.5s debounce-ra)
+    if (typeof window !== 'undefined') {
+      fetch('/api/me/cart', { method: 'DELETE', credentials: 'include' }).catch(() => {})
+    }
   }, [])
 
   const { subtotalHuf, discountHuf, totalHuf, itemCount } = useMemo(() => {

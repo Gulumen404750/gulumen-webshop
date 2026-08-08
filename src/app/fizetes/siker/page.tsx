@@ -13,6 +13,26 @@ const POLL_INTERVAL_MS = 1500
 const POLL_MAX_ATTEMPTS = 8
 const GIVE_UP_MS = 10 * 1000
 
+/** Sikeres checkout után a kosár ürítendő – sourcing authorize = sourcing_pending. */
+const CART_CLEAR_STATUSES = new Set([
+  'paid',
+  'fulfilled',
+  'sourcing_pending',
+  'payment_pending', // Dummy / webhook késés: a siker oldalon már létrejött a rendelés
+])
+
+function shouldClearCartForOrders(orders: Order[]): boolean {
+  if (!orders.length) return false
+  // Ha minden rendelés cancelled/failed, ne ürítsünk (hibaág)
+  const allFailed = orders.every((o) => o.status === 'cancelled' || o.status === 'sourcing_failed')
+  if (allFailed) return false
+  return orders.some((o) => CART_CLEAR_STATUSES.has(o.status))
+}
+
+function shouldClearCartForOrder(order: Order): boolean {
+  return CART_CLEAR_STATUSES.has(order.status)
+}
+
 function fetchOrderBySession(sessionId: string): Promise<Order> {
   return fetch(
     `/api/orders/by-session?session_id=${encodeURIComponent(sessionId)}`
@@ -44,7 +64,18 @@ export default function PaymentSuccessPage() {
   const [error, setError] = useState<string | null>(null)
   const [gaveUp, setGaveUp] = useState(false)
   const pollCountRef = useRef(0)
-  const didMarkUsedRef = useRef(false)
+  const didClearCartRef = useRef(false)
+
+  const clearCartOnce = (orders: Order[]) => {
+    if (didClearCartRef.current) return
+    if (!shouldClearCartForOrders(orders)) return
+    didClearCartRef.current = true
+    clearCart()
+    markUsed()
+    orders
+      .filter((o) => o.status === 'paid' || o.status === 'fulfilled' || o.status === 'sourcing_pending')
+      .forEach((o) => trackPurchase(o.id, o.totalHuf))
+  }
 
   useEffect(() => {
     if (!sessionId && !orderGroupId) {
@@ -63,15 +94,9 @@ export default function PaymentSuccessPage() {
             if (cancelled) return
             setOrdersByGroup(data)
             setLoading(false)
-            const anyPaidOrFulfilled = data.some((o) => o.status === 'paid' || o.status === 'fulfilled')
-            if (anyPaidOrFulfilled && !didMarkUsedRef.current) {
-              didMarkUsedRef.current = true
-              clearCart()
-              data.filter((o) => o.status === 'paid' || o.status === 'fulfilled').forEach((o) => trackPurchase(o.id, o.totalHuf))
-              markUsed()
-            }
+            clearCartOnce(data)
             const allTerminal = data.every((o) =>
-              ['paid', 'fulfilled', 'cancelled', 'sourcing_failed'].includes(o.status)
+              ['paid', 'fulfilled', 'cancelled', 'sourcing_failed', 'sourcing_pending'].includes(o.status)
             )
             if (!allTerminal && pollCountRef.current < POLL_MAX_ATTEMPTS) {
               pollCountRef.current += 1
@@ -90,6 +115,8 @@ export default function PaymentSuccessPage() {
       }
     }
     return () => {}
+    // clearCartOnce depends on clearCart/markUsed; intentionally inline via refs+stable deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderGroupId, t, clearCart, markUsed])
 
   useEffect(() => {
@@ -98,22 +125,30 @@ export default function PaymentSuccessPage() {
     let cancelled = false
     let timeoutId: ReturnType<typeof setTimeout>
 
+    const handleOrder = (data: Order) => {
+      if (cancelled) return
+      setOrder(data)
+      setLoading(false)
+      if (shouldClearCartForOrder(data) && !didClearCartRef.current) {
+        didClearCartRef.current = true
+        clearCart()
+        markUsed()
+        if (data.status === 'paid' || data.status === 'fulfilled' || data.status === 'sourcing_pending') {
+          trackPurchase(data.id, data.totalHuf)
+        }
+      }
+      const terminal = ['paid', 'fulfilled', 'cancelled', 'sourcing_failed', 'sourcing_pending'].includes(
+        data.status
+      )
+      return terminal
+    }
+
     const poll = () => {
       if (cancelled) return
       fetchOrderBySession(sessionId)
         .then((data: Order) => {
-          if (cancelled) return
-          setOrder(data)
-          setLoading(false)
-          if (data.status === 'paid') {
-            if (!didMarkUsedRef.current) {
-              didMarkUsedRef.current = true
-              trackPurchase(data.id, data.totalHuf)
-              clearCart()
-              markUsed()
-            }
-            return
-          }
+          const terminal = handleOrder(data)
+          if (terminal) return
           pollCountRef.current += 1
           if (pollCountRef.current < POLL_MAX_ATTEMPTS) {
             timeoutId = setTimeout(poll, POLL_INTERVAL_MS)
@@ -128,18 +163,8 @@ export default function PaymentSuccessPage() {
 
     fetchOrderBySession(sessionId)
       .then((data: Order) => {
-        if (cancelled) return
-        setOrder(data)
-        setLoading(false)
-        if (data.status === 'paid') {
-          if (!didMarkUsedRef.current) {
-            didMarkUsedRef.current = true
-            trackPurchase(data.id, data.totalHuf)
-            clearCart()
-            markUsed()
-          }
-          return
-        }
+        const terminal = handleOrder(data)
+        if (terminal) return
         pollCountRef.current = 1
         timeoutId = setTimeout(poll, POLL_INTERVAL_MS)
       })
