@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { requireAdmin } from '@/lib/admin-auth'
+import { sanitizeProductImagePatch } from '@/lib/product-images'
+import { revalidateShopProducts } from '@/lib/revalidate-shop'
 import { z } from 'zod'
 
 const updateProductSchema = z.object({
@@ -80,6 +82,12 @@ export async function PATCH(
     if (existing) return NextResponse.json({ error: 'Slug already in use' }, { status: 409 })
   }
 
+  const imagePatch = sanitizeProductImagePatch({
+    image: d.image,
+    images: d.images,
+    images360: d.images360,
+  })
+
   const product = await prisma.product.update({
     where: { id },
     data: {
@@ -94,9 +102,9 @@ export async function PATCH(
       ...(d.description_ro !== undefined && { description_ro: d.description_ro }),
       ...(d.condition !== undefined && { condition: d.condition }),
       ...(d.category !== undefined && { category: d.category }),
-      ...(d.image !== undefined && { image: d.image }),
-      ...(d.images !== undefined && { images: d.images }),
-      ...(d.images360 !== undefined && { images360: d.images360 }),
+      ...(imagePatch.image !== undefined && { image: imagePatch.image }),
+      ...(imagePatch.images !== undefined && { images: imagePatch.images }),
+      ...(imagePatch.images360 !== undefined && { images360: imagePatch.images360 }),
       ...(d.modelUrl !== undefined && { modelUrl: d.modelUrl }),
       ...(d.priceHuf !== undefined && { priceHuf: d.priceHuf }),
       ...(d.priceEur !== undefined && { priceEur: d.priceEur }),
@@ -118,6 +126,7 @@ export async function PATCH(
     },
   })
 
+  revalidateShopProducts(product.slug)
   return NextResponse.json({ product })
 }
 
@@ -130,6 +139,8 @@ export async function DELETE(
   if (!isDbConfigured()) return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
 
   const { id } = await params
+  const existing = await prisma.product.findUnique({ where: { id }, select: { slug: true } })
   await prisma.product.delete({ where: { id } })
+  revalidateShopProducts(existing?.slug)
   return NextResponse.json({ ok: true })
 }

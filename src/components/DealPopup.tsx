@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { getProductName } from '@/lib/data'
 import { useLocale } from '@/context/LocaleContext'
 import type { Product } from '@/lib/data'
+import { SafeProductImage } from '@/components/SafeProductImage'
 
 const STORAGE_KEY = 'gulumen-deal-popup-closed'
 
@@ -85,8 +85,6 @@ export function DealPopup() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {products.map((product) => {
               const priceHuf = product.discountPriceHuf ?? product.priceHuf
-              const hasImage = product.image?.startsWith('/') || product.image?.startsWith('http')
-              const isLocalImage = product.image?.startsWith('/')
               const productName = getProductName(product, locale)
               return (
                 <Link
@@ -96,28 +94,13 @@ export function DealPopup() {
                   className="block rounded-xl border border-[var(--border)] overflow-hidden hover:border-accent transition-colors focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-[var(--card-bg)]"
                 >
                   <div className="aspect-square bg-[var(--border)] relative">
-                    {hasImage ? (
-                      isLocalImage ? (
-                        <Image
-                          src={product.image}
-                          alt={productName}
-                          fill
-                          className="object-cover"
-                          sizes="(max-width: 640px) 100vw, 33vw"
-                        />
-                      ) : (
-                        <img
-                          src={product.image}
-                          alt={productName}
-                          className="absolute inset-0 w-full h-full object-cover"
-                          referrerPolicy="no-referrer"
-                        />
-                      )
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-muted text-xs">
-                        {t('product.noImage')}
-                      </div>
-                    )}
+                    <SafeProductImage
+                      src={product.image}
+                      alt={productName}
+                      fit="cover"
+                      fill
+                      sizes="(max-width: 640px) 100vw, 33vw"
+                    />
                     {product.onSale && (
                       <span className="absolute top-2 left-2 rounded bg-discount text-white text-xs font-semibold px-2 py-0.5">
                         Akció
