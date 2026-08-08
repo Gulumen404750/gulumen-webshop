@@ -20,11 +20,29 @@ type Props = {
   preferNative?: boolean
 }
 
+function isRemoteCdnUrl(url: string): boolean {
+  return (
+    url.startsWith('http://') ||
+    url.startsWith('https://') ||
+    url.includes('b-cdn.net') ||
+    url.includes('bunnycdn.com')
+  )
+}
+
 function shouldUseNativeImg(url: string): boolean {
   if (!url || url === PLACEHOLDER_IMAGE) return false
-  if (url.startsWith('http://') || url.startsWith('https://')) return true
+  // Külső / dinamikus CDN URL → natív <img> (Next Image optimalizálás nélkül)
+  if (isRemoteCdnUrl(url)) return true
   if (url.startsWith('/uploads/')) return true
   return false
+}
+
+function shouldUnoptimize(url: string): boolean {
+  return (
+    url.startsWith('/uploads/') ||
+    url === PLACEHOLDER_IMAGE ||
+    isRemoteCdnUrl(url)
+  )
 }
 
 /**
@@ -88,7 +106,7 @@ export function SafeProductImage({
         className={`${fitClass} ${className}`}
         sizes={sizes}
         priority={priority}
-        unoptimized={displaySrc.startsWith('/uploads/') || displaySrc === PLACEHOLDER_IMAGE}
+        unoptimized={shouldUnoptimize(displaySrc)}
         onError={() => {
           if (!failed) setFailed(true)
         }}
@@ -105,7 +123,7 @@ export function SafeProductImage({
       className={`${fitClass} ${className}`}
       sizes={sizes}
       priority={priority}
-      unoptimized={displaySrc.startsWith('/uploads/') || displaySrc === PLACEHOLDER_IMAGE}
+      unoptimized={shouldUnoptimize(displaySrc)}
       onError={() => {
         if (!failed) setFailed(true)
       }}
