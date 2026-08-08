@@ -109,15 +109,20 @@ export function ProductModelViewer({ src, alt, className = '', selectedColorHex,
     el.setAttribute('src', modelUrl)
     el.setAttribute('alt', alt)
     el.setAttribute('camera-controls', '')
+    el.setAttribute('touch-action', 'pan-y')
     el.setAttribute('shadow-intensity', '0.8')
     el.setAttribute('auto-rotate', '')
-    el.setAttribute('camera-orbit', 'auto auto 145%')
-    el.setAttribute('min-camera-orbit', 'auto auto 75%')
-    el.setAttribute('max-camera-orbit', 'auto auto 350%')
-    el.setAttribute('field-of-view', '45deg')
+    // Tall phone-case models: pull camera back + wider FOV so top/bottom are not clipped on mobile.
+    el.setAttribute('camera-orbit', '0deg 75deg 105%')
+    el.setAttribute('min-camera-orbit', 'auto auto 90%')
+    el.setAttribute('max-camera-orbit', 'auto auto 300%')
+    el.setAttribute('field-of-view', '55deg')
+    el.setAttribute('min-field-of-view', '25deg')
+    el.setAttribute('max-field-of-view', '70deg')
+    el.setAttribute('interaction-prompt', 'auto')
     el.setAttribute('exposure', '1')
     el.setAttribute('environment-image', 'neutral')
-    el.setAttribute('style', 'width: 100%; height: 100%; min-height: 320px; background: transparent;')
+    el.setAttribute('style', 'width: 100%; height: 100%; background: transparent;')
 
     const onLoad = () => {
       loadFired = true
@@ -126,6 +131,12 @@ export function ProductModelViewer({ src, alt, className = '', selectedColorHex,
       setShowSlowLoadingHint(false)
       setModelLoaded(true)
       viewerRef.current = el
+      const anyEl = el as ModelViewerElement & { updateFraming?: () => void }
+      try {
+        anyEl.updateFraming?.()
+      } catch {
+        // ignore
+      }
       applyMaterialColor(el, selectedColorHex)
       onLoaded?.()
     }
@@ -165,13 +176,16 @@ export function ProductModelViewer({ src, alt, className = '', selectedColorHex,
 
   const renderViewerArea = useCallback(
     (isFullscreen = false) => (
-      <div className={isFullscreen ? 'w-full h-full min-h-[60vh]' : 'w-full h-full min-h-[280px]'}>
-        <div ref={isFullscreen ? undefined : containerRef} className="w-full h-full min-h-[280px]" />
+      <div className={isFullscreen ? 'relative w-full h-full min-h-[60vh]' : 'absolute inset-0'}>
+        <div
+          ref={isFullscreen ? undefined : containerRef}
+          className="absolute inset-0 w-full h-full"
+        />
         {enableFullscreen && !isFullscreen && (
           <button
             type="button"
             onClick={() => setFullscreenOpen(true)}
-            className="absolute top-2 right-2 hidden md:flex w-10 h-10 rounded-lg border border-[var(--border)] bg-[var(--card-bg)]/90 text-foreground items-center justify-center hover:bg-[var(--border)] transition-colors shadow-sm"
+            className="absolute top-2 right-2 z-10 flex w-10 h-10 rounded-lg border border-[var(--border)] bg-[var(--card-bg)]/90 text-foreground items-center justify-center hover:bg-[var(--border)] transition-colors shadow-sm"
             aria-label={t('product.fullscreen3D') || 'Nagyítás / Teljes képernyő'}
             title={t('product.fullscreen3D') || 'Nagyítás'}
           >
@@ -207,7 +221,7 @@ export function ProductModelViewer({ src, alt, className = '', selectedColorHex,
 
   return (
     <>
-      <div className={`${className} min-h-[280px] relative`}>
+      <div className={`${className} relative w-full h-full`}>
         {renderViewerArea(false)}
         {!ready && (
           <div className="absolute inset-0 flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--card-bg)] text-muted">
@@ -215,7 +229,7 @@ export function ProductModelViewer({ src, alt, className = '', selectedColorHex,
           </div>
         )}
         {ready && showSlowLoadingHint && (
-          <div className="absolute bottom-2 left-2 right-2 text-center text-sm text-muted bg-[var(--card-bg)]/90 rounded py-1">
+          <div className="absolute bottom-2 left-2 right-2 z-10 text-center text-sm text-muted bg-[var(--card-bg)]/90 rounded py-1">
             Nagy modell, még tölt…
           </div>
         )}
@@ -223,7 +237,7 @@ export function ProductModelViewer({ src, alt, className = '', selectedColorHex,
 
       {showMobileHint && (
         <div className="md:hidden mt-3 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2.5 text-center space-y-2">
-          <p className="text-sm text-muted leading-relaxed">{t('product.view3DDesktopHint')}</p>
+          <p className="text-sm text-muted leading-relaxed">{t('product.view3DMobileHint')}</p>
           {enableFullscreen && (
             <button
               type="button"

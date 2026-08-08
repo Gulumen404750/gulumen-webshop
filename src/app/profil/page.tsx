@@ -96,15 +96,15 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <h1 className="font-heading text-2xl font-bold text-foreground mb-6">{t('profile.loginTitle')}</h1>
+    <div className="max-w-md mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <h1 className="font-heading text-2xl font-bold text-foreground mb-2">{t('profile.loginTitle')}</h1>
       <p className="text-muted mb-6">{t('profile.loginRequired')}</p>
       {authError && (
         <p className="mb-4 p-3 rounded-lg border border-red-300/50 bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300 text-sm" role="alert">
           {authError}
         </p>
       )}
-      <form onSubmit={handleLogin} className="space-y-4 max-w-md">
+      <form onSubmit={handleLogin} className="space-y-4">
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1">
             {t('profile.email')}
@@ -117,6 +117,7 @@ export default function ProfilePage() {
             className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
             placeholder="email@pelda.hu"
             required
+            autoComplete="email"
           />
         </div>
         <div>
@@ -130,6 +131,7 @@ export default function ProfilePage() {
             onChange={(e) => setPassword(e.target.value)}
             className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
             placeholder="••••••••"
+            autoComplete="current-password"
           />
         </div>
         {loginError && (
@@ -149,37 +151,39 @@ export default function ProfilePage() {
             {t('profile.or') || 'vagy'}
           </span>
         </div>
-        {registrationCouponPercent > 0 && (
-          <div className="mb-4 rounded-xl border border-accent/30 bg-accent/5 p-4 space-y-3">
-            <p className="text-sm font-medium text-foreground">
-              {t('register.firstPurchasePromo', { percent: registrationCouponPercent })}
-            </p>
-            <p className="text-sm text-muted">{t('profile.googleOffersIntro')}</p>
-            <div className="flex items-start gap-3">
-              <input
-                id="profile-google-offers"
-                type="checkbox"
-                checked={acceptOffers}
-                onChange={(e) => setAcceptOffers(e.target.checked)}
-                className="mt-1 w-4 h-4 rounded border-[var(--border)] text-accent focus:ring-accent"
-                aria-describedby="profile-google-offers-desc"
-              />
-              <label
-                id="profile-google-offers-desc"
-                htmlFor="profile-google-offers"
-                className="text-sm text-foreground cursor-pointer"
-              >
-                {t('register.checkboxOffers')}
-              </label>
-            </div>
-          </div>
-        )}
         <GoogleSignInButton
           label={t('profile.loginWithGoogle') || 'Bejelentkezés Google-lel'}
           onClick={handleGoogleLogin}
         />
+        {registrationCouponPercent > 0 && (
+          <details className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-3">
+            <summary className="text-sm font-medium text-foreground cursor-pointer">
+              {t('profile.optionalCouponSummary', { percent: registrationCouponPercent })}
+            </summary>
+            <div className="mt-3 space-y-2">
+              <p className="text-sm text-muted">{t('profile.googleOffersIntro')}</p>
+              <div className="flex items-start gap-3">
+                <input
+                  id="profile-google-offers"
+                  type="checkbox"
+                  checked={acceptOffers}
+                  onChange={(e) => setAcceptOffers(e.target.checked)}
+                  className="mt-1 w-4 h-4 rounded border-[var(--border)] text-accent focus:ring-accent"
+                  aria-describedby="profile-google-offers-desc"
+                />
+                <label
+                  id="profile-google-offers-desc"
+                  htmlFor="profile-google-offers"
+                  className="text-sm text-foreground cursor-pointer"
+                >
+                  {t('register.checkboxOffers', { percent: registrationCouponPercent })}
+                </label>
+              </div>
+            </div>
+          </details>
+        )}
       </form>
-      <p className="mt-6 text-muted">
+      <p className="mt-6 text-sm text-muted">
         {t('profile.noAccount')}{' '}
         <Link href="/regisztracio" className="text-accent font-medium hover:underline">
           {t('profile.registerLink')}

@@ -34,8 +34,9 @@ export function hasAnyColorImages(colorImages?: ColorImagesMap | null): boolean 
 }
 
 /**
- * Shopban megjelenő színek: csak azok, amelyekhez van feltöltött kép.
- * Ha nincs színenkénti kép, üres lista (a színválasztó nem jelenik meg).
+ * Shopban megjelenő színek.
+ * Ha van színenkénti kép → csak azok (fotókkal).
+ * Egyébként színezhető 3D terméknél → teljes filament lista (modell színezéshez).
  */
 export function getAvailableFilamentColors(
   colorImages: ColorImagesMap | null | undefined,
@@ -43,7 +44,9 @@ export function getAvailableFilamentColors(
 ): FilamentColor[] {
   if (!isColorable) return []
   const map = colorImages ?? {}
-  return FILAMENT_COLORS.filter((c) => (map[c.id]?.length ?? 0) > 0)
+  const withImages = FILAMENT_COLORS.filter((c) => (map[c.id]?.length ?? 0) > 0)
+  if (withImages.length > 0) return withImages
+  return FILAMENT_COLORS
 }
 
 /** Galéria egy színhez; ha nincs, a termék általános képei. */

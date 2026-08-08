@@ -16,6 +16,7 @@ export default function RegistrationPage() {
   const { claimRegistrationCoupon } = useCatCoupon()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [acceptPrivacy, setAcceptPrivacy] = useState(false)
   const [acceptOffers, setAcceptOffers] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [couponGranted, setCouponGranted] = useState(false)
@@ -23,12 +24,12 @@ export default function RegistrationPage() {
 
   const handleGoogleRegister = () => {
     setError(null)
-    if (!acceptOffers) {
-      setError(t('register.errorOffers') || 'A 10%-os kuponhoz fogadd el a termékajánlatokat.')
+    if (!acceptPrivacy) {
+      setError(t('register.errorPrivacy') || 'A regisztrációhoz fogadd el az adatkezelési tájékoztatót.')
       return
     }
     loginWithGoogle({
-      acceptOffers: true,
+      ...(acceptOffers ? { acceptOffers: true } : {}),
       callbackUrl: typeof window !== 'undefined' ? `${window.location.origin}/termekek` : '/termekek',
     })
   }
@@ -46,8 +47,8 @@ export default function RegistrationPage() {
       setError(t('register.errorPassword') || 'A jelszónak legalább 8 karakter hosszúnak kell lennie.')
       return
     }
-    if (!acceptOffers) {
-      setError(t('register.errorOffers') || 'A 10%-os kuponhoz fogadd el a termékajánlatokat.')
+    if (!acceptPrivacy) {
+      setError(t('register.errorPrivacy') || 'A regisztrációhoz fogadd el az adatkezelési tájékoztatót.')
       return
     }
     const result = await register(trimmedEmail, password, undefined, acceptOffers)
@@ -55,18 +56,18 @@ export default function RegistrationPage() {
       setError(result.error ?? 'Regisztráció sikertelen')
       return
     }
-    const uid = result.email ?? trimmedEmail
-    const claimed = claimRegistrationCoupon(uid)
-    if (claimed) setCouponGranted(true)
+    if (acceptOffers) {
+      const uid = result.email ?? trimmedEmail
+      const claimed = claimRegistrationCoupon(uid)
+      if (claimed) setCouponGranted(true)
+    }
     router.push('/termekek')
   }
 
   return (
     <div className="max-w-md mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <h1 className="font-heading text-2xl font-bold text-foreground mb-2">
-        {registrationCouponPercent > 0
-          ? t('register.firstPurchasePromo', { percent: registrationCouponPercent })
-          : t('pages.registerTitle')}
+        {t('pages.registerTitle')}
       </h1>
       <p className="text-muted mb-6">{t('register.intro')}</p>
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -98,19 +99,47 @@ export default function RegistrationPage() {
             autoComplete="new-password"
           />
         </div>
-        <div className="flex items-start gap-3 rounded-lg border border-accent/30 bg-accent/5 p-4">
+
+        <div className="flex items-start gap-3 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-4">
           <input
-            id="reg-offers"
+            id="reg-privacy"
             type="checkbox"
-            checked={acceptOffers}
-            onChange={(e) => setAcceptOffers(e.target.checked)}
+            checked={acceptPrivacy}
+            onChange={(e) => setAcceptPrivacy(e.target.checked)}
             className="mt-1 w-4 h-4 rounded border-[var(--border)] text-accent focus:ring-accent"
-            aria-describedby="reg-offers-desc"
+            aria-describedby="reg-privacy-desc"
+            required
           />
-          <label id="reg-offers-desc" htmlFor="reg-offers" className="text-sm text-foreground cursor-pointer">
-            {t('register.checkboxOffers')}
+          <label id="reg-privacy-desc" htmlFor="reg-privacy" className="text-sm text-foreground cursor-pointer">
+            {t('register.checkboxPrivacy')}{' '}
+            <Link
+              href="/kapcsolat#telefonos-adatkezeles"
+              className="text-accent underline underline-offset-2"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {t('register.privacyLink')}
+            </Link>
+            .
           </label>
         </div>
+
+        {registrationCouponPercent > 0 && (
+          <div className="flex items-start gap-3 rounded-lg border border-accent/30 bg-accent/5 p-4">
+            <input
+              id="reg-offers"
+              type="checkbox"
+              checked={acceptOffers}
+              onChange={(e) => setAcceptOffers(e.target.checked)}
+              className="mt-1 w-4 h-4 rounded border-[var(--border)] text-accent focus:ring-accent"
+              aria-describedby="reg-offers-desc"
+            />
+            <label id="reg-offers-desc" htmlFor="reg-offers" className="text-sm text-foreground cursor-pointer">
+              {t('register.checkboxOffers', { percent: registrationCouponPercent })}
+            </label>
+          </div>
+        )}
+
         {error && (
           <p className="text-sm text-red-600 dark:text-red-400" role="alert">
             {error}
@@ -142,7 +171,7 @@ export default function RegistrationPage() {
       </form>
       <p className="mt-4 text-sm text-muted">
         {t('pages.registerHaveAccount')}{' '}
-        <Link href="/profil" className="text-accent hover:underline">
+        <Link href="/profil" className="text-accent hover:underline font-medium">
           {t('buttons.login')}
         </Link>
       </p>

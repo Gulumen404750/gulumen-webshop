@@ -47,7 +47,7 @@ export async function registerUser(
   await dismissDealPopup(page)
   await page.locator('#reg-email').fill(email)
   await page.locator('#reg-password').fill(password)
-  await page.locator('#reg-offers').check()
+  await page.locator('#reg-privacy').check()
   await page.getByRole('button', { name: 'Regisztráció', exact: true }).click()
   await page.waitForURL('**/termekek')
 }

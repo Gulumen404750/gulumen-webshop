@@ -191,18 +191,58 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
           <div className="space-y-2">
             {has3DModel && show3DViewer ? (
               <div className="space-y-3">
-                <div className="aspect-square rounded-xl border border-[var(--border)] bg-[var(--card-bg)] overflow-hidden relative">
+                <div className="relative aspect-[3/4] sm:aspect-square rounded-xl border border-[var(--border)] bg-[var(--card-bg)] overflow-hidden">
                   <ProductModelViewer
                     src={product.modelUrl!}
                     alt={productName}
-                    className="aspect-square w-full"
+                    className="absolute inset-0 w-full h-full"
                     selectedColorHex={selectedColor?.hex}
                     enableFullscreen
                   />
                 </div>
                 <p className="text-center text-sm text-muted">
-                  {t('product.view360Hint') || 'Húzd balra-jobbra a forgatáshoz'}
+                  {t('product.view360Hint') || 'Húzd balra-jobbra a forgatáshoz · csipeteld a nagyításhoz'}
                 </p>
+                {showColorPicker && (
+                  <div className="rounded-xl border border-accent/40 bg-accent/5 p-3 lg:hidden">
+                    <p className="text-sm font-medium text-foreground mb-2">
+                      {t('product.color') || 'Szín'} * — {t('product.tapColorToTint') || 'Koppints egy színre a tok színezéséhez'}
+                    </p>
+                    <div
+                      role="radiogroup"
+                      aria-label={t('product.color') || 'Szín'}
+                      className="flex flex-wrap gap-2"
+                    >
+                      {availableColors.map((color) => {
+                        const colorName = getFilamentColorName(color, locale)
+                        const isSelected = selectedColor?.id === color.id
+                        return (
+                          <button
+                            key={`mobile-3d-${color.id}`}
+                            type="button"
+                            role="radio"
+                            onClick={() => handleSelectColor(color)}
+                            className={`flex items-center gap-2 rounded-lg border-2 px-3 py-1.5 text-sm transition-colors ${
+                              isSelected
+                                ? 'border-accent bg-accent/10 text-foreground'
+                                : 'border-[var(--border)] bg-[var(--card-bg)] text-foreground hover:border-accent/50'
+                            }`}
+                            aria-checked={isSelected}
+                            aria-label={colorName}
+                            title={colorName}
+                          >
+                            <span
+                              className="w-5 h-5 rounded-full shrink-0 border border-[var(--border)] shadow-inner"
+                              style={{ backgroundColor: color.hex }}
+                              aria-hidden
+                            />
+                            <span>{colorName}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={() => setShow3DViewer(false)}
@@ -267,6 +307,49 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
               >
                 {t('product.view3D') || '🔄 Forgasd körbe (3D megtekintés)'}
               </button>
+            )}
+            {showColorPicker && !show3DViewer && (
+              <div className="rounded-xl border border-accent/40 bg-accent/5 p-3 lg:hidden">
+                <p className="text-sm font-medium text-foreground mb-2">
+                  {t('product.color') || 'Szín'} *
+                </p>
+                <div
+                  role="radiogroup"
+                  aria-label={t('product.color') || 'Szín'}
+                  className="flex flex-wrap gap-2"
+                >
+                  {availableColors.map((color) => {
+                    const colorName = getFilamentColorName(color, locale)
+                    const isSelected = selectedColor?.id === color.id
+                    return (
+                      <button
+                        key={`mobile-img-${color.id}`}
+                        type="button"
+                        role="radio"
+                        onClick={() => handleSelectColor(color)}
+                        className={`flex items-center gap-2 rounded-lg border-2 px-3 py-1.5 text-sm transition-colors ${
+                          isSelected
+                            ? 'border-accent bg-accent/10 text-foreground'
+                            : 'border-[var(--border)] bg-[var(--card-bg)] text-foreground hover:border-accent/50'
+                        }`}
+                        aria-checked={isSelected}
+                        aria-label={colorName}
+                        title={colorName}
+                      >
+                        <span
+                          className="w-5 h-5 rounded-full shrink-0 border border-[var(--border)] shadow-inner"
+                          style={{ backgroundColor: color.hex }}
+                          aria-hidden
+                        />
+                        <span>{colorName}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+                <p className="mt-2 text-xs text-muted">
+                  {t('product.tapColorToTint') || 'Koppints egy színre. A 3D nézetben a tok ezzel a színnel jelenik meg.'}
+                </p>
+              </div>
             )}
           </div>
           {(hasMultipleImages || has360 || has3DModel) && (
