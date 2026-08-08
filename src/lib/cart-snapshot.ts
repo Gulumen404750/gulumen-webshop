@@ -202,7 +202,7 @@ export async function sendAbandonedCartOffer(
   userId: string,
   percent: AbandonedCartOfferPercent
 ): Promise<
-  | { ok: true; couponCode: string; emailSent: boolean }
+  | { ok: true; couponCode: string; emailSent: boolean; emailError?: string }
   | { ok: false; error: string }
 > {
   if (!isDbConfigured()) {
@@ -272,7 +272,12 @@ export async function sendAbandonedCartOffer(
     subtotalHuf,
   })
 
-  return { ok: true, couponCode: code, emailSent: emailResult.ok }
+  return {
+    ok: true,
+    couponCode: code,
+    emailSent: emailResult.ok,
+    emailError: emailResult.ok ? undefined : emailResult.error,
+  }
 }
 
 /** Alap emlékeztető e-mail kupon nélkül a kosár e-mail címére. */

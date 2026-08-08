@@ -117,12 +117,21 @@ export function AbandonedCartsSection() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Küldési hiba')
-      setToast({
-        type: 'ok',
-        text: `Kedvezmény e-mail elküldve (${percent}%): ${data.couponCode}${
-          data.emailSent ? '' : ' – figyelmeztetés: e-mail szolgáltatás nem erősítette meg a küldést'
-        }`,
-      })
+      if (data.emailSent) {
+        setToast({
+          type: 'ok',
+          text: `Kedvezmény e-mail elküldve (${percent}%): ${data.couponCode}`,
+        })
+      } else {
+        const detail =
+          typeof data.emailError === 'string' && data.emailError.trim()
+            ? ` ${data.emailError}`
+            : ' Ellenőrizd a Railway-en: RESEND_API_KEY és EMAIL_FROM (hitelesített domain).'
+        setToast({
+          type: 'error',
+          text: `Kupon létrejött (${data.couponCode}), de az e-mail NEM ment ki.${detail}`,
+        })
+      }
       load()
     } catch (e) {
       setToast({ type: 'error', text: e instanceof Error ? e.message : 'Küldési hiba' })

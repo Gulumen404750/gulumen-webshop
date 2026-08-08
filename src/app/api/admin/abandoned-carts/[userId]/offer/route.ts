@@ -60,6 +60,7 @@ export async function POST(request: Request, context: RouteContext) {
     ok: true,
     couponCode: result.couponCode,
     emailSent: result.emailSent,
+    emailError: result.emailError,
     percent,
   })
 }

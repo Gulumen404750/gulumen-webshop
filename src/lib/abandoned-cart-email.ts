@@ -38,13 +38,17 @@ async function sendViaResend(params: {
 }): Promise<SendAbandonedCartOfferEmailResult> {
   const apiKey = process.env.RESEND_API_KEY?.trim()
   if (!apiKey) {
-    console.info(
-      '[abandoned-cart-email] RESEND_API_KEY nincs – e-mail nem küldve, csak log:',
+    console.error(
+      '[abandoned-cart-email] RESEND_API_KEY nincs – e-mail nem küldve:',
       params.to,
       params.subject
     )
     console.info('[abandoned-cart-email] Plain text preview:\n', params.text)
-    return { ok: true }
+    return {
+      ok: false,
+      error:
+        'RESEND_API_KEY nincs beállítva a Railway-en – az e-mail nem ment ki (a kupon létrejött).',
+    }
   }
 
   try {
