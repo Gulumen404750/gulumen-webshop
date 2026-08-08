@@ -1,17 +1,24 @@
 import type { Product } from '@/lib/data'
 import { categories, getProductDescription } from '@/lib/data'
+import { cleanCdnUrl } from '@/lib/cdn'
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://gulumen.hu'
 
 export function ProductJsonLd({ product }: { product: Product }) {
   const priceHuf = product.discountPriceHuf ?? product.priceHuf
   const cat = categories.find((c) => c.slug === product.category)
+  const cleanedImage = cleanCdnUrl(product.image)
+  const imageUrl = cleanedImage
+    ? cleanedImage.startsWith('http')
+      ? cleanedImage
+      : `${BASE_URL}${cleanedImage}`
+    : undefined
   const schema = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: product.name,
     description: getProductDescription(product, 'hu') || product.name,
-    image: product.image?.startsWith('/') ? `${BASE_URL}${product.image}` : undefined,
+    image: imageUrl,
     sku: product.id,
     ...(cat && { category: cat.name }),
     brand: { '@type': 'Brand', name: 'Gulumen' },

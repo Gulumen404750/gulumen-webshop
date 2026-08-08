@@ -1,10 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
 import { useCallback, useEffect, useState } from 'react'
 import type { Product } from '@/lib/data'
 import { getSourcingDealStatus, getProductName, getDisplayStock, is3DProduct } from '@/lib/data'
+import { SafeProductImage } from '@/components/SafeProductImage'
+import { resolveImageUrl } from '@/lib/cdn'
 import { SourcingDealCardCountdown } from '@/components/SourcingDealCardCountdown'
 import { SoldImpactOverlay } from '@/components/SoldImpactOverlay'
 import { useLocale } from '@/context/LocaleContext'
@@ -151,10 +152,9 @@ export function ProductCard({
   const priceHuf = product.discountPriceHuf ?? product.priceHuf
   const priceEur = hufToEur(priceHuf)
   const hasDiscount = !!product.discountPriceHuf
-  const hasImage = Boolean(product.image?.trim())
-  const isLocalImage = product.image?.startsWith('/')
   const displayName = getProductName(product, locale)
   const likesGlow = likesCount > 25 ? 'product-likes-glow-strong' : likesCount > 10 ? 'product-likes-glow' : ''
+  const imageSrc = resolveImageUrl(product.image)
 
   return (
     <Link
@@ -166,29 +166,13 @@ export function ProductCard({
         className={`bg-[var(--card-bg)] rounded-xl border border-[var(--border)] overflow-hidden transition-shadow hover:shadow-lg ${showSoldImpact ? 'sold-impact-card-vanish' : ''}`}
       >
         <div className="aspect-square bg-[var(--border)] relative overflow-hidden">
-          {hasImage ? (
-            isLocalImage ? (
-              <Image
-                src={product.image}
-                alt={displayName}
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 100vw, 33vw"
-                unoptimized={is3DProduct(product) || product.image.startsWith('/uploads/')}
-              />
-            ) : (
-              <img
-                src={product.image}
-                alt={displayName}
-                className="absolute inset-0 w-full h-full object-cover"
-                referrerPolicy="no-referrer"
-              />
-            )
-          ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center text-muted text-sm">
-              {t('product.noImage')}
-            </div>
-          )}
+          <SafeProductImage
+            src={imageSrc}
+            alt={displayName}
+            fit="cover"
+            fill
+            sizes="(max-width: 768px) 100vw, 33vw"
+          />
           <div className="absolute top-3 right-3 z-10 flex items-center gap-1">
             <button
               type="button"

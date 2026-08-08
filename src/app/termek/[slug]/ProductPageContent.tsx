@@ -2,9 +2,10 @@
 
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import Image from 'next/image'
 import { useState, useEffect } from 'react'
 import { getDisplayStock, getProductName, getSourcingDealStatus, mockProducts } from '@/lib/data'
+import { SafeProductImage } from '@/components/SafeProductImage'
+import { cleanCdnUrls, resolveImageUrl } from '@/lib/cdn'
 import { ProductTabs } from '@/components/ProductTabs'
 import { SourcingDealBox } from '@/components/SourcingDealBox'
 import { Breadcrumbs, productBreadcrumbs } from '@/components/Breadcrumbs'
@@ -71,7 +72,6 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [view360Open, setView360Open] = useState(false)
   const [show3DViewer, setShow3DViewer] = useState(false)
-  const [mainImageError, setMainImageError] = useState(false)
   const isColorable = !!product.isColorable
   const is3DWithMaterial = isColorable && is3DProduct(product)
   /** 3D színezhetőnél nincs alapértelmezett szín – a felhasználónak kell választania. */
@@ -87,8 +87,10 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
   )
   const safeAddQty = maxAddable > 0 ? Math.min(Math.max(1, addQty), maxAddable) : 1
 
-  const images = product.images?.length ? product.images : product.image ? [product.image] : []
-  const mainImage = images[mainImageIndex] || product.image
+  const images = cleanCdnUrls(
+    product.images?.length ? product.images : product.image ? [product.image] : []
+  )
+  const mainImage = resolveImageUrl(images[mainImageIndex] || product.image)
   const hasMultipleImages = images.length > 1
   const has360 = product.images360 && product.images360.length > 0
   const has3DModel = is3DProduct(product) && product.modelUrl
@@ -178,41 +180,14 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
                 onKeyDown={(e) => e.key === 'Enter' && setLightboxOpen(true)}
                 aria-label={t('product.openGallery') || 'Kép nagyítása / Galéria'}
               >
-                {mainImage && !mainImageError ? (
-                  mainImage.startsWith('/') ? (
-                    has3DModel ? (
-                      <img
-                        src={mainImage}
-                        alt={productName}
-                        className="absolute inset-0 w-full h-full object-contain"
-                        onError={() => setMainImageError(true)}
-                      />
-                    ) : (
-                      <Image
-                        src={mainImage}
-                        alt={productName}
-                        fill
-                        className="object-contain"
-                        sizes="(max-width: 1024px) 100vw, 50vw"
-                        priority
-                        unoptimized={mainImage.startsWith('/uploads/')}
-                        onError={() => setMainImageError(true)}
-                      />
-                    )
-                  ) : mainImage.startsWith('http') ? (
-                    <img
-                      src={mainImage}
-                      alt={productName}
-                      className="absolute inset-0 w-full h-full object-contain"
-                      referrerPolicy="no-referrer"
-                      onError={() => setMainImageError(true)}
-                    />
-                  ) : null
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-muted">
-                    {mainImageError ? (t('product.noImage') || 'Kép nem tölthető') : (t('product.noImage') || 'Nincs kép')}
-                  </div>
-                )}
+                <SafeProductImage
+                  src={mainImage}
+                  alt={productName}
+                  fit="contain"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  priority
+                />
                 {showSoldOverlay && <SoldImpactOverlay className="rounded-xl" label={t('status.expired')} />}
               </div>
             )}
@@ -240,15 +215,7 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
                   aria-label={`${productName} ${i + 1}`}
                   aria-pressed={mainImageIndex === i}
                 >
-                  {img.startsWith('/') ? (
-                    has3DModel ? (
-                      <img src={img} alt="" className="absolute inset-0 w-full h-full object-cover" />
-                    ) : (
-                      <Image src={img} alt="" fill className="object-cover" sizes="80px" unoptimized={img.startsWith('/uploads/')} />
-                    )
-                  ) : img.startsWith('http') ? (
-                    <img src={img} alt="" className="absolute inset-0 w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  ) : null}
+                  <SafeProductImage src={img} alt="" fit="cover" fill sizes="80px" />
                 </button>
               ))}
               {has360 && (
