@@ -5,6 +5,7 @@ import { prisma, isDbConfigured } from '@/lib/prisma'
 import { createSession, getSessionCookieHeader, isJwtConfigured } from '@/lib/auth'
 import { devCreateUser, devFindUserByEmail } from '@/lib/dev-auth'
 import { claimUserPromoCoupon } from '@/lib/promo-coupons'
+import { setMarketingOptIn } from '@/lib/marketing-consent'
 import {
   findUserByEmail,
   isUniqueEmailConstraintError,
@@ -49,6 +50,8 @@ export async function POST(request: Request) {
       }
 
       const passwordHash = await bcrypt.hash(password, 12)
+      const wantsMarketing = Boolean(acceptOffers)
+      const now = new Date()
       let user
       try {
         user = await prisma.user.create({
@@ -56,6 +59,9 @@ export async function POST(request: Request) {
             email: emailNorm,
             passwordHash,
             name: name?.trim() || null,
+            marketingOptIn: wantsMarketing,
+            marketingOptInAt: wantsMarketing ? now : null,
+            marketingOptInSource: wantsMarketing ? 'registration' : null,
           },
         })
       } catch (createError) {
@@ -67,11 +73,23 @@ export async function POST(request: Request) {
 
       if (acceptOffers) {
         await claimUserPromoCoupon(user.id, 'registration')
+        await setMarketingOptIn({
+          email: emailNorm,
+          optedIn: true,
+          source: 'registration',
+          confirmed: true,
+          userId: user.id,
+        })
       }
 
       const token = await createSession(user.id, user.email)
       const response = NextResponse.json({
-        user: { id: user.id, email: user.email, name: user.name },
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          marketingOptIn: user.marketingOptIn,
+        },
       })
       response.headers.set('Set-Cookie', getSessionCookieHeader(token))
       return response

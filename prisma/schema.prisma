@@ -101,6 +101,12 @@ model User {
   email     String   @unique
   passwordHash String?  // null = OAuth (pl. Google) felhasználó
   name      String?
+  /// Marketing / hírlevél hozzájárulás (GDPR). Tranzakciós e-mailektől független.
+  marketingOptIn       Boolean   @default(false)
+  marketingOptInAt     DateTime?
+  marketingOptOutAt    DateTime?
+  /// registration | newsletter | checkout | admin | unsubscribe
+  marketingOptInSource String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   orders    Order[]
@@ -115,6 +121,21 @@ model User {
   cartSnapshot        UserCartSnapshot?
   likePointWindow UserLikePointWindow?
   luckySpins LuckySpin[]
+}
+
+/// E-mail szintű marketing hozzájárulás (hírlevél, vendég, leiratkozási token).
+model MarketingConsent {
+  id          String    @id @default(cuid())
+  email       String    @unique
+  optedIn     Boolean   @default(false)
+  confirmed   Boolean   @default(false)
+  source      String?
+  optedInAt   DateTime?
+  optedOutAt  DateTime?
+  unsubToken  String    @unique @default(cuid())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  @@index([optedIn, confirmed])
 }
 
 /// Bejelentkezett felhasználó kosár pillanatképe (elhagyott kosár adminhoz).

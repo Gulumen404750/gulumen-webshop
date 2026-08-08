@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rate-limit'
+import { setMarketingOptIn } from '@/lib/marketing-consent'
+import { isDbConfigured } from '@/lib/prisma'
 
 /**
- * Hírlevél feliratkozás. Resend integrációhoz állítsd be RESEND_API_KEY és
- * RESEND_NEWSLETTER_LIST_ID (vagy használj egy list_id-t).
- * Dupla opt-in: küldj egy megerősítő e-mailt (Resend template).
+ * Hírlevél feliratkozás – MarketingConsent (pending) + double opt-in e-mail.
  */
 
 const RESEND_API = 'https://api.resend.com/emails'
@@ -24,11 +24,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Érvényes e-mail cím szükséges.' }, { status: 400 })
     }
 
+    if (isDbConfigured()) {
+      await setMarketingOptIn({
+        email,
+        optedIn: true,
+        source: 'newsletter',
+        confirmed: false,
+      })
+    } else {
+      console.info('[newsletter] signup (no DB):', email)
+    }
+
     const apiKey = process.env.RESEND_API_KEY
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://gulumen.hu'
+    const confirmUrl = `${appUrl}/api/newsletter/confirm?email=${encodeURIComponent(email.toLowerCase())}`
+
     if (!apiKey) {
-      // Nincs Resend: csak logoljuk / mentjük későbbi integrációhoz
-      console.info('[newsletter] signup:', email)
-      return NextResponse.json({ ok: true, message: 'Feliratkozás rögzítve.' })
+      if (isDbConfigured() && process.env.NODE_ENV !== 'production') {
+        const { confirmMarketingOptIn } = await import('@/lib/marketing-consent')
+        await confirmMarketingOptIn(email)
+      }
+      return NextResponse.json({
+        ok: true,
+        message: 'Feliratkozás rögzítve. Ellenőrizd az e-mail fiókod a megerősítéshez (ha e-mail küldés be van állítva).',
+      })
     }
 
     const res = await fetch(RESEND_API, {
@@ -38,22 +57,25 @@ export async function POST(request: Request) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        from: process.env.RESEND_FROM || 'Gulumen <onboarding@resend.dev>',
+        from: process.env.RESEND_FROM || process.env.EMAIL_FROM || 'Gulumen <onboarding@resend.dev>',
         to: [email],
         subject: 'Gulumen – Erősítsd meg a hírlevél feliratkozásod',
-        html: `<p>Köszönjük a feliratkozást! Kattints a linkre a megerősítéshez (dupla opt-in):</p><p><a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://gulumen.hu'}/api/newsletter/confirm?email=${encodeURIComponent(email)}">Megerősítem</a></p>`,
+        html: `<p>Köszönjük a feliratkozást! Kattints a linkre a megerősítéshez (dupla opt-in):</p><p><a href="${confirmUrl}">Megerősítem</a></p><p style="color:#666;font-size:12px;">Ez a megerősítő e-mail nem marketing levél. Ha nem te kérted, hagyd figyelmen kívül.</p>`,
       }),
     })
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
       return NextResponse.json(
-        { error: err?.message || 'A feliratkozás sikertelen.' },
+        { error: (err as { message?: string })?.message || 'A feliratkozás sikertelen.' },
         { status: 500 }
       )
     }
 
-    return NextResponse.json({ ok: true, message: 'Ellenőrizd az e-mail fiókod a megerősítéshez.' })
+    return NextResponse.json({
+      ok: true,
+      message: 'Ellenőrizd az e-mail fiókod a megerősítéshez.',
+    })
   } catch {
     return NextResponse.json({ error: 'Szerver hiba.' }, { status: 500 })
   }

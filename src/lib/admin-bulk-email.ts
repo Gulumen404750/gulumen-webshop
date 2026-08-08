@@ -1,6 +1,12 @@
 /**
  * Admin tömeges e-mail felhasználóknak (Resend).
+ * Marketing levelekhez leiratkozási link; tranzakciós levelekhez nem.
  */
+
+import {
+  ensureUnsubToken,
+  marketingUnsubscribeUrl,
+} from '@/lib/marketing-consent'
 
 const RESEND_API = 'https://api.resend.com/emails'
 
@@ -78,18 +84,31 @@ export async function sendAdminBulkEmail(params: {
   recipients: BulkEmailRecipient[]
   subject: string
   body: string
+  purpose?: 'marketing' | 'transactional'
 }): Promise<BulkEmailResult> {
   const subject = params.subject.trim()
   const body = params.body.trim()
   const html = toHtmlFromPlain(body)
+  const purpose = params.purpose ?? 'marketing'
   let sent = 0
   let failed = 0
   const errors: string[] = []
 
   for (const r of params.recipients) {
     const greeting = r.name?.trim() ? `Kedves ${r.name.trim()}!` : 'Kedves Vásárlónk!'
-    const text = `${greeting}\n\n${body}\n\n— Gulumen`
-    const fullHtml = `<p>${escapeHtml(greeting)}</p>\n${html}\n<p style="color:#666;font-size:13px;">— Gulumen</p>`
+    let unsubFooterHtml = ''
+    let unsubFooterText = ''
+    if (purpose === 'marketing') {
+      const token = await ensureUnsubToken(r.email)
+      const unsubUrl = marketingUnsubscribeUrl(token)
+      if (unsubUrl) {
+        unsubFooterHtml = `<hr style="margin-top:24px;border:none;border-top:1px solid #ddd"/><p style="font-size:12px;color:#666">Ha nem szeretnél több marketing e-mailt kapni, <a href="${unsubUrl}">iratkozz le itt</a>.</p>`
+        unsubFooterText = `\n\nLeiratkozás: ${unsubUrl}`
+      }
+    }
+
+    const text = `${greeting}\n\n${body}\n\n— Gulumen${unsubFooterText}`
+    const fullHtml = `<p>${escapeHtml(greeting)}</p>\n${html}\n<p style="color:#666;font-size:13px;">— Gulumen</p>${unsubFooterHtml}`
 
     const result = await sendOne({
       to: r.email,

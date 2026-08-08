@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AdminTableSkeleton } from '@/components/AdminTableSkeleton'
+import { MarketingBadge } from '@/components/admin/MarketingBadge'
 
 type UserRow = {
   id: string
@@ -9,7 +10,11 @@ type UserRow = {
   name: string | null
   createdAt: string
   ordersCount: number
+  marketingOptIn: boolean
+  marketingOptInSource?: string | null
 }
+
+type MarketingFilter = 'all' | 'subscribed' | 'unsubscribed'
 
 type UserDetail = {
   user: UserRow
@@ -296,7 +301,7 @@ function BulkEmailModal({ selectedCount, onClose, onSend, sending }: BulkEmailMo
       >
         <div className="flex items-start justify-between gap-4">
           <h2 id="bulk-email-title" className="text-lg font-semibold text-foreground">
-            E-mail küldése ({selectedCount} címzett)
+            Marketing e-mail ({selectedCount} kijelölt)
           </h2>
           <button
             type="button"
@@ -308,6 +313,10 @@ function BulkEmailModal({ selectedCount, onClose, onSend, sending }: BulkEmailMo
             ×
           </button>
         </div>
+        <p className="text-xs text-muted">
+          Csak feliratkozottaknak megy ki; a nem hozzájárulók automatikusan ki vannak hagyva. A
+          levél aljára leiratkozási link kerül.
+        </p>
 
         <label className="block text-sm">
           <span className="font-medium mb-1 block">Tárgy</span>
@@ -366,12 +375,15 @@ export default function AdminUsersPage() {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [letterFilter, setLetterFilter] = useState('')
+  const [marketingFilter, setMarketingFilter] = useState<MarketingFilter>('all')
   const [emailOpen, setEmailOpen] = useState(false)
   const [sending, setSending] = useState(false)
   const [toast, setToast] = useState<{ type: 'ok' | 'error'; text: string } | null>(null)
 
-  useEffect(() => {
-    fetch('/api/admin/users', { credentials: 'include' })
+  const loadUsers = useCallback((marketing: MarketingFilter) => {
+    setLoading(true)
+    setError(null)
+    fetch(`/api/admin/users?marketing=${marketing}`, { credentials: 'include' })
       .then(async (r) => {
         const data = await r.json()
         if (!r.ok) throw new Error(data.error ?? 'Betöltési hiba')
@@ -382,32 +394,64 @@ export default function AdminUsersPage() {
       .finally(() => setLoading(false))
   }, [])
 
-  const allSelected = users.length > 0 && users.every((u) => selectedIds.has(u.id))
+  useEffect(() => {
+    loadUsers(marketingFilter)
+    setSelectedIds(new Set())
+    setLetterFilter('')
+  }, [marketingFilter, loadUsers])
+
+  const subscribedUsers = useMemo(
+    () => users.filter((u) => u.marketingOptIn),
+    [users]
+  )
+  const subscribedIds = useMemo(
+    () => new Set(subscribedUsers.map((u) => u.id)),
+    [subscribedUsers]
+  )
+
+  /** Header checkbox: minden feliratkozott ki van-e jelölve (nem az összes user). */
+  const allSubscribedSelected =
+    subscribedUsers.length > 0 && subscribedUsers.every((u) => selectedIds.has(u.id))
   const selectedCount = selectedIds.size
 
   const letterCounts = useMemo(() => {
     const counts: Record<string, number> = {}
     for (const L of LETTERS) counts[L] = 0
-    for (const u of users) {
+    for (const u of subscribedUsers) {
       for (const L of LETTERS) {
         if (userStartsWithLetter(u, L)) counts[L] += 1
       }
     }
     return counts
-  }, [users])
+  }, [subscribedUsers])
 
-  const toggleOne = (id: string) => {
+  const toggleOne = (id: string, marketingOptIn: boolean) => {
     setSelectedIds((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
-      else next.add(id)
+      else {
+        if (!marketingOptIn) {
+          setToast({
+            type: 'error',
+            text: 'Figyelem: nem feliratkozott felhasználó – marketing küldéskor a szerver kihagyja.',
+          })
+        }
+        next.add(id)
+      }
       return next
     })
   }
 
+  /** ALAPÉRTELMEZETT: csak feliratkozottak (GDPR). */
   const selectAll = () => {
-    setSelectedIds(new Set(users.map((u) => u.id)))
+    setSelectedIds(new Set(subscribedIds))
     setLetterFilter('')
+    setToast({
+      type: 'ok',
+      text: subscribedIds.size
+        ? `${subscribedIds.size} feliratkozott felhasználó kijelölve (marketing e-mail küldhető).`
+        : 'Nincs feliratkozott felhasználó a jelenlegi listában.',
+    })
   }
 
   const clearSelection = () => {
@@ -415,10 +459,15 @@ export default function AdminUsersPage() {
     setLetterFilter('')
   }
 
+  /** Betű szerinti kijelölés: csak feliratkozottak az adott betűvel. */
   const selectByLetter = (letter: string) => {
     const L = letter.toUpperCase()
     setLetterFilter(L)
-    setSelectedIds(new Set(users.filter((u) => userStartsWithLetter(u, L)).map((u) => u.id)))
+    setSelectedIds(
+      new Set(
+        subscribedUsers.filter((u) => userStartsWithLetter(u, L)).map((u) => u.id)
+      )
+    )
   }
 
   const sendBulkEmail = async (subject: string, body: string) => {
@@ -433,16 +482,18 @@ export default function AdminUsersPage() {
           userIds: [...selectedIds],
           subject,
           body,
+          purpose: 'marketing',
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? 'Küldési hiba')
+      const skipped = Array.isArray(data.skipped) ? data.skipped.length : 0
       setToast({
         type: data.failed > 0 ? 'error' : 'ok',
         text:
           data.failed > 0
-            ? `Elküldve: ${data.sent}, sikertelen: ${data.failed}`
-            : `E-mail elküldve ${data.sent} címzettnek.`,
+            ? `Elküldve: ${data.sent}, sikertelen: ${data.failed}${skipped ? `, kihagyva (nincs hozzájárulás): ${skipped}` : ''}`
+            : `E-mail elküldve ${data.sent} feliratkozott címzettnek.${skipped ? ` Kihagyva: ${skipped}.` : ''}`,
       })
       setEmailOpen(false)
     } catch (e) {
@@ -466,8 +517,8 @@ export default function AdminUsersPage() {
         <div>
           <h1 className="text-2xl font-heading font-bold text-foreground">Felhasználók</h1>
           <p className="text-sm text-muted mt-1">
-            Pipáld ki a címzetteket, vagy jelöld ki az összeset / egy kezdőbetűt (pl. S), majd küldj
-            e-mailt.
+            Az „Összes kijelölése” és a tömeges e-mail alapból csak a feliratkozottakat célozza –
+            kéretlen marketing elkerülése.
           </p>
         </div>
 
@@ -475,10 +526,11 @@ export default function AdminUsersPage() {
           <button
             type="button"
             onClick={selectAll}
-            disabled={loading || users.length === 0}
-            className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-sm hover:bg-[var(--border)]/30 disabled:opacity-50"
+            disabled={loading || subscribedUsers.length === 0}
+            className="rounded-lg border border-emerald-600/40 bg-emerald-600/10 px-3 py-1.5 text-sm text-emerald-800 dark:text-emerald-300 hover:bg-emerald-600/20 disabled:opacity-50"
+            title="Alapértelmezés: csak feliratkozottak"
           >
-            Összes kijelölése
+            Összes kijelölése (csak feliratkozottak)
           </button>
           <label className="flex items-center gap-1.5 text-sm">
             <span className="text-muted whitespace-nowrap">Csak betű:</span>
@@ -489,9 +541,9 @@ export default function AdminUsersPage() {
                 if (!v) clearSelection()
                 else selectByLetter(v)
               }}
-              disabled={loading || users.length === 0}
+              disabled={loading || subscribedUsers.length === 0}
               className="rounded-lg border border-[var(--border)] bg-background px-2 py-1.5 text-sm min-w-[4.5rem]"
-              aria-label="Kijelölés kezdőbetű szerint"
+              aria-label="Kijelölés kezdőbetű szerint (csak feliratkozottak)"
             >
               <option value="">—</option>
               {LETTERS.map((L) => (
@@ -515,9 +567,35 @@ export default function AdminUsersPage() {
             disabled={selectedCount === 0}
             className="rounded-lg bg-accent text-accent-foreground px-3 py-1.5 text-sm font-medium hover:opacity-90 disabled:opacity-50"
           >
-            E-mail küldése ({selectedCount})
+            Marketing e-mail ({selectedCount})
           </button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {(
+          [
+            { id: 'all' as const, label: 'Összes felhasználó' },
+            {
+              id: 'subscribed' as const,
+              label: 'Csak feliratkozottak (Marketing e-mail küldhető)',
+            },
+            { id: 'unsubscribed' as const, label: 'Nem feliratkozottak' },
+          ] as const
+        ).map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            onClick={() => setMarketingFilter(f.id)}
+            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+              marketingFilter === f.id
+                ? 'bg-accent text-accent-foreground'
+                : 'border border-[var(--border)] bg-background hover:bg-[var(--border)]/30'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
       </div>
 
       {toast && (
@@ -533,7 +611,7 @@ export default function AdminUsersPage() {
       )}
 
       {loading ? (
-        <AdminTableSkeleton columns={5} rows={10} />
+        <AdminTableSkeleton columns={6} rows={10} />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
           <table className="w-full text-left text-sm">
@@ -542,14 +620,17 @@ export default function AdminUsersPage() {
                 <th className="p-3 w-10">
                   <input
                     type="checkbox"
-                    checked={allSelected}
-                    onChange={() => (allSelected ? clearSelection() : selectAll())}
-                    aria-label="Összes kijelölése"
+                    checked={allSubscribedSelected}
+                    onChange={() =>
+                      allSubscribedSelected ? clearSelection() : selectAll()
+                    }
+                    aria-label="Összes feliratkozott kijelölése"
                     className="rounded border-[var(--border)]"
                   />
                 </th>
                 <th className="p-3 font-medium">Email</th>
                 <th className="p-3 font-medium">Név</th>
+                <th className="p-3 font-medium">Hírlevél / Marketing</th>
                 <th className="p-3 font-medium">Regisztráció</th>
                 <th className="p-3 font-medium">Rendelések</th>
               </tr>
@@ -568,7 +649,7 @@ export default function AdminUsersPage() {
                       <input
                         type="checkbox"
                         checked={checked}
-                        onChange={() => toggleOne(u.id)}
+                        onChange={() => toggleOne(u.id, u.marketingOptIn)}
                         aria-label={`Kijelölés: ${u.email}`}
                         className="rounded border-[var(--border)]"
                       />
@@ -584,6 +665,14 @@ export default function AdminUsersPage() {
                       onClick={() => setSelectedUserId(u.id)}
                     >
                       {u.name ?? '–'}
+                    </td>
+                    <td className="p-3">
+                      <MarketingBadge optedIn={Boolean(u.marketingOptIn)} />
+                      {u.marketingOptInSource && (
+                        <span className="ml-2 text-xs text-muted">
+                          ({u.marketingOptInSource})
+                        </span>
+                      )}
                     </td>
                     <td
                       className="p-3 text-muted cursor-pointer"

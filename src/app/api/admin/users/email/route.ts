@@ -10,11 +10,16 @@ const schema = z.object({
   userIds: z.array(z.string().min(1)).min(1).max(MAX_RECIPIENTS),
   subject: z.string().trim().min(1).max(200),
   body: z.string().trim().min(1).max(8000),
+  /**
+   * marketing (alapértelmezett): csak marketingOptIn=true címzettek.
+   * transactional: max 50, nem marketing szűrés (pl. egyedi rendszerüzenet).
+   */
+  purpose: z.enum(['marketing', 'transactional']).optional().default('marketing'),
 })
 
 /**
  * POST /api/admin/users/email
- * Tömeges e-mail a kijelölt felhasználóknak.
+ * Tömeges e-mail – marketing célból ALAPÉRTELMEZETTEN csak feliratkozottak.
  */
 export async function POST(request: Request) {
   const ok = await requireAdmin()
@@ -38,20 +43,53 @@ export async function POST(request: Request) {
     )
   }
 
+  const { purpose } = parsed.data
   const uniqueIds = [...new Set(parsed.data.userIds)]
+
+  if (purpose === 'transactional' && uniqueIds.length > 50) {
+    return NextResponse.json(
+      { error: 'Tranzakciós küldéshez legfeljebb 50 címzett engedélyezett.' },
+      { status: 400 }
+    )
+  }
+
   const users = await prisma.user.findMany({
     where: { id: { in: uniqueIds } },
-    select: { id: true, email: true, name: true },
+    select: { id: true, email: true, name: true, marketingOptIn: true },
   })
 
-  if (users.length === 0) {
-    return NextResponse.json({ error: 'Nincs érvényes címzett' }, { status: 400 })
+  const skipped: { email: string; reason: string }[] = []
+  const recipients = []
+
+  for (const u of users) {
+    if (purpose === 'marketing' && !u.marketingOptIn) {
+      skipped.push({
+        email: u.email,
+        reason: 'Nincs marketing hozzájárulás – kihagyva (GDPR védelem)',
+      })
+      continue
+    }
+    recipients.push({ email: u.email, name: u.name })
+  }
+
+  if (recipients.length === 0) {
+    return NextResponse.json(
+      {
+        error:
+          purpose === 'marketing'
+            ? 'Nincs feliratkozott címzett a kijelöltek között. Marketing e-mailt csak hozzájárulással küldünk.'
+            : 'Nincs érvényes címzett',
+        skipped,
+      },
+      { status: 400 }
+    )
   }
 
   const result = await sendAdminBulkEmail({
-    recipients: users.map((u) => ({ email: u.email, name: u.name })),
+    recipients,
     subject: parsed.data.subject,
     body: parsed.data.body,
+    purpose,
   })
 
   return NextResponse.json({
@@ -60,6 +98,7 @@ export async function POST(request: Request) {
     found: users.length,
     sent: result.sent,
     failed: result.failed,
+    skipped,
     errors: result.errors,
   })
 }

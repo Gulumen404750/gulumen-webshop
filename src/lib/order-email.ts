@@ -128,6 +128,7 @@ function buildOrderGroupConfirmationHtml(orders: Order[], groupLabel: string): s
   ${buildShippingInfoSection()}
   <p style="margin-top: 24px;"><a href="${RETURNS_URL}">Visszaküldési feltételek</a></p>
   <p>Kérdés esetén: <a href="${CONTACT_URL}">Kapcsolat</a></p>
+  <p style="margin-top:24px;font-size:12px;color:#666">Ez egy rendelési (tranzakciós) értesítő, nem marketing e-mail. A hírlevélről külön tudsz leiratkozni, ha feliratkoztál.</p>
   <p>– Gulumen</p>
 </body>
 </html>

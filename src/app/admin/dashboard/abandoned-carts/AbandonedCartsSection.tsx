@@ -6,8 +6,10 @@ import {
   type AbandonedCartOfferPercent,
   type AdminCartSnapshotRow,
 } from '@/lib/cart-snapshot'
+import { MarketingBadge } from '@/components/admin/MarketingBadge'
 
 type Filter = 'abandoned' | 'all'
+type MarketingFilter = 'all' | 'subscribed'
 
 function formatHuf(n: number): string {
   return `${n.toLocaleString('hu-HU')} Ft`
@@ -54,6 +56,7 @@ export function AbandonedCartsSection() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<Filter>('abandoned')
+  const [marketingFilter, setMarketingFilter] = useState<MarketingFilter>('all')
   const [search, setSearch] = useState('')
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [offerPercent, setOfferPercent] = useState<Record<string, AbandonedCartOfferPercent>>({})
@@ -63,7 +66,11 @@ export function AbandonedCartsSection() {
   const load = useCallback(() => {
     setLoading(true)
     setError(null)
-    fetch(`/api/admin/abandoned-carts?filter=${filter}`, { credentials: 'include' })
+    const params = new URLSearchParams({
+      filter,
+      marketing: marketingFilter,
+    })
+    fetch(`/api/admin/abandoned-carts?${params}`, { credentials: 'include' })
       .then(async (r) => {
         const data = await r.json()
         if (!r.ok) throw new Error(data.error ?? 'Betöltési hiba')
@@ -75,7 +82,7 @@ export function AbandonedCartsSection() {
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Betöltési hiba'))
       .finally(() => setLoading(false))
-  }, [filter])
+  }, [filter, marketingFilter])
 
   useEffect(() => {
     load()
@@ -185,6 +192,28 @@ export function AbandonedCartsSection() {
             Minden kosár
           </button>
         </div>
+        <div className="flex rounded-lg border border-[var(--border)] overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setMarketingFilter('all')}
+            className={`px-3 py-1.5 text-sm font-medium ${
+              marketingFilter === 'all' ? 'bg-accent/20 text-accent' : 'hover:bg-[var(--border)]/30'
+            }`}
+          >
+            Összes elhagyott kosár
+          </button>
+          <button
+            type="button"
+            onClick={() => setMarketingFilter('subscribed')}
+            className={`px-3 py-1.5 text-sm font-medium border-l border-[var(--border)] ${
+              marketingFilter === 'subscribed'
+                ? 'bg-accent/20 text-accent'
+                : 'hover:bg-[var(--border)]/30'
+            }`}
+          >
+            Csak feliratkozottak
+          </button>
+        </div>
         <input
           type="search"
           placeholder="Keresés e-mail / név…"
@@ -200,6 +229,10 @@ export function AbandonedCartsSection() {
           Frissítés
         </button>
       </div>
+      <p className="text-xs text-muted">
+        Remarketing / kedvezmény e-mail csak „Feliratkozott” státusz esetén küldhető. A szürke
+        badge-es címzetteket a szerver is blokkolja.
+      </p>
 
       {toast && (
         <p
@@ -227,7 +260,11 @@ export function AbandonedCartsSection() {
       <div className="space-y-3">
         {filtered.map((cart) => {
           const isOpen = expanded.has(cart.userId)
-          const canAct = !cart.purchasedSinceUpdate && cart.itemCount > 0 && Boolean(cart.email)
+          const canAct =
+            !cart.purchasedSinceUpdate &&
+            cart.itemCount > 0 &&
+            Boolean(cart.email) &&
+            cart.marketingOptIn
           const busyOffer = sending === `offer-${cart.userId}`
           const busyRemind = sending === `remind-${cart.userId}`
           const busy = sending != null
@@ -239,7 +276,10 @@ export function AbandonedCartsSection() {
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="font-medium">{cart.email}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium">{cart.email}</p>
+                    <MarketingBadge optedIn={cart.marketingOptIn} />
+                  </div>
                   {cart.name && <p className="text-sm text-muted">{cart.name}</p>}
                   <p className="text-sm mt-1">
                     <span className="font-medium">{cart.itemCount} db</span>
@@ -352,7 +392,9 @@ export function AbandonedCartsSection() {
                     <p className="text-sm text-muted">
                       {cart.purchasedSinceUpdate
                         ? 'Ehhez a kosárhoz nem küldhető ajánlat – már történt vásárlás.'
-                        : 'Nincs e-mail cím vagy üres a kosár.'}
+                        : !cart.marketingOptIn
+                          ? 'Nincs marketing hozzájárulás – remarketing / kedvezmény e-mail nem küldhető.'
+                          : 'Nincs e-mail cím vagy üres a kosár.'}
                     </p>
                   )}
                 </div>

@@ -1,10 +1,25 @@
 /**
- * Elhagyott kosár kedvezmény e-mail (Resend).
+ * Elhagyott kosár kedvezmény / emlékeztető e-mail (Resend).
+ * Marketing jellegű – leiratkozási linkkel.
  */
 import type { CartSnapshotLine } from '@/lib/cart-snapshot'
+import {
+  ensureUnsubToken,
+  marketingUnsubscribeUrl,
+} from '@/lib/marketing-consent'
 
 const RESEND_API = 'https://api.resend.com/emails'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://gulumen.hu'
+
+async function marketingFooter(email: string): Promise<{ html: string; text: string }> {
+  const token = await ensureUnsubToken(email)
+  const url = marketingUnsubscribeUrl(token)
+  if (!url) return { html: '', text: '' }
+  return {
+    html: `<hr style="margin-top:24px;border:none;border-top:1px solid #ddd"/><p style="font-size:12px;color:#666">Ha nem szeretnél több marketing e-mailt kapni, <a href="${url}">iratkozz le itt</a>.</p>`,
+    text: `\n\nLeiratkozás: ${url}`,
+  }
+}
 
 function escapeHtml(s: string): string {
   return s
@@ -113,22 +128,21 @@ export async function sendAbandonedCartReminderEmail(
 
   const cartUrl = `${APP_URL}/kosar`
   const subject = 'Emlékeztető: termékek várnak a kosaradban – Gulumen'
+  const footer = await marketingFooter(params.to)
 
   const html = `
     <p>${escapeHtml(greeting)}</p>
-    <p>Ez egy automatikus rendszerüzenet a Gulumen webshopból.</p>
     <p>Észrevettük, hogy termékeket hagytál a kosaradban. Ha szeretnéd befejezni a vásárlást, itt folytathatod:</p>
     <h3>Kosár tartalma</h3>
     <ul>${itemsHtml}</ul>
     <p><strong>Részösszeg:</strong> ${formatHuf(params.subtotalHuf)}</p>
     <p><a href="${cartUrl}">Kosár megnyitása</a></p>
-    <p style="color:#666;font-size:13px;">Ha már megvásároltad, vagy nem szeretnél emlékeztetőt, nyugodtan hagyd figyelmen kívül ezt az e-mailt.</p>
+    <p style="color:#666;font-size:13px;">Ha már megvásároltad, nyugodtan hagyd figyelmen kívül ezt az e-mailt.</p>
+    ${footer.html}
   `.trim()
 
   const text = [
     greeting,
-    '',
-    'Ez egy automatikus rendszerüzenet a Gulumen webshopból.',
     '',
     'Észrevettük, hogy termékeket hagytál a kosaradban. Ha szeretnéd befejezni a vásárlást, itt folytathatod:',
     '',
@@ -138,6 +152,7 @@ export async function sendAbandonedCartReminderEmail(
     `Részösszeg: ${formatHuf(params.subtotalHuf)}`,
     '',
     `Kosár: ${cartUrl}`,
+    footer.text,
   ].join('\n')
 
   return sendViaResend({ to: params.to, subject, html, text })
@@ -173,6 +188,7 @@ export async function sendAbandonedCartOfferEmail(
 
   const cartUrl = `${APP_URL}/kosar`
   const subject = `${params.percent}% kedvezmény a kosaradra – Gulumen`
+  const footer = await marketingFooter(params.to)
 
   const html = `
     <p>${escapeHtml(greeting)}</p>
@@ -184,6 +200,7 @@ export async function sendAbandonedCartOfferEmail(
     <p><strong>Részösszeg:</strong> ${formatHuf(params.subtotalHuf)}</p>
     <p><a href="${cartUrl}">Kosár megnyitása és vásárlás</a></p>
     <p style="color:#666;font-size:13px;">A kupont a fizetésnél tudod megadni. Csak a fiókodhoz tartozik.</p>
+    ${footer.html}
   `.trim()
 
   const text = [
@@ -200,6 +217,7 @@ export async function sendAbandonedCartOfferEmail(
     `Részösszeg: ${formatHuf(params.subtotalHuf)}`,
     '',
     `Kosár: ${cartUrl}`,
+    footer.text,
   ].join('\n')
 
   return sendViaResend({ to: params.to, subject, html, text })

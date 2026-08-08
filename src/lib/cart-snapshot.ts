@@ -20,6 +20,8 @@ export type AdminCartSnapshotRow = {
   userId: string
   email: string
   name: string | null
+  /** Marketing / hírlevél hozzájárulás – remarketinghez kötelező. */
+  marketingOptIn: boolean
   itemCount: number
   subtotalHuf: number
   lines: CartSnapshotLine[]
@@ -134,6 +136,8 @@ async function userPurchasedSince(userId: string, since: Date): Promise<boolean>
 
 export async function listAdminCartSnapshots(options?: {
   abandonedOnly?: boolean
+  /** Csak marketingOptIn=true userek (remarketing lista). */
+  marketingSubscribedOnly?: boolean
   limit?: number
 }): Promise<AdminCartSnapshotRow[]> {
   if (!isDbConfigured()) return []
@@ -142,11 +146,18 @@ export async function listAdminCartSnapshots(options?: {
   const now = Date.now()
 
   const rows = await prisma.userCartSnapshot.findMany({
-    where: { itemCount: { gt: 0 } },
+    where: {
+      itemCount: { gt: 0 },
+      ...(options?.marketingSubscribedOnly
+        ? { user: { marketingOptIn: true } }
+        : {}),
+    },
     orderBy: { lastUpdatedAt: 'asc' },
     take: limit,
     include: {
-      user: { select: { id: true, email: true, name: true } },
+      user: {
+        select: { id: true, email: true, name: true, marketingOptIn: true },
+      },
     },
   })
 
@@ -176,6 +187,7 @@ export async function listAdminCartSnapshots(options?: {
       userId: row.userId,
       email: row.user.email,
       name: row.user.name,
+      marketingOptIn: row.user.marketingOptIn,
       itemCount,
       subtotalHuf,
       lines,
@@ -215,13 +227,22 @@ export async function sendAbandonedCartOffer(
 
   const snapshot = await prisma.userCartSnapshot.findUnique({
     where: { userId },
-    include: { user: { select: { email: true, name: true } } },
+    include: {
+      user: { select: { email: true, name: true, marketingOptIn: true } },
+    },
   })
   if (!snapshot || snapshot.itemCount <= 0) {
     return { ok: false, error: 'No cart snapshot for user' }
   }
   if (!snapshot.user.email?.trim()) {
     return { ok: false, error: 'Nincs e-mail cím ehhez a kosárhoz' }
+  }
+  if (!snapshot.user.marketingOptIn) {
+    return {
+      ok: false,
+      error:
+        'Nincs marketing hozzájárulás – kedvezmény ajánlat e-mail nem küldhető (GDPR).',
+    }
   }
   if (await userPurchasedSince(userId, snapshot.lastUpdatedAt)) {
     return { ok: false, error: 'A vásárló már vásárolt a kosár frissítése óta' }
@@ -290,13 +311,22 @@ export async function sendAbandonedCartReminder(
 
   const snapshot = await prisma.userCartSnapshot.findUnique({
     where: { userId },
-    include: { user: { select: { email: true, name: true } } },
+    include: {
+      user: { select: { email: true, name: true, marketingOptIn: true } },
+    },
   })
   if (!snapshot || snapshot.itemCount <= 0) {
     return { ok: false, error: 'No cart snapshot for user' }
   }
   if (!snapshot.user.email?.trim()) {
     return { ok: false, error: 'Nincs e-mail cím ehhez a kosárhoz' }
+  }
+  if (!snapshot.user.marketingOptIn) {
+    return {
+      ok: false,
+      error:
+        'Nincs marketing hozzájárulás – elhagyott kosár emlékeztető nem küldhető (GDPR).',
+    }
   }
 
   const purchased = await userPurchasedSince(userId, snapshot.lastUpdatedAt)
