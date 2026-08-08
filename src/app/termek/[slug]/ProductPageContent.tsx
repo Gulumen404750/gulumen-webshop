@@ -27,6 +27,7 @@ const ProductModelViewer = dynamic(
 import { is3DProduct } from '@/lib/data'
 import {
   getAvailableColorVariants,
+  getBaseColorVariant,
   getFilamentColorName,
   getGalleryImagesForColor,
   hasAnyColorImages,
@@ -116,9 +117,9 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
   const isColorable = !!product.isColorable
   const availableColors = getAvailableColorVariants(product.colorImages, isColorable)
   const usesColorGalleries = hasAnyColorImages(product.colorImages)
-  /** Alapértelmezés: az első elérhető szín – a Kosárba gomb azonnal aktív. */
+  /** Alapértelmezés: az Alaptermék (isBase) – a Kosárba gomb azonnal aktív. */
   const [selectedColor, setSelectedColor] = useState<ColorVariant | null>(() =>
-    availableColors.length > 0 ? availableColors[0] : null
+    getBaseColorVariant(availableColors) ?? availableColors[0] ?? null
   )
   const sourcingStatus =
     product.type === 'sourcing_deal'
@@ -175,10 +176,10 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
       }
     }
 
-    // URL-ben nincs érvényes szín → tartsuk meg a jelenlegi érvényes választást, különben az első szín
+    // URL-ben nincs érvényes szín → tartsuk meg a jelenlegi érvényes választást, különben az Alaptermék
     setSelectedColor((prev) => {
       if (prev && colors.some((c) => c.id === prev.id)) return prev
-      return colors[0]
+      return getBaseColorVariant(colors) ?? colors[0] ?? null
     })
   }, [searchParams, showColorPicker, availableColorIds, product.colorImages, isColorable])
 
@@ -287,6 +288,11 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                               aria-hidden
                             />
                             <span>{colorName}</span>
+                            {color.isBase && (
+                              <span className="text-[10px] uppercase tracking-wide font-semibold text-accent">
+                                {t('product.baseVariant') || 'Alap'}
+                              </span>
+                            )}
                           </button>
                         )
                       })}
@@ -365,6 +371,11 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                           aria-hidden
                         />
                         <span>{colorName}</span>
+                        {color.isBase && (
+                          <span className="text-[10px] uppercase tracking-wide font-semibold text-accent">
+                            {t('product.baseVariant') || 'Alap'}
+                          </span>
+                        )}
                       </button>
                     )
                   })}
@@ -549,6 +560,11 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                             aria-hidden
                           />
                           <span>{colorName}</span>
+                          {color.isBase && (
+                            <span className="text-[10px] uppercase tracking-wide font-semibold text-accent">
+                              {t('product.baseVariant') || 'Alap'}
+                            </span>
+                          )}
                         </button>
                       )
                     })}

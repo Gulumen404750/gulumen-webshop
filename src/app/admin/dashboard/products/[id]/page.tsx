@@ -7,6 +7,8 @@ import { categories, threeDSubcategories } from '@/lib/data'
 import { CdnImageManager } from '@/components/CdnImageManager'
 import { ProductColorImagesEditor } from '@/components/ProductColorImagesEditor'
 import {
+  ensureExactlyOneBase,
+  getBaseColorVariant,
   normalizeColorVariants,
   serializeColorVariants,
   type ColorVariant,
@@ -58,6 +60,17 @@ type Product = {
   sortOrder: number | null
 }
 
+/** Alaptermék színvariáció képeinek szinkronja a fő galériával. */
+function syncBaseVariantImages(
+  colorImages: ColorVariant[] | Record<string, string[]> | null | undefined,
+  images: string[]
+): ColorVariant[] {
+  const variants = ensureExactlyOneBase(normalizeColorVariants(colorImages))
+  if (variants.length === 0) return variants
+  const cleaned = cleanCdnUrls(images)
+  return variants.map((v) => (v.isBase ? { ...v, images: cleaned } : v))
+}
+
 export default function AdminProductEditPage() {
   const params = useParams()
   const router = useRouter()
@@ -100,10 +113,12 @@ export default function AdminProductEditPage() {
           const images = cleanCdnUrls(
             buildProductGallery(data.product.image, data.product.images)
           )
-          const colorImages = normalizeColorVariants(data.product.colorImages).map((v) => ({
-            ...v,
-            images: cleanCdnUrls(v.images),
-          }))
+          const colorImages = ensureExactlyOneBase(
+            normalizeColorVariants(data.product.colorImages).map((v) => ({
+              ...v,
+              images: cleanCdnUrls(v.images),
+            }))
+          )
           setProduct({
             ...data.product,
             stock: unlimited ? null : stock,
@@ -134,15 +149,25 @@ export default function AdminProductEditPage() {
     try {
       const url = isNew ? '/api/admin/products' : `/api/admin/products/${id}`
       const method = isNew ? 'POST' : 'PATCH'
-      const cleanedImages = cleanCdnUrls(normalizeImageUrls(product.images))
-      const mainImage = cleanCdnUrl(normalizeImageUrl(product.image || cleanedImages[0] || ''))
-      const gallery = buildProductGallery(mainImage, cleanedImages)
       const colorVariants = serializeColorVariants(
-        normalizeColorVariants(product.colorImages).map((v) => ({
-          ...v,
-          images: cleanCdnUrls(v.images),
-        }))
+        ensureExactlyOneBase(
+          normalizeColorVariants(product.colorImages).map((v) => ({
+            ...v,
+            images: cleanCdnUrls(v.images),
+          }))
+        )
       )
+      const baseVariant = getBaseColorVariant(colorVariants)
+      const baseGallery = baseVariant?.images?.length
+        ? cleanCdnUrls(baseVariant.images)
+        : cleanCdnUrls(normalizeImageUrls(product.images))
+      const cleanedImages = baseGallery.length
+        ? baseGallery
+        : cleanCdnUrls(normalizeImageUrls(product.images))
+      const mainImage = cleanCdnUrl(
+        normalizeImageUrl(cleanedImages[0] || product.image || '')
+      )
+      const gallery = buildProductGallery(mainImage, cleanedImages)
       const stock = resolveStockForSave()
       const body = isNew
         ? {
@@ -634,8 +659,15 @@ export default function AdminProductEditPage() {
         </div>
 
         <div className="space-y-6 border-t border-[var(--border)] pt-4">
+          <div>
+            <h2 className="text-sm font-medium text-foreground mb-1">Alaptermék képei (fő galéria)</h2>
+            <p className="text-xs text-muted mb-3">
+              Ezek a termék alapértelmezett fotói. Ha van kijelölt alaptermék színvariáció képekkel,
+              mentéskor annak galériája felülírja ezeket.
+            </p>
+          </div>
           <CdnImageManager
-            label="Fő termékfotó"
+            label="Alaptermék fő termékfotó"
             value={product?.image ?? ''}
             onChange={(url) =>
               setProduct((p) => {
@@ -644,25 +676,35 @@ export default function AdminProductEditPage() {
                 const gallery = [...(p.images ?? [])]
                 if (!gallery.length && cleaned) gallery.push(cleaned)
                 else if (gallery.length && gallery[0] === (p.image || '')) gallery[0] = cleaned
-                return { ...p, image: cleaned, images: gallery.filter(Boolean) }
+                const nextImages = gallery.filter(Boolean)
+                const colorImages = syncBaseVariantImages(
+                  normalizeColorVariants(p.colorImages),
+                  nextImages
+                )
+                return { ...p, image: cleaned, images: nextImages, colorImages }
               })
             }
             multiple={false}
           />
 
           <CdnImageManager
-            label="Galéria"
+            label="Alaptermék galéria"
             values={product?.images ?? []}
             onChangeMultiple={(urls) =>
-              setProduct((p) =>
-                p
-                  ? {
-                      ...p,
-                      images: cleanCdnUrls(urls),
-                      image: p.image || urls[0] || '',
-                    }
-                  : p
-              )
+              setProduct((p) => {
+                if (!p) return p
+                const nextImages = cleanCdnUrls(urls)
+                const colorImages = syncBaseVariantImages(
+                  normalizeColorVariants(p.colorImages),
+                  nextImages
+                )
+                return {
+                  ...p,
+                  images: nextImages,
+                  image: p.image || nextImages[0] || '',
+                  colorImages,
+                }
+              })
             }
             multiple
           />
@@ -822,7 +864,23 @@ export default function AdminProductEditPage() {
 
         <ProductColorImagesEditor
           value={normalizeColorVariants(product?.colorImages)}
-          onChange={(colorImages) => setProduct((p) => ({ ...p, colorImages }))}
+          onChange={(colorImages) =>
+            setProduct((p) => {
+              if (!p) return p
+              const variants = ensureExactlyOneBase(colorImages)
+              const base = getBaseColorVariant(variants)
+              if (base?.images?.length) {
+                const images = cleanCdnUrls(base.images)
+                return {
+                  ...p,
+                  colorImages: variants,
+                  images,
+                  image: images[0] || p.image || '',
+                }
+              }
+              return { ...p, colorImages: variants }
+            })
+          }
         />
 
         <div className="flex gap-4 pt-4">

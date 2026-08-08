@@ -3,9 +3,11 @@
 import { useState } from 'react'
 import {
   FILAMENT_COLORS,
+  ensureExactlyOneBase,
   normalizeColorVariants,
   normalizeHexColor,
   serializeColorVariants,
+  setBaseColorVariant,
   slugifyColorId,
   type ColorVariant,
 } from '@/lib/filamentColors'
@@ -28,13 +30,13 @@ function ensureUniqueId(base: string, existing: ColorVariant[], excludeIndex?: n
 }
 
 export function ProductColorImagesEditor({ value, onChange }: Props) {
-  const variants = normalizeColorVariants(value)
+  const variants = ensureExactlyOneBase(normalizeColorVariants(value))
   const [activeIndex, setActiveIndex] = useState(0)
   const safeIndex = variants.length === 0 ? 0 : Math.min(activeIndex, variants.length - 1)
   const active = variants[safeIndex] ?? null
 
   const commit = (next: ColorVariant[]) => {
-    onChange(serializeColorVariants(next))
+    onChange(serializeColorVariants(ensureExactlyOneBase(next)))
   }
 
   const updateActive = (patch: Partial<ColorVariant>) => {
@@ -48,7 +50,7 @@ export function ProductColorImagesEditor({ value, onChange }: Props) {
     const id = ensureUniqueId(slugifyColorId(`szin-${variants.length + 1}`), variants)
     const next: ColorVariant[] = [
       ...variants,
-      { id, name: '', hex: '#888888', images: [] },
+      { id, name: '', hex: '#888888', images: [], isBase: variants.length === 0 },
     ]
     commit(next)
     setActiveIndex(next.length - 1)
@@ -72,6 +74,7 @@ export function ProductColorImagesEditor({ value, onChange }: Props) {
         nameRo: filament.nameRo,
         hex: normalizeHexColor(filament.hex),
         images: [],
+        isBase: variants.length === 0,
       },
     ]
     commit(next)
@@ -84,6 +87,11 @@ export function ProductColorImagesEditor({ value, onChange }: Props) {
     setActiveIndex((i) => Math.max(0, Math.min(i, next.length - 1)))
   }
 
+  const markActiveAsBase = () => {
+    if (!active) return
+    commit(setBaseColorVariant(variants, active.id))
+  }
+
   const setActiveImages = (images: string[]) => {
     updateActive({ images: cleanCdnUrls(images) })
   }
@@ -92,17 +100,19 @@ export function ProductColorImagesEditor({ value, onChange }: Props) {
     <div className="space-y-3 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-4">
       <div>
         <label className="block text-sm font-medium text-foreground mb-1">
-          Színvariációk és színhez kötött képek
+          Alaptermék és színvariációk
         </label>
         <p className="text-xs text-muted">
-          Adj hozzá színeket névvel vagy HEX kóddal, majd tölts fel hozzájuk képeket.
-          A termékoldalon a vásárló színválasztáskor az adott szín galériáját látja.
+          Jelöld ki az <strong className="text-foreground font-medium">Alapterméket</strong> (Base Product / Main Variant)
+          – ez lesz a termékoldal alapértelmezett választása és a fő termékfotó forrása.
+          A többi színvariáció külön képekkel adható hozzá.
         </p>
       </div>
 
       <div className="flex flex-wrap gap-2">
         {variants.map((v, i) => {
           const isActive = i === safeIndex
+          const isBase = !!v.isBase
           return (
             <button
               key={`${v.id}-${i}`}
@@ -111,9 +121,11 @@ export function ProductColorImagesEditor({ value, onChange }: Props) {
               className={`flex items-center gap-2 rounded-lg border-2 px-2.5 py-1.5 text-sm transition-colors ${
                 isActive
                   ? 'border-accent bg-accent/10 text-foreground'
-                  : 'border-[var(--border)] bg-background text-foreground hover:border-accent/50'
+                  : isBase
+                    ? 'border-accent/60 bg-background text-foreground'
+                    : 'border-[var(--border)] bg-background text-foreground hover:border-accent/50'
               }`}
-              title={v.name || v.hex}
+              title={isBase ? `${v.name || v.hex} (Alaptermék)` : v.name || v.hex}
             >
               <span
                 className="w-4 h-4 rounded-full shrink-0 border border-[var(--border)] shadow-inner"
@@ -121,6 +133,11 @@ export function ProductColorImagesEditor({ value, onChange }: Props) {
                 aria-hidden
               />
               <span>{v.name || v.hex}</span>
+              {isBase && (
+                <span className="text-[10px] uppercase tracking-wide font-semibold text-accent">
+                  Alap
+                </span>
+              )}
               {v.images.length > 0 && (
                 <span className="text-xs text-muted tabular-nums">{v.images.length}</span>
               )}
@@ -157,6 +174,25 @@ export function ProductColorImagesEditor({ value, onChange }: Props) {
 
       {active ? (
         <div className="space-y-3 border-t border-[var(--border)] pt-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-medium text-foreground">
+              {active.isBase ? 'Alaptermék szerkesztése' : 'Színvariáció szerkesztése'}
+            </p>
+            {active.isBase ? (
+              <span className="text-xs font-semibold uppercase tracking-wide text-accent border border-accent/40 rounded px-2 py-1">
+                Alaptermék (Base)
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={markActiveAsBase}
+                className="text-xs font-medium text-accent border border-accent/40 rounded px-2 py-1 hover:bg-accent/10"
+              >
+                Beállítás alaptermékként
+              </button>
+            )}
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="block text-xs font-medium text-muted mb-1">Szín neve</label>
@@ -203,28 +239,35 @@ export function ProductColorImagesEditor({ value, onChange }: Props) {
                 style={{ backgroundColor: active.hex }}
                 aria-hidden
               />
-              {active.name || active.hex} – képek
+              {active.isBase ? 'Alaptermék képei (fő galéria)' : `${active.name || active.hex} – képek`}
             </p>
             <button
               type="button"
               onClick={() => removeVariant(safeIndex)}
               className="text-xs text-red-600 hover:underline"
             >
-              Színvariáció törlése
+              {active.isBase ? 'Alaptermék törlése' : 'Színvariáció törlése'}
             </button>
           </div>
 
           <CdnImageManager
-            label={`Képek: ${active.name || active.hex}`}
+            label={active.isBase ? 'Alaptermék képei' : `Képek: ${active.name || active.hex}`}
             multiple
             values={active.images}
             onChangeMultiple={setActiveImages}
             showGuide
           />
+          {active.isBase && (
+            <p className="text-xs text-muted">
+              Ezek a képek mentéskor a termék fő termékfotójává / galériájává válnak, és a vásárlói oldalon
+              alapértelmezésként jelennek meg.
+            </p>
+          )}
         </div>
       ) : (
         <p className="text-sm text-muted border-t border-[var(--border)] pt-3">
-          Még nincs színvariáció. Kattints a „+ Színvariáció” gombra, vagy válassz a gyors színek közül.
+          Még nincs alaptermék vagy színvariáció. Kattints a „+ Színvariáció” gombra (az első lesz az alaptermék),
+          vagy válassz a gyors színek közül.
         </p>
       )}
     </div>

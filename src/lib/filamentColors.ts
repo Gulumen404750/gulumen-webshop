@@ -22,6 +22,8 @@ export type ColorVariant = {
   nameRo?: string
   hex: string
   images: string[]
+  /** Alaptermék / fő variáns – a termékoldalon ez az alapértelmezett kiválasztás. */
+  isBase?: boolean
 }
 
 /** Színenkénti termékfotók: color id → kép URL-ek (legacy + belső map). */
@@ -90,7 +92,7 @@ export function slugifyColorId(name: string, hex?: string): string {
   return h ? `color-${h}` : `color-${Date.now().toString(36)}`
 }
 
-function filamentToVariant(c: FilamentColor, images: string[] = []): ColorVariant {
+function filamentToVariant(c: FilamentColor, images: string[] = [], isBase = false): ColorVariant {
   return {
     id: c.id,
     name: c.name,
@@ -99,7 +101,49 @@ function filamentToVariant(c: FilamentColor, images: string[] = []): ColorVarian
     nameRo: c.nameRo,
     hex: normalizeHexColor(c.hex),
     images,
+    ...(isBase ? { isBase: true } : {}),
   }
+}
+
+/**
+ * Pontosan egy alaptermék (isBase) a listában.
+ * Ha nincs kijelölve → az első lesz az alaptermék.
+ * Ha több isBase → csak az első marad alaptermék.
+ */
+export function ensureExactlyOneBase(variants: ColorVariant[]): ColorVariant[] {
+  if (variants.length === 0) return []
+  const baseIndex = variants.findIndex((v) => v.isBase)
+  const index = baseIndex >= 0 ? baseIndex : 0
+  return variants.map((v, i) => {
+    const nextIsBase = i === index
+    if (!!v.isBase === nextIsBase) return v
+    if (nextIsBase) return { ...v, isBase: true }
+    const { isBase: _drop, ...rest } = v
+    return rest
+  })
+}
+
+/** Alaptermék / fő variáns; ha nincs flag, az első. */
+export function getBaseColorVariant(
+  colorImages: ColorImagesMap | ColorVariant[] | null | undefined
+): ColorVariant | null {
+  const variants = ensureExactlyOneBase(normalizeColorVariants(colorImages))
+  if (variants.length === 0) return null
+  return variants.find((v) => v.isBase) ?? variants[0] ?? null
+}
+
+/** Alaptermék kijelölése (a többi isBase false). */
+export function setBaseColorVariant(variants: ColorVariant[], baseId: string): ColorVariant[] {
+  if (variants.length === 0) return []
+  const hasTarget = variants.some((v) => v.id === baseId)
+  const targetId = hasTarget ? baseId : variants[0].id
+  return variants.map((v) => {
+    const nextIsBase = v.id === targetId
+    if (!!v.isBase === nextIsBase) return v
+    if (nextIsBase) return { ...v, isBase: true }
+    const { isBase: _drop, ...rest } = v
+    return rest
+  })
 }
 
 /** DB / JSON → ColorVariant tömb (array vagy legacy Record formátum). */
@@ -120,6 +164,7 @@ export function normalizeColorVariants(value: unknown): ColorVariant[] {
       if (!id || seen.has(id)) continue
       const images = normalizeImageUrls(row.images)
       const filament = getFilamentColorById(id)
+      const isBase = row.isBase === true || row.isMain === true
       out.push({
         id,
         name: name || filament?.name || hex.toUpperCase(),
@@ -128,10 +173,11 @@ export function normalizeColorVariants(value: unknown): ColorVariant[] {
         nameRo: typeof row.nameRo === 'string' ? row.nameRo : filament?.nameRo,
         hex,
         images,
+        ...(isBase ? { isBase: true } : {}),
       })
       seen.add(id)
     }
-    return out
+    return ensureExactlyOneBase(out)
   }
 
   if (typeof value === 'object') {
@@ -154,7 +200,7 @@ export function normalizeColorVariants(value: unknown): ColorVariant[] {
             }
       )
     }
-    return out
+    return ensureExactlyOneBase(out)
   }
 
   return []
@@ -170,9 +216,12 @@ export function colorVariantsToMap(variants: ColorVariant[]): ColorImagesMap {
   return out
 }
 
-/** Mentéshez: csak érvényes variánsok tömbje. */
+/** Mentéshez: csak érvényes variánsok tömbje; pontosan egy isBase. */
 export function serializeColorVariants(variants: ColorVariant[]): ColorVariant[] {
-  return normalizeColorVariants(variants).filter((v) => v.images.length > 0 || v.name.trim().length > 0)
+  const cleaned = normalizeColorVariants(variants).filter(
+    (v) => v.images.length > 0 || v.name.trim().length > 0
+  )
+  return ensureExactlyOneBase(cleaned)
 }
 
 /** DB / JSON → tisztított colorImages térkép (üres tömbök kihagyva). */
@@ -205,15 +254,21 @@ export function getAvailableFilamentColors(
   }))
 }
 
-/** Shop színválasztó: ColorVariant listával (képekkel együtt). */
+/** Shop színválasztó: ColorVariant listával (képekkel együtt). Alaptermék elöl. */
 export function getAvailableColorVariants(
   colorImages: ColorImagesMap | ColorVariant[] | null | undefined,
   isColorable: boolean
 ): ColorVariant[] {
   const variants = normalizeColorVariants(colorImages)
-  const withImages = variants.filter((v) => v.images.length > 0)
-  if (withImages.length > 0) return withImages
-  if (isColorable) return FILAMENT_COLORS.map((c) => filamentToVariant(c, []))
+  const withImages = ensureExactlyOneBase(variants.filter((v) => v.images.length > 0))
+  if (withImages.length > 0) {
+    const base = withImages.find((v) => v.isBase)
+    if (!base) return withImages
+    return [base, ...withImages.filter((v) => v.id !== base.id)]
+  }
+  if (isColorable) {
+    return FILAMENT_COLORS.map((c, i) => filamentToVariant(c, [], i === 0))
+  }
   return []
 }
 
