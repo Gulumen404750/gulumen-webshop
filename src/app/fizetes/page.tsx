@@ -218,11 +218,9 @@ export default function PaymentPage() {
       <li key={lineKey} className="flex justify-between gap-3 text-sm">
         <div className="min-w-0">
           <span className="text-foreground">{name} × {item.qty}</span>
-          {(item.options?.colorName || item.options?.materialName) && (
+          {item.options?.colorName && (
             <p className="text-xs text-muted mt-0.5">
-              {item.options?.materialName && <span>{t('product.material')}: {item.options.materialName}</span>}
-              {item.options?.materialName && item.options?.colorName && ' · '}
-              {item.options?.colorName && <span>{t('product.color')}: {item.options.colorName}</span>}
+              <span>{t('product.color')}: {item.options.colorName}</span>
             </p>
           )}
         </div>

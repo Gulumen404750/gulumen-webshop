@@ -11,6 +11,55 @@ export type FilamentColor = {
   hex: string
 }
 
+/** Színenkénti termékfotók: filament color id → kép URL-ek. */
+export type ColorImagesMap = Record<string, string[]>
+
+/** DB / JSON → tisztított colorImages térkép (üres tömbök kihagyva). */
+export function normalizeColorImages(value: unknown): ColorImagesMap {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  const out: ColorImagesMap = {}
+  for (const [key, urls] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof key !== 'string' || !key.trim()) continue
+    if (!Array.isArray(urls)) continue
+    const cleaned = urls.filter((u): u is string => typeof u === 'string' && u.trim().length > 0)
+    if (cleaned.length > 0) out[key] = cleaned
+  }
+  return out
+}
+
+/** Van-e legalább egy színhez feltöltött kép. */
+export function hasAnyColorImages(colorImages?: ColorImagesMap | null): boolean {
+  if (!colorImages) return false
+  return Object.values(colorImages).some((urls) => Array.isArray(urls) && urls.length > 0)
+}
+
+/**
+ * Shopban megjelenő színek: csak azok, amelyekhez van feltöltött kép.
+ * Ha nincs színenkénti kép, üres lista (a színválasztó nem jelenik meg).
+ */
+export function getAvailableFilamentColors(
+  colorImages: ColorImagesMap | null | undefined,
+  isColorable: boolean
+): FilamentColor[] {
+  if (!isColorable) return []
+  const map = colorImages ?? {}
+  return FILAMENT_COLORS.filter((c) => (map[c.id]?.length ?? 0) > 0)
+}
+
+/** Galéria egy színhez; ha nincs, a termék általános képei. */
+export function getGalleryImagesForColor(
+  product: { image?: string; images?: string[]; colorImages?: ColorImagesMap | null },
+  colorId?: string | null
+): string[] {
+  if (colorId) {
+    const byColor = product.colorImages?.[colorId]
+    if (byColor?.length) return byColor
+  }
+  if (product.images?.length) return product.images
+  if (product.image) return [product.image]
+  return []
+}
+
 export const FILAMENT_COLORS: FilamentColor[] = [
   { id: 'white', name: 'Fehér', nameEn: 'White', nameDe: 'Weiß', nameRo: 'Alb', hex: '#FFFFFF' },
   { id: 'black', name: 'Fekete', nameEn: 'Black', nameDe: 'Schwarz', nameRo: 'Negru', hex: '#1a1a1a' },

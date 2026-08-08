@@ -1,4 +1,4 @@
-/** Opcionális termék opciók (pl. 3D: filament szín + anyag PLA/PETG). */
+/** Opcionális termék opciók (pl. 3D: filament szín). */
 export type CartItemOptions = {
   colorName?: string
   colorHex?: string

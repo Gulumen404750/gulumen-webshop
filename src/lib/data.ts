@@ -28,6 +28,8 @@ export interface Product {
   images: string[]
   /** Opcionális 360° megtekintés: képkockák URL-jei (körbe húzva lapozható). */
   images360?: string[]
+  /** Színenkénti galéria (filament color id → képek). Shopban csak ezek a színek jelennek meg. */
+  colorImages?: Record<string, string[]>
   /** 3D termék: GLB modell URL (pl. /models/noveny-kotozo.glb), körbe forgatható megjelenítéshez. */
   modelUrl?: string
   stock: number

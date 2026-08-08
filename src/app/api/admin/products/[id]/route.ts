@@ -36,6 +36,7 @@ const updateProductSchema = z.object({
   image: z.string().optional(),
   images: z.array(z.string()).optional(),
   images360: z.array(z.string()).optional(),
+  colorImages: z.record(z.string(), z.array(z.string())).optional().nullable(),
   modelUrl: z.string().optional().nullable(),
   priceHuf: z.number().int().min(0).optional(),
   priceEur: z.number().int().min(0).optional(),
@@ -119,6 +120,9 @@ export async function PATCH(
       ...(d.image !== undefined && { image: d.image }),
       ...(d.images !== undefined && { images: d.images }),
       ...(d.images360 !== undefined && { images360: d.images360 }),
+      ...(d.colorImages !== undefined && {
+        colorImages: d.colorImages === null ? Prisma.JsonNull : d.colorImages,
+      }),
       ...(d.modelUrl !== undefined && { modelUrl: d.modelUrl }),
       ...(d.priceHuf !== undefined && { priceHuf: d.priceHuf }),
       ...(d.priceEur !== undefined && { priceEur: d.priceEur }),

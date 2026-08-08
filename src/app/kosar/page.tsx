@@ -293,11 +293,9 @@ export default function CartPage() {
                       {priceHuf.toLocaleString('hu-HU')} Ft × {item.qty}
                       {priceEur > 0 && <span className="ml-1">(€{formatEur(priceEur)})</span>}
                     </p>
-                    {(item.options?.colorName || item.options?.materialName) && (
+                    {item.options?.colorName && (
                       <p className="text-foreground text-sm mt-0.5">
-                        {item.options?.materialName && <span>{t('product.material') || 'Anyag'}: {item.options.materialName}</span>}
-                        {item.options?.materialName && item.options?.colorName && ' · '}
-                        {item.options?.colorName && <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>}
+                        <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>
                       </p>
                     )}
                     <p className="text-foreground text-sm font-medium mt-1">{t('cart.availableUpTo', { count: maxAllowedInCart })}</p>
@@ -362,11 +360,9 @@ export default function CartPage() {
                       {priceHuf.toLocaleString('hu-HU')} Ft × {item.qty}
                       {priceEur > 0 && <span className="ml-1">(€{formatEur(priceEur)})</span>}
                     </p>
-                    {(item.options?.colorName || item.options?.materialName) && (
+                    {item.options?.colorName && (
                       <p className="text-foreground text-sm mt-0.5">
-                        {item.options?.materialName && <span>{t('product.material') || 'Anyag'}: {item.options.materialName}</span>}
-                        {item.options?.materialName && item.options?.colorName && ' · '}
-                        {item.options?.colorName && <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>}
+                        <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>
                       </p>
                     )}
                     <p className="text-foreground text-sm font-medium mt-1">{t('cart.availableUpTo', { count: maxAllowedInCart })}</p>
@@ -430,11 +426,9 @@ export default function CartPage() {
                       {priceHuf.toLocaleString('hu-HU')} Ft × {item.qty}
                       {priceEur > 0 && <span className="ml-1">(€{formatEur(priceEur)})</span>}
                     </p>
-                    {(item.options?.colorName || item.options?.materialName) && (
+                    {item.options?.colorName && (
                       <p className="text-foreground text-sm mt-0.5">
-                        {item.options?.materialName && <span>{t('product.material') || 'Anyag'}: {item.options.materialName}</span>}
-                        {item.options?.materialName && item.options?.colorName && ' · '}
-                        {item.options?.colorName && <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>}
+                        <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>
                       </p>
                     )}
                     <p className="text-foreground text-sm font-medium mt-1">{t('cart.availableUpTo', { count: maxAllowedInCart })}</p>
@@ -628,11 +622,9 @@ function CartLineRow({
           {' '}× {item.qty}
           {priceEur > 0 && <span className="ml-1">(€{formatEur(priceEur)})</span>}
         </p>
-        {(item.options?.colorName || item.options?.materialName) && (
+        {item.options?.colorName && (
           <p className="text-foreground text-sm mt-0.5">
-            {item.options?.materialName && <span>{t('product.material') || 'Anyag'}: {item.options.materialName}</span>}
-            {item.options?.materialName && item.options?.colorName && ' · '}
-            {item.options?.colorName && <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>}
+            <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>
           </p>
         )}
         <p className="text-foreground text-sm font-medium mt-1">{t('cart.availableUpTo', { count: maxAllowedInCart })}</p>

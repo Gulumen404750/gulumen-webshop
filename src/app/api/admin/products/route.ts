@@ -85,6 +85,7 @@ const createProductSchema = z.object({
   image: z.string().optional(),
   images: z.array(z.string()).optional(),
   images360: z.array(z.string()).optional(),
+  colorImages: z.record(z.string(), z.array(z.string())).optional().nullable(),
   modelUrl: z.string().optional(),
   priceHuf: z.number().int().min(0),
   priceEur: z.number().int().min(0),
@@ -147,6 +148,12 @@ export async function POST(request: Request) {
       image: d.image ?? '',
       images: d.images ?? [],
       images360: d.images360 ?? [],
+      colorImages:
+        d.colorImages === null
+          ? Prisma.JsonNull
+          : d.colorImages !== undefined
+            ? d.colorImages
+            : undefined,
       modelUrl: d.modelUrl ?? null,
       priceHuf: d.priceHuf,
       priceEur: d.priceEur,

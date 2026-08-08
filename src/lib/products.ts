@@ -4,6 +4,7 @@
  */
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import type { Product, Condition } from '@/lib/data'
+import { normalizeColorImages } from '@/lib/filamentColors'
 import { productSlugLookupCandidates } from '@/lib/slug'
 
 function mapCondition(c: string): Condition {
@@ -27,6 +28,7 @@ function dbProductToProduct(row: {
   image: string
   images: string[]
   images360: string[]
+  colorImages?: unknown
   modelUrl: string | null
   priceHuf: number
   priceEur: number
@@ -52,6 +54,7 @@ function dbProductToProduct(row: {
 }): Product {
   const variants = row.variants as { size?: string; color?: string }[] | null
   const descEn = row.description_en || row.description_hu || row.description_de || row.description_ro
+  const colorImages = normalizeColorImages(row.colorImages)
   return {
     id: row.id,
     slug: row.slug,
@@ -69,6 +72,7 @@ function dbProductToProduct(row: {
     image: row.image,
     images: row.images?.length ? row.images : [row.image],
     images360: row.images360?.length ? row.images360 : undefined,
+    colorImages: Object.keys(colorImages).length > 0 ? colorImages : undefined,
     modelUrl: row.modelUrl ?? undefined,
     priceHuf: row.priceHuf,
     priceEur: row.priceEur,

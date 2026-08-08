@@ -176,11 +176,9 @@ export function CartDrawer({ isOpen, onClose }: Props) {
                           {t('luckySpin.weeklyOffer')}
                         </span>
                       )}
-                      {(item.options?.colorName || item.options?.materialName) && (
+                      {item.options?.colorName && (
                         <p className="text-foreground text-xs">
-                          {item.options?.materialName && <span>{t('product.material') || 'Anyag'}: {item.options.materialName}</span>}
-                          {item.options?.materialName && item.options?.colorName && ' · '}
-                          {item.options?.colorName && <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>}
+                          <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>
                         </p>
                       )}
                       <p className="text-muted text-xs mt-0.5">

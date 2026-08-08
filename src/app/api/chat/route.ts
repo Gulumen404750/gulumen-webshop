@@ -11,7 +11,12 @@ import {
   resolveOpenAiModels,
   type ChatSettings,
 } from '@/lib/chat-settings'
-import { getAiDateTimeContext, getServerTimeMs } from '@/lib/server-time'
+import {
+  formatVisitorDateTimeAnswer,
+  getAiVisitorDateTimeContext,
+  getCountryCodeFromRequest,
+  resolveVisitorLocalTime,
+} from '@/lib/visitor-time'
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'
 
@@ -29,6 +34,9 @@ export async function POST(request: Request) {
     const body = await request.json()
     const message = typeof body?.message === 'string' ? body.message.trim() : ''
     const locale = isValidLocale(body?.locale) ? body.locale : 'hu'
+    const timezone = typeof body?.timezone === 'string' ? body.timezone.trim() : ''
+    const countryCode = getCountryCodeFromRequest(request)
+    const visitorTime = { locale, timezone: timezone || null, countryCode }
     const history = Array.isArray(body?.messages)
       ? body.messages
           .filter((m: unknown) => m && typeof m === 'object' && 'role' in m && 'text' in m)
@@ -61,7 +69,7 @@ export async function POST(request: Request) {
 
       const lang = langNames[locale] ?? 'magyarul'
       const models = resolveOpenAiModels(settings.openaiModel)
-      const nowContext = await getAiDateTimeContext()
+      const nowContext = await getAiVisitorDateTimeContext(visitorTime)
 
       const openAiMessages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
         {
@@ -103,7 +111,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return fallbackResponse(message, locale, settings)
+    return fallbackResponse(message, locale, settings, visitorTime)
   } catch {
     return NextResponse.json(
       { error: 'A válasz generálása sikertelen. Próbáld újra.' },
@@ -124,38 +132,18 @@ function isDateTimeQuestion(message: string): boolean {
   )
 }
 
-async function answerDateTimeQuestion(locale: Locale): Promise<string> {
-  const ms = await getServerTimeMs()
-  const d = new Date(ms)
-  const localeTag =
-    locale === 'en' ? 'en-GB' : locale === 'de' ? 'de-DE' : locale === 'ro' ? 'ro-RO' : 'hu-HU'
-  const formatted = new Intl.DateTimeFormat(localeTag, {
-    timeZone: 'Europe/Budapest',
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  }).format(d)
-
-  if (locale === 'en') {
-    return `Right now in Budapest it is ${formatted}.`
-  }
-  if (locale === 'de') {
-    return `Aktuell in Budapest: ${formatted}.`
-  }
-  if (locale === 'ro') {
-    return `Acum la Budapesta este ${formatted}.`
-  }
-  return `Most Budapesten: ${formatted}.`
-}
-
-async function fallbackResponse(userMessage: string, locale: Locale, settings: ChatSettings) {
+async function fallbackResponse(
+  userMessage: string,
+  locale: Locale,
+  settings: ChatSettings,
+  visitorTime: { locale: Locale; timezone: string | null; countryCode: string | null }
+) {
   if (isDateTimeQuestion(userMessage)) {
-    return NextResponse.json({ text: await answerDateTimeQuestion(locale), escalate: false })
+    const local = await resolveVisitorLocalTime(visitorTime)
+    return NextResponse.json({
+      text: formatVisitorDateTimeAnswer(local, locale),
+      escalate: false,
+    })
   }
   const { textKey, escalate } = getResponse(userMessage)
   if (textKey === 'ai.default') {

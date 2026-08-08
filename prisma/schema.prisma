@@ -30,6 +30,8 @@ model Product {
   image            String
   images           String[] @default([])
   images360        String[] @default([])
+  /// Színenkénti galéria: { [filamentColorId]: string[] }. Csak azok a színek jelennek meg a shopban, amikhez van kép.
+  colorImages      Json?
   modelUrl         String?
   priceHuf         Int
   priceEur         Int

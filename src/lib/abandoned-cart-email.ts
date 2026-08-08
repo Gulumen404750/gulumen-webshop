@@ -93,7 +93,6 @@ export async function sendAbandonedCartReminderEmail(
     .map((line) => {
       const opts: string[] = []
       if (line.options?.colorName) opts.push(line.options.colorName)
-      if (line.options?.materialName) opts.push(line.options.materialName)
       const optSuffix = opts.length ? ` (${opts.join(', ')})` : ''
       return `<li>${escapeHtml(line.name)}${escapeHtml(optSuffix)} – ${line.qty} db × ${formatHuf(line.unitPriceHuf)}</li>`
     })
@@ -103,7 +102,6 @@ export async function sendAbandonedCartReminderEmail(
     .map((line) => {
       const opts: string[] = []
       if (line.options?.colorName) opts.push(line.options.colorName)
-      if (line.options?.materialName) opts.push(line.options.materialName)
       const optSuffix = opts.length ? ` (${opts.join(', ')})` : ''
       return `- ${line.name}${optSuffix} – ${line.qty} db × ${formatHuf(line.unitPriceHuf)}`
     })
@@ -155,7 +153,6 @@ export async function sendAbandonedCartOfferEmail(
     .map((line) => {
       const opts: string[] = []
       if (line.options?.colorName) opts.push(line.options.colorName)
-      if (line.options?.materialName) opts.push(line.options.materialName)
       const optSuffix = opts.length ? ` (${opts.join(', ')})` : ''
       return `<li>${escapeHtml(line.name)}${escapeHtml(optSuffix)} – ${line.qty} db × ${formatHuf(line.unitPriceHuf)}</li>`
     })
@@ -165,7 +162,6 @@ export async function sendAbandonedCartOfferEmail(
     .map((line) => {
       const opts: string[] = []
       if (line.options?.colorName) opts.push(line.options.colorName)
-      if (line.options?.materialName) opts.push(line.options.materialName)
       const optSuffix = opts.length ? ` (${opts.join(', ')})` : ''
       return `- ${line.name}${optSuffix} – ${line.qty} db × ${formatHuf(line.unitPriceHuf)}`
     })

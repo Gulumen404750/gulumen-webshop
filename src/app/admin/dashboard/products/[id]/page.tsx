@@ -5,6 +5,8 @@ import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { categories, threeDSubcategories } from '@/lib/data'
 import { ProductImageUploader } from '@/components/ProductImageUploader'
+import { ProductColorImagesEditor } from '@/components/ProductColorImagesEditor'
+import { normalizeColorImages, type ColorImagesMap } from '@/lib/filamentColors'
 import { slugifyProduct } from '@/lib/slug'
 
 type Product = {
@@ -24,6 +26,7 @@ type Product = {
   image: string
   images: string[]
   images360: string[]
+  colorImages: ColorImagesMap | null
   modelUrl: string | null
   priceHuf: number
   priceEur: number
@@ -79,7 +82,12 @@ export default function AdminProductEditPage() {
         return r.json()
       })
       .then((data: { product?: Product }) => {
-        if (data.product) setProduct(data.product)
+        if (data.product) {
+          setProduct({
+            ...data.product,
+            colorImages: normalizeColorImages(data.product.colorImages),
+          })
+        }
       })
       .catch(() => setMessage({ type: 'error', text: 'Hálózati hiba.' }))
       .finally(() => setLoading(false))
@@ -109,6 +117,7 @@ export default function AdminProductEditPage() {
             image: product.image || '',
             images: product.images || [],
             images360: product.images360 || [],
+            colorImages: normalizeColorImages(product.colorImages),
             modelUrl: product.modelUrl || undefined,
             priceHuf: product.priceHuf ?? 0,
             priceEur: product.priceEur ?? 0,
@@ -144,6 +153,7 @@ export default function AdminProductEditPage() {
             image: product.image ?? '',
             images: product.images ?? [],
             images360: product.images360 ?? [],
+            colorImages: normalizeColorImages(product.colorImages),
             modelUrl: product.modelUrl ?? undefined,
             priceHuf: product.priceHuf ?? 0,
             priceEur: product.priceEur ?? 0,
@@ -795,6 +805,13 @@ export default function AdminProductEditPage() {
             Színezhető (3D)
           </label>
         </div>
+
+        {product?.isColorable && (
+          <ProductColorImagesEditor
+            value={product.colorImages}
+            onChange={(colorImages) => setProduct((p) => ({ ...p, colorImages }))}
+          />
+        )}
 
         {product?.type === 'sourcing_deal' && (
           <div className="grid gap-4 sm:grid-cols-2 border-t border-[var(--border)] pt-4">

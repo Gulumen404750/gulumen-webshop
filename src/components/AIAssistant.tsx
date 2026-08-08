@@ -67,10 +67,19 @@ export function AIAssistant() {
       setLoading(true)
       const previousMessages = messagesRef.current.map((m) => ({ role: m.role, text: m.text }))
       try {
+        const timezone =
+          typeof Intl !== 'undefined'
+            ? Intl.DateTimeFormat().resolvedOptions().timeZone
+            : undefined
         const res = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: trimmed, locale, messages: previousMessages }),
+          body: JSON.stringify({
+            message: trimmed,
+            locale,
+            timezone,
+            messages: previousMessages,
+          }),
         })
         const data = await res.json().catch(() => ({}))
         if (res.ok && typeof data?.text === 'string') {

@@ -33,7 +33,6 @@ function CartLines({ lines }: { lines: AdminCartSnapshotRow['lines'] }) {
       {lines.map((line) => {
         const opts: string[] = []
         if (line.options?.colorName) opts.push(line.options.colorName)
-        if (line.options?.materialName) opts.push(line.options.materialName)
         const optSuffix = opts.length ? ` (${opts.join(', ')})` : ''
         return (
           <li key={`${line.productId}-${optSuffix}-${line.qty}`}>

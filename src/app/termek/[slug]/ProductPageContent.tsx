@@ -23,11 +23,16 @@ const ProductModelViewer = dynamic(
   { ssr: false, loading: () => <div className="min-h-[280px] flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--card-bg)] text-muted">3D modell betöltése…</div> }
 )
 import { is3DProduct } from '@/lib/data'
-import { FILAMENT_COLORS, getFilamentColorName, type FilamentColor } from '@/lib/filamentColors'
+import {
+  getAvailableFilamentColors,
+  getFilamentColorName,
+  getGalleryImagesForColor,
+  hasAnyColorImages,
+  type FilamentColor,
+} from '@/lib/filamentColors'
 import {
   buildColorableProductShareUrl,
   findFilamentColorByHex,
-  parseMaterialParam,
 } from '@/lib/product-share-url'
 import { useLocale } from '@/context/LocaleContext'
 import { useCart } from '@/context/CartContext'
@@ -84,11 +89,10 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
   const [show3DViewer, setShow3DViewer] = useState(false)
   const [mainImageError, setMainImageError] = useState(false)
   const isColorable = !!product.isColorable
-  const is3DWithMaterial = isColorable && is3DProduct(product)
-  /** 3D színezhetőnél nincs alapértelmezett szín – a felhasználónak kell választania. */
+  const availableColors = getAvailableFilamentColors(product.colorImages, isColorable)
+  const usesColorGalleries = hasAnyColorImages(product.colorImages)
+  /** Színezhetőnél nincs alapértelmezett szín – a felhasználónak kell választania. */
   const [selectedColor, setSelectedColor] = useState<FilamentColor | null>(null)
-  /** 3D termék: PLA vagy PETG anyag választása (nincs alapértelmezett). */
-  const [selectedMaterial, setSelectedMaterial] = useState<'PLA' | 'PETG' | null>(null)
   const sourcingStatus =
     product.type === 'sourcing_deal'
       ? getSourcingDealStatus(product, new Date(serverNow ?? Date.now()), effectiveOrdersCount)
@@ -98,8 +102,8 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
   )
   const safeAddQty = maxAddable > 0 ? Math.min(Math.max(1, addQty), maxAddable) : 1
 
-  const images = product.images?.length ? product.images : product.image ? [product.image] : []
-  const mainImage = images[mainImageIndex] || product.image
+  const images = getGalleryImagesForColor(product, selectedColor?.id)
+  const mainImage = images[mainImageIndex] || images[0] || product.image
   const hasMultipleImages = images.length > 1
   const has360 = product.images360 && product.images360.length > 0
   const has3DModel = is3DProduct(product) && product.modelUrl
@@ -109,37 +113,34 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
   const priceEur = hufToEur(priceHuf)
   const hasDiscount = saleActive && !!product.discountPriceHuf
 
-  /** 3D színezhető terméknél szín + anyag is kötelező. */
-  const canAddToCart =
-    !isColorable ||
-    (selectedColor !== null && (!is3DWithMaterial || selectedMaterial !== null))
+  /** Színezhető terméknél a szín kötelező; anyagválasztás nincs (PLA/PETG eltávolítva). */
+  const showColorPicker = isColorable && availableColors.length > 0
+  const canAddToCart = !showColorPicker || selectedColor !== null
+  const canShareConfiguration = showColorPicker && selectedColor !== null
 
-  const canShareConfiguration =
-    isColorable &&
-    selectedColor !== null &&
-    (!is3DWithMaterial || selectedMaterial !== null)
+  const availableColorIds = availableColors.map((c) => c.id).join(',')
 
   useEffect(() => {
-    if (!isColorable) return
-
+    if (!showColorPicker) return
     const colorParam = searchParams.get('color')
-    const materialParam = searchParams.get('material')
+    if (!colorParam) return
+    const color = findFilamentColorByHex(colorParam)
+    if (color && availableColorIds.split(',').includes(color.id)) {
+      setSelectedColor(color)
+      setMainImageIndex(0)
+    }
+  }, [searchParams, showColorPicker, availableColorIds])
 
-    if (colorParam) {
-      const color = findFilamentColorByHex(colorParam)
-      if (color) setSelectedColor(color)
-    }
-    if (is3DWithMaterial && materialParam) {
-      const material = parseMaterialParam(materialParam)
-      if (material) setSelectedMaterial(material)
-    }
-  }, [searchParams, isColorable, is3DWithMaterial])
+  const handleSelectColor = (color: FilamentColor) => {
+    setSelectedColor(color)
+    setMainImageIndex(0)
+    setMainImageError(false)
+  }
 
   const handleShareConfiguration = useCallback(async () => {
     if (!canShareConfiguration || !selectedColor) return
     const url = buildColorableProductShareUrl(window.location.origin, slug, {
       colorHex: selectedColor.hex,
-      material: is3DWithMaterial ? selectedMaterial : undefined,
     })
     try {
       await navigator.clipboard.writeText(url)
@@ -147,18 +148,15 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
     } catch {
       toast(t('product.shareCopied'))
     }
-  }, [canShareConfiguration, selectedColor, is3DWithMaterial, selectedMaterial, slug, t, toast])
+  }, [canShareConfiguration, selectedColor, slug, t, toast])
 
   const handleAddToCart = () => {
     if (!canAddToCart) return
     const options =
-      isColorable && selectedColor
+      showColorPicker && selectedColor
         ? {
             colorName: getFilamentColorName(selectedColor, locale),
             colorHex: selectedColor.hex,
-            ...(is3DWithMaterial && selectedMaterial
-              ? { materialName: selectedMaterial }
-              : {}),
           }
         : undefined
     addItem(product.id, safeAddQty, options, product)
@@ -419,38 +417,7 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
             </div>
           ) : (
             <>
-              {is3DWithMaterial && (
-                <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-3">
-                  <p className="text-sm font-medium text-foreground mb-2">{t('product.material') || 'Anyag'} *</p>
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {(['PLA', 'PETG'] as const).map((mat) => (
-                      <button
-                        key={mat}
-                        type="button"
-                        onClick={() => setSelectedMaterial(mat)}
-                        className={`rounded-lg border-2 px-4 py-2 text-sm font-medium transition-colors ${
-                          selectedMaterial === mat
-                            ? 'border-accent bg-accent/10 text-foreground'
-                            : 'border-[var(--border)] bg-[var(--card-bg)] text-foreground hover:border-accent/50'
-                        }`}
-                        aria-pressed={selectedMaterial === mat}
-                      >
-                        {mat}
-                      </button>
-                    ))}
-                  </div>
-                  <details className="text-xs text-muted">
-                    <summary className="cursor-pointer font-medium text-foreground hover:text-accent">
-                      {t('product.materialInfoTitle') || 'PLA és PETG – tulajdonságok'}
-                    </summary>
-                    <ul className="mt-2 space-y-1 list-disc list-inside">
-                      <li><strong>PLA:</strong> {t('product.materialPla') || 'Biobázisú. Belső és kerti használatra ideális. Kevésbé hőálló, kevésbé ütésálló.'}</li>
-                      <li><strong>PETG:</strong> {t('product.materialPetg') || 'Erősebb, rugalmasabb, jobban ellenáll a hőnek és az ütésnek. Konyha, tartós használat.'}</li>
-                    </ul>
-                  </details>
-                </div>
-              )}
-              {isColorable && (
+              {showColorPicker && (
                 <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-3">
                   <p id="product-color-label" className="text-sm font-medium text-foreground mb-2">
                     {t('product.color') || 'Szín'} *
@@ -460,7 +427,7 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                     aria-labelledby="product-color-label"
                     className="flex flex-wrap gap-2"
                   >
-                    {FILAMENT_COLORS.map((color) => {
+                    {availableColors.map((color) => {
                       const colorName = getFilamentColorName(color, locale)
                       const isSelected = selectedColor?.id === color.id
                       return (
@@ -468,7 +435,7 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                           key={color.id}
                           type="button"
                           role="radio"
-                          onClick={() => setSelectedColor(color)}
+                          onClick={() => handleSelectColor(color)}
                           className={`flex items-center gap-2 rounded-lg border-2 px-3 py-1.5 text-sm transition-colors ${
                             isSelected
                               ? 'border-accent bg-accent/10 text-foreground'
@@ -488,7 +455,13 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                       )
                     })}
                   </div>
-                  <p className="mt-2 text-xs text-muted">{t('product.selectColorHint') || 'A kosárba a kiválasztott szín kerül; a termékfotó csak illusztráció.'}</p>
+                  <p className="mt-2 text-xs text-muted">
+                    {usesColorGalleries
+                      ? t('product.selectColorHintWithPhotos') ||
+                        'A kiválasztott színhez tartozó termékfotók jelennek meg; a kosárba is ez a szín kerül.'
+                      : t('product.selectColorHint') ||
+                        'A kosárba a kiválasztott szín kerül; a termékfotó csak illusztráció.'}
+                  </p>
                   <button
                     type="button"
                     onClick={() => void handleShareConfiguration()}
@@ -515,11 +488,9 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
               </p>
               {stockFromSource > 0 ? (
                 <div className="mt-6 flex flex-wrap items-center gap-3">
-                  {isColorable && (!selectedColor || (is3DWithMaterial && !selectedMaterial)) && (
+                  {showColorPicker && !selectedColor && (
                     <p className="text-sm text-amber-600 dark:text-amber-400 font-medium w-full">
-                      {is3DWithMaterial && !selectedMaterial
-                        ? (t('product.selectMaterialAndColorToAdd') || 'Válaszd ki a színt és az anyagot (PLA/PETG) a kosárba tétel előtt.')
-                        : (t('product.selectColorToAdd') || 'Válaszd ki a színt és az anyagot (PLA/PETG) a kosárba tétel előtt.')}
+                      {t('product.selectColorToAdd') || 'Válaszd ki a színt a kosárba tétel előtt.'}
                     </p>
                   )}
                   {maxAddable > 0 && canAddToCart && (
