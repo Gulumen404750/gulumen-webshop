@@ -103,7 +103,7 @@
     "aboutUsTitle": "Rólunk",
     "aboutUsText": "A Gulumen prémium 3D nyomtatott termékeket kínál – egyedi tervezés, ellenőrzött minőség.",
     "registerTitle": "Regisztrálj a Gulumen fiókodhoz",
-    "registerDesc": "Add meg az e-mail címed, fogadd el az adatkezelést, és opcionálisan kérhetsz egyszeri kedvezménykupont."
+    "registerDesc": "Add meg az e-mail címed, fogadd el az ÁSZF-et és az adatkezelést, és opcionálisan kérhetsz egyszeri kedvezménykupont."
   },
   "faq": {
     "intro": "Összegyűjtöttük a leggyakoribb kérdéseket a 3D nyomtatott termékeinkről.",
@@ -313,15 +313,20 @@
   },
   "register": {
     "firstPurchasePromo": "Regisztrálj és kapj {percent}% kedvezményt az első vásárlásra!",
-    "intro": "Hozz létre fiókot e-mail címeddel. Az adatkezelés elfogadása kötelező; a termékajánlatok és az egyszeri kedvezménykupon opcionális.",
-    "checkboxPrivacy": "Elfogadom az adatkezelési tájékoztatót, és hozzájárulok, hogy a Gulumen a megadott e-mail címemet a fiókomhoz és a rendeléseimhez kapcsolódóan kezelje",
+    "intro": "Hozz létre fiókot e-mail címeddel. Az ÁSZF és az adatkezelés elfogadása kötelező; a kedvezménykupon és az ajánlat e-mailek opcionálisak.",
+    "requiredLabel": "Kötelező",
+    "optionalLabel": "Opcionális",
+    "checkboxPrivacy": "Elfogadom az ÁSZF-et és az Adatkezelési tájékoztatót (adatok belső kezelése és elmentése)",
     "privacyLink": "Adatkezelési tájékoztató",
-    "checkboxOffers": "Szeretnék termékajánlatokat és újdonságokat kapni e-mailben; cserébe egyszeri {percent}%-os kupont kérek (opcionális).",
+    "checkboxOffers": "Kérem az egyszeri {percent}%-os kedvezménykupont, és hozzájárulok, hogy a Gulumen ajándékozással, termékkuponokkal és ajánlatokkal kapcsolatos e-maileket küldjön.",
+    "consentModalTitle": "Regisztráció megerősítése",
+    "consentModalIntro": "Új fiókot hozunk létre. Fogadd el az ÁSZF-et és az adatkezelést a folytatáshoz. A kupon igénylése nem kötelező.",
+    "consentModalConfirm": "Folytatás",
     "errorEmail": "Kérlek add meg az e-mail címed.",
     "errorPassword": "A jelszónak legalább 8 karakter hosszúnak kell lennie.",
     "errorEmailTaken": "Ezzel az e-mail címmel már regisztráltak. Jelentkezz be a meglévő fiókoddal.",
     "errorGeneric": "Regisztráció sikertelen.",
-    "errorPrivacy": "A regisztrációhoz fogadd el az adatkezelési tájékoztatót.",
+    "errorPrivacy": "A regisztrációhoz fogadd el az ÁSZF-et és az adatkezelési tájékoztatót.",
     "errorOffers": "A kuponhoz jelöld be a termékajánlatok elfogadását.",
     "couponGranted": "✅ Egyszeri kedvezménykupon aktiválva! A kosárban automatikusan érvényesül az első vásárlásnál.",
     "withGoogle": "Regisztráció Google-lel"
@@ -338,8 +343,6 @@
     "loginCta": "Bejelentkezés",
     "or": "vagy",
     "loginWithGoogle": "Bejelentkezés Google-lel",
-    "optionalCouponSummary": "Opcionális: {percent}% kedvezménykupon Google belépéshez",
-    "googleOffersIntro": "Ha szeretnéd, Google belépés előtt kérhetsz egyszeri kedvezménykupont termékajánlatokért cserébe. A belépéshez ez nem kötelező.",
     "noAccount": "Nincs még fiókod?",
     "registerLink": "Regisztráció",
     "authErrorDbNotConfigured": "A Google bejelentkezés nem érhető el: az adatbázis nincs konfigurálva. Kérjük, próbáld később.",

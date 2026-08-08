@@ -12,7 +12,6 @@ import { PointsProgress } from '@/components/PointsProgress'
 import { PointsGuide } from '@/components/PointsGuide'
 import { PointHistoryTimeline } from '@/components/PointHistoryTimeline'
 import { LoyaltyTierBadge } from '@/components/LoyaltyTierBadge'
-import { getRegistrationCouponPercentDisplay } from '@/lib/coupon-config'
 
 export default function ProfilePage() {
   const { t } = useLocale()
@@ -21,10 +20,8 @@ export default function ProfilePage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [acceptOffers, setAcceptOffers] = useState(false)
   const [loginError, setLoginError] = useState<string | null>(null)
   const [authError, setAuthError] = useState<string | null>(null)
-  const registrationCouponPercent = getRegistrationCouponPercentDisplay()
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -55,9 +52,9 @@ export default function ProfilePage() {
     else setLoginError(result.error ?? 'Bejelentkezés sikertelen')
   }
 
+  /** Meglévő fiók: azonnali Google belépés, hozzájárulás / kupon nélkül. */
   const handleGoogleLogin = () => {
     loginWithGoogle({
-      ...(acceptOffers ? { acceptOffers: true } : {}),
       callbackUrl:
         typeof window !== 'undefined' ? `${window.location.origin}/profil` : '/profil',
     })
@@ -155,33 +152,6 @@ export default function ProfilePage() {
           label={t('profile.loginWithGoogle') || 'Bejelentkezés Google-lel'}
           onClick={handleGoogleLogin}
         />
-        {registrationCouponPercent > 0 && (
-          <details className="mt-2 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-3">
-            <summary className="text-sm font-medium text-foreground cursor-pointer">
-              {t('profile.optionalCouponSummary', { percent: registrationCouponPercent })}
-            </summary>
-            <div className="mt-3 space-y-2">
-              <p className="text-sm text-muted">{t('profile.googleOffersIntro')}</p>
-              <div className="flex items-start gap-3">
-                <input
-                  id="profile-google-offers"
-                  type="checkbox"
-                  checked={acceptOffers}
-                  onChange={(e) => setAcceptOffers(e.target.checked)}
-                  className="mt-1 w-4 h-4 rounded border-[var(--border)] text-accent focus:ring-accent"
-                  aria-describedby="profile-google-offers-desc"
-                />
-                <label
-                  id="profile-google-offers-desc"
-                  htmlFor="profile-google-offers"
-                  className="text-sm text-foreground cursor-pointer"
-                >
-                  {t('register.checkboxOffers', { percent: registrationCouponPercent })}
-                </label>
-              </div>
-            </div>
-          </details>
-        )}
       </form>
       <p className="mt-6 text-sm text-muted">
         {t('profile.noAccount')}{' '}

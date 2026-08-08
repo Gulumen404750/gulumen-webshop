@@ -7,7 +7,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useCatCoupon } from '@/context/CatCouponContext'
 import { useLocale } from '@/context/LocaleContext'
 import { GoogleSignInButton } from '@/components/GoogleSignInButton'
-import { getRegistrationCouponPercentDisplay } from '@/lib/coupon-config'
+import { RegistrationConsentFields } from '@/components/RegistrationConsentFields'
 
 export default function RegistrationPage() {
   const { t } = useLocale()
@@ -20,7 +20,6 @@ export default function RegistrationPage() {
   const [acceptOffers, setAcceptOffers] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [couponGranted, setCouponGranted] = useState(false)
-  const registrationCouponPercent = getRegistrationCouponPercentDisplay()
 
   useEffect(() => {
     if (isLoggedIn) router.replace('/profil')
@@ -29,10 +28,11 @@ export default function RegistrationPage() {
   const handleGoogleRegister = () => {
     setError(null)
     if (!acceptPrivacy) {
-      setError(t('register.errorPrivacy') || 'A regisztrációhoz fogadd el az adatkezelési tájékoztatót.')
+      setError(t('register.errorPrivacy') || 'A regisztrációhoz fogadd el az ÁSZF-et és az adatkezelési tájékoztatót.')
       return
     }
     loginWithGoogle({
+      acceptPrivacy: true,
       ...(acceptOffers ? { acceptOffers: true } : {}),
       callbackUrl: typeof window !== 'undefined' ? `${window.location.origin}/termekek` : '/termekek',
     })
@@ -52,7 +52,7 @@ export default function RegistrationPage() {
       return
     }
     if (!acceptPrivacy) {
-      setError(t('register.errorPrivacy') || 'A regisztrációhoz fogadd el az adatkezelési tájékoztatót.')
+      setError(t('register.errorPrivacy') || 'A regisztrációhoz fogadd el az ÁSZF-et és az adatkezelési tájékoztatót.')
       return
     }
     const result = await register(trimmedEmail, password, undefined, acceptOffers)
@@ -121,45 +121,13 @@ export default function RegistrationPage() {
           />
         </div>
 
-        <div className="flex items-start gap-3 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-4">
-          <input
-            id="reg-privacy"
-            type="checkbox"
-            checked={acceptPrivacy}
-            onChange={(e) => setAcceptPrivacy(e.target.checked)}
-            className="mt-1 w-4 h-4 rounded border-[var(--border)] text-accent focus:ring-accent"
-            aria-describedby="reg-privacy-desc"
-            required
-          />
-          <label id="reg-privacy-desc" htmlFor="reg-privacy" className="text-sm text-foreground cursor-pointer">
-            {t('register.checkboxPrivacy')}{' '}
-            <Link
-              href="/kapcsolat#telefonos-adatkezeles"
-              className="text-accent underline underline-offset-2"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {t('register.privacyLink')}
-            </Link>
-            .
-          </label>
-        </div>
-
-        {registrationCouponPercent > 0 && (
-          <div className="flex items-start gap-3 rounded-lg border border-accent/30 bg-accent/5 p-4">
-            <input
-              id="reg-offers"
-              type="checkbox"
-              checked={acceptOffers}
-              onChange={(e) => setAcceptOffers(e.target.checked)}
-              className="mt-1 w-4 h-4 rounded border-[var(--border)] text-accent focus:ring-accent"
-              aria-describedby="reg-offers-desc"
-            />
-            <label id="reg-offers-desc" htmlFor="reg-offers" className="text-sm text-foreground cursor-pointer">
-              {t('register.checkboxOffers', { percent: registrationCouponPercent })}
-            </label>
-          </div>
-        )}
+        <RegistrationConsentFields
+          idPrefix="reg"
+          acceptPrivacy={acceptPrivacy}
+          acceptOffers={acceptOffers}
+          onPrivacyChange={setAcceptPrivacy}
+          onOffersChange={setAcceptOffers}
+        />
 
         {error && (
           <p className="text-sm text-red-600 dark:text-red-400" role="alert">

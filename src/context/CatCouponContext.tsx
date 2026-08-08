@@ -184,7 +184,7 @@ function combinedPercent(userId: string | null): number {
 }
 
 export function CatCouponProvider({ children }: { children: ReactNode }) {
-  const { userId, authChecked } = useAuth()
+  const { userId, authChecked, isNewUser } = useAuth()
   const [status, setStatus] = useState<CatCouponStatus>('not_claimed')
   const [catStatus, setCatStatus] = useState<CatCouponStatus>('not_claimed')
   const [registrationStatus, setRegistrationStatus] = useState<CatCouponStatus>('not_claimed')
@@ -242,13 +242,14 @@ export function CatCouponProvider({ children }: { children: ReactNode }) {
   )
 
   useEffect(() => {
-    if (!userId) return
+    if (!authChecked || !userId) return
     const pending = readGoogleAuthPending()
-    if (!pending?.acceptOffers) return
+    if (!pending) return
+    // Új Google fióknál a NewUserConsentGate kezeli a hozzájárulást + kupont.
+    if (isNewUser) return
+    // Meglévő fiók: soha ne aktiváljunk regisztrációs kupont a pendingből.
     clearGoogleAuthPending()
-    claimRegistrationCoupon(userId)
-    void claimPromoOnServer('registration')
-  }, [userId, claimRegistrationCoupon])
+  }, [userId, isNewUser, authChecked])
 
   const markUsed = useCallback(() => {
     if (!userId) return

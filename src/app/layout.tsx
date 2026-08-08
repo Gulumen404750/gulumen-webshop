@@ -21,6 +21,7 @@ import { MobileCartStickyBanner } from '@/components/MobileCartStickyBanner'
 import { Footer } from '@/components/Footer'
 import { BrowseHeartbeatTracker } from '@/components/BrowseHeartbeatTracker'
 import { HreflangLinks } from '@/components/HreflangLinks'
+import { NewUserConsentGate } from '@/components/NewUserConsentGate'
 import { getServerLocale } from '@/lib/locale-server'
 
 const poppins = Poppins({
@@ -81,6 +82,7 @@ export default async function RootLayout({
                 <CartProvider>
                   <WishlistProvider>
                   <ToastProvider>
+                    <NewUserConsentGate />
                     <Suspense fallback={<div className="h-16 border-b border-[var(--border)] bg-[var(--card-bg)]" aria-hidden />}>
                       <Header />
                     </Suspense>

@@ -103,7 +103,7 @@
     "aboutUsTitle": "About us",
     "aboutUsText": "Gulumen’s aim is to make quality, labelled products available at better prices, without unnecessary markups.",
     "registerTitle": "Create your Gulumen account",
-    "registerDesc": "Enter your email, accept privacy terms, and optionally request a one-time discount coupon."
+    "registerDesc": "Enter your email, accept the Terms and privacy notice, and optionally request a one-time discount coupon."
   },
   "faq": {
     "intro": "Common questions about our 3D printed products.",
@@ -338,15 +338,20 @@
   },
   "register": {
     "firstPurchasePromo": "Register and get {percent}% off your first purchase!",
-    "intro": "Create an account with your email. Accepting the privacy notice is required; product offers and the one-time coupon are optional.",
-    "checkboxPrivacy": "I accept the privacy notice and agree that Gulumen may process my email for my account and orders",
+    "intro": "Create an account with your email. Accepting the Terms and privacy notice is required; the coupon and offer emails are optional.",
+    "requiredLabel": "Required",
+    "optionalLabel": "Optional",
+    "checkboxPrivacy": "I accept the Terms and Conditions and the Privacy Notice (internal processing and storage of my data)",
     "privacyLink": "Privacy notice",
-    "checkboxOffers": "I would like product offers and news by email; in exchange I request a one-time {percent}% coupon (optional).",
+    "checkboxOffers": "I request the one-time {percent}% discount coupon and agree that Gulumen may send emails about gifts, product coupons and offers.",
+    "consentModalTitle": "Confirm registration",
+    "consentModalIntro": "We are creating a new account. Please accept the Terms and privacy notice to continue. Requesting the coupon is optional.",
+    "consentModalConfirm": "Continue",
     "errorEmail": "Please enter your email address.",
     "errorPassword": "Password must be at least 8 characters.",
     "errorEmailTaken": "An account with this email already exists. Please log in instead.",
     "errorGeneric": "Registration failed.",
-    "errorPrivacy": "Please accept the privacy notice to register.",
+    "errorPrivacy": "Please accept the Terms and privacy notice to register.",
     "errorOffers": "Please accept product offers to activate the coupon.",
     "couponGranted": "✅ One-time coupon activated! It applies automatically in your cart on your first purchase.",
     "withGoogle": "Sign up with Google"
@@ -363,8 +368,6 @@
     "loginCta": "Log in",
     "or": "or",
     "loginWithGoogle": "Sign in with Google",
-    "optionalCouponSummary": "Optional: {percent}% coupon with Google sign-in",
-    "googleOffersIntro": "Optionally request a one-time coupon for product offers before Google sign-in. This is not required to log in.",
     "noAccount": "Don't have an account?",
     "registerLink": "Register",
     "authErrorDbNotConfigured": "Google sign-in is unavailable: the database is not configured. Please try again later.",
