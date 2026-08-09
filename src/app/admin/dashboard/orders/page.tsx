@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { AdminOrdersListSkeleton } from '@/components/AdminTableSkeleton'
+import { AdminOrderStatusBadge } from '@/components/admin/AdminOrderStatusBadge'
+import { getAdminOrderVisualKind, adminOrderKindClasses } from '@/lib/admin-order-badges'
 
 type Order = {
   id: string
@@ -13,7 +15,9 @@ type Order = {
   currency: string
   createdAt: string
   customerEmail: string | null
+  customerName: string | null
   paidAt: string | null
+  printedAt: string | null
   amountPaid: number | null
   items: { productId: string; qty: number; name: string | null; priceHuf: number }[]
 }
@@ -100,29 +104,41 @@ export default function AdminOrdersPage() {
               <tr>
                 <th className="p-3 font-medium">ID</th>
                 <th className="p-3 font-medium">Státusz</th>
+                <th className="p-3 font-medium">Vevő</th>
                 <th className="p-3 font-medium">Típus</th>
                 <th className="p-3 font-medium">Összeg</th>
-                <th className="p-3 font-medium">Email</th>
                 <th className="p-3 font-medium">Dátum</th>
                 <th className="p-3 font-medium"></th>
               </tr>
             </thead>
             <tbody>
-              {orders.map((o) => (
-                <tr key={o.id} className="border-b border-[var(--border)] hover:bg-[var(--border)]/20">
-                  <td className="p-3 font-mono text-xs">{o.id}</td>
-                  <td className="p-3">{o.status}</td>
-                  <td className="p-3">{o.orderType ?? '–'}</td>
-                  <td className="p-3">{o.totalHuf.toLocaleString('hu-HU')} Ft</td>
-                  <td className="p-3">{o.customerEmail ?? '–'}</td>
-                  <td className="p-3 text-muted">{new Date(o.createdAt).toLocaleString('hu-HU')}</td>
-                  <td className="p-3">
-                    <Link href={`/admin/dashboard/orders/${o.id}`} className="text-accent hover:underline">
-                      Részletek
-                    </Link>
-                  </td>
-                </tr>
-              ))}
+              {orders.map((o) => {
+                const kind = getAdminOrderVisualKind(o.status, o.printedAt)
+                const rowClass = adminOrderKindClasses(kind).row
+                return (
+                  <tr
+                    key={o.id}
+                    className={`border-b border-[var(--border)] hover:opacity-95 ${rowClass}`}
+                  >
+                    <td className="p-3 font-mono text-xs">{o.id}</td>
+                    <td className="p-3">
+                      <AdminOrderStatusBadge status={o.status} printedAt={o.printedAt} />
+                    </td>
+                    <td className="p-3">
+                      <div>{o.customerName ?? '–'}</div>
+                      <div className="text-xs text-muted">{o.customerEmail ?? ''}</div>
+                    </td>
+                    <td className="p-3">{o.orderType ?? '–'}</td>
+                    <td className="p-3">{o.totalHuf.toLocaleString('hu-HU')} Ft</td>
+                    <td className="p-3 text-muted">{new Date(o.createdAt).toLocaleString('hu-HU')}</td>
+                    <td className="p-3">
+                      <Link href={`/admin/dashboard/orders/${o.id}`} className="text-accent hover:underline">
+                        Részletek
+                      </Link>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>

@@ -231,6 +231,8 @@ model Order {
   appliedCoupons     Json?
   /// Kuponégés + pontlevonás lefuttatva (webhook / siker oldal – idempotens).
   rewardsFinalized   Boolean  @default(false)
+  /// Admin címkenyomtatás időpontja (null = még nem nyomtatva).
+  printedAt          DateTime?
   items             OrderItem[]
   paymentTransactions PaymentTransaction[]
 
@@ -239,6 +241,7 @@ model Order {
   @@index([userId, createdAt])
   @@index([stripeSessionId])
   @@index([paymentIntentId])
+  @@index([printedAt])
 }
 
 model OrderItem {

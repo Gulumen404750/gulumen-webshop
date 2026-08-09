@@ -85,6 +85,8 @@ export type Order = {
   /** Manuálisan kiválasztott kuponok (cat, birthday, welcome, …). */
   appliedCoupons?: string[]
   rewardsFinalized?: boolean
+  /** Admin címkenyomtatás időpontja (ISO). */
+  printedAt?: string
 }
 
 const COUPON_PERCENT = 0.05
@@ -176,6 +178,7 @@ function dbOrderToOrder(row: {
   couponUsageRecorded: boolean
   appliedCoupons?: unknown
   rewardsFinalized?: boolean
+  printedAt?: Date | null
   items: { productId: string; qty: number; fulfillmentType: string; priceHuf: number; name: string | null }[]
 }): Order {
   const appliedCoupons = Array.isArray(row.appliedCoupons)
@@ -210,6 +213,7 @@ function dbOrderToOrder(row: {
     couponUsageRecorded: row.couponUsageRecorded,
     appliedCoupons,
     rewardsFinalized: row.rewardsFinalized,
+    printedAt: row.printedAt?.toISOString(),
     stripeSessionId: row.stripeSessionId ?? undefined,
     paymentIntentId: row.paymentIntentId ?? undefined,
     amountPaid: row.amountPaid ?? undefined,
