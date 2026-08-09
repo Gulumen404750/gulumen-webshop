@@ -37,26 +37,46 @@ const inter = Inter({
 })
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://gulumen.hu'
+const SITE_TITLE = 'Gulumen – Mindenre van egy jó ötletünk.'
+const SITE_DESCRIPTION =
+  'Szerethető és hasznos kiegészítők a család minden tagjának, télen-nyáron. Nézz körül nálunk, és fedezd fel egyedi kínálatunkat!'
+const BRAND_IMAGE = `${BASE_URL}/og-image.png`
 
 export const metadata: Metadata = {
-  title: 'Gulumen – Télen, nyáron, veletek – mint egy nagy család',
-  description:
-    'Kedves, családias webáruház mindenkinek: praktikus és szerethető dolgok a konyhába, gyerekszobába, íróasztalra és az otthon minden szegletébe. Télen-nyáron veletek vagyunk!',
+  metadataBase: new URL(BASE_URL),
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
+  applicationName: 'Gulumen',
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: '32x32', type: 'image/png' },
+      { url: '/icon.png', sizes: '512x512', type: 'image/png' },
+      { url: '/favicon-32.png', sizes: '32x32', type: 'image/png' },
+    ],
+    apple: [{ url: '/apple-icon.png', sizes: '180x180', type: 'image/png' }],
+    shortcut: ['/favicon.ico'],
+  },
   openGraph: {
-    title: 'Gulumen – Télen, nyáron, veletek – mint egy nagy család',
-    description:
-      'Kedves, családias webáruház mindenkinek: praktikus és szerethető dolgok a konyhába, gyerekszobába, íróasztalra és az otthon minden szegletébe. Télen-nyáron veletek vagyunk!',
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
     url: BASE_URL,
     siteName: 'Gulumen',
     type: 'website',
-    images: [{ url: `${BASE_URL}/img/logo.png`, width: 512, height: 512, alt: 'Gulumen' }],
+    images: [
+      {
+        url: BRAND_IMAGE,
+        width: 1200,
+        height: 1200,
+        alt: 'Gulumen logo',
+      },
+    ],
     locale: 'hu_HU',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Gulumen – Télen, nyáron, veletek – mint egy nagy család',
-    description:
-      'Kedves, családias webáruház mindenkinek: praktikus és szerethető dolgok a konyhába, gyerekszobába, íróasztalra és az otthon minden szegletébe. Télen-nyáron veletek vagyunk!',
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: [BRAND_IMAGE],
   },
 }
 

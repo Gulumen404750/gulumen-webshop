@@ -17,7 +17,7 @@ export function getProductOgImageUrl(slug: string): string {
 }
 
 export function toAbsoluteAssetUrl(path: string | undefined | null): string {
-  const fallback = `${BASE_URL}/img/logo.png`
+  const fallback = `${BASE_URL}/og-image.png`
   if (!path?.trim()) return fallback
   const trimmed = path.trim()
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed

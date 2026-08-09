@@ -6,9 +6,10 @@ export function OrganizationJsonLd() {
     '@type': 'Organization',
     name: 'Gulumen',
     url: BASE_URL,
-    logo: `${BASE_URL}/img/logo.png`,
+    logo: `${BASE_URL}/og-image.png`,
+    image: `${BASE_URL}/og-image.png`,
     description:
-      'Kedves, családias webáruház mindenkinek – praktikus és szerethető dolgok az otthonba. Télen, nyáron, a mindennapokban veletek vagyunk, mint egy nagy család.',
+      'Szerethető és hasznos kiegészítők a család minden tagjának, télen-nyáron. Mindenre van egy jó ötletünk.',
   }
   return (
     <script

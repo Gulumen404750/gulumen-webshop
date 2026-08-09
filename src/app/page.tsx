@@ -11,9 +11,22 @@ import HomePageClient from './HomePageClient'
 export const revalidate = 10
 
 export const metadata: Metadata = {
-  title: 'Gulumen – Télen, nyáron, veletek – mint egy nagy család',
+  title: 'Gulumen – Mindenre van egy jó ötletünk.',
   description:
-    'Kedves, családias webáruház mindenkinek: praktikus és szerethető dolgok a konyhába, gyerekszobába, íróasztalra és az otthon minden szegletébe. Télen-nyáron veletek vagyunk!',
+    'Szerethető és hasznos kiegészítők a család minden tagjának, télen-nyáron. Nézz körül nálunk, és fedezd fel egyedi kínálatunkat!',
+  openGraph: {
+    title: 'Gulumen – Mindenre van egy jó ötletünk.',
+    description:
+      'Szerethető és hasznos kiegészítők a család minden tagjának, télen-nyáron. Nézz körül nálunk, és fedezd fel egyedi kínálatunkat!',
+    images: [{ url: '/og-image.png', width: 1200, height: 1200, alt: 'Gulumen logo' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Gulumen – Mindenre van egy jó ötletünk.',
+    description:
+      'Szerethető és hasznos kiegészítők a család minden tagjának, télen-nyáron. Nézz körül nálunk, és fedezd fel egyedi kínálatunkat!',
+    images: ['/og-image.png'],
+  },
 }
 
 export default async function HomePage() {
