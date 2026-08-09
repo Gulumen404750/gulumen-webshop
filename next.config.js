@@ -24,6 +24,16 @@ const nextConfig = {
       { protocol: 'http', hostname: 'localhost', pathname: '/**' },
     ],
   },
+  async redirects() {
+    return [
+      // Angol / generikus termék-URL → hivatalos magyar termékoldal
+      {
+        source: '/products/:slug',
+        destination: '/termek/:slug',
+        permanent: false,
+      },
+    ]
+  },
   async headers() {
     return [
       {

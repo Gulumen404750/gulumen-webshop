@@ -694,7 +694,9 @@
     "voiceStart": "Sprechen – Spracheingabe",
     "voiceStop": "Aufnahme stoppen",
     "voiceListening": "Ich höre zu…",
-    "voiceUnsupported": "Spracheingabe wird in diesem Browser nicht unterstützt. Bitte tippen."
+    "voiceUnsupported": "Spracheingabe wird in diesem Browser nicht unterstützt. Bitte tippen.",
+    "viewProduct": "Ansehen",
+    "addedToCart": "In den Warenkorb gelegt"
   },
   "seo": {
     "title": "Gulumen – Dein Zuhause liegt uns am Herzen.",

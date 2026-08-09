@@ -21,6 +21,11 @@ import {
   buildProductChatContextBlock,
   loadChatProductContext,
 } from '@/lib/chat-product-context'
+import {
+  buildRecommendedProductsChatBlock,
+  searchProductsForChat,
+  type ChatRecommendedProduct,
+} from '@/lib/chat-product-search'
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'
 
@@ -64,6 +69,8 @@ export async function POST(request: Request) {
     void logChatQuestion({ question: message, locale, ipHash })
 
     const apiKey = process.env.OPENAI_API_KEY?.trim()
+    const recommendedProducts = await searchProductsForChat(message)
+    const productIds = recommendedProducts.map((p) => p.id)
 
     if (apiKey) {
       const langNames: Record<string, string> = {
@@ -81,6 +88,7 @@ export async function POST(request: Request) {
         productSlug: productSlug || null,
       })
       const productContext = product ? buildProductChatContextBlock(product) : ''
+      const recommendationsContext = buildRecommendedProductsChatBlock(recommendedProducts)
 
       const openAiMessages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
         {
@@ -89,6 +97,7 @@ export async function POST(request: Request) {
             settings.systemPrompt,
             nowContext,
             productContext,
+            recommendationsContext,
             `Válaszolj ${lang}.`,
           ]
             .filter(Boolean)
@@ -119,7 +128,7 @@ export async function POST(request: Request) {
 
           if (res.ok && text) {
             const escalate = /emberi ügyintéző|továbbítom|chargeback|jogi ügy/i.test(text)
-            return NextResponse.json({ text, escalate })
+            return chatJsonResponse({ text, escalate, productIds, products: recommendedProducts })
           }
 
           if (!res.ok && res.status === 401) break
@@ -129,7 +138,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return fallbackResponse(message, locale, settings, visitorTime)
+    return fallbackResponse(message, locale, settings, visitorTime, recommendedProducts)
   } catch {
     return NextResponse.json(
       { error: 'A válasz generálása sikertelen. Próbáld újra.' },
@@ -150,15 +159,38 @@ function isDateTimeQuestion(message: string): boolean {
   )
 }
 
+function chatJsonResponse(payload: {
+  text: string
+  escalate?: boolean
+  productIds?: string[]
+  products?: ChatRecommendedProduct[]
+}) {
+  const productIds = Array.isArray(payload.productIds)
+    ? payload.productIds.filter((id) => typeof id === 'string' && id.length > 0).slice(0, 3)
+    : []
+  return NextResponse.json({
+    text: payload.text,
+    escalate: !!payload.escalate,
+    ...(productIds.length > 0
+      ? {
+          productIds,
+          products: (payload.products ?? []).filter((p) => productIds.includes(p.id)).slice(0, 3),
+        }
+      : {}),
+  })
+}
+
 async function fallbackResponse(
   userMessage: string,
   locale: Locale,
   settings: ChatSettings,
-  visitorTime: { locale: Locale; timezone: string | null; countryCode: string | null }
+  visitorTime: { locale: Locale; timezone: string | null; countryCode: string | null },
+  recommendedProducts: ChatRecommendedProduct[] = []
 ) {
+  const productIds = recommendedProducts.map((p) => p.id)
   if (isDateTimeQuestion(userMessage)) {
     const local = await resolveVisitorLocalTime(visitorTime)
-    return NextResponse.json({
+    return chatJsonResponse({
       text: formatVisitorDateTimeAnswer(local, locale),
       escalate: false,
     })
@@ -166,9 +198,9 @@ async function fallbackResponse(
   const { textKey, escalate } = getResponse(userMessage)
   if (textKey === 'ai.default') {
     const text = getChatFallbackForLocale(settings, locale)
-    return NextResponse.json({ text, escalate })
+    return chatJsonResponse({ text, escalate, productIds, products: recommendedProducts })
   }
   const dict = getTranslations(locale)
   const text = t(dict, textKey)
-  return NextResponse.json({ text, escalate })
+  return chatJsonResponse({ text, escalate, productIds, products: recommendedProducts })
 }

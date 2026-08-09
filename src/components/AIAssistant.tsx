@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo, type MouseEvent } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -14,16 +14,52 @@ import {
 } from '@/lib/mobile-fab-layout'
 import { useLocale } from '@/context/LocaleContext'
 import { useProducts } from '@/context/ProductsContext'
+import { useCart } from '@/context/CartContext'
+import { useToast } from '@/context/ToastContext'
 import { getProductById as getProductByIdFromData, getProductName, type Product } from '@/lib/data'
 import { useSaleActive } from '@/hooks/useSaleActive'
 import type { Locale } from '@/i18n/locales'
 
-type Message = { role: 'user' | 'assistant'; text: string; escalate?: boolean; productIds?: string[] }
+type ChatProductSnippet = {
+  id: string
+  slug: string
+  name: string
+  priceHuf: number
+  discountPriceHuf?: number | null
+  image?: string
+  category?: string
+}
+
+type Message = {
+  role: 'user' | 'assistant'
+  text: string
+  escalate?: boolean
+  productIds?: string[]
+  products?: ChatProductSnippet[]
+}
 
 function parseProductIds(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) return undefined
-  const ids = value.filter((id): id is string => typeof id === 'string' && id.length > 0).slice(0, 2)
+  const ids = value.filter((id): id is string => typeof id === 'string' && id.length > 0).slice(0, 3)
   return ids.length > 0 ? ids : undefined
+}
+
+function parseProductSnippets(value: unknown): ChatProductSnippet[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const products = value
+    .filter((p): p is Record<string, unknown> => !!p && typeof p === 'object')
+    .map((p) => ({
+      id: typeof p.id === 'string' ? p.id : '',
+      slug: typeof p.slug === 'string' ? p.slug : '',
+      name: typeof p.name === 'string' ? p.name : '',
+      priceHuf: typeof p.priceHuf === 'number' ? p.priceHuf : 0,
+      discountPriceHuf: typeof p.discountPriceHuf === 'number' ? p.discountPriceHuf : null,
+      image: typeof p.image === 'string' ? p.image : '',
+      category: typeof p.category === 'string' ? p.category : '',
+    }))
+    .filter((p) => p.id && p.slug && p.name)
+    .slice(0, 3)
+  return products.length > 0 ? products : undefined
 }
 
 const SPEECH_LANG: Record<Locale, string> = {
@@ -89,6 +125,7 @@ export function AIAssistant() {
         const data = await res.json().catch(() => ({}))
         if (res.ok && typeof data?.text === 'string') {
           const productIds = parseProductIds(data.productIds)
+          const products = parseProductSnippets(data.products)
           setMessages((m) => [
             ...m,
             {
@@ -96,6 +133,7 @@ export function AIAssistant() {
               text: data.text,
               escalate: !!data.escalate,
               ...(productIds ? { productIds } : {}),
+              ...(products ? { products } : {}),
             },
           ])
         } else {
@@ -242,7 +280,11 @@ export function AIAssistant() {
                       <p className="mt-2 text-xs opacity-90">{t('ai.escalateNote')}</p>
                     )}
                     {m.role === 'assistant' && m.productIds && m.productIds.length > 0 && (
-                      <ChatProductRecommendations productIds={m.productIds} />
+                      <ChatProductRecommendations
+                        productIds={m.productIds}
+                        snippets={m.products}
+                        onNavigate={() => setOpen(false)}
+                      />
                     )}
                   </div>
                 </div>
@@ -305,83 +347,262 @@ export function AIAssistant() {
   )
 }
 
-function ChatProductRecommendations({ productIds }: { productIds: string[] }) {
+function ChatProductRecommendations({
+  productIds,
+  snippets,
+  onNavigate,
+}: {
+  productIds: string[]
+  snippets?: ChatProductSnippet[]
+  onNavigate?: () => void
+}) {
   const { getProductById: getProductByIdFromContext } = useProducts()
   const getProductById = useCallback(
     (id: string) => getProductByIdFromContext(id) ?? getProductByIdFromData(id),
     [getProductByIdFromContext]
   )
+  const snippetById = useMemo(() => {
+    const map = new Map<string, ChatProductSnippet>()
+    for (const s of snippets ?? []) map.set(s.id, s)
+    return map
+  }, [snippets])
 
-  const products = productIds
-    .map((id) => getProductById(id))
-    .filter((p): p is Product => p != null)
+  const cards = productIds
+    .map((id) => {
+      const full = getProductById(id)
+      if (full) return { kind: 'full' as const, product: full }
+      const snip = snippetById.get(id)
+      if (snip) return { kind: 'snip' as const, product: snip }
+      return null
+    })
+    .filter((c): c is NonNullable<typeof c> => c != null)
+    .slice(0, 3)
 
-  if (products.length === 0) return null
+  if (cards.length === 0) return null
 
   return (
     <div className="mt-3 space-y-2">
-      {products.map((product) => (
-        <ChatProductCard key={product.id} product={product} />
-      ))}
+      {cards.map((card) =>
+        card.kind === 'full' ? (
+          <ChatProductCard
+            key={card.product.id}
+            product={card.product}
+            onNavigate={onNavigate}
+          />
+        ) : (
+          <ChatProductSnippetCard
+            key={card.product.id}
+            product={card.product}
+            onNavigate={onNavigate}
+          />
+        )
+      )}
     </div>
   )
 }
 
-function ChatProductCard({ product }: { product: Product }) {
+function ChatProductCard({
+  product,
+  onNavigate,
+}: {
+  product: Product
+  onNavigate?: () => void
+}) {
   const { locale, t } = useLocale()
+  const { addItem } = useCart()
+  const { toast } = useToast()
   const saleActive = useSaleActive(product)
   const productName = getProductName(product, locale)
   const priceHuf =
     saleActive && product.discountPriceHuf != null ? product.discountPriceHuf : product.priceHuf
   const hasDiscount = saleActive && product.discountPriceHuf != null
-  const hasImage = product.image?.startsWith('/') || product.image?.startsWith('http')
-  const isLocalImage = product.image?.startsWith('/')
+  const productHref = `/products/${product.slug}`
+  const canAdd = product.stock !== 0
+
+  const handleAddToCart = (e: MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!canAdd) return
+    addItem(product.id, 1, undefined, product)
+    toast(t('ai.addedToCart') || t('cart.toastAdded') || 'Termék a kosárban')
+  }
 
   return (
-    <Link
-      href={`/termek/${product.slug}`}
-      className="flex gap-2.5 p-2 rounded-xl bg-background/70 hover:bg-background border border-[var(--border)] transition-colors focus:outline-none focus:ring-2 focus:ring-accent"
-    >
-      <div className="relative w-14 h-14 shrink-0 rounded-lg overflow-hidden bg-[var(--border)]">
-        {hasImage ? (
-          isLocalImage ? (
-            <Image
-              src={product.image}
-              alt={productName}
-              fill
-              className="object-cover"
-              sizes="56px"
-            />
-          ) : (
-            <img
-              src={product.image}
-              alt={productName}
-              className="absolute inset-0 w-full h-full object-cover"
-              referrerPolicy="no-referrer"
-            />
-          )
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-muted text-[10px] px-1 text-center">
-            {t('product.noImage')}
-          </div>
-        )}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-xs font-medium text-foreground line-clamp-2 leading-snug">{productName}</p>
-        <div className="mt-0.5 flex items-baseline gap-1.5 flex-wrap">
-          {hasDiscount && (
-            <span className="text-[10px] text-muted line-through">
-              {product.priceHuf.toLocaleString('hu-HU')} Ft
-            </span>
-          )}
-          <span
-            className={`text-xs font-semibold ${hasDiscount ? 'text-discount' : 'text-foreground'}`}
+    <div className="rounded-xl bg-background/70 border border-[var(--border)] overflow-hidden">
+      <div className="flex gap-2.5 p-2">
+        <Link
+          href={productHref}
+          onClick={onNavigate}
+          className="relative w-14 h-14 shrink-0 rounded-lg overflow-hidden bg-[var(--border)] focus:outline-none focus:ring-2 focus:ring-accent"
+        >
+          <ChatProductThumb image={product.image} alt={productName} />
+        </Link>
+        <div className="min-w-0 flex-1">
+          <Link
+            href={productHref}
+            onClick={onNavigate}
+            className="text-xs font-medium text-foreground line-clamp-2 leading-snug hover:underline"
           >
-            {priceHuf.toLocaleString('hu-HU')} Ft
-          </span>
+            {productName}
+          </Link>
+          <div className="mt-0.5 flex items-baseline gap-1.5 flex-wrap">
+            {hasDiscount && (
+              <span className="text-[10px] text-muted line-through">
+                {product.priceHuf.toLocaleString('hu-HU')} Ft
+              </span>
+            )}
+            <span
+              className={`text-xs font-semibold ${hasDiscount ? 'text-discount' : 'text-foreground'}`}
+            >
+              {priceHuf.toLocaleString('hu-HU')} Ft
+            </span>
+          </div>
         </div>
       </div>
-    </Link>
+      <div className="flex gap-1.5 px-2 pb-2">
+        <Link
+          href={productHref}
+          onClick={onNavigate}
+          className="flex-1 text-center text-[11px] font-medium px-2 py-1.5 rounded-lg border border-[var(--border)] text-foreground hover:bg-[var(--border)] transition-colors"
+        >
+          {t('ai.viewProduct')}
+        </Link>
+        <button
+          type="button"
+          onClick={handleAddToCart}
+          disabled={!canAdd}
+          className="flex-1 text-center text-[11px] font-medium px-2 py-1.5 rounded-lg bg-accent text-white hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {t('buttons.addToCart')}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/** Ha a ProductsContext még nem töltötte be a katalógust, az API snippetből is kirajzolható a kártya. */
+function ChatProductSnippetCard({
+  product,
+  onNavigate,
+}: {
+  product: ChatProductSnippet
+  onNavigate?: () => void
+}) {
+  const { t } = useLocale()
+  const { addItem } = useCart()
+  const { toast } = useToast()
+  const { getProductById: getProductByIdFromContext } = useProducts()
+  const productHref = `/products/${product.slug}`
+  const priceHuf =
+    product.discountPriceHuf != null && product.discountPriceHuf < product.priceHuf
+      ? product.discountPriceHuf
+      : product.priceHuf
+  const hasDiscount =
+    product.discountPriceHuf != null && product.discountPriceHuf < product.priceHuf
+
+  const handleAddToCart = (e: MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const full =
+      getProductByIdFromContext(product.id) ?? getProductByIdFromData(product.id)
+    if (full) {
+      addItem(full.id, 1, undefined, full)
+    } else {
+      addItem(product.id, 1, undefined, {
+        id: product.id,
+        slug: product.slug,
+        name: product.name,
+        nameEn: product.name,
+        priceHuf: product.priceHuf,
+        priceEur: Math.round(product.priceHuf / 400),
+        discountPriceHuf: product.discountPriceHuf ?? undefined,
+        condition: 'Új',
+        category: product.category || 'Egyéb',
+        image: product.image || '',
+        images: product.image ? [product.image] : [],
+        stock: -1,
+        description: '',
+      })
+    }
+    toast(t('ai.addedToCart') || t('cart.toastAdded') || 'Termék a kosárban')
+  }
+
+  return (
+    <div className="rounded-xl bg-background/70 border border-[var(--border)] overflow-hidden">
+      <div className="flex gap-2.5 p-2">
+        <Link
+          href={productHref}
+          onClick={onNavigate}
+          className="relative w-14 h-14 shrink-0 rounded-lg overflow-hidden bg-[var(--border)] focus:outline-none focus:ring-2 focus:ring-accent"
+        >
+          <ChatProductThumb image={product.image} alt={product.name} />
+        </Link>
+        <div className="min-w-0 flex-1">
+          <Link
+            href={productHref}
+            onClick={onNavigate}
+            className="text-xs font-medium text-foreground line-clamp-2 leading-snug hover:underline"
+          >
+            {product.name}
+          </Link>
+          <div className="mt-0.5 flex items-baseline gap-1.5 flex-wrap">
+            {hasDiscount && (
+              <span className="text-[10px] text-muted line-through">
+                {product.priceHuf.toLocaleString('hu-HU')} Ft
+              </span>
+            )}
+            <span
+              className={`text-xs font-semibold ${hasDiscount ? 'text-discount' : 'text-foreground'}`}
+            >
+              {priceHuf.toLocaleString('hu-HU')} Ft
+            </span>
+          </div>
+        </div>
+      </div>
+      <div className="flex gap-1.5 px-2 pb-2">
+        <Link
+          href={productHref}
+          onClick={onNavigate}
+          className="flex-1 text-center text-[11px] font-medium px-2 py-1.5 rounded-lg border border-[var(--border)] text-foreground hover:bg-[var(--border)] transition-colors"
+        >
+          {t('ai.viewProduct')}
+        </Link>
+        <button
+          type="button"
+          onClick={handleAddToCart}
+          className="flex-1 text-center text-[11px] font-medium px-2 py-1.5 rounded-lg bg-accent text-white hover:opacity-90 transition-opacity"
+        >
+          {t('buttons.addToCart')}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function ChatProductThumb({ image, alt }: { image?: string; alt: string }) {
+  const { t } = useLocale()
+  const hasImage = !!image && (image.startsWith('/') || image.startsWith('http'))
+  const isLocalImage = !!image?.startsWith('/')
+
+  if (!hasImage || !image) {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center text-muted text-[10px] px-1 text-center">
+        {t('product.noImage')}
+      </div>
+    )
+  }
+
+  if (isLocalImage) {
+    return <Image src={image} alt={alt} fill className="object-cover" sizes="56px" />
+  }
+
+  return (
+    <img
+      src={image}
+      alt={alt}
+      className="absolute inset-0 w-full h-full object-cover"
+      referrerPolicy="no-referrer"
+    />
   )
 }
 

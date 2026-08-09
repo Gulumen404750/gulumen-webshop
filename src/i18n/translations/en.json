@@ -694,7 +694,9 @@
     "voiceStart": "Speak – voice input",
     "voiceStop": "Stop listening",
     "voiceListening": "Listening…",
-    "voiceUnsupported": "Voice input is not supported in this browser. Type your question."
+    "voiceUnsupported": "Voice input is not supported in this browser. Type your question.",
+    "viewProduct": "View product",
+    "addedToCart": "Added to cart"
   },
   "seo": {
     "title": "Gulumen – Your home is close to our heart.",

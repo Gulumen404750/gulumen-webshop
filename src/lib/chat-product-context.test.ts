@@ -22,6 +22,10 @@ describe('extractProductSlugFromPathname', () => {
     expect(extractProductSlugFromPathname('/termek/proba-taska')).toBe('proba-taska')
   })
 
+  it('reads slug from /products alias path', () => {
+    expect(extractProductSlugFromPathname('/products/proba-taska')).toBe('proba-taska')
+  })
+
   it('returns null on non-product paths', () => {
     expect(extractProductSlugFromPathname('/kosar')).toBeNull()
   })

@@ -8,10 +8,10 @@ import { productSlugLookupCandidates } from '@/lib/slug'
 import { isSaleActive } from '@/lib/storefront-config'
 import type { Product } from '@/lib/data'
 
-/** Termékoldal slug a pathname-ből: /termek/[slug] */
+/** Termékoldal slug a pathname-ből: /termek/[slug] vagy /products/[slug] */
 export function extractProductSlugFromPathname(pathname: string | null | undefined): string | null {
   if (!pathname) return null
-  const match = pathname.match(/^\/termek\/([^/?#]+)/)
+  const match = pathname.match(/^\/(?:termek|products)\/([^/?#]+)/)
   if (!match?.[1]) return null
   try {
     return decodeURIComponent(match[1])

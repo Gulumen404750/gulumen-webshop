@@ -694,7 +694,9 @@
     "voiceStart": "Beszélj – hangfelismerés",
     "voiceStop": "Felismerés leállítása",
     "voiceListening": "Hallgatlak…",
-    "voiceUnsupported": "A hangbevitel nem támogatott ebben a böngészőben. Írd be a kérdésed."
+    "voiceUnsupported": "A hangbevitel nem támogatott ebben a böngészőben. Írd be a kérdésed.",
+    "viewProduct": "Megnézem",
+    "addedToCart": "Hozzáadva a kosárhoz"
   },
   "seo": {
     "title": "Gulumen – A te otthonod, a mi szívügyünk.",

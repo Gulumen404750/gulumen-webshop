@@ -679,7 +679,9 @@
     "voiceStart": "Vorbește – intrare vocală",
     "voiceStop": "Oprește ascultarea",
     "voiceListening": "Ascult…",
-    "voiceUnsupported": "Intrarea vocală nu este suportată în acest browser. Scrie întrebarea."
+    "voiceUnsupported": "Intrarea vocală nu este suportată în acest browser. Scrie întrebarea.",
+    "viewProduct": "Vezi produsul",
+    "addedToCart": "Adăugat în coș"
   },
   "faq": {
     "intro": "Întrebări frecvente despre produsele Gulumen și despre comenzi.",
