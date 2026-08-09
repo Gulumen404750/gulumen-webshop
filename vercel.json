@@ -3,6 +3,14 @@
     {
       "path": "/api/cron/data-retention",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/process-outbox",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/cleanup-stuck-payments",
+      "schedule": "*/10 * * * *"
     }
   ]
 }

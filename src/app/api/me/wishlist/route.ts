@@ -8,7 +8,7 @@ import { getSession } from '@/lib/auth'
  * Rate limit: 60/perc/IP. Vissza: { productIds: string[] }.
  */
 export async function GET(request: Request) {
-  const limit = rateLimit(request)
+  const limit = await rateLimit(request)
   if (!limit.ok) {
     return NextResponse.json(
       { error: 'Túl sok kérés. Próbáld újra később.' },

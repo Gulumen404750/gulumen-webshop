@@ -61,7 +61,7 @@ function computeTotals(
 }
 
 export async function POST(request: Request) {
-  const limit = rateLimit(request)
+  const limit = await rateLimit(request)
   if (!limit.ok) {
     return NextResponse.json({ error: 'Túl sok kérés. Próbáld újra később.' }, { status: 429 })
   }

@@ -3,6 +3,7 @@ import { z } from 'zod'
 import bcrypt from 'bcryptjs'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { createSession, getSessionCookieHeader, isJwtConfigured } from '@/lib/auth'
+import { rateLimit } from '@/lib/rate-limit'
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -14,6 +15,15 @@ export async function POST(request: Request) {
   if (!isDbConfigured() || !isJwtConfigured()) {
     return NextResponse.json({ error: 'Auth not configured' }, { status: 503 })
   }
+
+  const limit = await rateLimit(request, 'auth')
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: 'Too many requests. Try again later.' },
+      { status: 429 }
+    )
+  }
+
   let body: unknown
   try {
     body = await request.json()

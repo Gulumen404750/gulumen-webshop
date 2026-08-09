@@ -7,6 +7,7 @@ import {
   createCheckoutOrders,
   setOrderCustomerEmail,
   getProductOrdersCount,
+  OutOfStockException,
   type OrderItem,
 } from '@/lib/orders'
 import {
@@ -109,7 +110,7 @@ function splitCartAndComputeTotals(
 export async function POST(request: Request) {
   const idemKey = getIdempotencyKey(request)
   if (idemKey) {
-    const cached = getIdempotentResponse(idemKey)
+    const cached = await getIdempotentResponse(idemKey)
     if (cached) {
       return NextResponse.json(cached.body, {
         status: cached.status,
@@ -118,7 +119,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const limit = rateLimit(request)
+  const limit = await rateLimit(request)
   if (!limit.ok) {
     return NextResponse.json(
       { error: 'Túl sok kérés. Próbáld újra később.' },
@@ -217,12 +218,38 @@ export async function POST(request: Request) {
   const provider = getPaymentProvider()
   const currency = 'huf'
 
-  const createdOrders = await createCheckoutOrders({
-    orderGroupId,
-    inStock: hasInStock ? inStock : undefined,
-    sourcing: hasSourcing ? sourcing : undefined,
-    currency,
-  })
+  let createdOrders
+  try {
+    createdOrders = await createCheckoutOrders({
+      orderGroupId,
+      inStock: hasInStock ? inStock : undefined,
+      sourcing: hasSourcing ? sourcing : undefined,
+      currency,
+    })
+  } catch (err) {
+    if (reservationIds.length > 0) {
+      // Best-effort: ha a rendelés létrehozás elbukik, felszabadítjuk a sourcing slotokat.
+      // (Nincs orderId még – a reservationök orderId nélkül maradnak, expire cron / manuális cancel.)
+      try {
+        const { prisma, isDbConfigured } = await import('@/lib/prisma')
+        if (isDbConfigured()) {
+          await prisma.productReservation.updateMany({
+            where: { id: { in: reservationIds }, status: 'RESERVED' },
+            data: { status: 'CANCELED' },
+          })
+        }
+      } catch {
+        // ignore cleanup errors
+      }
+    }
+    if (err instanceof OutOfStockException) {
+      return NextResponse.json(
+        { error: 'Out of stock', productId: err.productId, code: 'out_of_stock' },
+        { status: 409 }
+      )
+    }
+    throw err
+  }
 
   for (const order of createdOrders) {
     await setOrderCustomerEmail(order.id, customer.email)
@@ -309,7 +336,7 @@ export async function POST(request: Request) {
 
   const payload = { orderGroupId, payments: paymentResults }
   if (idemKey) {
-    setIdempotentResponse(idemKey, payload, 200)
+    await setIdempotentResponse(idemKey, payload, 200)
   }
   return NextResponse.json(payload)
 }
