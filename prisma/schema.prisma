@@ -206,6 +206,10 @@ model Order {
   billingCity        String?
   billingStreet      String?
   billingHouseNumber String?
+  /// Futárnak szóló megjegyzés / cím pontosítás (kapukód, emelet, stb.).
+  deliveryNotes      String?
+  /// Cím típusa: home | business
+  addressType        String?
   stripeSessionId    String?
   paymentIntentId    String?
   amountPaid         Int?

@@ -74,6 +74,8 @@ export type Order = {
   billingCity?: string
   billingStreet?: string
   billingHouseNumber?: string
+  deliveryNotes?: string
+  addressType?: string
   refundedAmount?: number
   refundStatus?: RefundStatus
   cancelRequestedAt?: string
@@ -161,6 +163,8 @@ function dbOrderToOrder(row: {
   billingCity?: string | null
   billingStreet?: string | null
   billingHouseNumber?: string | null
+  deliveryNotes?: string | null
+  addressType?: string | null
   stripeSessionId: string | null
   paymentIntentId: string | null
   amountPaid: number | null
@@ -206,6 +210,8 @@ function dbOrderToOrder(row: {
     billingCity: row.billingCity ?? undefined,
     billingStreet: row.billingStreet ?? undefined,
     billingHouseNumber: row.billingHouseNumber ?? undefined,
+    deliveryNotes: row.deliveryNotes ?? undefined,
+    addressType: row.addressType ?? undefined,
     userId: row.userId ?? undefined,
     pointsDiscountHuf: row.pointsDiscountHuf,
     pointsUsed: row.pointsUsed,
@@ -249,6 +255,8 @@ function customerSnapshotFields(customer?: OrderCustomerSnapshot) {
     billingCity: customer.billingCity,
     billingStreet: customer.billingStreet,
     billingHouseNumber: customer.billingHouseNumber,
+    deliveryNotes: customer.deliveryNotes,
+    addressType: customer.addressType,
   }
 }
 
@@ -625,6 +633,8 @@ export async function createCheckoutOrders(params: {
           billingCity: params.customer?.billingCity ?? undefined,
           billingStreet: params.customer?.billingStreet ?? undefined,
           billingHouseNumber: params.customer?.billingHouseNumber ?? undefined,
+          deliveryNotes: params.customer?.deliveryNotes ?? undefined,
+          addressType: params.customer?.addressType,
         })
       }
       if (params.sourcing && params.sourcing.items.length > 0) {
@@ -684,6 +694,8 @@ export async function createCheckoutOrders(params: {
           billingCity: params.customer?.billingCity ?? undefined,
           billingStreet: params.customer?.billingStreet ?? undefined,
           billingHouseNumber: params.customer?.billingHouseNumber ?? undefined,
+          deliveryNotes: params.customer?.deliveryNotes ?? undefined,
+          addressType: params.customer?.addressType,
         })
       }
     })
@@ -716,6 +728,8 @@ export async function createCheckoutOrders(params: {
       billingCity: params.customer?.billingCity ?? undefined,
       billingStreet: params.customer?.billingStreet ?? undefined,
       billingHouseNumber: params.customer?.billingHouseNumber ?? undefined,
+      deliveryNotes: params.customer?.deliveryNotes ?? undefined,
+      addressType: params.customer?.addressType,
     }
     orders.push(o)
     result.push(o)
@@ -745,6 +759,8 @@ export async function createCheckoutOrders(params: {
       billingCity: params.customer?.billingCity ?? undefined,
       billingStreet: params.customer?.billingStreet ?? undefined,
       billingHouseNumber: params.customer?.billingHouseNumber ?? undefined,
+      deliveryNotes: params.customer?.deliveryNotes ?? undefined,
+      addressType: params.customer?.addressType,
     }
     orders.push(o)
     result.push(o)

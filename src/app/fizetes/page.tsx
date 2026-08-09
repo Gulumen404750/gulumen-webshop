@@ -63,6 +63,8 @@ export default function PaymentPage() {
   const [billingCity, setBillingCity] = useState('')
   const [billingStreet, setBillingStreet] = useState('')
   const [billingHouseNumber, setBillingHouseNumber] = useState('')
+  const [addressType, setAddressType] = useState<'home' | 'business'>('home')
+  const [deliveryNotes, setDeliveryNotes] = useState('')
   const [usePoints, setUsePoints] = useState(false)
   const [couponCodeInput, setCouponCodeInput] = useState('')
   const [selectedCouponIds, setSelectedCouponIds] = useState<SelectableCouponId[]>([])
@@ -474,6 +476,8 @@ export default function PaymentPage() {
               houseNumber: shippingHouseNumber.trim(),
             },
             billingSameAsShipping,
+            addressType,
+            ...(deliveryNotes.trim() ? { deliveryNotes: deliveryNotes.trim() } : {}),
             ...(billingSameAsShipping
               ? {}
               : {
@@ -564,6 +568,8 @@ export default function PaymentPage() {
     billingCity,
     billingStreet,
     billingHouseNumber,
+    addressType,
+    deliveryNotes,
     t,
     cardTotalHuf,
     items,
@@ -853,6 +859,42 @@ export default function PaymentPage() {
                 className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
                 required
               />
+            </div>
+            <div className="sm:col-span-2">
+              <label htmlFor="checkout-address-type" className="block text-sm font-medium text-foreground mb-1">
+                {t('payment.addressTypeLabel') || 'Cím típusa'}
+              </label>
+              <select
+                id="checkout-address-type"
+                value={addressType}
+                onChange={(e) => setAddressType(e.target.value === 'business' ? 'business' : 'home')}
+                className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
+              >
+                <option value="home">{t('payment.addressTypeHome') || 'Lakás / Magáncím'}</option>
+                <option value="business">{t('payment.addressTypeBusiness') || 'Cég / Munkahely'}</option>
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label htmlFor="checkout-delivery-notes" className="block text-sm font-medium text-foreground mb-1">
+                {t('payment.deliveryNotesLabel') || 'Megjegyzés a futárnak / Cím pontosítása'}{' '}
+                <span className="text-muted font-normal">(opcionális)</span>
+              </label>
+              <textarea
+                id="checkout-delivery-notes"
+                value={deliveryNotes}
+                onChange={(e) => setDeliveryNotes(e.target.value.slice(0, 500))}
+                rows={3}
+                maxLength={500}
+                placeholder={
+                  t('payment.deliveryNotesPlaceholder') ||
+                  'Pl. kapukód, emelet, ajtó, csengő neve…'
+                }
+                className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground resize-y min-h-[5rem]"
+              />
+              <p className="mt-1.5 text-xs text-muted">
+                {t('payment.deliveryNotesHint') ||
+                  'Segítség a futárnak: kapukód, emelet/ajtó, csengő neve, kapu színe, munkahely neve.'}
+              </p>
             </div>
           </div>
         </div>

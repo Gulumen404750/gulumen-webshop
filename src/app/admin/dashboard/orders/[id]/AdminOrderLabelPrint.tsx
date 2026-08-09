@@ -18,6 +18,8 @@ export type LabelOrderData = {
   shippingCity: string | null
   shippingStreet: string | null
   shippingHouseNumber: string | null
+  deliveryNotes: string | null
+  addressType: string | null
   items: LabelOrderItem[]
   printedAt: string | null
 }
@@ -60,6 +62,13 @@ export function AdminOrderLabelPrint({ order }: { order: LabelOrderData }) {
 
   const recipientName = order.customerName?.trim() || 'Címzett'
   const addressLines = formatAddressLines(order)
+  const notes = order.deliveryNotes?.trim() || ''
+  const addressTypeLabel =
+    order.addressType === 'business'
+      ? 'Cég / Munkahely'
+      : order.addressType === 'home'
+        ? 'Lakás / Magáncím'
+        : order.addressType?.trim() || ''
   const contents = order.items
     .map((i) => `${i.qty}× ${i.name?.trim() || i.productId}`)
     .join(', ')
@@ -99,6 +108,9 @@ export function AdminOrderLabelPrint({ order }: { order: LabelOrderData }) {
           <div className="mb-4">
             <p className="text-[10px] uppercase tracking-wide text-neutral-600">Címzett</p>
             <p className="text-lg font-bold">{recipientName}</p>
+            {addressTypeLabel && (
+              <p className="text-[12px] font-semibold uppercase tracking-wide">{addressTypeLabel}</p>
+            )}
             {order.customerPhone && <p>Tel: {order.customerPhone}</p>}
             {addressLines.length > 0 ? (
               addressLines.map((line) => <p key={line}>{line}</p>)
@@ -107,6 +119,13 @@ export function AdminOrderLabelPrint({ order }: { order: LabelOrderData }) {
             )}
             {order.customerEmail && <p className="mt-1 text-neutral-700">{order.customerEmail}</p>}
           </div>
+
+          {notes && (
+            <div className="mb-4 border-2 border-black bg-neutral-100 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wide">Megjegyzés a futárnak</p>
+              <p className="mt-1 whitespace-pre-wrap text-[15px] font-bold leading-snug">{notes}</p>
+            </div>
+          )}
 
           <div className="border-t border-black pt-3">
             <p className="text-[10px] uppercase tracking-wide text-neutral-600">Csomag tartalma</p>

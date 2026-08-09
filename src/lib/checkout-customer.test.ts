@@ -53,6 +53,33 @@ describe('checkoutCustomerSchema', () => {
     })
     expect(result.success).toBe(false)
   })
+
+  it('accepts optional delivery notes and address type', () => {
+    const parsed = checkoutCustomerSchema.parse({
+      ...validCustomer,
+      deliveryNotes: '  Kapukód: 1234, 3. emelet  ',
+      addressType: 'business',
+    })
+    expect(parsed.deliveryNotes).toBe('Kapukód: 1234, 3. emelet')
+    expect(parsed.addressType).toBe('business')
+  })
+
+  it('defaults addressType to home and omits empty notes', () => {
+    const parsed = checkoutCustomerSchema.parse({
+      ...validCustomer,
+      deliveryNotes: '   ',
+    })
+    expect(parsed.addressType).toBe('home')
+    expect(parsed.deliveryNotes).toBeUndefined()
+  })
+
+  it('rejects delivery notes over 500 chars', () => {
+    const result = checkoutCustomerSchema.safeParse({
+      ...validCustomer,
+      deliveryNotes: 'x'.repeat(501),
+    })
+    expect(result.success).toBe(false)
+  })
 })
 
 describe('toOrderCustomerSnapshot', () => {
@@ -62,6 +89,8 @@ describe('toOrderCustomerSnapshot', () => {
     expect(snap.billingSameAsShipping).toBe(true)
     expect(snap.billingCity).toBeNull()
     expect(snap.shippingCity).toBe('Budapest')
+    expect(snap.deliveryNotes).toBeNull()
+    expect(snap.addressType).toBe('home')
   })
 
   it('stores separate billing fields', () => {
@@ -80,5 +109,17 @@ describe('toOrderCustomerSnapshot', () => {
     expect(snap.billingSameAsShipping).toBe(false)
     expect(snap.billingCity).toBe('Szentendre')
     expect(snap.billingHouseNumber).toBe('3')
+  })
+
+  it('persists courier notes and address type', () => {
+    const snap = toOrderCustomerSnapshot(
+      checkoutCustomerSchema.parse({
+        ...validCustomer,
+        deliveryNotes: 'Csengő: Kovács',
+        addressType: 'business',
+      })
+    )
+    expect(snap.deliveryNotes).toBe('Csengő: Kovács')
+    expect(snap.addressType).toBe('business')
   })
 })

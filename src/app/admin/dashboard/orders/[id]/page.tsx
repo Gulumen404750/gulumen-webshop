@@ -5,6 +5,7 @@ import { AdminOrderDetailActions } from './AdminOrderDetailActions'
 import { AdminOrderLabelPrint } from './AdminOrderLabelPrint'
 import { AdminOrderStatusBadge } from '@/components/admin/AdminOrderStatusBadge'
 import { adminOrderKindClasses, getAdminOrderVisualKind } from '@/lib/admin-order-badges'
+import { formatAddressTypeLabel } from '@/lib/checkout-customer'
 
 export const dynamic = 'force-dynamic'
 
@@ -81,6 +82,9 @@ export default async function AdminOrderDetailPage({ params }: Props) {
           </div>
           <div className="space-y-1">
             <p className="text-sm font-medium text-muted">Szállítási cím</p>
+            <p>
+              <span className="font-medium">Típus:</span> {formatAddressTypeLabel(order.addressType)}
+            </p>
             <p>{shippingAddress}</p>
             {!billingSame && (
               <>
@@ -93,6 +97,14 @@ export default async function AdminOrderDetailPage({ params }: Props) {
             )}
           </div>
         </div>
+        {order.deliveryNotes?.trim() && (
+          <div className="mt-4 rounded-lg border-2 border-amber-500/60 bg-amber-50/80 px-3 py-2 dark:bg-amber-950/30">
+            <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+              Megjegyzés a futárnak
+            </p>
+            <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{order.deliveryNotes.trim()}</p>
+          </div>
+        )}
       </div>
 
       <div className="print:hidden">
@@ -120,6 +132,8 @@ export default async function AdminOrderDetailPage({ params }: Props) {
             shippingCity: order.shippingCity,
             shippingStreet: order.shippingStreet,
             shippingHouseNumber: order.shippingHouseNumber,
+            deliveryNotes: order.deliveryNotes,
+            addressType: order.addressType,
             items: order.items.map((i) => ({
               name: i.name,
               productId: i.productId,
