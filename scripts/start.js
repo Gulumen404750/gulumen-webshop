@@ -1,7 +1,7 @@
 /**
  * Production start: Next.js a Railway által adott PORT-on (vagy 3000 lokálisan).
  * Deploy előtt: Prisma client generálás + migrate deploy (táblák létrehozása/frissítése).
- * Így mind Linux (Railway) mind Windows (lokál) esetén helyesen indul.
+ * Hallgatás: HOSTNAME (default 0.0.0.0) – Railway healthcheck csak így éri el.
  */
 const { spawnSync } = require('child_process')
 
@@ -37,7 +37,12 @@ run('npx', ['prisma', 'generate'])
 run('npx', ['prisma', 'migrate', 'deploy'])
 
 const port = process.env.PORT || '3000'
-const result = spawnSync('npx', ['next', 'start', '-p', port], {
+const hostname = process.env.HOSTNAME || '0.0.0.0'
+console.log(
+  `[start] Listening on ${hostname}:${port} (Railway PORT=${process.env.PORT ?? 'not set, default 3000'})`
+)
+
+const result = spawnSync('npx', ['next', 'start', '-H', hostname, '-p', port], {
   stdio: 'inherit',
   shell: true,
 })

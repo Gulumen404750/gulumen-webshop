@@ -1,0 +1,19 @@
+# Railway deploy – gulumen-webshop (www.gulumen.com).
+
+[build]
+builder = "nixpacks"
+buildCommand = "npm run build"
+watchPatterns = ["**/**"]
+
+[deploy]
+startCommand = "npm run start"
+# Liveness only – DB blip ne indítson restart loopot. Readiness: /api/health/ready
+healthcheckPath = "/api/health/live"
+healthcheckTimeout = 120
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 5
+
+[env]
+HOSTNAME = "0.0.0.0"
+NEXT_PUBLIC_APP_URL = "https://www.gulumen.com"
+NEXTAUTH_URL = "https://www.gulumen.com"
