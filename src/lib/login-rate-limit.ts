@@ -45,15 +45,19 @@ export async function loginRateLimitCheck(
   const id = getClientId(request)
 
   if (isRedisConfigured()) {
-    const redis = getRedis()
-    if (redis) {
-      const key = REDIS_PREFIX + id
-      const count = await redis.get<number>(key)
-      if (typeof count === 'number' && count >= MAX_FAILED_PER_WINDOW) {
-        logger.warn({ ip: id, failedCount: count }, 'Login rate limit exceeded')
-        return { ok: false, status: 429 }
+    try {
+      const redis = getRedis()
+      if (redis) {
+        const key = REDIS_PREFIX + id
+        const count = await redis.get<number>(key)
+        if (typeof count === 'number' && count >= MAX_FAILED_PER_WINDOW) {
+          logger.warn({ ip: id, failedCount: count }, 'Login rate limit exceeded')
+          return { ok: false, status: 429 }
+        }
+        return { ok: true }
       }
-      return { ok: true }
+    } catch (err) {
+      logger.warn({ err }, 'Login rate limit Redis error, memory fallback')
     }
   }
 
@@ -65,14 +69,18 @@ export async function loginRateLimitRecordFailure(request: Request): Promise<voi
   const id = getClientId(request)
 
   if (isRedisConfigured()) {
-    const redis = getRedis()
-    if (redis) {
-      const key = REDIS_PREFIX + id
-      const count = await redis.incr(key)
-      if (count === 1) {
-        await redis.pexpire(key, WINDOW_MS)
+    try {
+      const redis = getRedis()
+      if (redis) {
+        const key = REDIS_PREFIX + id
+        const count = await redis.incr(key)
+        if (count === 1) {
+          await redis.pexpire(key, WINDOW_MS)
+        }
+        return
       }
-      return
+    } catch (err) {
+      logger.warn({ err }, 'Login rate limit Redis incr failed, memory fallback')
     }
   }
 
@@ -91,10 +99,14 @@ export async function loginRateLimitRecordSuccess(request: Request): Promise<voi
   const id = getClientId(request)
 
   if (isRedisConfigured()) {
-    const redis = getRedis()
-    if (redis) {
-      await redis.del(REDIS_PREFIX + id)
-      return
+    try {
+      const redis = getRedis()
+      if (redis) {
+        await redis.del(REDIS_PREFIX + id)
+        return
+      }
+    } catch (err) {
+      logger.warn({ err }, 'Login rate limit Redis del failed, memory fallback')
     }
   }
 

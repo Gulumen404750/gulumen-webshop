@@ -83,12 +83,16 @@ export async function rateLimit(
   preset: RateLimitPreset = 'default'
 ): Promise<RateLimitResult> {
   if (isRedisConfigured()) {
-    const limiter = getRedisLimiter(preset)
-    if (limiter) {
-      const id = getClientId(request)
-      const { success } = await limiter.limit(id)
-      if (!success) return { ok: false, status: 429 }
-      return { ok: true }
+    try {
+      const limiter = getRedisLimiter(preset)
+      if (limiter) {
+        const id = getClientId(request)
+        const { success } = await limiter.limit(id)
+        if (!success) return { ok: false, status: 429 }
+        return { ok: true }
+      }
+    } catch (err) {
+      console.warn('[rate-limit] Redis error, falling back to memory:', err)
     }
   }
   return memoryLimit(request, preset)

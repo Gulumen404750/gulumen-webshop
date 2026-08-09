@@ -31,11 +31,15 @@ export async function getIdempotentResponse(
   key: string
 ): Promise<{ body: unknown; status: number; headers: Record<string, string> } | null> {
   if (isRedisConfigured()) {
-    const redis = getRedis()
-    if (redis) {
-      const raw = await redis.get<CachedResponse>(REDIS_PREFIX + key)
-      if (!raw) return null
-      return { body: raw.body, status: raw.status, headers: raw.headers ?? {} }
+    try {
+      const redis = getRedis()
+      if (redis) {
+        const raw = await redis.get<CachedResponse>(REDIS_PREFIX + key)
+        if (!raw) return null
+        return { body: raw.body, status: raw.status, headers: raw.headers ?? {} }
+      }
+    } catch (err) {
+      console.warn('[idempotency] Redis get failed, memory fallback:', err)
     }
   }
 
@@ -64,10 +68,14 @@ export async function setIdempotentResponse(
   }
 
   if (isRedisConfigured()) {
-    const redis = getRedis()
-    if (redis) {
-      await redis.set(REDIS_PREFIX + key, entry, { ex: TTL_SEC })
-      return
+    try {
+      const redis = getRedis()
+      if (redis) {
+        await redis.set(REDIS_PREFIX + key, entry, { ex: TTL_SEC })
+        return
+      }
+    } catch (err) {
+      console.warn('[idempotency] Redis set failed, memory fallback:', err)
     }
   }
 
