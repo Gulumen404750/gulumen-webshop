@@ -8,6 +8,7 @@ import Stripe from 'stripe'
 import { z } from 'zod'
 import { getProductsByIdsAsync, getTimedPurchaseStatus } from '@/lib/data'
 import type { Product } from '@/lib/data'
+import { isSaleActive } from '@/lib/storefront-config'
 import { createOrder, getProductOrdersCount, type OrderItem } from '@/lib/orders'
 import { rateLimit } from '@/lib/rate-limit'
 import { resolvePublicAppUrl } from '@/lib/bootstrap-auth-env'
@@ -56,7 +57,10 @@ function computeTotals(
   for (const { productId, qty } of items) {
     const product = productMap.get(productId)
     if (!product || qty < 1) continue
-    const priceHuf = product.discountPriceHuf ?? product.priceHuf
+    const priceHuf =
+      isSaleActive(product) && product.discountPriceHuf != null
+        ? product.discountPriceHuf
+        : product.priceHuf
     const lineTotal = priceHuf * qty
     subtotalHuf += lineTotal
     orderItems.push({
@@ -132,7 +136,9 @@ export async function POST(request: Request) {
     const subtotalPreview = items.reduce((s, i) => {
       const p = productMap.get(i.productId)
       if (!p) return s
-      return s + (p.discountPriceHuf ?? p.priceHuf) * i.qty
+      const unit =
+        isSaleActive(p) && p.discountPriceHuf != null ? p.discountPriceHuf : p.priceHuf
+      return s + unit * i.qty
     }, 0)
 
     const resolved = await resolveCheckoutCoupon({

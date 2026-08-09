@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { getPaymentTransactionById, updatePaymentTransactionStatus } from '@/lib/payment-transactions'
 import { getOrderById, setOrderStatus } from '@/lib/orders'
-import { markReservationsPaidByOrderId, markReservationsCanceledByOrderId } from '@/lib/reservations'
+import { markReservationsPaidByOrderId } from '@/lib/reservations'
 import { maybeSendOrderGroupConfirmationEmail } from '@/lib/order-email'
 import { finalizeOrderRewards } from '@/lib/checkout-rewards'
 import { clearUserCartSnapshot } from '@/lib/cart-snapshot'
+import { cancelPendingOrderWithStockRestore } from '@/lib/stuck-payments'
 import type { PaymentTransactionStatus } from '@/lib/payment-transactions'
 
 /**
@@ -96,11 +97,18 @@ async function applyTransactionOutcome(
       console.error('[payments/webhook] Order confirmation email error (webhook still 200):', emailErr)
     }
   } else if (newTxStatus === 'failed' || newTxStatus === 'cancelled') {
-    if (tx.mode === 'authorize') {
-      await markReservationsCanceledByOrderId(order.id)
+    // CAS cancel + in_stock restore (capture) / reservation cancel (authorize).
+    // Korábban csak authorize ágon volt reservation cleanup, a készlet pedig beragadt.
+    const result = await cancelPendingOrderWithStockRestore(order)
+    if (!result.cancelled) {
+      // Fallback ha a rendelés nem DB-s / már nem pending
+      await setOrderStatus(order.id, 'cancelled')
     }
-    await setOrderStatus(order.id, 'cancelled')
-    console.debug('[payments/webhook] Order marked cancelled', order.id)
+    console.debug('[payments/webhook] Order marked cancelled', {
+      orderId: order.id,
+      stockRestored: result.stockRestored,
+      reservationsCanceled: result.reservationsCanceled,
+    })
   }
 }
 

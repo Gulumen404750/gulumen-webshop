@@ -5,10 +5,12 @@ import {
   computePointsRedemption,
   computeShippingHuf,
   calculateDiscount,
+  resolveCartLines,
   FREE_SHIPPING_THRESHOLD,
   STANDARD_SHIPPING_FEE_HUF,
   type ResolvedCartLine,
 } from './checkout'
+import type { Product } from '@/lib/data'
 import { computeLuckySpinDiscount } from './gamification/lucky-spin'
 
 function line(
@@ -114,6 +116,59 @@ describe('computeShippingHuf', () => {
   it('is free at or above threshold', () => {
     expect(computeShippingHuf(FREE_SHIPPING_THRESHOLD)).toBe(0)
     expect(computeShippingHuf(FREE_SHIPPING_THRESHOLD + 1)).toBe(0)
+  })
+})
+
+describe('resolveCartLines', () => {
+  function product(partial: Partial<Product> & Pick<Product, 'id' | 'priceHuf'>): Product {
+    return {
+      name: partial.id,
+      slug: partial.id,
+      type: 'stock',
+      active: true,
+      onSale: false,
+      ...partial,
+    } as Product
+  }
+
+  it('uses discountPriceHuf only while sale window is active', () => {
+    const map = new Map<string, Product>([
+      [
+        'sale-on',
+        product({
+          id: 'sale-on',
+          priceHuf: 10_000,
+          discountPriceHuf: 7_000,
+          onSale: true,
+          saleStartAt: '2020-01-01T00:00:00.000Z',
+          saleEndAt: '2099-01-01T00:00:00.000Z',
+        }),
+      ],
+      [
+        'sale-off',
+        product({
+          id: 'sale-off',
+          priceHuf: 10_000,
+          discountPriceHuf: 7_000,
+          onSale: true,
+          saleStartAt: '2020-01-01T00:00:00.000Z',
+          saleEndAt: '2020-06-01T00:00:00.000Z',
+        }),
+      ],
+    ])
+
+    const lines = resolveCartLines(
+      [
+        { productId: 'sale-on', qty: 1 },
+        { productId: 'sale-off', qty: 2 },
+      ],
+      map
+    )
+
+    expect(lines).toEqual([
+      expect.objectContaining({ productId: 'sale-on', priceHuf: 7_000 }),
+      expect.objectContaining({ productId: 'sale-off', priceHuf: 10_000, qty: 2 }),
+    ])
   })
 })
 

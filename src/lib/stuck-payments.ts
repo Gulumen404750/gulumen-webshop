@@ -3,6 +3,8 @@
  * - status → cancelled
  * - in_stock készlet visszaírása
  * - sourcing reservation CANCELED
+ *
+ * Ugyanez a CAS-alapú cancel+restore a payment webhook failed/cancelled ágon is.
  */
 
 import { prisma, isDbConfigured } from '@/lib/prisma'
@@ -11,6 +13,55 @@ import { markReservationsCanceledByOrderId } from '@/lib/reservations'
 import { logger } from '@/lib/logger'
 
 const DEFAULT_STUCK_AFTER_MS = 45 * 60 * 1000
+
+export type CancelPendingOrderInput = {
+  id: string
+  orderType?: string | null
+  items: { productId: string; qty: number; fulfillmentType: string }[]
+}
+
+/**
+ * Atomian: payment_pending → cancelled + in_stock készlet visszaírás.
+ * Ha a rendelés már nem pending, no-op (dupla webhook / race biztonságos).
+ */
+export async function cancelPendingOrderWithStockRestore(
+  order: CancelPendingOrderInput
+): Promise<{ cancelled: boolean; stockRestored: number; reservationsCanceled: number }> {
+  if (!isDbConfigured()) {
+    return { cancelled: false, stockRestored: 0, reservationsCanceled: 0 }
+  }
+
+  let cancelled = false
+  let stockRestored = 0
+  let reservationsCanceled = 0
+
+  await prisma.$transaction(async (tx) => {
+    const updated = await tx.order.updateMany({
+      where: { id: order.id, status: 'payment_pending' },
+      data: { status: 'cancelled' },
+    })
+    if (updated.count === 0) return
+
+    cancelled = true
+
+    if (order.orderType === 'in_stock' || !order.orderType) {
+      const stockItems = order.items
+        .filter((i) => i.fulfillmentType === 'stock')
+        .map((i) => ({ productId: i.productId, qty: i.qty }))
+      if (stockItems.length > 0) {
+        await restoreStockAtomic(stockItems, tx)
+        stockRestored = stockItems.reduce((s, i) => s + i.qty, 0)
+      }
+    }
+  })
+
+  if (cancelled && order.orderType === 'sourcing') {
+    await markReservationsCanceledByOrderId(order.id)
+    reservationsCanceled = 1
+  }
+
+  return { cancelled, stockRestored, reservationsCanceled }
+}
 
 export async function cleanupStuckPayments(options?: {
   olderThanMs?: number
@@ -40,30 +91,10 @@ export async function cleanupStuckPayments(options?: {
 
   for (const order of stuck) {
     try {
-      await prisma.$transaction(async (tx) => {
-        const updated = await tx.order.updateMany({
-          where: { id: order.id, status: 'payment_pending' },
-          data: { status: 'cancelled' },
-        })
-        if (updated.count === 0) return
-
-        if (order.orderType === 'in_stock' || !order.orderType) {
-          const stockItems = order.items
-            .filter((i) => i.fulfillmentType === 'stock')
-            .map((i) => ({ productId: i.productId, qty: i.qty }))
-          if (stockItems.length > 0) {
-            await restoreStockAtomic(stockItems, tx)
-            stockRestored += stockItems.reduce((s, i) => s + i.qty, 0)
-          }
-        }
-      })
-
-      if (order.orderType === 'sourcing') {
-        await markReservationsCanceledByOrderId(order.id)
-        reservationsCanceled += 1
-      }
-
-      cancelled += 1
+      const result = await cancelPendingOrderWithStockRestore(order)
+      if (result.cancelled) cancelled += 1
+      stockRestored += result.stockRestored
+      reservationsCanceled += result.reservationsCanceled
     } catch (err) {
       logger.warn(
         { orderId: order.id, err: err instanceof Error ? err.message : String(err) },

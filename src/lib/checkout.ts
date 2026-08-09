@@ -11,6 +11,7 @@
 
 import type { Product } from '@/lib/data'
 import type { OrderItem } from '@/lib/orders'
+import { isSaleActive } from '@/lib/storefront-config'
 import {
   FREE_SHIPPING_THRESHOLD,
   MAX_CART_POINTS_COVERAGE,
@@ -124,7 +125,11 @@ export function resolveCartLines(
   for (const { productId, qty } of items) {
     const product = productMap.get(productId)
     if (!product || qty < 1) continue
-    const priceHuf = product.discountPriceHuf ?? product.priceHuf
+    // Csak aktív akcióablakban alkalmazható a discountPriceHuf (különben undercharge).
+    const priceHuf =
+      isSaleActive(product) && product.discountPriceHuf != null
+        ? product.discountPriceHuf
+        : product.priceHuf
     lines.push({
       productId,
       qty,
