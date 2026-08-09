@@ -178,6 +178,66 @@ export function resolveImageUrl(input: string | null | undefined): string {
   return cleaned || PLACEHOLDER_IMAGE
 }
 
+export type CdnImageSizeOptions = {
+  /** Cél szélesség px-ben (Bunny Optimizer / Dynamic Images API). */
+  width: number
+  /** Opcionális magasság. */
+  height?: number
+  /** JPEG/WebP minőség 1–100 (alap: 75). */
+  quality?: number
+}
+
+function isBunnyPullZoneUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    const host = parsed.hostname.toLowerCase()
+    return host.endsWith('.b-cdn.net') || host === getCdnHost().toLowerCase()
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Kis / közepes méretű CDN kép URL (Bunny Optimizer query).
+ * Relatív (/uploads, /img) és nem-Bunny URL-eket változatlanul adja vissza.
+ * Thumbnail: width ≈ 160 (80px doboz, 2× retina) → pár KB helyett MB.
+ */
+export function cdnSizedUrl(
+  input: string | null | undefined,
+  options: CdnImageSizeOptions
+): string {
+  const cleaned = cleanCdnUrl(input)
+  if (!cleaned || cleaned === PLACEHOLDER_IMAGE) return cleaned
+  if (!isBunnyPullZoneUrl(cleaned)) return cleaned
+
+  const width = Math.max(1, Math.floor(options.width))
+  try {
+    const parsed = new URL(cleaned)
+    parsed.searchParams.set('width', String(width))
+    if (options.height != null && options.height > 0) {
+      parsed.searchParams.set('height', String(Math.floor(options.height)))
+    }
+    const quality =
+      options.quality != null
+        ? Math.min(100, Math.max(1, Math.floor(options.quality)))
+        : 75
+    parsed.searchParams.set('quality', String(quality))
+    return parsed.toString()
+  } catch {
+    return cleaned
+  }
+}
+
+/** Galéria thumbnail (80px UI, retina). */
+export function cdnThumbnailUrl(input: string | null | undefined): string {
+  return cdnSizedUrl(input, { width: 160, height: 160, quality: 70 })
+}
+
+/** Termékoldal fő kép (viewport, nem teljes eredeti MB). */
+export function cdnGalleryMainUrl(input: string | null | undefined): string {
+  return cdnSizedUrl(input, { width: 1200, quality: 82 })
+}
+
 /** Bunny Storage feltöltés konfigurálva van-e. */
 export function isBunnyUploadConfigured(): boolean {
   return Boolean(

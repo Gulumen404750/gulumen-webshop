@@ -7,7 +7,12 @@ import { useSearchParams } from 'next/navigation'
 import { Share2 } from 'lucide-react'
 import { getDisplayStock, getProductName, getSourcingDealStatus, isUnlimitedStock } from '@/lib/data'
 import { isValidImageUrl, normalizeImageUrl } from '@/lib/product-images'
-import { cleanCdnUrls, resolveImageUrl } from '@/lib/cdn'
+import {
+  cleanCdnUrls,
+  cdnGalleryMainUrl,
+  cdnThumbnailUrl,
+  resolveImageUrl,
+} from '@/lib/cdn'
 import { SafeProductImage } from '@/components/SafeProductImage'
 import { ProductTabs } from '@/components/ProductTabs'
 import { SourcingDealBox } from '@/components/SourcingDealBox'
@@ -318,12 +323,13 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                 aria-label={t('product.openGallery') || 'Kép nagyítása / Galéria'}
               >
                 <SafeProductImage
-                  src={mainImage}
+                  src={cdnGalleryMainUrl(mainImage)}
                   alt={productName}
                   fit="contain"
                   fill
                   sizes="(max-width: 1024px) 100vw, 50vw"
                   priority
+                  optimize
                 />
                 {showSoldOverlay && <SoldImpactOverlay className="rounded-xl" label={t('status.expired')} />}
               </div>
@@ -400,7 +406,16 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                   aria-label={`${productName} ${i + 1}`}
                   aria-pressed={mainImageIndex === i}
                 >
-                  <SafeProductImage src={img} alt="" fit="cover" fill sizes="80px" />
+                  {/* Csak 80px thumbnail (~KB) – a nagy kép a kattintáskor töltődik a főnézetbe */}
+                  <SafeProductImage
+                    src={cdnThumbnailUrl(img)}
+                    alt=""
+                    fit="cover"
+                    fill
+                    sizes="80px"
+                    optimize
+                    priority={i < 2}
+                  />
                 </button>
               ))}
               {has360 && (

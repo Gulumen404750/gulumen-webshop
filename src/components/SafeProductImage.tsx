@@ -18,6 +18,11 @@ type Props = {
   priority?: boolean
   /** Ha true, mindig natív <img> (külső CDN / uploads). */
   preferNative?: boolean
+  /**
+   * Thumbnail / kis kép: Next.js image optimization (ne a teljes MB-os fájlt töltse).
+   * CDN URL-eknél is engedélyezi az optimalizálást.
+   */
+  optimize?: boolean
 }
 
 function isRemoteCdnUrl(url: string): boolean {
@@ -29,7 +34,8 @@ function isRemoteCdnUrl(url: string): boolean {
   )
 }
 
-function shouldUseNativeImg(url: string): boolean {
+function shouldUseNativeImg(url: string, optimize?: boolean): boolean {
+  if (optimize) return false
   if (!url || url === PLACEHOLDER_IMAGE) return false
   // Külső / dinamikus CDN URL → natív <img> (Next Image optimalizálás nélkül)
   if (isRemoteCdnUrl(url)) return true
@@ -37,7 +43,8 @@ function shouldUseNativeImg(url: string): boolean {
   return false
 }
 
-function shouldUnoptimize(url: string): boolean {
+function shouldUnoptimize(url: string, optimize?: boolean): boolean {
+  if (optimize) return false
   return (
     url.startsWith('/uploads/') ||
     url === PLACEHOLDER_IMAGE ||
@@ -59,14 +66,18 @@ export function SafeProductImage({
   sizes,
   priority,
   preferNative,
+  optimize,
 }: Props) {
   const resolved = resolveImageUrl(src)
   const [failed, setFailed] = useState(false)
   const displaySrc = failed ? PLACEHOLDER_IMAGE : resolved
   const fitClass = fit === 'contain' ? 'object-contain' : 'object-cover'
-  const useNative = preferNative || shouldUseNativeImg(displaySrc) || failed
+  const useNative =
+    !optimize && (preferNative || shouldUseNativeImg(displaySrc, optimize) || failed)
 
   if (useNative) {
+    const nativeLoading = priority ? 'eager' : 'lazy'
+    const nativeFetchPriority = priority ? 'high' : 'auto'
     if (fill) {
       return (
         // eslint-disable-next-line @next/next/no-img-element
@@ -75,6 +86,9 @@ export function SafeProductImage({
           alt={alt}
           className={`absolute inset-0 w-full h-full ${fitClass} ${className}`}
           referrerPolicy="no-referrer"
+          loading={nativeLoading}
+          fetchPriority={nativeFetchPriority}
+          decoding={priority ? 'sync' : 'async'}
           onError={() => {
             if (!failed) setFailed(true)
           }}
@@ -90,6 +104,9 @@ export function SafeProductImage({
         height={height}
         className={`${fitClass} ${className}`}
         referrerPolicy="no-referrer"
+        loading={nativeLoading}
+        fetchPriority={nativeFetchPriority}
+        decoding={priority ? 'sync' : 'async'}
         onError={() => {
           if (!failed) setFailed(true)
         }}
@@ -106,7 +123,8 @@ export function SafeProductImage({
         className={`${fitClass} ${className}`}
         sizes={sizes}
         priority={priority}
-        unoptimized={shouldUnoptimize(displaySrc)}
+        loading={priority ? undefined : 'lazy'}
+        unoptimized={shouldUnoptimize(displaySrc, optimize)}
         onError={() => {
           if (!failed) setFailed(true)
         }}
@@ -123,7 +141,8 @@ export function SafeProductImage({
       className={`${fitClass} ${className}`}
       sizes={sizes}
       priority={priority}
-      unoptimized={shouldUnoptimize(displaySrc)}
+      loading={priority ? undefined : 'lazy'}
+      unoptimized={shouldUnoptimize(displaySrc, optimize)}
       onError={() => {
         if (!failed) setFailed(true)
       }}
