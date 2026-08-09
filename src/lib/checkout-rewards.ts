@@ -269,7 +269,7 @@ export async function confirmPendingAndFinalizeOrderGroup(
   for (const order of orders) {
     if (order.status !== 'payment_pending') continue
 
-    const txs = getPaymentTransactionsByOrderId(order.id)
+    const txs = await getPaymentTransactionsByOrderId(order.id)
     const hasOpenStripeTx = txs.some(
       (tx) =>
         tx.provider === 'stripe' &&
@@ -296,7 +296,7 @@ export async function confirmPendingAndFinalizeOrderGroup(
     }
     for (const tx of txs) {
       if (tx.status === 'pending' || tx.status === 'created') {
-        updatePaymentTransactionStatus(tx.id, 'succeeded')
+        await updatePaymentTransactionStatus(tx.id, 'succeeded')
       }
     }
   }

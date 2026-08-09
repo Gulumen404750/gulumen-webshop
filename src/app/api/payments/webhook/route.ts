@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { getPaymentTransactionById, updatePaymentTransactionStatus } from '@/lib/payment-transactions'
+import {
+  getPaymentTransactionById,
+  claimPaymentTransactionStatus,
+} from '@/lib/payment-transactions'
 import { getOrderById, setOrderStatus } from '@/lib/orders'
 import { markReservationsPaidByOrderId } from '@/lib/reservations'
 import { maybeSendOrderGroupConfirmationEmail } from '@/lib/order-email'
@@ -17,6 +20,9 @@ import type { PaymentTransactionStatus } from '@/lib/payment-transactions'
  *
  * Generic body: { provider, transactionId, status, providerRef? }
  * status: succeeded | failed | cancelled | pending
+ *
+ * Státuszváltás: claimPaymentTransactionStatus (atomi CAS) – multi-instance alatt
+ * csak egy példány futtatja a side-effecteket.
  */
 const MAX_BODY_SIZE = 64 * 1024
 
@@ -46,18 +52,24 @@ async function applyTransactionOutcome(
   providerRef?: string,
   customerEmail?: string | null
 ): Promise<void> {
-  const tx = getPaymentTransactionById(transactionId)
-  if (!tx) {
+  const claim = await claimPaymentTransactionStatus(transactionId, newTxStatus, providerRef)
+  if (!claim.tx) {
     console.debug('[payments/webhook] Transaction not found', transactionId)
     return
   }
 
-  if (tx.status === 'succeeded' && newTxStatus === 'succeeded') {
+  // Idempotens újrapróba vagy vesztes race: side-effect NEM fut újra
+  if (!claim.claimed) {
+    console.debug('[payments/webhook] Transaction claim skipped', {
+      transactionId,
+      target: newTxStatus,
+      current: claim.tx.status,
+      alreadyInStatus: claim.alreadyInStatus,
+    })
     return
   }
 
-  updatePaymentTransactionStatus(transactionId, newTxStatus, providerRef)
-
+  const tx = claim.tx
   const order = await getOrderById(tx.orderId)
   if (!order) {
     console.debug('[payments/webhook] Order not found for tx', tx.orderId)
@@ -147,7 +159,7 @@ async function handleStripeWebhook(request: Request, signature: string): Promise
       return NextResponse.json({ received: true })
     }
 
-    const tx = getPaymentTransactionById(transactionId)
+    const tx = await getPaymentTransactionById(transactionId)
     if (!tx) {
       console.debug('[payments/webhook] Transaction not found', transactionId)
       return NextResponse.json({ received: true })

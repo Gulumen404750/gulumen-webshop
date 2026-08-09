@@ -12,7 +12,6 @@ import {
 } from '@/lib/orders'
 import {
   createPaymentTransaction,
-  updatePaymentTransactionStatus,
 } from '@/lib/payment-transactions'
 import { getPaymentProvider } from '@/lib/payment-provider'
 import { getLoyaltyByEmail } from '@/lib/loyalty'
@@ -462,14 +461,14 @@ export async function POST(request: Request) {
 
     const isCapture = order.orderType === 'in_stock'
     const mode = isCapture ? 'capture' : 'authorize'
-    const tx = createPaymentTransaction({
+    const tx = await createPaymentTransaction({
       orderId: order.id,
       provider: provider.name,
       mode,
       amount: order.totalHuf,
       currency,
+      status: 'pending',
     })
-    updatePaymentTransactionStatus(tx.id, 'pending')
 
     const params = {
       transactionId: tx.id,
