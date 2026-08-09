@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { getRedis, isRedisConfigured } from '@/lib/redis'
 
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 /**
  * GET /api/health/ready – readiness.
  * Prisma DB + (ha konfigurált) Upstash Redis elérhetőség.

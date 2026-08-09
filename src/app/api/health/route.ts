@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 /**
  * GET /api/health – liveness alias (Railway restart-loop elkerülés).
  * DB/Redis ellenőrzés: /api/health/ready
