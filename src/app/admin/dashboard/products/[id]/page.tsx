@@ -508,7 +508,8 @@ export default function AdminProductEditPage() {
             />
             <p className="mt-1.5 text-xs text-muted">
               Itt adhatsz meg részletes adatokat a termékről (anyaghasználat, tisztítás, méretek, használat, GYIK).
-              Elég magyarul beírnod, az AI automatikusan a vásárló által használt nyelven fog válaszolni belőle!
+              Árat és akciót NE írj ide, mert az AI mindig automatikusan az adatbázisban lévő éles árat látja!
+              Elég magyarul beírnod, az AI a vásárló nyelvén fog válaszolni.
             </p>
           </div>
         </div>

@@ -1,9 +1,12 @@
 /**
  * Storefront chat: aktuális termék kontextus az OpenAI system message-hez.
+ * Az ár mindig az adatbázis éles akcióablaka szerint számítódik.
  */
 
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { productSlugLookupCandidates } from '@/lib/slug'
+import { isSaleActive } from '@/lib/storefront-config'
+import type { Product } from '@/lib/data'
 
 /** Termékoldal slug a pathname-ből: /termek/[slug] */
 export function extractProductSlugFromPathname(pathname: string | null | undefined): string | null {
@@ -23,6 +26,9 @@ export type ChatProductContextRow = {
   name: string
   priceHuf: number
   discountPriceHuf: number | null
+  onSale: boolean
+  saleStartAt: Date | string | null
+  saleEndAt: Date | string | null
   description_hu: string | null
   aiKnowledgeBase: string | null
   stock: number
@@ -30,56 +36,114 @@ export type ChatProductContextRow = {
   archived: boolean
 }
 
-/** Effektív megjelenítendő ár (Ft) – ha van kedvezményes ár, azt használjuk. */
+export type ChatProductPricing = {
+  normalPriceHuf: number
+  effectivePriceHuf: number
+  isSale: boolean
+}
+
+/** Éles ár: akciós ablak + discountPriceHuf alapján. */
+export function resolveChatProductPricing(
+  product: Pick<
+    ChatProductContextRow,
+    'priceHuf' | 'discountPriceHuf' | 'onSale' | 'saleStartAt' | 'saleEndAt'
+  >,
+  now: Date = new Date()
+): ChatProductPricing {
+  const saleProduct = {
+    onSale: product.onSale,
+    discountPriceHuf: product.discountPriceHuf ?? undefined,
+    priceHuf: product.priceHuf,
+    saleStartAt:
+      product.saleStartAt instanceof Date
+        ? product.saleStartAt.toISOString()
+        : product.saleStartAt ?? undefined,
+    saleEndAt:
+      product.saleEndAt instanceof Date
+        ? product.saleEndAt.toISOString()
+        : product.saleEndAt ?? undefined,
+  } as Product
+
+  const isSale = isSaleActive(saleProduct, now)
+  if (isSale && typeof product.discountPriceHuf === 'number') {
+    return {
+      normalPriceHuf: product.priceHuf,
+      effectivePriceHuf: product.discountPriceHuf,
+      isSale: true,
+    }
+  }
+  return {
+    normalPriceHuf: product.priceHuf,
+    effectivePriceHuf: product.priceHuf,
+    isSale: false,
+  }
+}
+
+/** @deprecated Használd a resolveChatProductPricing-et (akcióablak-tudatos). */
 export function resolveChatProductPriceHuf(product: {
   priceHuf: number
   discountPriceHuf?: number | null
+  onSale?: boolean
+  saleStartAt?: Date | string | null
+  saleEndAt?: Date | string | null
 }): number {
-  if (
-    typeof product.discountPriceHuf === 'number' &&
-    product.discountPriceHuf > 0 &&
-    product.discountPriceHuf < product.priceHuf
-  ) {
-    return product.discountPriceHuf
-  }
-  return product.priceHuf
+  return resolveChatProductPricing({
+    priceHuf: product.priceHuf,
+    discountPriceHuf: product.discountPriceHuf ?? null,
+    onSale: product.onSale ?? false,
+    saleStartAt: product.saleStartAt ?? null,
+    saleEndAt: product.saleEndAt ?? null,
+  }).effectivePriceHuf
+}
+
+function formatStockLabel(stock: number): string {
+  if (stock === 0) return 'Elfogyott'
+  if (stock < 0) return 'Raktáron'
+  return `${stock} db`
+}
+
+function formatHuf(amount: number): string {
+  return `${amount.toLocaleString('hu-HU')} Ft`
 }
 
 /**
  * OpenAI system prompt blokk az aktuális termékoldalról.
  * A tudásbázis magyarul van; az AI a vásárló nyelvén válaszol belőle.
+ * Árat a tudásbázisból SOHA ne olvasson – mindig az alábbi éles ár érvényes.
  */
-export function buildProductChatContextBlock(product: ChatProductContextRow): string {
-  const price = resolveChatProductPriceHuf(product)
+export function buildProductChatContextBlock(
+  product: ChatProductContextRow,
+  now: Date = new Date()
+): string {
+  const pricing = resolveChatProductPricing(product, now)
   const knowledge = (product.aiKnowledgeBase ?? '').trim()
   const description = (product.description_hu ?? '').trim()
-  const stockLabel =
-    product.stock === 0
-      ? 'Elfogyott'
-      : product.stock < 0
-        ? 'Készleten'
-        : `${product.stock} db`
+  const stockLabel = formatStockLabel(product.stock)
 
-  const detailsParts = [
-    knowledge ? knowledge : null,
-    !knowledge && description ? `Rövid leírás: ${description}` : null,
-  ].filter(Boolean)
+  const priceLine = pricing.isSale
+    ? `Jelenlegi ár: ${formatHuf(pricing.effectivePriceHuf)} (Akciós ár! Eredeti ár: ${formatHuf(pricing.normalPriceHuf)})`
+    : `Jelenlegi ár: ${formatHuf(pricing.effectivePriceHuf)}`
 
-  const details = detailsParts.join('\n\n') || '(Nincs megadva részletes tudásbázis ehhez a termékhez.)'
+  const knowledgeBlock =
+    knowledge ||
+    (description ? `Rövid leírás: ${description}` : '(Nincs megadva részletes tudásbázis ehhez a termékhez.)')
 
   return `
-[AKTUÁLIS TERMÉK INFORMÁCIÓI]
-A vásárló jelenleg ezt a termékoldalt nézi. Használd az alábbi adatokat, ha a kérdés erre a termékre vonatkozik.
-Név: ${product.name}
-Ár: ${price.toLocaleString('hu-HU')} Ft
-Készlet: ${stockLabel}
+[AKTUÁLIS TERMÉK ÉLES ADATAI]
+A vásárló jelenleg ezt a termékoldalt nézi. Az árak az adatbázis éles értékei – NE találj ki és NE használj más árat (még ha a tudásbázisban szerepelne is).
+Termék neve: ${product.name}
+${priceLine}
+Készletállapot: ${stockLabel}
 Slug: ${product.slug}
-Tudásbázis & Részletek: ${details}
+
+Tudásbázis & Specifikációk (Tulajdonságok):
+${knowledgeBlock}
 
 TERMÉK-KONTEXTUS SZABÁLYOK:
 1. Mindig a vásárló által használt nyelven válaszolj (lásd a „Válaszolj …” utasítást), akkor is, ha a tudásbázis magyarul van.
-2. Ha a kérdezett információ szerepel a tudásbázisban / termékadatokban, pontosan arra támaszkodva válaszolj – ne találj ki ellentmondó adatot.
-3. Ha olyat kérdeznek, ami NINCS a tudásbázisban és a fenti termékadatokban, ne találj ki adatot; mondd el őszintén, hogy erről nincs biztos információd, és kérj e-mailt vagy irányítsd a termékoldal / ügyfélszolgálat felé.
+2. Árról / akcióról CSAK a fenti „Jelenlegi ár” sort használd – a tudásbázisban lévő esetleges árat hagyd figyelmen kívül.
+3. Ha a kérdezett információ szerepel a tudásbázisban / termékadatokban, pontosan arra támaszkodva válaszolj – ne találj ki ellentmondó adatot.
+4. Ha olyat kérdeznek, ami NINCS a tudásbázisban és a fenti termékadatokban, ne találj ki adatot; mondd el őszintén, hogy erről nincs biztos információd, és kérj e-mailt vagy irányítsd a termékoldal / ügyfélszolgálat felé.
 `.trim()
 }
 
@@ -96,6 +160,9 @@ export async function loadChatProductContext(params: {
     name: true,
     priceHuf: true,
     discountPriceHuf: true,
+    onSale: true,
+    saleStartAt: true,
+    saleEndAt: true,
     description_hu: true,
     aiKnowledgeBase: true,
     stock: true,

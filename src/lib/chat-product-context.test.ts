@@ -2,8 +2,20 @@ import { describe, expect, it } from 'vitest'
 import {
   buildProductChatContextBlock,
   extractProductSlugFromPathname,
+  resolveChatProductPricing,
   resolveChatProductPriceHuf,
 } from './chat-product-context'
+
+const base = {
+  id: 'p1',
+  slug: 'proba-taska',
+  name: 'Próba táska',
+  description_hu: 'Rövid leírás',
+  aiKnowledgeBase: 'Anyag: bőr. Tisztítás: szárazon.',
+  stock: 3,
+  active: true,
+  archived: false,
+}
 
 describe('extractProductSlugFromPathname', () => {
   it('reads slug from product page path', () => {
@@ -15,51 +27,99 @@ describe('extractProductSlugFromPathname', () => {
   })
 })
 
-describe('resolveChatProductPriceHuf', () => {
-  it('uses discount when lower than base', () => {
-    expect(resolveChatProductPriceHuf({ priceHuf: 10000, discountPriceHuf: 8000 })).toBe(8000)
+describe('resolveChatProductPricing', () => {
+  it('uses sale price when sale window is active', () => {
+    const now = new Date('2026-08-09T12:00:00.000Z')
+    const pricing = resolveChatProductPricing(
+      {
+        priceHuf: 10000,
+        discountPriceHuf: 8000,
+        onSale: true,
+        saleStartAt: '2026-08-01T00:00:00.000Z',
+        saleEndAt: '2026-08-31T23:59:59.000Z',
+      },
+      now
+    )
+    expect(pricing.isSale).toBe(true)
+    expect(pricing.effectivePriceHuf).toBe(8000)
+    expect(pricing.normalPriceHuf).toBe(10000)
   })
 
-  it('falls back to base price', () => {
-    expect(resolveChatProductPriceHuf({ priceHuf: 10000, discountPriceHuf: null })).toBe(10000)
+  it('uses normal price when sale window is outside', () => {
+    const now = new Date('2026-09-10T12:00:00.000Z')
+    const pricing = resolveChatProductPricing(
+      {
+        priceHuf: 10000,
+        discountPriceHuf: 8000,
+        onSale: true,
+        saleStartAt: '2026-08-01T00:00:00.000Z',
+        saleEndAt: '2026-08-31T23:59:59.000Z',
+      },
+      now
+    )
+    expect(pricing.isSale).toBe(false)
+    expect(pricing.effectivePriceHuf).toBe(10000)
+  })
+
+  it('falls back to base price without sale flag', () => {
+    expect(
+      resolveChatProductPriceHuf({
+        priceHuf: 10000,
+        discountPriceHuf: 8000,
+        onSale: false,
+      })
+    ).toBe(10000)
   })
 })
 
 describe('buildProductChatContextBlock', () => {
-  it('includes name, price and knowledge base', () => {
+  it('includes live price block and knowledge base', () => {
     const block = buildProductChatContextBlock({
-      id: 'p1',
-      slug: 'proba-taska',
-      name: 'Próba táska',
+      ...base,
       priceHuf: 12000,
       discountPriceHuf: null,
-      description_hu: 'Rövid leírás',
-      aiKnowledgeBase: 'Anyag: bőr. Tisztítás: szárazon.',
-      stock: 3,
-      active: true,
-      archived: false,
+      onSale: false,
+      saleStartAt: null,
+      saleEndAt: null,
     })
-    expect(block).toContain('[AKTUÁLIS TERMÉK INFORMÁCIÓI]')
-    expect(block).toContain('Név: Próba táska')
-    expect(block).toMatch(/Ár:\s*12[\u00a0 ]?000 Ft/)
+    expect(block).toContain('[AKTUÁLIS TERMÉK ÉLES ADATAI]')
+    expect(block).toContain('Termék neve: Próba táska')
+    expect(block).toMatch(/Jelenlegi ár:\s*12[\u00a0 ]?000 Ft/)
+    expect(block).not.toMatch(/Akciós ár/)
     expect(block).toContain('Anyag: bőr')
-    expect(block).toMatch(/ne találj ki/i)
-    expect(block).toMatch(/vásárló által használt nyelven/i)
+    expect(block).toMatch(/Árról \/ akcióról CSAK/i)
+  })
+
+  it('marks active sale with original price', () => {
+    const now = new Date('2026-08-09T12:00:00.000Z')
+    const block = buildProductChatContextBlock(
+      {
+        ...base,
+        priceHuf: 12000,
+        discountPriceHuf: 9000,
+        onSale: true,
+        saleStartAt: '2026-08-01T00:00:00.000Z',
+        saleEndAt: '2026-08-31T23:59:59.000Z',
+      },
+      now
+    )
+    expect(block).toMatch(/Jelenlegi ár:\s*9[\u00a0 ]?000 Ft \(Akciós ár!/)
+    expect(block).toMatch(/Eredeti ár:\s*12[\u00a0 ]?000 Ft/)
   })
 
   it('falls back to description when knowledge base empty', () => {
     const block = buildProductChatContextBlock({
-      id: 'p2',
-      slug: 'x',
-      name: 'X',
+      ...base,
       priceHuf: 1000,
       discountPriceHuf: null,
-      description_hu: 'Csak leírás',
+      onSale: false,
+      saleStartAt: null,
+      saleEndAt: null,
       aiKnowledgeBase: null,
+      description_hu: 'Csak leírás',
       stock: -1,
-      active: true,
-      archived: false,
     })
     expect(block).toContain('Csak leírás')
+    expect(block).toContain('Készletállapot: Raktáron')
   })
 })
