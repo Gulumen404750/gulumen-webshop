@@ -50,7 +50,7 @@ export function buildMerchantFeedXml(products: Product[]): string {
   <channel>
     <title>${escapeXml(BRAND)}</title>
     <link>${escapeXml(BASE_URL)}</link>
-    <description>${escapeXml('Szerethető és hasznos kiegészítők a család minden tagjának, télen-nyáron. Mindenre van egy jó ötletünk.')}</description>
+    <description>${escapeXml('Szerethető és hasznos kiegészítők a család minden tagjának, télen-nyáron. A te otthonod, a mi szívügyünk.')}</description>
 ${items}
   </channel>
 </rss>`

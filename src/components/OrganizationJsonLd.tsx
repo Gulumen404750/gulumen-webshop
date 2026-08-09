@@ -9,7 +9,7 @@ export function OrganizationJsonLd() {
     logo: `${BASE_URL}/og-image.png`,
     image: `${BASE_URL}/og-image.png`,
     description:
-      'Szerethető és hasznos kiegészítők a család minden tagjának, télen-nyáron. Mindenre van egy jó ötletünk.',
+      'Szerethető és hasznos kiegészítők a család minden tagjának, télen-nyáron. A te otthonod, a mi szívügyünk.',
   }
   return (
     <script

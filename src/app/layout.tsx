@@ -37,7 +37,7 @@ const inter = Inter({
 })
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://gulumen.hu'
-const SITE_TITLE = 'Gulumen – Mindenre van egy jó ötletünk.'
+const SITE_TITLE = 'Gulumen – A te otthonod, a mi szívügyünk.'
 const SITE_DESCRIPTION =
   'Szerethető és hasznos kiegészítők a család minden tagjának, télen-nyáron. Nézz körül nálunk, és fedezd fel egyedi kínálatunkat!'
 const BRAND_IMAGE = `${BASE_URL}/og-image.png`
