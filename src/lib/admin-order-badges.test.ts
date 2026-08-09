@@ -25,4 +25,9 @@ describe('adminOrderKindClasses', () => {
     expect(adminOrderKindClasses('printed_processing').label).toMatch(/kinyomtatva/i)
     expect(adminOrderKindClasses('fulfilled').label).toMatch(/Teljesítve/)
   })
+
+  it('uses purple row for unprinted and green for printed', () => {
+    expect(adminOrderKindClasses('new_unprinted').row).toMatch(/violet/)
+    expect(adminOrderKindClasses('printed_processing').row).toMatch(/emerald/)
+  })
 })

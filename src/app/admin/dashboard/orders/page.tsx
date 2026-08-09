@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { AdminOrdersListSkeleton } from '@/components/AdminTableSkeleton'
 import { AdminOrderStatusBadge } from '@/components/admin/AdminOrderStatusBadge'
+import { ShippingLabelCard } from '@/components/admin/ShippingLabelCard'
 import { getAdminOrderVisualKind, adminOrderKindClasses } from '@/lib/admin-order-badges'
 
 type Order = {
@@ -16,6 +17,13 @@ type Order = {
   createdAt: string
   customerEmail: string | null
   customerName: string | null
+  customerPhone: string | null
+  shippingPostalCode: string | null
+  shippingCity: string | null
+  shippingStreet: string | null
+  shippingHouseNumber: string | null
+  deliveryNotes: string | null
+  addressType: string | null
   paidAt: string | null
   printedAt: string | null
   amountPaid: number | null
@@ -27,9 +35,15 @@ export default function AdminOrdersPage() {
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
   const [statusFilter, setStatusFilter] = useState('')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkPrinting, setBulkPrinting] = useState(false)
+  const [bulkError, setBulkError] = useState<string | null>(null)
+  const [showBulkPreview, setShowBulkPreview] = useState(false)
 
   useEffect(() => {
     setLoading(true)
+    setSelectedIds(new Set())
+    setShowBulkPreview(false)
     const params = new URLSearchParams()
     if (statusFilter) params.set('status', statusFilter)
     fetch(`/api/admin/orders?${params}`)
@@ -39,6 +53,29 @@ export default function AdminOrdersPage() {
       })
       .finally(() => setLoading(false))
   }, [statusFilter])
+
+  const allSelected = orders.length > 0 && selectedIds.size === orders.length
+  const selectedOrders = useMemo(
+    () => orders.filter((o) => selectedIds.has(o.id)),
+    [orders, selectedIds]
+  )
+
+  const toggleOne = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(orders.map((o) => o.id)))
+    }
+  }
 
   const handleExportCsv = async () => {
     setExporting(true)
@@ -65,11 +102,41 @@ export default function AdminOrdersPage() {
     }
   }
 
+  const handleBulkPrint = async () => {
+    if (selectedOrders.length === 0) return
+    setBulkPrinting(true)
+    setBulkError(null)
+    setShowBulkPreview(true)
+    try {
+      const res = await fetch('/api/admin/orders/print', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedOrders.map((o) => o.id) }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data?.error || 'Tömeges nyomtatás jelölése sikertelen')
+      }
+      const printedAt =
+        typeof data.printedAt === 'string' ? data.printedAt : new Date().toISOString()
+      const idSet = new Set(selectedOrders.map((o) => o.id))
+      setOrders((prev) =>
+        prev.map((o) => (idSet.has(o.id) ? { ...o, printedAt: o.printedAt ?? printedAt } : o))
+      )
+      await new Promise((r) => setTimeout(r, 80))
+      window.print()
+    } catch (e) {
+      setBulkError(e instanceof Error ? e.message : 'Hiba a tömeges nyomtatáskor')
+    } finally {
+      setBulkPrinting(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-heading font-bold text-foreground">Rendelések</h1>
+      <h1 className="text-2xl font-heading font-bold text-foreground print:hidden">Rendelések</h1>
 
-      <div className="flex flex-wrap items-center gap-4">
+      <div className="flex flex-wrap items-center gap-4 print:hidden">
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
@@ -93,15 +160,44 @@ export default function AdminOrdersPage() {
         >
           {exporting ? 'Exportálás…' : 'Export CSV'}
         </button>
+        <button
+          type="button"
+          onClick={handleBulkPrint}
+          disabled={bulkPrinting || selectedIds.size === 0}
+          className="rounded-lg bg-violet-700 px-4 py-2 text-sm font-medium text-white hover:bg-violet-800 disabled:opacity-50"
+        >
+          {bulkPrinting
+            ? 'Nyomtatás…'
+            : `Kijelöltek nyomtatása${selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}`}
+        </button>
+        <span className="text-xs text-muted">
+          Lila = még nem nyomtatott · Zöld = címke kinyomtatva
+        </span>
       </div>
 
+      {bulkError && (
+        <p className="text-sm text-red-600 print:hidden">{bulkError}</p>
+      )}
+
       {loading ? (
-        <AdminOrdersListSkeleton />
+        <div className="print:hidden">
+          <AdminOrdersListSkeleton />
+        </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
+        <div className="overflow-x-auto rounded-xl border border-[var(--border)] print:hidden">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-[var(--border)] bg-[var(--border)]/30">
               <tr>
+                <th className="p-3 w-10">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleAll}
+                    aria-label="Összes kijelölése"
+                    title="Összes kijelölése"
+                    className="h-4 w-4 rounded border-[var(--border)]"
+                  />
+                </th>
                 <th className="p-3 font-medium">ID</th>
                 <th className="p-3 font-medium">Státusz</th>
                 <th className="p-3 font-medium">Vevő</th>
@@ -115,24 +211,37 @@ export default function AdminOrdersPage() {
               {orders.map((o) => {
                 const kind = getAdminOrderVisualKind(o.status, o.printedAt)
                 const rowClass = adminOrderKindClasses(kind).row
+                const checked = selectedIds.has(o.id)
                 return (
                   <tr
                     key={o.id}
-                    className={`border-b border-[var(--border)] hover:opacity-95 ${rowClass}`}
+                    className={`border-b border-black/10 ${rowClass}`}
                   >
+                    <td className="p-3">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleOne(o.id)}
+                        aria-label={`Kijelölés: ${o.id}`}
+                        className="h-4 w-4 rounded border-black/30"
+                      />
+                    </td>
                     <td className="p-3 font-mono text-xs">{o.id}</td>
                     <td className="p-3">
                       <AdminOrderStatusBadge status={o.status} printedAt={o.printedAt} />
                     </td>
                     <td className="p-3">
-                      <div>{o.customerName ?? '–'}</div>
-                      <div className="text-xs text-muted">{o.customerEmail ?? ''}</div>
+                      <div className="font-medium">{o.customerName ?? '–'}</div>
+                      <div className="text-xs opacity-80">{o.customerEmail ?? ''}</div>
                     </td>
                     <td className="p-3">{o.orderType ?? '–'}</td>
-                    <td className="p-3">{o.totalHuf.toLocaleString('hu-HU')} Ft</td>
-                    <td className="p-3 text-muted">{new Date(o.createdAt).toLocaleString('hu-HU')}</td>
+                    <td className="p-3 font-medium">{o.totalHuf.toLocaleString('hu-HU')} Ft</td>
+                    <td className="p-3 opacity-90">{new Date(o.createdAt).toLocaleString('hu-HU')}</td>
                     <td className="p-3">
-                      <Link href={`/admin/dashboard/orders/${o.id}`} className="text-accent hover:underline">
+                      <Link
+                        href={`/admin/dashboard/orders/${o.id}`}
+                        className="font-medium underline underline-offset-2 hover:opacity-80"
+                      >
                         Részletek
                       </Link>
                     </td>
@@ -145,8 +254,77 @@ export default function AdminOrdersPage() {
       )}
 
       {!loading && orders.length === 0 && (
-        <p className="text-muted">Nincs rendelés.</p>
+        <p className="text-muted print:hidden">Nincs rendelés.</p>
       )}
+
+      {/* Tömeges nyomtatási nézet – csak nyomtatáskor / előnézetben */}
+      {showBulkPreview && selectedOrders.length > 0 && (
+        <div
+          id="admin-bulk-shipping-labels"
+          className="hidden print:block space-y-0 bg-white text-black"
+        >
+          {selectedOrders.map((o) => (
+            <div key={o.id} className="bulk-label-page py-4">
+              <ShippingLabelCard
+                order={{
+                  id: o.id,
+                  customerName: o.customerName,
+                  customerPhone: o.customerPhone,
+                  customerEmail: o.customerEmail,
+                  shippingPostalCode: o.shippingPostalCode,
+                  shippingCity: o.shippingCity,
+                  shippingStreet: o.shippingStreet,
+                  shippingHouseNumber: o.shippingHouseNumber,
+                  deliveryNotes: o.deliveryNotes,
+                  addressType: o.addressType,
+                  items: o.items.map((i) => ({
+                    name: i.name,
+                    productId: i.productId,
+                    qty: i.qty,
+                  })),
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden !important;
+          }
+          #admin-bulk-shipping-labels,
+          #admin-bulk-shipping-labels * {
+            visibility: visible !important;
+          }
+          #admin-bulk-shipping-labels {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 10mm !important;
+            background: white !important;
+            display: block !important;
+          }
+          .bulk-label-page {
+            page-break-after: always;
+            page-break-inside: avoid;
+          }
+          .bulk-label-page:last-child {
+            page-break-after: auto;
+          }
+          .shipping-label {
+            max-width: 100mm !important;
+            min-height: 70mm !important;
+          }
+          @page {
+            size: A4;
+            margin: 10mm;
+          }
+        }
+      `}</style>
     </div>
   )
 }

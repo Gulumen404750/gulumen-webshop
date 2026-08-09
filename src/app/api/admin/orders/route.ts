@@ -43,6 +43,8 @@ export async function GET(request: Request) {
       shippingCity: o.shippingCity,
       shippingStreet: o.shippingStreet,
       shippingHouseNumber: o.shippingHouseNumber,
+      deliveryNotes: o.deliveryNotes,
+      addressType: o.addressType,
       paidAt: o.paidAt?.toISOString(),
       printedAt: o.printedAt?.toISOString() ?? null,
       amountPaid: o.amountPaid,
