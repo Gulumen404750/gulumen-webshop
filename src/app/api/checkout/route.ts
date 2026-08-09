@@ -74,28 +74,30 @@ const checkoutBodySchema = z.object({
     email: z.string().email(),
     name: z.string().optional(),
   }),
-  isDiscountActive: z.boolean().optional(),
-  discountPercent: z.number().min(0).max(1).optional(),
   /** Szerver validálja: max. kosár 30%-a, egyenleg ellenőrzés. */
   pointsDiscountHuf: z.number().int().min(0).optional(),
-  /** DB kupon kód (pl. születésnapi) – manuális választás részeként. */
+  /** DB kupon kód – a kedvezmény % CSAK ebből / szerveroldali kuponlogikából jön. */
   couponCode: z.string().min(1).optional(),
   /** Checkout welcome 10% + hírlevél ajánlat (manuális kijelölés). */
   welcomeOfferAccepted: z.boolean().optional(),
-  /** Manuálisan kiválasztott kuponok (nincs automatikus alkalmazás). */
+  /** Manuálisan kiválasztott szerver-validált kuponok (cat/registration/loyalty) – NEM percent. */
   selectedCoupons: z.array(selectedCouponEnum).optional(),
 })
 
 export async function POST(request: Request) {
   const idemKey = getIdempotencyKey(request)
-  if (idemKey) {
-    const cached = await getIdempotentResponse(idemKey)
-    if (cached) {
-      return NextResponse.json(cached.body, {
-        status: cached.status,
-        headers: cached.headers,
-      })
-    }
+  if (!idemKey) {
+    return NextResponse.json(
+      { error: 'Idempotency-Key header required', code: 'idempotency_key_required' },
+      { status: 400 }
+    )
+  }
+  const cached = await getIdempotentResponse(idemKey)
+  if (cached) {
+    return NextResponse.json(cached.body, {
+      status: cached.status,
+      headers: cached.headers,
+    })
   }
 
   const limit = await rateLimit(request)
@@ -126,27 +128,30 @@ export async function POST(request: Request) {
   const {
     items,
     customer,
-    isDiscountActive,
-    discountPercent: bodyPercent,
     pointsDiscountHuf: requestedPointsHuf = 0,
     couponCode: bodyCouponCode,
     welcomeOfferAccepted,
     selectedCoupons: bodySelectedCoupons,
   } = parsed.data
 
+  // P0: kliens discountPercent / isDiscountActive SOHA nem alkalmazható.
+  // Kedvezmény csak: DB couponCode + szerveroldali selectedCoupons (cat/reg/loyalty/welcome) konstans %.
+  if (
+    raw &&
+    typeof raw === 'object' &&
+    ('discountPercent' in raw || 'isDiscountActive' in raw)
+  ) {
+    logger.warn(
+      { hasDiscountPercent: 'discountPercent' in raw, hasIsDiscountActive: 'isDiscountActive' in raw },
+      'checkout: ignoring client discountPercent/isDiscountActive (untrusted)'
+    )
+  }
+
   const couponCodeTrimmed = bodyCouponCode?.trim() ?? ''
   const selectedCoupons = new Set(bodySelectedCoupons ?? [])
-  // Legacy: isDiscountActive + percent → cat/registration kijelölésként kezeljük
-  const hasLegacyPromo = Boolean(isDiscountActive && bodyPercent != null && bodyPercent > 0)
-  if (hasLegacyPromo && selectedCoupons.size === 0) {
-    selectedCoupons.add('cat')
-    selectedCoupons.add('registration')
-  }
   if (welcomeOfferAccepted === true) selectedCoupons.add('welcome')
   if (couponCodeTrimmed) selectedCoupons.add('birthday')
   const wantsWelcomeOffer = selectedCoupons.has('welcome')
-  const hasClientCoupon =
-    selectedCoupons.has('cat') || selectedCoupons.has('registration') || hasLegacyPromo
 
   let checkoutUserId: string | null = null
   const session = await getSession(request)
@@ -576,8 +581,6 @@ export async function POST(request: Request) {
       finalTotalHuf: totals.finalTotalHuf,
     },
   }
-  if (idemKey) {
-    await setIdempotentResponse(idemKey, payload, 200)
-  }
+  await setIdempotentResponse(idemKey, payload, 200)
   return NextResponse.json(payload)
 }

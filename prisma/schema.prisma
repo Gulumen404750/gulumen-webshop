@@ -227,6 +227,7 @@ model Order {
   @@index([orderGroupId])
   @@index([userId, createdAt])
   @@index([stripeSessionId])
+  @@index([paymentIntentId])
 }
 
 model OrderItem {
@@ -238,6 +239,9 @@ model OrderItem {
   fulfillmentType String
   priceHuf        Int
   name            String?
+
+  @@index([productId])
+  @@index([orderId])
 }
 
 model PaymentTransaction {

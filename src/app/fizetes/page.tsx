@@ -422,11 +422,7 @@ export default function PaymentPage() {
             ...(options && (options.colorName != null || options.colorHex != null || options.materialName != null) ? { options } : {}),
           })),
           customer: { email },
-          isDiscountActive: couponSelection.useCat || couponSelection.useRegistration,
-          discountPercent:
-            couponSelection.useCat || couponSelection.useRegistration
-              ? effectiveCouponPercent
-              : undefined,
+          // Kedvezmény % NEM a kliensről – szerver couponCode + selectedCoupons alapján számol
           couponCode: couponSelection.birthdayCode || couponCodeInput.trim() || undefined,
           welcomeOfferAccepted: couponSelection.useWelcome ? true : undefined,
           selectedCoupons: couponSelection.selectedIds,

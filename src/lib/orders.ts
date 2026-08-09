@@ -15,9 +15,19 @@ export type OrderStatus =
   | 'created'
   | 'payment_pending'
   | 'cancelled'
+  | 'expired'
+  | 'needs_manual_review'
   | 'sourcing_pending'
   | 'sourcing_failed'
   | 'fulfilled'
+
+/** Státuszok, ahol késői fizetési webhook NEM állíthat automatikusan paid-re. */
+export const ORDER_TERMINAL_NON_PAYABLE = new Set<OrderStatus>([
+  'cancelled',
+  'failed',
+  'expired',
+  'sourcing_failed',
+])
 
 export type OrderType = 'in_stock' | 'sourcing'
 
@@ -268,6 +278,12 @@ export async function getOrderByStripeSessionId(sessionId: string): Promise<Orde
   return orders.find((o) => o.stripeSessionId === sessionId) ?? null
 }
 
+export type SetOrderPaidResult = {
+  order: Order | null
+  /** true: rendelés cancelled/failed/expired volt – NEEDS_MANUAL_REVIEW, nem paid */
+  latePayment: boolean
+}
+
 export async function setOrderPaid(params: {
   orderId: string
   stripeSessionId: string
@@ -276,12 +292,48 @@ export async function setOrderPaid(params: {
   currencyPaid: string
   webhookEventId?: string
   customerEmail?: string
-}): Promise<Order | null> {
+}): Promise<SetOrderPaidResult> {
   if (isDbConfigured()) {
     const existing = await prisma.order.findUnique({ where: { id: params.orderId }, include: { items: true } })
-    if (!existing) return null
-    if (existing.status === 'paid') return dbOrderToOrder(existing)
-    if (existing.paidWebhookEventId === params.webhookEventId) return dbOrderToOrder(existing)
+    if (!existing) return { order: null, latePayment: false }
+    if (existing.status === 'paid') return { order: dbOrderToOrder(existing), latePayment: false }
+    if (existing.status === 'needs_manual_review') {
+      return { order: dbOrderToOrder(existing), latePayment: true }
+    }
+    if (existing.paidWebhookEventId === params.webhookEventId) {
+      return { order: dbOrderToOrder(existing), latePayment: false }
+    }
+
+    const currentStatus = existing.status as OrderStatus
+    if (ORDER_TERMINAL_NON_PAYABLE.has(currentStatus)) {
+      logger.warn(
+        {
+          event: 'LATE_PAYMENT_WARNING',
+          orderId: params.orderId,
+          previousStatus: currentStatus,
+          stripeSessionId: params.stripeSessionId,
+          paymentIntentId: params.paymentIntentId,
+          amountPaid: params.amountPaid,
+          webhookEventId: params.webhookEventId,
+        },
+        'LATE_PAYMENT_WARNING: payment arrived after order terminal status – needs_manual_review'
+      )
+      await prisma.order.update({
+        where: { id: params.orderId },
+        data: {
+          status: 'needs_manual_review',
+          stripeSessionId: params.stripeSessionId,
+          paymentIntentId: params.paymentIntentId ?? existing.paymentIntentId,
+          amountPaid: params.amountPaid,
+          currencyPaid: params.currencyPaid,
+          paidWebhookEventId: params.webhookEventId ?? existing.paidWebhookEventId,
+          customerEmail: params.customerEmail ?? existing.customerEmail,
+          // paidAt szándékosan NEM – nincs automatikus teljesítés
+        },
+      })
+      return { order: await getOrderById(params.orderId), latePayment: true }
+    }
+
     await prisma.$transaction(async (tx) => {
       await tx.order.update({
         where: { id: params.orderId },
@@ -302,14 +354,39 @@ export async function setOrderPaid(params: {
       // Készlet már a checkout createCheckoutOrders atomi UPDATE-jében levonva (oversell védelem).
       // Itt NEM csökkentünk újra – elkerüljük a dupla levonást.
     })
-    return getOrderById(params.orderId)
+    return { order: await getOrderById(params.orderId), latePayment: false }
   }
   const orders = loadOrders()
   const idx = orders.findIndex((o) => o.id === params.orderId)
-  if (idx < 0) return null
+  if (idx < 0) return { order: null, latePayment: false }
   const order = orders[idx]
-  if (order.status === 'paid') return order
-  if (order.paidWebhookEventId && order.paidWebhookEventId === params.webhookEventId) return order
+  if (order.status === 'paid') return { order, latePayment: false }
+  if (order.status === 'needs_manual_review') return { order, latePayment: true }
+  if (order.paidWebhookEventId && order.paidWebhookEventId === params.webhookEventId) {
+    return { order, latePayment: false }
+  }
+  if (ORDER_TERMINAL_NON_PAYABLE.has(order.status)) {
+    logger.warn(
+      {
+        event: 'LATE_PAYMENT_WARNING',
+        orderId: params.orderId,
+        previousStatus: order.status,
+        stripeSessionId: params.stripeSessionId,
+        webhookEventId: params.webhookEventId,
+      },
+      'LATE_PAYMENT_WARNING: payment arrived after order terminal status – needs_manual_review'
+    )
+    order.status = 'needs_manual_review'
+    order.stripeSessionId = params.stripeSessionId
+    order.paymentIntentId = params.paymentIntentId
+    order.amountPaid = params.amountPaid
+    order.currencyPaid = params.currencyPaid
+    order.paidWebhookEventId = params.webhookEventId
+    order.customerEmail = params.customerEmail ?? order.customerEmail
+    memoryStore = orders
+    saveOrders()
+    return { order, latePayment: true }
+  }
   order.status = 'paid'
   order.stripeSessionId = params.stripeSessionId
   order.paymentIntentId = params.paymentIntentId
@@ -322,7 +399,7 @@ export async function setOrderPaid(params: {
   order.refundedAmount = order.refundedAmount ?? 0
   memoryStore = orders
   saveOrders()
-  return order
+  return { order, latePayment: false }
 }
 
 export async function setOrderFailed(orderId: string): Promise<Order | null> {

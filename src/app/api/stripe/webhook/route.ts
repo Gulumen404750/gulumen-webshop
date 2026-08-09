@@ -116,7 +116,7 @@ export async function POST(request: Request) {
       const customerEmail =
         session.customer_details?.email ?? session.customer_email ?? null
 
-      await setOrderPaid({
+      const paidResult = await setOrderPaid({
         orderId,
         stripeSessionId: session.id,
         paymentIntentId: paymentIntentId ?? undefined,
@@ -125,6 +125,25 @@ export async function POST(request: Request) {
         webhookEventId: event.id,
         customerEmail: customerEmail ?? undefined,
       })
+
+      // Késői fizetés cancelled/failed/expired után: NINCS automatikus teljesítés / készlet-fogyasztás
+      if (paidResult.latePayment) {
+        logger.warn(
+          {
+            event: 'LATE_PAYMENT_WARNING',
+            orderId,
+            status: paidResult.order?.status,
+            stripeSessionId: session.id,
+          },
+          'checkout.session.completed: late payment → needs_manual_review (no auto fulfillment)'
+        )
+        return NextResponse.json({
+          received: true,
+          latePayment: true,
+          status: 'needs_manual_review',
+        })
+      }
+
       await markReservationsPaidByOrderId(orderId)
 
       // Kuponok érvénytelenítése + pontlevonás (idempotens)
@@ -134,7 +153,7 @@ export async function POST(request: Request) {
         logger.error({ err, orderId }, 'checkout.session.completed: finalizeOrderRewards failed')
       }
 
-      const updatedOrder = await getOrderById(orderId)
+      const updatedOrder = paidResult.order ?? (await getOrderById(orderId))
       if (updatedOrder?.userId) {
         await clearUserCartSnapshot(updatedOrder.userId)
       }
