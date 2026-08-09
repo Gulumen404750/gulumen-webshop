@@ -169,6 +169,8 @@ export async function POST(request: Request) {
     }
 
     case 'charge.refunded': {
+      // Üzleti szabály: elállás / visszatérítéskor CSAK a kifizetett pénz jár vissza.
+      // Felhasznált pontok (PURCHASE_REDEEM) és kuponok NEM állnak vissza – véglegesen elhasználódtak.
       const charge = event.data.object as Stripe.Charge
       const paymentIntentId =
         typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id

@@ -194,3 +194,18 @@ export async function syncPointWalletAfterPayment(newBalance?: number) {
   }
   await mutate(POINT_WALLET_SWR_KEY)
 }
+
+/**
+ * Stripe megszakítás / elállás: pending optimista pontlevonás törlése +
+ * azonnali wallet revalidáció (tényleges DB egyenleg).
+ */
+export async function resetPendingPointsAfterCancelledCheckout() {
+  clearPendingPointsRedeem()
+  await mutate(POINT_WALLET_SWR_KEY)
+}
+
+/** Kijelentkezéskor: SWR wallet cache ürítése (következő user ne lássa a régit). */
+export async function clearPointWalletCache() {
+  clearPendingPointsRedeem()
+  await mutate(POINT_WALLET_SWR_KEY, undefined, { revalidate: false })
+}

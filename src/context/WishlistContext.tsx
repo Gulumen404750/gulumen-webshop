@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { onLogoutCleanup } from '@/lib/logout-cleanup'
 import type { Product } from '@/lib/data'
 
 /** localStorage kulcs – kedvenc termék ID-k (oldalváltás / Vissza gomb után is). */
@@ -86,6 +87,17 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false)
   const fetchGenRef = useRef(0)
   const hydratedUserRef = useRef<string | null>(null)
+
+  // Kijelentkezés: azonnali memory reset (storage-t a runLogoutCleanup törli)
+  useEffect(() => {
+    return onLogoutCleanup(() => {
+      hydratedUserRef.current = null
+      fetchGenRef.current += 1
+      setProductIds([])
+      setProducts([])
+      setIsLoading(false)
+    })
+  }, [])
 
   // localStorage azonnali hidratálás – ne villogjon üres szív visszanavigációkor
   useEffect(() => {

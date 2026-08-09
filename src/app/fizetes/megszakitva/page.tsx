@@ -1,10 +1,17 @@
 'use client'
 
+import { useEffect } from 'react'
 import Link from 'next/link'
 import { useLocale } from '@/context/LocaleContext'
+import { resetPendingPointsAfterCancelledCheckout } from '@/lib/point-wallet-client'
 
 export default function PaymentCancelPage() {
   const { t } = useLocale()
+
+  // Félbeszakadt Stripe checkout: ne maradjon „levont” pont a fejlécben
+  useEffect(() => {
+    void resetPendingPointsAfterCancelledCheckout()
+  }, [])
 
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
