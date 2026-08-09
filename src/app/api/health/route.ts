@@ -1,16 +1,9 @@
 import { NextResponse } from 'next/server'
-import { prisma, isDbConfigured } from '@/lib/prisma'
 
-/** Railway health check – Prisma DB ping; 503 ha a DB nem elérhető. */
+/**
+ * GET /api/health – liveness alias (Railway restart-loop elkerülés).
+ * DB ellenőrzés: /api/health/ready
+ */
 export async function GET() {
-  if (!isDbConfigured()) {
-    return NextResponse.json({ status: 'degraded', db: false }, { status: 503 })
-  }
-
-  try {
-    await prisma.$queryRaw`SELECT 1`
-    return NextResponse.json({ status: 'ok', db: true })
-  } catch {
-    return NextResponse.json({ status: 'degraded', db: false }, { status: 503 })
-  }
+  return NextResponse.json({ status: 'live', ts: Date.now() })
 }

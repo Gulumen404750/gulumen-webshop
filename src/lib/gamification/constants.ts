@@ -50,11 +50,14 @@ export const HEARTBEAT_TICK_SECONDS = 60
 /** Heartbeat max másodperc / kérés (legacy delta clamp). */
 export const HEARTBEAT_MAX_DELTA_SECONDS = 90
 
-/** Minimum idő két tick között (ms) – spam ellen. */
-export const HEARTBEAT_MIN_INTERVAL_MS = 55_000
+/** Minimum idő két tick között (ms) – max ~3 tick/perc szerveroldalon. */
+export const HEARTBEAT_MIN_INTERVAL_MS = 20_000
 
 /** Heartbeat minimum interval kliens oldalon (ms) – percenkénti tick. */
 export const HEARTBEAT_CLIENT_INTERVAL_MS = 60_000
+
+/** Max heartbeat tick / perc (user + IP velocity). */
+export const HEARTBEAT_VELOCITY_MAX_PER_MINUTE = 3
 
 /** Outbox worker batch méret. */
 export const POINT_EVENT_BATCH_SIZE = 50

@@ -3,11 +3,15 @@ import { getSession, resolveSessionUserId } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
 import { recordBrowseHeartbeat } from '@/lib/gamification/browse-heartbeat'
 import { processPendingPointEvents } from '@/lib/gamification/point-event-queue'
+import {
+  checkHeartbeatVelocity,
+  getClientIp,
+} from '@/lib/gamification/heartbeat-velocity'
 
 /**
  * POST /api/gamification/heartbeat
  * Percenkénti tick – aktív böngészés logolása (UserDailyActivity).
- * Body: { isVisible: boolean, hasFocus: boolean }
+ * Anti-abuse: IP + user velocity (max 3 tick/perc), kliens flagek nem megbízhatók.
  */
 export async function POST(request: Request) {
   const limit = await rateLimit(request, { preset: 'heartbeat' })
@@ -28,6 +32,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  const ip = getClientIp(request)
+  const velocity = await checkHeartbeatVelocity({ userId, ip })
+  if (!velocity.ok) {
+    return NextResponse.json(
+      {
+        accepted: false,
+        reason: velocity.reason,
+        retryAfterMs: velocity.retryAfterMs,
+        error: 'Heartbeat velocity limit exceeded',
+      },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(Math.ceil(velocity.retryAfterMs / 1000) || 1),
+        },
+      }
+    )
+  }
+
   let body: { isVisible?: boolean; hasFocus?: boolean }
   try {
     body = await request.json()
@@ -35,6 +58,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
+  // Soft hints only – server velocity / min-interval dönt.
   const isVisible = body.isVisible === true
   const hasFocus = body.hasFocus === true
 
@@ -43,6 +67,7 @@ export async function POST(request: Request) {
 
     console.info('[gamification/heartbeat]', {
       userId,
+      ip,
       accepted: result.accepted,
       activeSecondsToday: result.activeSecondsToday,
       bonusQueued: result.bonusQueued,

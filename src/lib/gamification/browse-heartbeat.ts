@@ -50,7 +50,12 @@ export async function recordBrowseHeartbeat(input: HeartbeatInput): Promise<Hear
     return devRecordBrowseHeartbeat(input)
   }
 
-  if (!input.isVisible || !input.hasFocus) return emptyResult('inactive_tab')
+  // Anti-abuse: kliens isVisible/hasFocus NEM megbízható – csak soft hint.
+  // Pontszámítást a szerver oldali min-interval + velocity check határozza meg.
+  // Ha a kliens explicit inaktívat jelez, nem adunk tick-et (UX), de botok true-t küldhetnek → velocity védi.
+  if (input.isVisible === false && input.hasFocus === false) {
+    return emptyResult('inactive_tab')
+  }
 
   const activityDate = getGamificationDate()
   const now = new Date()

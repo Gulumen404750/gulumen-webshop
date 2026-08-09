@@ -1240,6 +1240,33 @@ export async function getProductByIdAsync(id: string): Promise<Product | undefin
   return result
 }
 
+/** Async: több termék ID alapján egy batch lekérdezéssel (N+1 elkerülés). */
+export async function getProductsByIdsAsync(ids: string[]): Promise<Product[]> {
+  const unique = Array.from(new Set(ids.filter(Boolean)))
+  if (unique.length === 0) return []
+
+  const fromDb = await loadFromDbOrMock(
+    async () => {
+      const { getProductsByIdsFromDb } = await import('@/lib/products')
+      return getProductsByIdsFromDb(unique)
+    },
+    () => unique.map((id) => getProductById(id)).filter((p): p is Product => p != null),
+    [] as Product[]
+  )
+
+  if (fromDb.length >= unique.length) return fromDb
+
+  // DB részleges találat: hiányzó ID-k mock/fallback-ből
+  const byId = new Map(fromDb.map((p) => [p.id, p]))
+  for (const id of unique) {
+    if (!byId.has(id)) {
+      const p = getProductById(id)
+      if (p) byId.set(id, p)
+    }
+  }
+  return unique.map((id) => byId.get(id)).filter((p): p is Product => p != null)
+}
+
 /** Async: beszerzésre rendelhető termékek – kikapcsolva. */
 export async function getSourcingDealProductsAsync(): Promise<Product[]> {
   return []
