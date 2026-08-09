@@ -11,7 +11,8 @@
     "returns": "Returnări",
     "contact": "Contact",
     "help": "Ajutor și informații",
-    "faq": "Întrebări frecvente"
+    "faq": "Întrebări frecvente",
+    "aszf": "Termeni"
   },
   "buttons": {
     "viewProducts": "Vezi produse",
@@ -401,7 +402,8 @@
     "errorPrivacy": "Pentru înregistrare acceptă Termenii și informarea privind prelucrarea datelor.",
     "errorOffers": "Acceptă ofertele de produse pentru a activa cuponul.",
     "couponGranted": "✅ Cupon unic activat! Se aplică automat în coș la prima achiziție.",
-    "withGoogle": "Înregistrare cu Google"
+    "withGoogle": "Înregistrare cu Google",
+    "termsLink": "Termeni"
   },
   "orders": {
     "title": "Comenzile mele",
@@ -619,7 +621,34 @@
     "newEmpty": "Momentan nu există noutăți. Revino mai târziu – produsele noi urmează să apară.",
     "expiredTitle": "Produse expirate",
     "expiredEmpty": "Nu există oferte expirate din ultimele 5 zile.",
-    "expiredBack": "Înapoi la produsele pe comandă (aprovizionare)"
+    "expiredBack": "Înapoi la produsele pe comandă (aprovizionare)",
+    "aszfTitle": "Termeni și condiții generale",
+    "aszf": {
+      "section1Title": "1. Datele operatorului",
+      "operatorLabel": "Magazinul online este operat de:",
+      "addressLabel": "Sediu / Adresă:",
+      "addressPlaceholder": "[Adresă]",
+      "emailLabel": "E-mail:",
+      "phoneLabel": "Telefon:",
+      "section2Title": "2. Procesul de cumpărare",
+      "orderStep1": "Selectarea produselor și adăugarea în coș.",
+      "orderStep2": "Completarea datelor comenzii.",
+      "orderStep3": "Trimiterea comenzii prin apăsarea butonului.",
+      "orderStep4": "Sistemul trimite o confirmare automată pe e-mail.",
+      "section3Title": "3. Plată și livrare",
+      "paymentLabel": "Modalități de plată:",
+      "paymentText": "Ramburs sau transfer bancar (în perioada de test).",
+      "shippingLabel": "Livrare:",
+      "shippingText": "Livrarea se face prin curier la adresa indicată. Termenul de livrare este de 2–5 zile lucrătoare de la confirmarea comenzii. Detalii:",
+      "section4Title": "4. Dreptul de retragere",
+      "withdrawalIntro": "Consumatorul beneficiază de un drept de retragere de 14 zile de la primirea produsului, fără a indica un motiv.",
+      "withdrawalCost": "Costul și organizarea returnării revin cumpărătorului.",
+      "withdrawalCondition": "Produsul trebuie returnat intact, în starea originală.",
+      "withdrawalRefund": "Rambursarea se face în termen de 14 zile de la primirea și verificarea coletului.",
+      "section5Title": "5. Garanție",
+      "warrantyText": "Produsele beneficiază de condițiile de garanție prevăzute de legislația aplicabilă.",
+      "lastUpdated": "Ultima actualizare: 9 august 2026"
+    }
   },
   "callUs": {
     "title": "Sună-ne",
@@ -715,7 +744,8 @@
     "shippingTitle": "Livrare – Gulumen",
     "returnsTitle": "Returnare – Gulumen",
     "contactTitle": "Contact – Gulumen",
-    "faqTitle": "Întrebări frecvente – Gulumen"
+    "faqTitle": "Întrebări frecvente – Gulumen",
+    "aszfTitle": "Termeni – Gulumen"
   },
   "condition": {
     "Új": "Nou",

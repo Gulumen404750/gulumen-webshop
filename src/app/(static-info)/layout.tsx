@@ -11,6 +11,7 @@ export async function generateMetadata(): Promise<Metadata> {
     '/visszakuldes': 'seo.returnsTitle',
     '/kapcsolat': 'seo.contactTitle',
     '/gyik': 'seo.faqTitle',
+    '/aszf': 'seo.aszfTitle',
   }
   const titleKey = titleKeyByPath[pathname] ?? 'seo.title'
   return pageMetadata(pathname, titleKey)

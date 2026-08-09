@@ -11,7 +11,8 @@
     "returns": "Visszaküldés",
     "contact": "Kapcsolat",
     "help": "Segítség & Információk",
-    "faq": "GYIK"
+    "faq": "GYIK",
+    "aszf": "ÁSZF"
   },
   "buttons": {
     "viewProducts": "Böngéssz a kínálatban",
@@ -390,7 +391,8 @@
     "errorPrivacy": "A regisztrációhoz fogadd el az ÁSZF-et és az adatkezelési tájékoztatót.",
     "errorOffers": "A kuponhoz jelöld be a termékajánlatok elfogadását.",
     "couponGranted": "✅ Egyszeri kedvezménykupon aktiválva! A kosárban automatikusan érvényesül az első vásárlásnál.",
-    "withGoogle": "Regisztráció Google-lel"
+    "withGoogle": "Regisztráció Google-lel",
+    "termsLink": "ÁSZF"
   },
   "orders": {
     "title": "Rendeléseim",
@@ -634,7 +636,34 @@
     "newEmpty": "Jelenleg nincs újdonság. Nézz vissza később – hamarosan érkeznek az új termékek.",
     "expiredTitle": "Lejárt termékek",
     "expiredEmpty": "Nincs lejárt ajánlat az elmúlt 5 napból.",
-    "expiredBack": "Vissza a beszerzésre rendelhető termékekhez"
+    "expiredBack": "Vissza a beszerzésre rendelhető termékekhez",
+    "aszfTitle": "Általános Szerződési Feltételek (ÁSZF)",
+    "aszf": {
+      "section1Title": "1. Üzemeltető adatai",
+      "operatorLabel": "A webshopot üzemelteti:",
+      "addressLabel": "Székhely / Lakcím:",
+      "addressPlaceholder": "[Cím]",
+      "emailLabel": "E-mail cím:",
+      "phoneLabel": "Telefonszám:",
+      "section2Title": "2. A vásárlás menete",
+      "orderStep1": "A termékek kiválasztása és a kosárba helyezése.",
+      "orderStep2": "A rendelési adatok megadása.",
+      "orderStep3": "A megrendelés elküldése a gombra kattintva.",
+      "orderStep4": "A megrendelésről a rendszer automatikus visszaigazolást küld e-mailben.",
+      "section3Title": "3. Fizetés és szállítás",
+      "paymentLabel": "Fizetési módok:",
+      "paymentText": "Utánvét vagy előre utalás (a tesztidőszak alatt).",
+      "shippingLabel": "Szállítás:",
+      "shippingText": "Futárszolgálattal történik a megadott címre. A szállítási határidő a megrendelés visszaigazolásától számított 2–5 munkanap. Részletek:",
+      "section4Title": "4. Elállási jog",
+      "withdrawalIntro": "A fogyasztót a termék átvételétől számított 14 napon belül indoklás nélküli elállási jog illeti meg.",
+      "withdrawalCost": "A visszaküldés költsége és annak lebonyolítása a vevőt terheli.",
+      "withdrawalCondition": "A terméket sértetlen, eredeti állapotban kell visszaküldeni.",
+      "withdrawalRefund": "A pénzvisszafizetés a csomag megérkezésétől és ellenőrzésétől számított 14 napon belül megtörténik.",
+      "section5Title": "5. Jótállás és szavatosság",
+      "warrantyText": "A termékekre a vonatkozó jogszabályok szerinti szavatossági feltételek érvényesek.",
+      "lastUpdated": "Utolsó frissítés: 2026. augusztus 9."
+    }
   },
   "callUs": {
     "title": "Hívj minket",
@@ -715,7 +744,8 @@
     "shippingTitle": "Szállítás – Gulumen",
     "returnsTitle": "Visszaküldés – Gulumen",
     "contactTitle": "Kapcsolat – Gulumen",
-    "faqTitle": "GYIK – Gulumen"
+    "faqTitle": "GYIK – Gulumen",
+    "aszfTitle": "ÁSZF – Gulumen"
   },
   "condition": {
     "Új": "Új",

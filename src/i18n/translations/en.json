@@ -11,7 +11,8 @@
     "returns": "Returns",
     "contact": "Contact",
     "help": "Help & Information",
-    "faq": "FAQ"
+    "faq": "FAQ",
+    "aszf": "Terms"
   },
   "buttons": {
     "viewProducts": "View products",
@@ -416,7 +417,8 @@
     "errorPrivacy": "Please accept the Terms and privacy notice to register.",
     "errorOffers": "Please accept product offers to activate the coupon.",
     "couponGranted": "✅ One-time coupon activated! It applies automatically in your cart on your first purchase.",
-    "withGoogle": "Sign up with Google"
+    "withGoogle": "Sign up with Google",
+    "termsLink": "Terms"
   },
   "orders": {
     "title": "My orders",
@@ -634,7 +636,34 @@
     "newEmpty": "There are no new products right now. Check back later – new items are on the way.",
     "expiredTitle": "Expired products",
     "expiredEmpty": "No expired offers from the past 5 days.",
-    "expiredBack": "Back to order-for-sourcing products"
+    "expiredBack": "Back to order-for-sourcing products",
+    "aszfTitle": "Terms and Conditions",
+    "aszf": {
+      "section1Title": "1. Operator details",
+      "operatorLabel": "The webshop is operated by:",
+      "addressLabel": "Registered / residential address:",
+      "addressPlaceholder": "[Address]",
+      "emailLabel": "Email:",
+      "phoneLabel": "Phone:",
+      "section2Title": "2. How to order",
+      "orderStep1": "Select products and add them to the cart.",
+      "orderStep2": "Enter your order details.",
+      "orderStep3": "Submit the order by clicking the button.",
+      "orderStep4": "The system sends an automatic order confirmation by email.",
+      "section3Title": "3. Payment and shipping",
+      "paymentLabel": "Payment methods:",
+      "paymentText": "Cash on delivery or bank transfer (during the test period).",
+      "shippingLabel": "Shipping:",
+      "shippingText": "Delivery is made by courier to the address provided. Delivery time is 2–5 business days from order confirmation. Details:",
+      "section4Title": "4. Right of withdrawal",
+      "withdrawalIntro": "Consumers have a 14-day right of withdrawal from the date of receiving the product, without giving a reason.",
+      "withdrawalCost": "The cost and arrangement of the return are borne by the customer.",
+      "withdrawalCondition": "The product must be returned undamaged and in its original condition.",
+      "withdrawalRefund": "Refunds are made within 14 days of the package arriving and being inspected.",
+      "section5Title": "5. Warranty",
+      "warrantyText": "Statutory warranty conditions apply to the products.",
+      "lastUpdated": "Last updated: 9 August 2026"
+    }
   },
   "callUs": {
     "title": "Call us",
@@ -715,7 +744,8 @@
     "shippingTitle": "Shipping – Gulumen",
     "returnsTitle": "Returns – Gulumen",
     "contactTitle": "Contact – Gulumen",
-    "faqTitle": "FAQ – Gulumen"
+    "faqTitle": "FAQ – Gulumen",
+    "aszfTitle": "Terms – Gulumen"
   },
   "condition": {
     "Új": "New",

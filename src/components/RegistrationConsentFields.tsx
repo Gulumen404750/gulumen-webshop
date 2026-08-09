@@ -45,6 +45,16 @@ export function RegistrationConsentFields({
           <span className="font-medium text-foreground">{t('register.requiredLabel') || 'Kötelező'}: </span>
           {t('register.checkboxPrivacy')}{' '}
           <Link
+            href="/aszf"
+            className="text-accent underline underline-offset-2"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {t('register.termsLink')}
+          </Link>
+          {' · '}
+          <Link
             href="/kapcsolat#telefonos-adatkezeles"
             className="text-accent underline underline-offset-2"
             target="_blank"

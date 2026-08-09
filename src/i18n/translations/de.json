@@ -11,7 +11,8 @@
     "returns": "Rückgabe",
     "contact": "Kontakt",
     "help": "Hilfe & Informationen",
-    "faq": "FAQ"
+    "faq": "FAQ",
+    "aszf": "AGB"
   },
   "buttons": {
     "viewProducts": "Produkte ansehen",
@@ -416,7 +417,8 @@
     "errorPrivacy": "Bitte akzeptiere die AGB und die Datenschutzerklärung zur Registrierung.",
     "errorOffers": "Bitte stimme den Produktangeboten zu, um den Gutschein zu aktivieren.",
     "couponGranted": "✅ Einmaliger Gutschein aktiviert! Er gilt automatisch im Warenkorb beim ersten Einkauf.",
-    "withGoogle": "Mit Google registrieren"
+    "withGoogle": "Mit Google registrieren",
+    "termsLink": "AGB"
   },
   "orders": {
     "title": "Meine Bestellungen",
@@ -634,7 +636,34 @@
     "newEmpty": "Derzeit gibt es keine Neuheiten. Schau später wieder vorbei – neue Produkte kommen bald.",
     "expiredTitle": "Abgelaufene Produkte",
     "expiredEmpty": "Keine abgelaufenen Angebote aus den letzten 5 Tagen.",
-    "expiredBack": "Zurück zu den Bestellungen auf Beschaffung"
+    "expiredBack": "Zurück zu den Bestellungen auf Beschaffung",
+    "aszfTitle": "Allgemeine Geschäftsbedingungen (AGB)",
+    "aszf": {
+      "section1Title": "1. Betreiberdaten",
+      "operatorLabel": "Der Webshop wird betrieben von:",
+      "addressLabel": "Sitz / Wohnadresse:",
+      "addressPlaceholder": "[Adresse]",
+      "emailLabel": "E-Mail:",
+      "phoneLabel": "Telefon:",
+      "section2Title": "2. Bestellablauf",
+      "orderStep1": "Produkte auswählen und in den Warenkorb legen.",
+      "orderStep2": "Bestelldaten angeben.",
+      "orderStep3": "Bestellung durch Klick auf die Schaltfläche absenden.",
+      "orderStep4": "Das System sendet eine automatische Bestellbestätigung per E-Mail.",
+      "section3Title": "3. Zahlung und Versand",
+      "paymentLabel": "Zahlungsarten:",
+      "paymentText": "Nachnahme oder Vorausüberweisung (während der Testphase).",
+      "shippingLabel": "Versand:",
+      "shippingText": "Der Versand erfolgt per Kurier an die angegebene Adresse. Die Lieferzeit beträgt 2–5 Werktage ab Bestellbestätigung. Details:",
+      "section4Title": "4. Widerrufsrecht",
+      "withdrawalIntro": "Verbraucher haben ab Erhalt der Ware ein 14-tägiges Widerrufsrecht ohne Angabe von Gründen.",
+      "withdrawalCost": "Kosten und Abwicklung der Rücksendung trägt der Käufer.",
+      "withdrawalCondition": "Die Ware ist unversehrt und im Originalzustand zurückzusenden.",
+      "withdrawalRefund": "Die Rückerstattung erfolgt innerhalb von 14 Tagen nach Eingang und Prüfung des Pakets.",
+      "section5Title": "5. Gewährleistung",
+      "warrantyText": "Für die Produkte gelten die gesetzlichen Gewährleistungsbedingungen.",
+      "lastUpdated": "Zuletzt aktualisiert: 9. August 2026"
+    }
   },
   "callUs": {
     "title": "Ruf uns an",
@@ -715,7 +744,8 @@
     "shippingTitle": "Versand – Gulumen",
     "returnsTitle": "Rückgabe – Gulumen",
     "contactTitle": "Kontakt – Gulumen",
-    "faqTitle": "FAQ – Gulumen"
+    "faqTitle": "FAQ – Gulumen",
+    "aszfTitle": "AGB – Gulumen"
   },
   "condition": {
     "Új": "Neu",

@@ -26,6 +26,9 @@ export function Footer() {
             <Link href="/kapcsolat" className="hover:text-foreground hover:underline">
               {t('nav.contact')}
             </Link>
+            <Link href="/aszf" className="hover:text-foreground hover:underline">
+              {t('nav.aszf')}
+            </Link>
             <Link href="/szallitas" className="hover:text-foreground hover:underline">
               {t('nav.shipping')}
             </Link>
