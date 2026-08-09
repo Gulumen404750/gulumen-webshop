@@ -1,5 +1,36 @@
 import { describe, expect, it } from 'vitest'
-import { getAdminOrderVisualKind, adminOrderKindClasses } from './admin-order-badges'
+import {
+  getAdminOrderVisualKind,
+  adminOrderKindClasses,
+  getOrderPrintRowStyles,
+  getOrderPrintBadgeStyles,
+  isOrderPrinted,
+} from './admin-order-badges'
+
+describe('isOrderPrinted', () => {
+  it('treats null/empty as not printed', () => {
+    expect(isOrderPrinted(null)).toBe(false)
+    expect(isOrderPrinted('')).toBe(false)
+  })
+
+  it('treats printedAt as printed', () => {
+    expect(isOrderPrinted('2026-08-09T12:00:00.000Z')).toBe(true)
+  })
+})
+
+describe('getOrderPrintRowStyles / badge', () => {
+  it('uses purple full-row for unprinted', () => {
+    expect(getOrderPrintRowStyles(false)).toMatch(/purple/)
+    expect(getOrderPrintBadgeStyles(false).label).toBe('Új – címke vár')
+    expect(getOrderPrintBadgeStyles(false).className).toMatch(/purple/)
+  })
+
+  it('uses emerald full-row for printed', () => {
+    expect(getOrderPrintRowStyles(true)).toMatch(/emerald/)
+    expect(getOrderPrintBadgeStyles(true).label).toBe('Címke kinyomtatva')
+    expect(getOrderPrintBadgeStyles(true).className).toMatch(/emerald/)
+  })
+})
 
 describe('getAdminOrderVisualKind', () => {
   it('marks paid without print as new_unprinted', () => {
@@ -27,7 +58,7 @@ describe('adminOrderKindClasses', () => {
   })
 
   it('uses purple row for unprinted and green for printed', () => {
-    expect(adminOrderKindClasses('new_unprinted').row).toMatch(/violet/)
+    expect(adminOrderKindClasses('new_unprinted').row).toMatch(/purple/)
     expect(adminOrderKindClasses('printed_processing').row).toMatch(/emerald/)
   })
 })

@@ -1,9 +1,38 @@
 /**
  * Admin rendeléslista / részletező státusz + nyomtatás színkódok.
- * Lista: nem nyomtatott = LILA, kinyomtatott = ZÖLD (teljes sor).
+ * Lista: isPrinted=false → LILA, isPrinted=true → ZÖLD (teljes sor).
  */
 
 export type AdminOrderVisualKind = 'new_unprinted' | 'printed_processing' | 'fulfilled' | 'cancelled' | 'other'
+
+export function isOrderPrinted(printedAt: string | Date | null | undefined): boolean {
+  return printedAt != null && printedAt !== ''
+}
+
+/**
+ * Teljes sávos sorstílus a címkenyomtatási állapot szerint.
+ * isPrinted === false → lila; true → zöld.
+ */
+export function getOrderPrintRowStyles(isPrinted: boolean): string {
+  if (!isPrinted) {
+    return 'bg-purple-950/40 hover:bg-purple-900/50 border-purple-800/50 text-foreground'
+  }
+  return 'bg-emerald-950/40 hover:bg-emerald-900/50 border-emerald-800/50 text-foreground'
+}
+
+/** Nyomtatási státusz badge (lila / zöld). */
+export function getOrderPrintBadgeStyles(isPrinted: boolean): { className: string; label: string } {
+  if (!isPrinted) {
+    return {
+      className: 'bg-purple-500/10 text-purple-300 border-purple-500/40',
+      label: 'Új – címke vár',
+    }
+  }
+  return {
+    className: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/40',
+    label: 'Címke kinyomtatva',
+  }
+}
 
 export function getAdminOrderVisualKind(status: string, printedAt: string | Date | null | undefined): AdminOrderVisualKind {
   const cancelled =
@@ -13,13 +42,11 @@ export function getAdminOrderVisualKind(status: string, printedAt: string | Date
     status === 'sourcing_failed'
 
   if (cancelled) return 'cancelled'
-  // Nyomtatási állapot elsődleges a lista színkódjához (lila / zöld)
-  if (printedAt) {
+  if (isOrderPrinted(printedAt)) {
     if (status === 'fulfilled') return 'fulfilled'
     return 'printed_processing'
   }
   if (status === 'fulfilled') return 'fulfilled'
-  // Új, még nem nyomtatott
   if (
     status === 'paid' ||
     status === 'sourcing_pending' ||
@@ -33,7 +60,7 @@ export function getAdminOrderVisualKind(status: string, printedAt: string | Date
   return 'other'
 }
 
-/** Tailwind osztályok a sorháttérhez / badge-hez. */
+/** Tailwind osztályok a sorháttérhez / badge-hez (részletező + legacy). */
 export function adminOrderKindClasses(kind: AdminOrderVisualKind): {
   row: string
   badge: string
@@ -42,32 +69,32 @@ export function adminOrderKindClasses(kind: AdminOrderVisualKind): {
   switch (kind) {
     case 'new_unprinted':
       return {
-        row: 'bg-violet-400 text-violet-950 dark:bg-violet-600 dark:text-violet-50',
-        badge: 'bg-violet-800 text-white dark:bg-violet-950',
-        label: 'Új – címke vár',
+        row: getOrderPrintRowStyles(false),
+        badge: getOrderPrintBadgeStyles(false).className,
+        label: getOrderPrintBadgeStyles(false).label,
       }
     case 'printed_processing':
       return {
-        row: 'bg-emerald-400 text-emerald-950 dark:bg-emerald-600 dark:text-emerald-50',
-        badge: 'bg-emerald-800 text-white dark:bg-emerald-950',
-        label: 'Címke kinyomtatva',
+        row: getOrderPrintRowStyles(true),
+        badge: getOrderPrintBadgeStyles(true).className,
+        label: getOrderPrintBadgeStyles(true).label,
       }
     case 'fulfilled':
       return {
-        row: 'bg-emerald-200/90 text-emerald-950 dark:bg-emerald-800/70 dark:text-emerald-50',
-        badge: 'bg-slate-700 text-white',
+        row: getOrderPrintRowStyles(true),
+        badge: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/40',
         label: 'Teljesítve ✓',
       }
     case 'cancelled':
       return {
-        row: 'bg-red-200/90 text-red-950 dark:bg-red-900/50 dark:text-red-50',
-        badge: 'bg-red-700 text-white',
+        row: 'bg-red-950/30 hover:bg-red-900/40 border-red-800/40 text-foreground',
+        badge: 'bg-red-500/10 text-red-300 border-red-500/40',
         label: 'Törölve / sikertelen',
       }
     default:
       return {
-        row: 'bg-[var(--border)]/40',
-        badge: 'bg-[var(--border)] text-foreground',
+        row: 'bg-[var(--border)]/40 border-[var(--border)]',
+        badge: 'bg-[var(--border)] text-foreground border-[var(--border)]',
         label: 'Egyéb',
       }
   }

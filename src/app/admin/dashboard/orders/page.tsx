@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { AdminOrdersListSkeleton } from '@/components/AdminTableSkeleton'
 import { AdminOrderStatusBadge } from '@/components/admin/AdminOrderStatusBadge'
 import { ShippingLabelCard } from '@/components/admin/ShippingLabelCard'
-import { getAdminOrderVisualKind, adminOrderKindClasses } from '@/lib/admin-order-badges'
+import { getOrderPrintRowStyles, isOrderPrinted } from '@/lib/admin-order-badges'
 
 type Order = {
   id: string
@@ -120,6 +120,7 @@ export default function AdminOrdersPage() {
       const printedAt =
         typeof data.printedAt === 'string' ? data.printedAt : new Date().toISOString()
       const idSet = new Set(selectedOrders.map((o) => o.id))
+      // Azonnali UI: lila → zöld (printedAt = isPrinted)
       setOrders((prev) =>
         prev.map((o) => (idSet.has(o.id) ? { ...o, printedAt: o.printedAt ?? printedAt } : o))
       )
@@ -164,11 +165,11 @@ export default function AdminOrdersPage() {
           type="button"
           onClick={handleBulkPrint}
           disabled={bulkPrinting || selectedIds.size === 0}
-          className="rounded-lg bg-violet-700 px-4 py-2 text-sm font-medium text-white hover:bg-violet-800 disabled:opacity-50"
+          className="rounded-lg bg-purple-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-purple-600 disabled:opacity-50"
         >
           {bulkPrinting
             ? 'Nyomtatás…'
-            : `Kijelöltek nyomtatása${selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}`}
+            : `Kijelöltek nyomtatása (${selectedIds.size})`}
         </button>
         <span className="text-xs text-muted">
           Lila = még nem nyomtatott · Zöld = címke kinyomtatva
@@ -209,13 +210,13 @@ export default function AdminOrdersPage() {
             </thead>
             <tbody>
               {orders.map((o) => {
-                const kind = getAdminOrderVisualKind(o.status, o.printedAt)
-                const rowClass = adminOrderKindClasses(kind).row
+                const printed = isOrderPrinted(o.printedAt)
+                const rowClass = getOrderPrintRowStyles(printed)
                 const checked = selectedIds.has(o.id)
                 return (
                   <tr
                     key={o.id}
-                    className={`border-b border-black/10 ${rowClass}`}
+                    className={`border-b transition-colors ${rowClass}`}
                   >
                     <td className="p-3">
                       <input
@@ -223,10 +224,10 @@ export default function AdminOrdersPage() {
                         checked={checked}
                         onChange={() => toggleOne(o.id)}
                         aria-label={`Kijelölés: ${o.id}`}
-                        className="h-4 w-4 rounded border-black/30"
+                        className="h-4 w-4 rounded border-white/30"
                       />
                     </td>
-                    <td className="p-3 font-mono text-xs">{o.id}</td>
+                    <td className="p-3 font-mono text-xs sm:text-sm">{o.id}</td>
                     <td className="p-3">
                       <AdminOrderStatusBadge status={o.status} printedAt={o.printedAt} />
                     </td>
@@ -235,7 +236,7 @@ export default function AdminOrdersPage() {
                       <div className="text-xs opacity-80">{o.customerEmail ?? ''}</div>
                     </td>
                     <td className="p-3">{o.orderType ?? '–'}</td>
-                    <td className="p-3 font-medium">{o.totalHuf.toLocaleString('hu-HU')} Ft</td>
+                    <td className="p-3 font-semibold">{o.totalHuf.toLocaleString('hu-HU')} Ft</td>
                     <td className="p-3 opacity-90">{new Date(o.createdAt).toLocaleString('hu-HU')}</td>
                     <td className="p-3">
                       <Link
@@ -257,7 +258,6 @@ export default function AdminOrdersPage() {
         <p className="text-muted print:hidden">Nincs rendelés.</p>
       )}
 
-      {/* Tömeges nyomtatási nézet – csak nyomtatáskor / előnézetben */}
       {showBulkPreview && selectedOrders.length > 0 && (
         <div
           id="admin-bulk-shipping-labels"
