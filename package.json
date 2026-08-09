@@ -21,6 +21,7 @@
     "test": "vitest",
     "test:ci": "vitest run",
     "test:e2e": "playwright test",
+    "test:e2e:ci": "playwright test --reporter=github",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

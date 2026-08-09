@@ -170,6 +170,25 @@ describe('resolveCartLines', () => {
       expect.objectContaining({ productId: 'sale-off', priceHuf: 10_000, qty: 2 }),
     ])
   })
+
+  it('does not undercharge when sale has not started yet', () => {
+    const map = new Map<string, Product>([
+      [
+        'future-sale',
+        product({
+          id: 'future-sale',
+          priceHuf: 12_000,
+          discountPriceHuf: 6_000,
+          onSale: true,
+          saleStartAt: '2099-01-01T00:00:00.000Z',
+          saleEndAt: '2099-12-31T00:00:00.000Z',
+        }),
+      ],
+    ])
+
+    const lines = resolveCartLines([{ productId: 'future-sale', qty: 1 }], map)
+    expect(lines[0]?.priceHuf).toBe(12_000)
+  })
 })
 
 describe('computeCheckoutTotals', () => {
