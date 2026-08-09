@@ -14,6 +14,7 @@ import { getProductById as getProductByIdFromData } from '@/lib/data'
 import { useProducts } from '@/context/ProductsContext'
 import { resolveCartLine } from '@/lib/cart-line'
 import { usePointWallet } from '@/hooks/usePointWallet'
+import { optimisticRedeemPoints, stashPendingPointsRedeem } from '@/lib/point-wallet-client'
 import { useLuckySpin } from '@/hooks/useLuckySpin'
 import {
   computeCheckoutTotals,
@@ -168,6 +169,7 @@ export default function PaymentPage() {
   const luckySpinDiscount = checkoutPreview.luckySpin
   const displayTotalHuf = checkoutPreview.afterCouponAndLuckyHuf
   const pointsDiscountHuf = checkoutPreview.pointsDiscountHuf
+  const pointsUsedPreview = checkoutPreview.pointsUsed
   const shippingHuf = checkoutPreview.shippingHuf
   const cardTotalHuf = checkoutPreview.finalTotalHuf
   const freeShippingRemainingHuf = checkoutPreview.freeShippingRemainingHuf
@@ -440,6 +442,22 @@ export default function PaymentPage() {
         setLoading(false)
         return
       }
+      // Azonnali UI: pontok levonása a fejlécből / profilból (ne várjunk webhookra)
+      const pointsUsedNow =
+        typeof data.pointsApplied?.pointsUsed === 'number'
+          ? data.pointsApplied.pointsUsed
+          : pointsUsedPreview > 0
+            ? pointsUsedPreview
+            : 0
+      if (pointsUsedNow > 0) {
+        const balanceBefore =
+          pointsPreview?.balance ?? wallet?.balance ?? pointsUsedNow
+        stashPendingPointsRedeem(pointsUsedNow, balanceBefore)
+        void optimisticRedeemPoints(pointsUsedNow, {
+          persist: true,
+          balanceBefore,
+        })
+      }
       const redirectPayment = data.payments?.find((p: { type: string }) => p.type === 'redirect')
       if (redirectPayment?.url) {
         // Stripe / külső redirect: kosár a siker oldalon ürül (megszakításkor megmarad)
@@ -483,6 +501,9 @@ export default function PaymentPage() {
     effectiveCouponPercent,
     couponCodeInput,
     pointsDiscountHuf,
+    pointsUsedPreview,
+    pointsPreview?.balance,
+    wallet?.balance,
     refreshWallet,
     router,
     clearCart,

@@ -17,7 +17,7 @@ type PointHistoryResponse = {
 }
 
 const fetcher = (url: string) =>
-  fetch(url, { credentials: 'include' }).then((res) => {
+  fetch(url, { credentials: 'include', cache: 'no-store' }).then((res) => {
     if (!res.ok) throw new Error('Failed to fetch point history')
     return res.json() as Promise<PointHistoryResponse>
   })
@@ -26,7 +26,7 @@ export function usePointHistory(enabled = true) {
   const { data, error, isLoading, mutate } = useSWR<PointHistoryResponse>(
     enabled ? '/api/gamification/history' : null,
     fetcher,
-    { revalidateOnFocus: true }
+    { revalidateOnFocus: true, revalidateOnMount: true }
   )
 
   return {

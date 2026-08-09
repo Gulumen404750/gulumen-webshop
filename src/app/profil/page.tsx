@@ -12,6 +12,8 @@ import { PointsProgress } from '@/components/PointsProgress'
 import { PointsGuide } from '@/components/PointsGuide'
 import { PointHistoryTimeline } from '@/components/PointHistoryTimeline'
 import { LoyaltyTierBadge } from '@/components/LoyaltyTierBadge'
+import { usePointWallet } from '@/hooks/usePointWallet'
+import { applyStashedPointsRedeemOnce } from '@/lib/point-wallet-client'
 
 function BirthDateProfileSection() {
   const { t } = useLocale()
@@ -113,11 +115,19 @@ export default function ProfilePage() {
   const { t } = useLocale()
   const { isLoggedIn, userId, login, loginWithGoogle, logout } = useAuth()
   const { registrationStatus } = useCatCoupon()
+  const { refresh: refreshWallet } = usePointWallet(isLoggedIn)
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState<string | null>(null)
   const [authError, setAuthError] = useState<string | null>(null)
+
+  // Mindig a legfrissebb pontszám – fizetés utáni pending levonás azonnal
+  useEffect(() => {
+    if (!isLoggedIn) return
+    void applyStashedPointsRedeemOnce()
+    void refreshWallet()
+  }, [isLoggedIn, refreshWallet])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)

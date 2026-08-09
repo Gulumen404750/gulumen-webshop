@@ -9,6 +9,7 @@ import { markWelcomeCouponRedeemed } from '@/lib/welcome-checkout-offer'
 import { applyPointDelta } from '@/lib/gamification/point-ledger'
 import { POINT_TX_TYPES } from '@/lib/gamification/constants'
 import { logger } from '@/lib/logger'
+import { revalidateUserProfile } from '@/lib/revalidate-user-profile'
 
 export const APPLIED_COUPON_KINDS = [
   'cat',
@@ -39,6 +40,8 @@ export type FinalizeOrderRewardsResult = {
   alreadyFinalized?: boolean
   skipped?: boolean
   reason?: string
+  /** Friss tárcaegyenleg pontlevonás után (ha ismert). */
+  balanceAfter?: number
   burned: {
     dbCoupon: boolean
     promoKinds: AppliedCouponKind[]
@@ -88,7 +91,20 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
   }
 
   if (order.rewardsFinalized) {
-    return { ok: true, alreadyFinalized: true, burned: emptyBurn }
+    let balanceAfter: number | undefined
+    if (order.userId) {
+      try {
+        const wallet = await prisma.userPointWallet.findUnique({
+          where: { userId: order.userId },
+          select: { balance: true },
+        })
+        if (wallet) balanceAfter = wallet.balance
+      } catch {
+        /* ignore */
+      }
+    }
+    revalidateUserProfile()
+    return { ok: true, alreadyFinalized: true, balanceAfter, burned: emptyBurn }
   }
 
   // Optimistic claim – párhuzamos webhook + siker oldal ne fusson kétszer
@@ -145,8 +161,9 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
 
     // 4) Pontlevonás – azonnal, idempotens kulccsal
     const pointsUsed = order.pointsUsed ?? 0
+    let balanceAfter: number | undefined
     if (order.userId && pointsUsed > 0) {
-      await applyPointDelta({
+      const deltaResult = await applyPointDelta({
         userId: order.userId,
         delta: -pointsUsed,
         type: POINT_TX_TYPES.PURCHASE_REDEEM,
@@ -161,6 +178,7 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
         },
       })
       burned.pointsUsed = pointsUsed
+      balanceAfter = deltaResult.wallet?.balance
 
       // Ha volt pending outbox esemény, jelöljük késznek (elkerüli a dupla feldolgozást)
       try {
@@ -176,13 +194,25 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
       } catch {
         /* non-fatal */
       }
+    } else if (order.userId) {
+      try {
+        const wallet = await prisma.userPointWallet.findUnique({
+          where: { userId: order.userId },
+          select: { balance: true },
+        })
+        if (wallet) balanceAfter = wallet.balance
+      } catch {
+        /* ignore */
+      }
     }
 
+    revalidateUserProfile()
+
     logger.info(
-      { orderId, burned, applied },
+      { orderId, burned, applied, balanceAfter },
       'finalizeOrderRewards: coupons burned and points deducted'
     )
-    return { ok: true, burned }
+    return { ok: true, burned, balanceAfter }
   } catch (err) {
     // Claim visszavonása, hogy a webhook / siker oldal újrapróbálhassa
     try {

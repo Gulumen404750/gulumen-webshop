@@ -46,7 +46,7 @@ export async function POST(request: Request) {
       const orders = await getOrdersByGroupId(orderGroupId)
       if (!orders.length) return NextResponse.json({ error: 'Orders not found' }, { status: 404 })
       const results = await confirmPendingAndFinalizeOrderGroup(orderGroupId)
-      return NextResponse.json({ ok: true, results })
+      return NextResponse.json({ ok: true, results, ...summarizeFinalizeResults(results) })
     }
 
     if (orderId) {
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
       if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 })
       if (order.orderGroupId) {
         const results = await confirmPendingAndFinalizeOrderGroup(order.orderGroupId)
-        return NextResponse.json({ ok: true, results })
+        return NextResponse.json({ ok: true, results, ...summarizeFinalizeResults(results) })
       }
       if (order.status === 'payment_pending') {
         await setOrderStatus(
@@ -63,7 +63,11 @@ export async function POST(request: Request) {
         )
       }
       const result = await finalizeOrderRewards(orderId)
-      return NextResponse.json({ ok: true, results: [result] })
+      return NextResponse.json({
+        ok: true,
+        results: [result],
+        ...summarizeFinalizeResults([result]),
+      })
     }
 
     if (!sessionId || !process.env.STRIPE_SECRET_KEY) {
@@ -80,10 +84,15 @@ export async function POST(request: Request) {
       // csak a már paid státuszúakat égetjük (webhook felel a paid-ért).
       if (session.payment_status === 'paid') {
         const results = await confirmPendingAndFinalizeOrderGroup(metaGroupId)
-        return NextResponse.json({ ok: true, results })
+        return NextResponse.json({ ok: true, results, ...summarizeFinalizeResults(results) })
       }
       const results = await finalizeOrderGroupRewardsSafe(metaGroupId)
-      return NextResponse.json({ ok: true, results, waitingForPayment: true })
+      return NextResponse.json({
+        ok: true,
+        results,
+        waitingForPayment: true,
+        ...summarizeFinalizeResults(results),
+      })
     }
 
     if (metaOrderId) {
@@ -101,6 +110,7 @@ export async function POST(request: Request) {
         ok: true,
         results: [result],
         waitingForPayment: Boolean(result.skipped),
+        ...summarizeFinalizeResults([result]),
       })
     }
 
@@ -114,4 +124,19 @@ export async function POST(request: Request) {
 async function finalizeOrderGroupRewardsSafe(orderGroupId: string) {
   const { finalizeOrderGroupRewards } = await import('@/lib/checkout-rewards')
   return finalizeOrderGroupRewards(orderGroupId)
+}
+
+function summarizeFinalizeResults(
+  results: Array<{ balanceAfter?: number; burned?: { pointsUsed?: number } }>
+) {
+  let pointsUsed = 0
+  let balance: number | undefined
+  for (const r of results) {
+    pointsUsed += r.burned?.pointsUsed ?? 0
+    if (typeof r.balanceAfter === 'number') balance = r.balanceAfter
+  }
+  return {
+    pointsUsed,
+    ...(typeof balance === 'number' ? { balance } : {}),
+  }
 }

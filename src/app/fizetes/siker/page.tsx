@@ -10,6 +10,11 @@ import { useAuth } from '@/context/AuthContext'
 import { usePointWallet } from '@/hooks/usePointWallet'
 import type { Order } from '@/lib/orders'
 import { trackPurchase } from '@/lib/analytics'
+import {
+  applyStashedPointsRedeemOnce,
+  stashPendingPointsRedeem,
+  syncPointWalletAfterPayment,
+} from '@/lib/point-wallet-client'
 
 const POLL_INTERVAL_MS = 1500
 const POLL_MAX_ATTEMPTS = 8
@@ -67,8 +72,25 @@ export default function PaymentSuccessPage() {
   const didClearCartRef = useRef(false)
   const didFinalizeRewardsRef = useRef(false)
   const didTrackPurchaseRef = useRef(false)
+  const didOptimisticPointsRef = useRef(false)
+
+  // Stripe-ról visszatérve azonnal mutassuk a levont pontokat a fejlécben is
+  useEffect(() => {
+    void applyStashedPointsRedeemOnce()
+  }, [])
+
+  const applyOptimisticPointsFromOrders = (orders: Order[]) => {
+    if (didOptimisticPointsRef.current) return
+    const pointsUsed = orders.reduce((sum, o) => sum + (o.pointsUsed ?? 0), 0)
+    if (pointsUsed <= 0) return
+    didOptimisticPointsRef.current = true
+    // Ha a checkout már stash-elt (balanceBefore-ral), ne írjuk felül
+    stashPendingPointsRedeem(pointsUsed, undefined, { replace: false })
+    void applyStashedPointsRedeemOnce()
+  }
 
   const finalizeRewardsOnce = (orders: Order[]) => {
+    applyOptimisticPointsFromOrders(orders)
     if (didFinalizeRewardsRef.current) return
     // payment_pending is is számít: Dummy / pending checkout a siker oldalon zárul le
     const actionable = orders.filter((o) =>
@@ -96,7 +118,16 @@ export default function PaymentSuccessPage() {
           didFinalizeRewardsRef.current = false
           return
         }
+        const data = (await res.json().catch(() => ({}))) as {
+          balance?: number
+          pointsUsed?: number
+        }
         markUsed()
+        if (typeof data.balance === 'number') {
+          void syncPointWalletAfterPayment(data.balance)
+        } else {
+          void syncPointWalletAfterPayment()
+        }
         void refreshWallet()
         // Friss státusz a lezárás után
         if (orderGroupId) {
