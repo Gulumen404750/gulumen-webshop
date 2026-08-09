@@ -87,7 +87,7 @@ export class StripeProvider implements PaymentProvider {
   }
 
   async captureAuthorizedPayment(params: { transactionId: string }): Promise<CaptureOrCancelResult> {
-    const tx = getPaymentTransactionById(params.transactionId)
+    const tx = await getPaymentTransactionById(params.transactionId)
     if (!tx?.providerRef) {
       return { success: false, error: 'Payment intent not found for transaction' }
     }
@@ -102,7 +102,7 @@ export class StripeProvider implements PaymentProvider {
   }
 
   async cancelAuthorizedPayment(params: { transactionId: string }): Promise<CaptureOrCancelResult> {
-    const tx = getPaymentTransactionById(params.transactionId)
+    const tx = await getPaymentTransactionById(params.transactionId)
     if (!tx?.providerRef) {
       return { success: false, error: 'Payment intent not found for transaction' }
     }

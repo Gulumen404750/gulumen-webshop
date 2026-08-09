@@ -1,6 +1,6 @@
 /**
  * Upstash Redis kliens. Ha UPSTASH_REDIS_REST_URL / TOKEN nincs beállítva,
- * null → rate-limit / idempotency in-memory fallback.
+ * null → rate-limit / idempotency in-memory fallback (tiszta, hiba nélkül).
  */
 
 import { Redis } from '@upstash/redis'
@@ -20,6 +20,16 @@ export function getRedis(): Redis | null {
     redis = null
     return null
   }
-  redis = Redis.fromEnv()
+  try {
+    redis = Redis.fromEnv()
+  } catch (err) {
+    console.warn('[redis] init failed, memory fallback for rate-limit/idempotency:', err)
+    redis = null
+  }
   return redis
+}
+
+/** Teszt / hot-reload: kliens cache ürítése. */
+export function resetRedisClientForTests(): void {
+  redis = undefined
 }

@@ -49,7 +49,7 @@ export async function POST(
     return NextResponse.json({ success: true, orderId, status: order.status })
   }
 
-  const transactions = getPaymentTransactionsByOrderId(orderId)
+  const transactions = await getPaymentTransactionsByOrderId(orderId)
   const authTx = transactions.find((t) => t.mode === 'authorize' && t.status !== 'cancelled' && t.status !== 'failed')
   if (!authTx) {
     return NextResponse.json(
@@ -72,7 +72,7 @@ export async function POST(
     )
   }
 
-  updatePaymentTransactionStatus(authTx.id, 'succeeded')
+  await updatePaymentTransactionStatus(authTx.id, 'succeeded')
   await setOrderStatus(orderId, 'fulfilled')
   await logAdminAction({ action: 'sourcing_success', orderId, success: true })
 

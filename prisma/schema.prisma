@@ -245,16 +245,21 @@ model OrderItem {
 }
 
 model PaymentTransaction {
-  id         String   @id
-  orderId    String
-  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  provider   String
-  mode       String
-  status     String
-  amount     Int
-  currency   String
-  providerRef String?
-  createdAt  DateTime @default(now())
+  id          String   @id
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  provider    String
+  mode        String
+  status      String
+  amount      Int
+  currency    String
+  /// Provider-oldali referencia (pl. Stripe PaymentIntent id) – unique a dupla webhook ellen.
+  providerRef String?  @unique
+  createdAt   DateTime @default(now())
+
+  @@index([orderId])
+  @@index([orderId, status])
+  @@index([status, createdAt])
 }
 
 model ProductLike {
