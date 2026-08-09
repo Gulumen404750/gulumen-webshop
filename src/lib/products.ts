@@ -3,6 +3,7 @@
  */
 
 import { prisma, isDbConfigured } from '@/lib/prisma'
+import { cleanCdnUrl, cleanCdnUrls } from '@/lib/cdn'
 import type { Product, Condition } from '@/lib/data'
 
 function mapCondition(c: string): Condition {
@@ -62,9 +63,9 @@ function dbProductToProduct(row: {
     description_ro: row.description_ro || undefined,
     condition: mapCondition(row.condition),
     category: row.category,
-    image: row.image,
-    images: row.images?.length ? row.images : [row.image],
-    images360: row.images360?.length ? row.images360 : undefined,
+    image: cleanCdnUrl(row.image),
+    images: cleanCdnUrls(row.images?.length ? row.images : row.image ? [row.image] : []),
+    images360: row.images360?.length ? cleanCdnUrls(row.images360) : undefined,
     modelUrl: row.modelUrl ?? undefined,
     priceHuf: row.priceHuf,
     priceEur: row.priceEur,

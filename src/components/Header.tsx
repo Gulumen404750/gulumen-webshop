@@ -119,9 +119,9 @@ export function Header() {
     <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
     <CartDrawer isOpen={cartDrawerOpen} onClose={() => setCartDrawerOpen(false)} />
     <CallUsModal isOpen={callUsModalOpen} onClose={() => setCallUsModalOpen(false)} />
-    <header className="sticky top-0 z-50 bg-background border-b border-[var(--border)]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 lg:h-18">
+    <header className="sticky top-0 z-[100] bg-background border-b border-[var(--border)] overflow-visible">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 overflow-visible">
+        <div className="flex items-center justify-between h-16 lg:h-18 overflow-visible">
           <Link href="/" className="flex items-center gap-2">
             <span className="flex w-10 h-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--card-bg)] border border-[var(--border)]">
               <Image src="/img/logo.png" alt="Gulumen" width={40} height={40} className="object-cover w-full h-full" />
@@ -139,8 +139,22 @@ export function Header() {
             {mobileNavOpen ? <CloseIcon className="w-6 h-6" /> : <HamburgerIcon className="w-6 h-6" />}
           </button>
 
-          <nav className={`${mobileNavOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row absolute md:relative top-full left-0 right-0 md:top-0 bg-[var(--card-bg)] md:bg-transparent border-b md:border-b-0 border-[var(--border)] md:border-0 py-4 md:py-0 items-center gap-3 md:gap-4 md:flex-nowrap md:min-h-[2.5rem] shadow-lg md:shadow-none z-40`}>
-            <div className="relative flex items-center h-full" ref={productsRef}>
+          <nav className={`${mobileNavOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row absolute md:relative top-full left-0 right-0 md:top-0 bg-[var(--card-bg)] md:bg-transparent border-b md:border-b-0 border-[var(--border)] md:border-0 py-4 md:py-0 items-center gap-3 md:gap-4 md:flex-nowrap md:min-h-[2.5rem] shadow-lg md:shadow-none z-[110] overflow-visible`}>
+            <div
+              className="relative flex items-center h-full z-[120]"
+              ref={productsRef}
+              onMouseEnter={() => {
+                if (typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches) {
+                  setProductsOpen(true)
+                  setHelpOpen(false)
+                }
+              }}
+              onMouseLeave={() => {
+                if (typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches) {
+                  setProductsOpen(false)
+                }
+              }}
+            >
               <button
                 type="button"
                 onClick={() => setProductsOpen((o) => !o)}
@@ -157,7 +171,9 @@ export function Header() {
                 </svg>
               </button>
               {productsOpen && (
-                <ul className="absolute left-0 top-full mt-1 py-2 min-w-[200px] rounded-xl border border-[var(--border)] bg-[var(--card-bg)] shadow-lg z-50">
+                <ul className="absolute left-0 top-full pt-1 py-0 min-w-[220px] z-[130]">
+                  <li className="list-none">
+                    <ul className="py-2 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] shadow-xl">
                   <li>
                     <Link
                       href="/termekek"
@@ -191,6 +207,8 @@ export function Header() {
                       </li>
                     )
                   })}
+                    </ul>
+                  </li>
                 </ul>
               )}
             </div>
@@ -261,7 +279,9 @@ export function Header() {
                 </svg>
               </button>
               {helpOpen && (
-                <ul className="absolute left-0 top-full mt-1 py-2 min-w-[200px] rounded-xl border border-[var(--border)] bg-[var(--card-bg)] shadow-lg z-50 md:left-0">
+                <ul className="absolute left-0 top-full pt-1 min-w-[200px] z-[130] md:left-0">
+                  <li className="list-none">
+                <ul className="py-2 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] shadow-xl">
                   {helpDropdownItems.map(({ href, labelKey }) => (
                     <li key={href}>
                       <Link
@@ -290,6 +310,8 @@ export function Header() {
                       <Phone className="w-4 h-4" />
                       {t('callUs.title')}
                     </button>
+                  </li>
+                </ul>
                   </li>
                 </ul>
               )}

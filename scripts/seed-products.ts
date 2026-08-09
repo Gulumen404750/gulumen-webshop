@@ -1,10 +1,23 @@
 /**
- * Termékek seedelése az adatbázisba.
- * Futtatás: npx tsx scripts/seed-products.ts
- * A sourcing deal-eknek fix dealStartAt/dealEndAt van (seed időpont + offset), így deploy után nem resetelődnek.
+ * Termékek seedelése az adatbázisba – CSAK manuálisan, soha nem fut deploy/start során.
+ *
+ * Biztonság:
+ * - Indításkor NEM fut (scripts/start.js nem hívja).
+ * - Csak ALLOW_PRODUCT_SEED=1 mellett futtatható.
+ * - Meglévő termékeket NEM írja felül (csak create, ha a slug hiányzik).
+ *
+ * Futtatás: ALLOW_PRODUCT_SEED=1 npx tsx scripts/seed-products.ts
  */
 
 import { PrismaClient } from '@prisma/client'
+
+if (process.env.ALLOW_PRODUCT_SEED !== '1') {
+  console.error(
+    'Seed megtagadva: a manuális termékek védelme érdekében állítsd be: ALLOW_PRODUCT_SEED=1\n' +
+      'Példa: ALLOW_PRODUCT_SEED=1 npm run seed:products'
+  )
+  process.exit(1)
+}
 
 const prisma = new PrismaClient()
 
@@ -105,11 +118,15 @@ const sourcingDeals = [
 ]
 
 async function main() {
-  console.log('Seeding products...')
+  console.log('Seeding products (create-only, meglévő slug-ok érintetlenek)...')
   for (const p of stockProducts) {
-    await prisma.product.upsert({
-      where: { slug: p.slug },
-      create: {
+    const existing = await prisma.product.findUnique({ where: { slug: p.slug } })
+    if (existing) {
+      console.log('  skip (már létezik):', p.slug)
+      continue
+    }
+    await prisma.product.create({
+      data: {
         id: p.id,
         slug: p.slug,
         name: p.name,
@@ -135,37 +152,17 @@ async function main() {
         sourcingEnabled: p.sourcingEnabled,
         isColorable: p.isColorable,
       },
-      update: {
-        name: p.name,
-        nameEn: p.nameEn,
-        nameDe: p.nameDe,
-        nameRo: p.nameRo,
-        description_hu: p.description_hu,
-        description_en: p.description_en,
-        description_de: p.description_de,
-        condition: p.condition,
-        category: p.category,
-        image: p.image,
-        images: p.images,
-        images360: p.images360,
-        modelUrl: p.modelUrl,
-        priceHuf: p.priceHuf,
-        priceEur: p.priceEur,
-        stock: p.stock,
-        variants: p.variants ?? undefined,
-        isNew: p.isNew,
-        onSale: p.onSale,
-        type: p.type,
-        sourcingEnabled: p.sourcingEnabled,
-        isColorable: p.isColorable,
-      },
     })
-    console.log('  upserted', p.slug)
+    console.log('  created', p.slug)
   }
   for (const p of sourcingDeals) {
-    await prisma.product.upsert({
-      where: { slug: p.slug },
-      create: {
+    const existing = await prisma.product.findUnique({ where: { slug: p.slug } })
+    if (existing) {
+      console.log('  skip sourcing (már létezik):', p.slug)
+      continue
+    }
+    await prisma.product.create({
+      data: {
         id: p.id,
         slug: p.slug,
         name: p.name,
@@ -194,37 +191,10 @@ async function main() {
         maxOrders: p.maxOrders,
         isColorable: p.isColorable,
       },
-      update: {
-        name: p.name,
-        nameEn: p.nameEn,
-        nameDe: p.nameDe,
-        nameRo: p.nameRo,
-        description_hu: p.description_hu,
-        description_en: p.description_en,
-        description_de: p.description_de,
-        condition: p.condition,
-        category: p.category,
-        image: p.image,
-        images: p.images,
-        images360: p.images360,
-        priceHuf: p.priceHuf,
-        priceEur: p.priceEur,
-        stock: p.stock,
-        variants: p.variants ?? undefined,
-        isNew: p.isNew,
-        onSale: p.onSale,
-        type: p.type,
-        sourcingEnabled: p.sourcingEnabled,
-        dealStartAt: p.dealStartAt,
-        dealEndAt: p.dealEndAt,
-        previewFrom: p.previewFrom,
-        maxOrders: p.maxOrders,
-        isColorable: p.isColorable,
-      },
     })
-    console.log('  upserted sourcing', p.slug)
+    console.log('  created sourcing', p.slug)
   }
-  console.log('Seed done.')
+  console.log('Seed done (manuális termékek érintetlenek).')
 }
 
 main()

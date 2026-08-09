@@ -4,7 +4,8 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { categories, threeDSubcategories } from '@/lib/data'
-import { ProductImageUploader } from '@/components/ProductImageUploader'
+import { CdnImageManager } from '@/components/CdnImageManager'
+import { cleanCdnUrl, cleanCdnUrls } from '@/lib/cdn'
 
 type Product = {
   id: string
@@ -33,7 +34,6 @@ type Product = {
   isNew: boolean
   onSale: boolean
   active: boolean
-  isColorable: boolean
   type: string
   sourcingEnabled: boolean
   dealStartAt: string | null
@@ -72,7 +72,15 @@ export default function AdminProductEditPage() {
         return r.json()
       })
       .then((data: { product?: Product }) => {
-        if (data.product) setProduct(data.product)
+        if (data.product) {
+          const p = data.product
+          setProduct({
+            ...p,
+            image: cleanCdnUrl(p.image),
+            images: cleanCdnUrls(p.images),
+            images360: cleanCdnUrls(p.images360),
+          })
+        }
       })
       .catch(() => setMessage({ type: 'error', text: 'Hálózati hiba.' }))
       .finally(() => setLoading(false))
@@ -99,9 +107,9 @@ export default function AdminProductEditPage() {
             description_ro: product.description_ro ?? product.description ?? '',
             condition: product.condition || 'Új',
             category: product.category || 'taskak',
-            image: product.image || '',
-            images: product.images || [],
-            images360: product.images360 || [],
+            image: cleanCdnUrl(product.image || ''),
+            images: cleanCdnUrls(product.images || []),
+            images360: cleanCdnUrls(product.images360 || []),
             modelUrl: product.modelUrl || undefined,
             priceHuf: product.priceHuf ?? 0,
             priceEur: product.priceEur ?? 0,
@@ -111,7 +119,6 @@ export default function AdminProductEditPage() {
             isNew: product.isNew ?? false,
             onSale: product.onSale ?? false,
             active: product.active ?? true,
-            isColorable: product.isColorable ?? false,
             type: product.type || 'stock',
             sourcingEnabled: product.sourcingEnabled ?? false,
             dealStartAt: product.dealStartAt || undefined,
@@ -131,9 +138,9 @@ export default function AdminProductEditPage() {
             description_ro: product.description_ro ?? product.description ?? '',
             condition: product.condition ?? 'Új',
             category: product.category ?? 'taskak',
-            image: product.image ?? '',
-            images: product.images ?? [],
-            images360: product.images360 ?? [],
+            image: cleanCdnUrl(product.image ?? ''),
+            images: cleanCdnUrls(product.images ?? []),
+            images360: cleanCdnUrls(product.images360 ?? []),
             modelUrl: product.modelUrl ?? undefined,
             priceHuf: product.priceHuf ?? 0,
             priceEur: product.priceEur ?? 0,
@@ -143,7 +150,6 @@ export default function AdminProductEditPage() {
             isNew: product.isNew ?? false,
             onSale: product.onSale ?? false,
             active: product.active ?? true,
-            isColorable: product.isColorable ?? false,
             type: product.type || 'stock',
             sourcingEnabled: product.sourcingEnabled ?? false,
             dealStartAt: product.dealStartAt || undefined,
@@ -525,76 +531,48 @@ export default function AdminProductEditPage() {
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="block text-sm font-medium mb-1">Készlet</label>
-            <input
-              type="number"
-              value={product?.stock ?? ''}
-              onChange={(e) => setProduct((p) => ({ ...p, stock: Number(e.target.value) || 0 }))}
-              className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <ProductImageUploader
-              label="Fő kép"
-              value={product?.image ?? ''}
-              onChange={(url) => setProduct((p) => (p ? { ...p, image: url } : p))}
-              showUrlInput={true}
-              urlPlaceholder="https://… vagy húzd ide / kattints a feltöltéshez"
-            />
-            <p className="text-xs text-muted mt-2">
-              Gépről: húzd a képet vagy kattints — JPEG, PNG, WebP, GIF (max 25 MB). Külső link: pl. Google Drive közvetlen képlink.
-            </p>
-          </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Készlet</label>
+          <input
+            type="number"
+            value={product?.stock ?? ''}
+            onChange={(e) => setProduct((p) => ({ ...p, stock: Number(e.target.value) || 0 }))}
+            className="w-full max-w-xs rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
+          />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-1">Galéria (több kép URL)</label>
-          <p className="text-xs text-muted mb-2">A fő kép alatt megjelenő képek. Add hozzá az URL-eket, tölts fel a gépről, vagy töröld őket.</p>
-          <div className="space-y-2">
-            {(product?.images?.length ? product.images : []).map((url, i) => (
-              <div key={i} className="flex gap-2">
-                <input
-                  value={url}
-                  onChange={(e) => {
-                    const next = [...(product?.images ?? [])]
-                    next[i] = e.target.value
-                    setProduct((p) => ({ ...p, images: next }))
-                  }}
-                  className="flex-1 rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground text-sm"
-                  placeholder="Kép URL"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = (product?.images ?? []).filter((_, j) => j !== i)
-                    setProduct((p) => ({ ...p, images: next }))
-                  }}
-                  className="shrink-0 rounded-lg border border-red-500/50 px-3 py-2 text-red-600 text-sm hover:bg-red-500/10"
-                >
-                  Törlés
-                </button>
-              </div>
-            ))}
-            <div className="flex flex-wrap gap-2 items-start">
-              <ProductImageUploader
-                label="+ Kép feltöltése a gépről (húzd ide vagy kattints)"
-                value=""
-                onChange={() => {}}
-                showUrlInput={false}
-                mode="add"
-                onAddUrl={(url) => setProduct((p) => (p ? { ...p, images: [...(p?.images ?? []), url] } : p))}
-              />
-              <button
-                type="button"
-                onClick={() => setProduct((p) => ({ ...p, images: [...(p?.images ?? []), ''] }))}
-                className="rounded-lg border border-dashed border-[var(--border)] px-3 py-2 text-sm text-muted hover:bg-[var(--border)]/20"
-              >
-                + Kép URL hozzáadása
-              </button>
-            </div>
-          </div>
+        <div className="space-y-6 border-t border-[var(--border)] pt-4">
+          <CdnImageManager
+            label="Fő termékfotó"
+            value={product?.image ?? ''}
+            onChange={(url) =>
+              setProduct((p) => {
+                if (!p) return p
+                const gallery = [...(p.images ?? [])]
+                if (!gallery.length && url) gallery.push(url)
+                else if (gallery.length && gallery[0] === (p.image || '')) gallery[0] = url
+                return { ...p, image: url, images: gallery.filter(Boolean) }
+              })
+            }
+            multiple={false}
+          />
+
+          <CdnImageManager
+            label="Galéria / színvariáció képek"
+            values={product?.images ?? []}
+            onChangeMultiple={(urls) =>
+              setProduct((p) =>
+                p
+                  ? {
+                      ...p,
+                      images: urls,
+                      image: p.image || urls[0] || '',
+                    }
+                  : p
+              )
+            }
+            multiple
+          />
         </div>
 
         <div>
@@ -723,15 +701,6 @@ export default function AdminProductEditPage() {
               className="rounded border-[var(--border)]"
             />
             Beszerzéses deal
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={product?.isColorable ?? false}
-              onChange={(e) => setProduct((p) => ({ ...p, isColorable: e.target.checked }))}
-              className="rounded border-[var(--border)]"
-            />
-            Színezhető (3D)
           </label>
         </div>
 

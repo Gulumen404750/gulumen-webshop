@@ -139,7 +139,7 @@ export default function AdminProductsPage() {
       )}
 
       {!loading && products.length === 0 && (
-        <p className="text-muted">Nincs termék. Futtasd a seed-et vagy hozz létre újat.</p>
+        <p className="text-muted">Nincs termék. Hozz létre újat az „Új termék” gombbal (az adatok a PostgreSQL-be mentődnek).</p>
       )}
     </div>
   )
