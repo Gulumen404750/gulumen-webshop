@@ -173,6 +173,14 @@ export default function ProfilePage() {
         <p className="text-muted mb-4">{t('profile.loggedInAs')} {userId}</p>
         {userId && <LoyaltyTierBadge email={userId} className="mb-6" />}
         <BirthDateProfileSection />
+        <div className="mb-6">
+          <Link
+            href="/profil/rendelesek"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] text-foreground font-medium hover:border-accent/50 transition-colors"
+          >
+            {t('orders.title') || 'Rendeléseim'}
+          </Link>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2 mb-6">
           <PointsDisplay />
           <PointsProgress />

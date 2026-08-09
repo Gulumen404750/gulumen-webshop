@@ -22,6 +22,12 @@ test.describe('Checkout flow', () => {
     await expect(page).toHaveURL(/\/fizetes/)
 
     await page.locator('#guest-email').fill(guestEmail)
+    await page.locator('#checkout-name').fill('Teszt Elek')
+    await page.locator('#checkout-phone').fill('+36 30 111 2233')
+    await page.locator('#checkout-shipping-postal').fill('1051')
+    await page.locator('#checkout-shipping-city').fill('Budapest')
+    await page.locator('#checkout-shipping-street').fill('Váci utca')
+    await page.locator('#checkout-shipping-house').fill('1')
 
     const payPromise = completeDummyPayment(page, request, baseURL!)
     await page.getByRole('button', { name: 'Fizetek kártyával' }).click()

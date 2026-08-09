@@ -5,7 +5,6 @@ import type { Product } from '@/lib/data'
 import {
   generateOrderGroupId,
   createCheckoutOrders,
-  setOrderCustomerEmail,
   setOrderStatus,
   getProductOrdersCount,
   OutOfStockException,
@@ -50,6 +49,10 @@ import { acceptWelcomeCheckoutOffer } from '@/lib/welcome-checkout-offer'
 import { finalizeOrderRewards } from '@/lib/checkout-rewards'
 import { WELCOME_CHECKOUT_COUPON_PERCENT } from '@/lib/coupon-config'
 import type { CouponDiscount } from '@/lib/checkout'
+import {
+  checkoutCustomerSchema,
+  toOrderCustomerSnapshot,
+} from '@/lib/checkout-customer'
 
 const selectedCouponEnum = z.enum(['cat', 'registration', 'loyalty', 'welcome', 'birthday'])
 
@@ -69,10 +72,7 @@ const checkoutBodySchema = z.object({
       })
     )
     .min(1),
-  customer: z.object({
-    email: z.string().email(),
-    name: z.string().optional(),
-  }),
+  customer: checkoutCustomerSchema,
   /** Szerver validálja: max. kosár 30%-a, egyenleg ellenőrzés. */
   pointsDiscountHuf: z.number().int().min(0).optional(),
   /** DB kupon kód – a kedvezmény % CSAK ebből / szerveroldali kuponlogikából jön. */
@@ -248,7 +248,7 @@ export async function POST(request: Request) {
   }
 
   if (selectedCoupons.has('loyalty')) {
-    const loyalty = getLoyaltyByEmail(customer.email)
+    const loyalty = getLoyaltyByEmail(customer.email.trim().toLowerCase())
     if (!loyalty || loyalty.loyaltyPercent <= 0) {
       return NextResponse.json(
         { code: 'loyalty_inactive', error: 'No loyalty discount on this account' },
@@ -366,6 +366,7 @@ export async function POST(request: Request) {
   const orderGroupId = generateOrderGroupId()
   const provider = getPaymentProvider()
   const currency = 'huf'
+  const customerSnapshot = toOrderCustomerSnapshot(customer)
 
   const appliedCouponsList = Array.from(selectedCoupons)
 
@@ -376,6 +377,7 @@ export async function POST(request: Request) {
       userId: checkoutUserId ?? undefined,
       couponId: appliedCouponId ?? undefined,
       appliedCoupons: appliedCouponsList,
+      customer: customerSnapshot,
       inStock: hasInStock
         ? {
             items: inStock.items,
@@ -419,10 +421,6 @@ export async function POST(request: Request) {
       )
     }
     throw err
-  }
-
-  for (const order of createdOrders) {
-    await setOrderCustomerEmail(order.id, customer.email)
   }
 
   const sourcingOrder = createdOrders.find((o) => o.orderType === 'sourcing')
@@ -476,7 +474,7 @@ export async function POST(request: Request) {
       currency,
       orderId: order.id,
       orderGroupId,
-      customer: { email: customer.email, name: customer.name },
+      customer: { email: customerSnapshot.email, name: customerSnapshot.name },
     }
 
     let result
@@ -535,7 +533,7 @@ export async function POST(request: Request) {
     try {
       const emailResult = await maybeSendOrderGroupConfirmationEmail(
         createdOrders[0]!.id,
-        customer.email
+        customerSnapshot.email
       )
       if (!emailResult.ok) {
         logger.error({ err: emailResult.error }, 'checkout: order confirmation email failed')

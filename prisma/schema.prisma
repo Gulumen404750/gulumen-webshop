@@ -195,6 +195,17 @@ model Order {
   currency           String   @default("huf")
   createdAt          DateTime @default(now())
   customerEmail      String?
+  customerName       String?
+  customerPhone      String?
+  shippingPostalCode String?
+  shippingCity       String?
+  shippingStreet     String?
+  shippingHouseNumber String?
+  billingSameAsShipping Boolean @default(true)
+  billingPostalCode  String?
+  billingCity        String?
+  billingStreet      String?
+  billingHouseNumber String?
   stripeSessionId    String?
   paymentIntentId    String?
   amountPaid         Int?

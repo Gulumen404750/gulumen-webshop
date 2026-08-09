@@ -5,6 +5,7 @@
 import { logger } from '@/lib/logger'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { decrementStockAtomic, OutOfStockException } from '@/lib/inventory'
+import type { OrderCustomerSnapshot } from '@/lib/checkout-customer'
 
 export { OutOfStockException }
 
@@ -62,6 +63,17 @@ export type Order = {
   paidWebhookEventId?: string
   countedForLoyalty?: boolean
   customerEmail?: string
+  customerName?: string
+  customerPhone?: string
+  shippingPostalCode?: string
+  shippingCity?: string
+  shippingStreet?: string
+  shippingHouseNumber?: string
+  billingSameAsShipping?: boolean
+  billingPostalCode?: string
+  billingCity?: string
+  billingStreet?: string
+  billingHouseNumber?: string
   refundedAmount?: number
   refundStatus?: RefundStatus
   cancelRequestedAt?: string
@@ -136,6 +148,17 @@ function dbOrderToOrder(row: {
   currency: string
   createdAt: Date
   customerEmail: string | null
+  customerName?: string | null
+  customerPhone?: string | null
+  shippingPostalCode?: string | null
+  shippingCity?: string | null
+  shippingStreet?: string | null
+  shippingHouseNumber?: string | null
+  billingSameAsShipping?: boolean | null
+  billingPostalCode?: string | null
+  billingCity?: string | null
+  billingStreet?: string | null
+  billingHouseNumber?: string | null
   stripeSessionId: string | null
   paymentIntentId: string | null
   amountPaid: number | null
@@ -169,6 +192,17 @@ function dbOrderToOrder(row: {
     currency: row.currency,
     createdAt: row.createdAt.toISOString(),
     customerEmail: row.customerEmail ?? undefined,
+    customerName: row.customerName ?? undefined,
+    customerPhone: row.customerPhone ?? undefined,
+    shippingPostalCode: row.shippingPostalCode ?? undefined,
+    shippingCity: row.shippingCity ?? undefined,
+    shippingStreet: row.shippingStreet ?? undefined,
+    shippingHouseNumber: row.shippingHouseNumber ?? undefined,
+    billingSameAsShipping: row.billingSameAsShipping ?? undefined,
+    billingPostalCode: row.billingPostalCode ?? undefined,
+    billingCity: row.billingCity ?? undefined,
+    billingStreet: row.billingStreet ?? undefined,
+    billingHouseNumber: row.billingHouseNumber ?? undefined,
     userId: row.userId ?? undefined,
     pointsDiscountHuf: row.pointsDiscountHuf,
     pointsUsed: row.pointsUsed,
@@ -193,6 +227,24 @@ function dbOrderToOrder(row: {
       priceHuf: i.priceHuf,
       name: i.name ?? undefined,
     })),
+  }
+}
+
+function customerSnapshotFields(customer?: OrderCustomerSnapshot) {
+  if (!customer) return {}
+  return {
+    customerEmail: customer.email,
+    customerName: customer.name,
+    customerPhone: customer.phone,
+    shippingPostalCode: customer.shippingPostalCode,
+    shippingCity: customer.shippingCity,
+    shippingStreet: customer.shippingStreet,
+    shippingHouseNumber: customer.shippingHouseNumber,
+    billingSameAsShipping: customer.billingSameAsShipping,
+    billingPostalCode: customer.billingPostalCode,
+    billingCity: customer.billingCity,
+    billingStreet: customer.billingStreet,
+    billingHouseNumber: customer.billingHouseNumber,
   }
 }
 
@@ -452,6 +504,8 @@ export async function createCheckoutOrders(params: {
   couponId?: string
   /** Manuálisan kiválasztott kuponok a fizetésnél. */
   appliedCoupons?: string[]
+  /** Szállítási / számlázási / kapcsolattartó adatok. */
+  customer?: OrderCustomerSnapshot
   inStock?: {
     items: OrderItem[]
     subtotalHuf: number
@@ -473,6 +527,7 @@ export async function createCheckoutOrders(params: {
   const currency = params.currency ?? 'huf'
   const result: Order[] = []
   const appliedCoupons = Array.isArray(params.appliedCoupons) ? params.appliedCoupons : []
+  const customerFields = customerSnapshotFields(params.customer)
 
   if (isDbConfigured()) {
     // Atomi tranzakció: in_stock stock decrement + rendelés létrehozás (oversell védelem).
@@ -498,6 +553,7 @@ export async function createCheckoutOrders(params: {
             couponId: params.couponId ?? null,
             appliedCoupons,
             currency,
+            ...customerFields,
             items: {
               create: params.inStock.items.map((i) => ({
                 productId: i.productId,
@@ -525,6 +581,18 @@ export async function createCheckoutOrders(params: {
           appliedCoupons,
           currency,
           createdAt: new Date().toISOString(),
+          customerEmail: params.customer?.email,
+          customerName: params.customer?.name,
+          customerPhone: params.customer?.phone,
+          shippingPostalCode: params.customer?.shippingPostalCode,
+          shippingCity: params.customer?.shippingCity,
+          shippingStreet: params.customer?.shippingStreet,
+          shippingHouseNumber: params.customer?.shippingHouseNumber,
+          billingSameAsShipping: params.customer?.billingSameAsShipping,
+          billingPostalCode: params.customer?.billingPostalCode ?? undefined,
+          billingCity: params.customer?.billingCity ?? undefined,
+          billingStreet: params.customer?.billingStreet ?? undefined,
+          billingHouseNumber: params.customer?.billingHouseNumber ?? undefined,
         })
       }
       if (params.sourcing && params.sourcing.items.length > 0) {
@@ -544,6 +612,7 @@ export async function createCheckoutOrders(params: {
             couponId: params.couponId ?? null,
             appliedCoupons,
             currency,
+            ...customerFields,
             items: {
               create: params.sourcing.items.map((i) => ({
                 productId: i.productId,
@@ -571,6 +640,18 @@ export async function createCheckoutOrders(params: {
           appliedCoupons,
           currency,
           createdAt: new Date().toISOString(),
+          customerEmail: params.customer?.email,
+          customerName: params.customer?.name,
+          customerPhone: params.customer?.phone,
+          shippingPostalCode: params.customer?.shippingPostalCode,
+          shippingCity: params.customer?.shippingCity,
+          shippingStreet: params.customer?.shippingStreet,
+          shippingHouseNumber: params.customer?.shippingHouseNumber,
+          billingSameAsShipping: params.customer?.billingSameAsShipping,
+          billingPostalCode: params.customer?.billingPostalCode ?? undefined,
+          billingCity: params.customer?.billingCity ?? undefined,
+          billingStreet: params.customer?.billingStreet ?? undefined,
+          billingHouseNumber: params.customer?.billingHouseNumber ?? undefined,
         })
       }
     })
@@ -591,6 +672,18 @@ export async function createCheckoutOrders(params: {
       couponId: params.couponId,
       currency,
       createdAt: new Date().toISOString(),
+      customerEmail: params.customer?.email,
+      customerName: params.customer?.name,
+      customerPhone: params.customer?.phone,
+      shippingPostalCode: params.customer?.shippingPostalCode,
+      shippingCity: params.customer?.shippingCity,
+      shippingStreet: params.customer?.shippingStreet,
+      shippingHouseNumber: params.customer?.shippingHouseNumber,
+      billingSameAsShipping: params.customer?.billingSameAsShipping,
+      billingPostalCode: params.customer?.billingPostalCode ?? undefined,
+      billingCity: params.customer?.billingCity ?? undefined,
+      billingStreet: params.customer?.billingStreet ?? undefined,
+      billingHouseNumber: params.customer?.billingHouseNumber ?? undefined,
     }
     orders.push(o)
     result.push(o)
@@ -608,6 +701,18 @@ export async function createCheckoutOrders(params: {
       couponId: params.couponId,
       currency,
       createdAt: new Date().toISOString(),
+      customerEmail: params.customer?.email,
+      customerName: params.customer?.name,
+      customerPhone: params.customer?.phone,
+      shippingPostalCode: params.customer?.shippingPostalCode,
+      shippingCity: params.customer?.shippingCity,
+      shippingStreet: params.customer?.shippingStreet,
+      shippingHouseNumber: params.customer?.shippingHouseNumber,
+      billingSameAsShipping: params.customer?.billingSameAsShipping,
+      billingPostalCode: params.customer?.billingPostalCode ?? undefined,
+      billingCity: params.customer?.billingCity ?? undefined,
+      billingStreet: params.customer?.billingStreet ?? undefined,
+      billingHouseNumber: params.customer?.billingHouseNumber ?? undefined,
     }
     orders.push(o)
     result.push(o)
@@ -615,6 +720,28 @@ export async function createCheckoutOrders(params: {
   memoryStore = orders
   saveOrders()
   return result
+}
+
+/** Bejelentkezett felhasználó rendelései (legújabb elöl). */
+export async function getOrdersByUserId(
+  userId: string,
+  options?: { limit?: number }
+): Promise<Order[]> {
+  const limit = Math.min(Math.max(options?.limit ?? 50, 1), 100)
+  if (isDbConfigured()) {
+    const rows = await prisma.order.findMany({
+      where: { userId },
+      include: { items: true },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    })
+    return rows.map(dbOrderToOrder)
+  }
+  const orders = loadOrders()
+  return orders
+    .filter((o) => o.userId === userId)
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    .slice(0, limit)
 }
 
 export async function getOrdersByGroupId(orderGroupId: string): Promise<Order[]> {

@@ -52,6 +52,17 @@ export default function PaymentPage() {
   const [error, setError] = useState<string | null>(null)
   const [loyaltyPercent, setLoyaltyPercent] = useState(0)
   const [guestEmail, setGuestEmail] = useState('')
+  const [customerName, setCustomerName] = useState('')
+  const [customerPhone, setCustomerPhone] = useState('')
+  const [shippingPostalCode, setShippingPostalCode] = useState('')
+  const [shippingCity, setShippingCity] = useState('')
+  const [shippingStreet, setShippingStreet] = useState('')
+  const [shippingHouseNumber, setShippingHouseNumber] = useState('')
+  const [billingSameAsShipping, setBillingSameAsShipping] = useState(true)
+  const [billingPostalCode, setBillingPostalCode] = useState('')
+  const [billingCity, setBillingCity] = useState('')
+  const [billingStreet, setBillingStreet] = useState('')
+  const [billingHouseNumber, setBillingHouseNumber] = useState('')
   const [usePoints, setUsePoints] = useState(false)
   const [couponCodeInput, setCouponCodeInput] = useState('')
   const [selectedCouponIds, setSelectedCouponIds] = useState<SelectableCouponId[]>([])
@@ -208,7 +219,7 @@ export default function PaymentPage() {
   const luckySpinDiscountPercent = luckySpinDiscount.discountPercent
   const luckySpinNextTierRemaining = getLuckySpinNextTierRemaining(luckySpinDiscount.qualifyingItemCount)
 
-  // Születésnapi kupon betöltése – listázáshoz (NEM automatikus alkalmazás)
+  // Profil: születésnapi kupon + mentett név előtöltés
   useEffect(() => {
     if (!userId) {
       setBirthdayCouponBanner(null)
@@ -218,7 +229,11 @@ export default function PaymentPage() {
     fetch('/api/me/profile', { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (cancelled || !data?.birthdayCoupon?.code) return
+        if (cancelled || !data) return
+        if (typeof data.user?.name === 'string' && data.user.name.trim()) {
+          setCustomerName((prev) => prev || data.user.name.trim())
+        }
+        if (!data.birthdayCoupon?.code) return
         const bc = data.birthdayCoupon as { code: string; percent: number; validUntil: string }
         setBirthdayCouponBanner({
           code: bc.code,
@@ -399,6 +414,33 @@ export default function PaymentPage() {
       setError(t('payment.emailInvalid') || 'Érvényes e-mail címet adj meg.')
       return
     }
+    if (!customerName.trim()) {
+      setError(t('payment.nameRequired') || 'A teljes név kötelező.')
+      return
+    }
+    if (!customerPhone.trim() || customerPhone.trim().length < 7) {
+      setError(t('payment.phoneRequired') || 'Érvényes telefonszám kötelező.')
+      return
+    }
+    if (
+      !shippingPostalCode.trim() ||
+      !shippingCity.trim() ||
+      !shippingStreet.trim() ||
+      !shippingHouseNumber.trim()
+    ) {
+      setError(t('payment.shippingRequired') || 'A szállítási cím minden mezője kötelező.')
+      return
+    }
+    if (
+      !billingSameAsShipping &&
+      (!billingPostalCode.trim() ||
+        !billingCity.trim() ||
+        !billingStreet.trim() ||
+        !billingHouseNumber.trim())
+    ) {
+      setError(t('payment.billingRequired') || 'A számlázási cím minden mezője kötelező.')
+      return
+    }
 
     checkoutInFlightRef.current = true
     if (!idempotencyKeyRef.current) {
@@ -421,7 +463,28 @@ export default function PaymentPage() {
             qty,
             ...(options && (options.colorName != null || options.colorHex != null || options.materialName != null) ? { options } : {}),
           })),
-          customer: { email },
+          customer: {
+            email,
+            name: customerName.trim(),
+            phone: customerPhone.trim(),
+            shipping: {
+              postalCode: shippingPostalCode.trim(),
+              city: shippingCity.trim(),
+              street: shippingStreet.trim(),
+              houseNumber: shippingHouseNumber.trim(),
+            },
+            billingSameAsShipping,
+            ...(billingSameAsShipping
+              ? {}
+              : {
+                  billing: {
+                    postalCode: billingPostalCode.trim(),
+                    city: billingCity.trim(),
+                    street: billingStreet.trim(),
+                    houseNumber: billingHouseNumber.trim(),
+                  },
+                }),
+          },
           // Kedvezmény % NEM a kliensről – szerver couponCode + selectedCoupons alapján számol
           couponCode: couponSelection.birthdayCode || couponCodeInput.trim() || undefined,
           welcomeOfferAccepted: couponSelection.useWelcome ? true : undefined,
@@ -490,11 +553,21 @@ export default function PaymentPage() {
     checkoutResult,
     userId,
     guestEmail,
+    customerName,
+    customerPhone,
+    shippingPostalCode,
+    shippingCity,
+    shippingStreet,
+    shippingHouseNumber,
+    billingSameAsShipping,
+    billingPostalCode,
+    billingCity,
+    billingStreet,
+    billingHouseNumber,
     t,
     cardTotalHuf,
     items,
     couponSelection,
-    effectiveCouponPercent,
     couponCodeInput,
     pointsDiscountHuf,
     pointsUsedPreview,
@@ -660,23 +733,205 @@ export default function PaymentPage() {
         </div>
       </section>
 
-      {!userId && (
-        <section className="mb-8 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
-          <h2 className="font-heading text-lg font-semibold text-foreground mb-2">{t('payment.guestCheckout') || 'Vendég vásárlás'}</h2>
-          <label htmlFor="guest-email" className="block text-sm font-medium text-foreground mb-1">
-            E-mail <span className="text-muted">(a rendeléshez kötelező)</span>
-          </label>
+      <section className="mb-8 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] space-y-4">
+        <h2 className="font-heading text-lg font-semibold text-foreground">
+          {t('payment.customerDetailsTitle') || 'Szállítási adatok'}
+        </h2>
+        <p className="text-xs text-muted -mt-2">
+          {userId
+            ? t('payment.customerDetailsLoggedInHint') || 'A rendeléshez add meg a kapcsolattartási és szállítási adatokat.'
+            : t('payment.guestCheckoutNote') || 'Regisztráció opcionális. A rendeléshez add meg az adataidat.'}
+        </p>
+
+        {!userId && (
+          <div>
+            <label htmlFor="guest-email" className="block text-sm font-medium text-foreground mb-1">
+              {t('payment.emailLabel') || 'E-mail'} <span className="text-muted">*</span>
+            </label>
+            <input
+              id="guest-email"
+              type="email"
+              value={guestEmail}
+              onChange={(e) => setGuestEmail(e.target.value)}
+              placeholder="pelda@email.hu"
+              autoComplete="email"
+              className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
+              required
+            />
+          </div>
+        )}
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <label htmlFor="checkout-name" className="block text-sm font-medium text-foreground mb-1">
+              {t('payment.fullNameLabel') || 'Teljes név'} <span className="text-muted">*</span>
+            </label>
+            <input
+              id="checkout-name"
+              type="text"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              autoComplete="name"
+              className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
+              required
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label htmlFor="checkout-phone" className="block text-sm font-medium text-foreground mb-1">
+              {t('payment.phoneLabel') || 'Telefonszám'} <span className="text-muted">*</span>
+            </label>
+            <input
+              id="checkout-phone"
+              type="tel"
+              value={customerPhone}
+              onChange={(e) => setCustomerPhone(e.target.value)}
+              autoComplete="tel"
+              placeholder="+36 30 123 4567"
+              className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
+              required
+            />
+          </div>
+        </div>
+
+        <div>
+          <h3 className="text-sm font-semibold text-foreground mb-3">
+            {t('payment.shippingAddressTitle') || 'Szállítási cím'}
+          </h3>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label htmlFor="checkout-shipping-postal" className="block text-sm font-medium text-foreground mb-1">
+                {t('payment.postalCodeLabel') || 'Irányítószám'} *
+              </label>
+              <input
+                id="checkout-shipping-postal"
+                type="text"
+                value={shippingPostalCode}
+                onChange={(e) => setShippingPostalCode(e.target.value)}
+                autoComplete="postal-code"
+                className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="checkout-shipping-city" className="block text-sm font-medium text-foreground mb-1">
+                {t('payment.cityLabel') || 'Város'} *
+              </label>
+              <input
+                id="checkout-shipping-city"
+                type="text"
+                value={shippingCity}
+                onChange={(e) => setShippingCity(e.target.value)}
+                autoComplete="address-level2"
+                className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="checkout-shipping-street" className="block text-sm font-medium text-foreground mb-1">
+                {t('payment.streetLabel') || 'Utca'} *
+              </label>
+              <input
+                id="checkout-shipping-street"
+                type="text"
+                value={shippingStreet}
+                onChange={(e) => setShippingStreet(e.target.value)}
+                autoComplete="address-line1"
+                className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="checkout-shipping-house" className="block text-sm font-medium text-foreground mb-1">
+                {t('payment.houseNumberLabel') || 'Házszám'} *
+              </label>
+              <input
+                id="checkout-shipping-house"
+                type="text"
+                value={shippingHouseNumber}
+                onChange={(e) => setShippingHouseNumber(e.target.value)}
+                autoComplete="address-line2"
+                className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
+                required
+              />
+            </div>
+          </div>
+        </div>
+
+        <label className="flex items-start gap-3 cursor-pointer">
           <input
-            id="guest-email"
-            type="email"
-            value={guestEmail}
-            onChange={(e) => setGuestEmail(e.target.value)}
-            placeholder="pelda@email.hu"
-            className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground mb-2"
+            id="checkout-billing-same"
+            type="checkbox"
+            checked={billingSameAsShipping}
+            onChange={(e) => setBillingSameAsShipping(e.target.checked)}
+            className="mt-1 w-4 h-4 rounded border-[var(--border)] text-accent focus:ring-accent"
           />
-          <p className="text-xs text-muted">{t('payment.guestCheckoutNote') || 'Regisztráció opcionális. A rendeléshez add meg az e-mail címed.'}</p>
-        </section>
-      )}
+          <span className="text-sm text-foreground">
+            {t('payment.billingSameAsShipping') || 'A számlázási cím megegyezik a szállítási címmel'}
+          </span>
+        </label>
+
+        {!billingSameAsShipping && (
+          <div>
+            <h3 className="text-sm font-semibold text-foreground mb-3">
+              {t('payment.billingAddressTitle') || 'Számlázási cím'}
+            </h3>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label htmlFor="checkout-billing-postal" className="block text-sm font-medium text-foreground mb-1">
+                  {t('payment.postalCodeLabel') || 'Irányítószám'} *
+                </label>
+                <input
+                  id="checkout-billing-postal"
+                  type="text"
+                  value={billingPostalCode}
+                  onChange={(e) => setBillingPostalCode(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="checkout-billing-city" className="block text-sm font-medium text-foreground mb-1">
+                  {t('payment.cityLabel') || 'Város'} *
+                </label>
+                <input
+                  id="checkout-billing-city"
+                  type="text"
+                  value={billingCity}
+                  onChange={(e) => setBillingCity(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="checkout-billing-street" className="block text-sm font-medium text-foreground mb-1">
+                  {t('payment.streetLabel') || 'Utca'} *
+                </label>
+                <input
+                  id="checkout-billing-street"
+                  type="text"
+                  value={billingStreet}
+                  onChange={(e) => setBillingStreet(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="checkout-billing-house" className="block text-sm font-medium text-foreground mb-1">
+                  {t('payment.houseNumberLabel') || 'Házszám'} *
+                </label>
+                <input
+                  id="checkout-billing-house"
+                  type="text"
+                  value={billingHouseNumber}
+                  onChange={(e) => setBillingHouseNumber(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
 
       <CouponSelector
         coupons={availableCoupons}
