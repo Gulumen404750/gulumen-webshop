@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
 import { requireAdmin } from '@/lib/admin-auth'
+import { sanitizeProductImageFields } from '@/lib/product-images'
+import { revalidateShopProducts } from '@/lib/revalidate-shop'
 import { z } from 'zod'
 
 /**
@@ -102,6 +104,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Slug already exists' }, { status: 409 })
   }
 
+  const images = sanitizeProductImageFields({
+    image: d.image,
+    images: d.images,
+    images360: d.images360,
+  })
+
   const product = await prisma.product.create({
     data: {
       slug: d.slug,
@@ -115,9 +123,9 @@ export async function POST(request: Request) {
       description_ro: d.description_ro ?? '',
       condition: d.condition ?? 'Új',
       category: d.category,
-      image: d.image ?? '',
-      images: d.images ?? [],
-      images360: d.images360 ?? [],
+      image: images.image,
+      images: images.images,
+      images360: images.images360,
       modelUrl: d.modelUrl ?? null,
       priceHuf: d.priceHuf,
       priceEur: d.priceEur,
@@ -139,5 +147,6 @@ export async function POST(request: Request) {
     },
   })
 
+  revalidateShopProducts(product.slug)
   return NextResponse.json({ product })
 }

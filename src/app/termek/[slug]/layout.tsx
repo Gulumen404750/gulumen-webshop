@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { getProductBySlugAsync, getProductDescription } from '@/lib/data'
 import { categories } from '@/lib/data'
+import { cleanCdnUrl } from '@/lib/cdn'
 
 const SITE_NAME = 'Gulumen'
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://gulumen.hu'
@@ -21,7 +22,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     descText.slice(0, 155) ||
     `${product.name}. ${categoryName}. ${product.condition}. ${(product.discountPriceHuf ?? product.priceHuf).toLocaleString('hu-HU')} Ft.`
   const canonical = `${BASE_URL}/termek/${product.slug}`
-  const imagePath = product.image?.startsWith('/') ? product.image : '/img/logo.png'
+  const cleaned = cleanCdnUrl(product.image)
+  const imagePath = cleaned || '/img/logo.png'
   const imageUrl = imagePath.startsWith('http') ? imagePath : `${BASE_URL}${imagePath}`
 
   return {
