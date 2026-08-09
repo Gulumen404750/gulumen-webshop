@@ -1,26 +1,46 @@
-# Deploy gulumen-webshop service on push (NOT dynamic-perfection).
-# Setup once: Railway → gulumen-webshop → Settings → Tokens → Create project token
-# GitHub → repo Settings → Secrets → Actions → RAILWAY_TOKEN
+# Deploy gulumen-webshop service on push to master/main.
+#
+# Elsődleges út: Railway Dashboard → gulumen-webshop → Settings → Source
+#   → GitHub repo + branch: master (automatikus deploy push után).
+#
+# Opcionális CLI deploy: állítsd be a RAILWAY_TOKEN secretet
+#   Railway → gulumen-webshop → Settings → Tokens → Create project token
+#   GitHub → Settings → Secrets → Actions → RAILWAY_TOKEN
 name: Deploy gulumen-webshop to Railway
 
 on:
   push:
-    branches: [master]
+    branches: [master, main]
   workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    container: ghcr.io/railwayapp/cli:latest
-    env:
-      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+
       - name: Check RAILWAY_TOKEN
+        id: token
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: |
           if [ -z "$RAILWAY_TOKEN" ]; then
-            echo "::error::RAILWAY_TOKEN hiányzik. Railway → gulumen-webshop → Settings → Tokens → Create token. GitHub → repo Settings → Secrets → Actions → RAILWAY_TOKEN"
-            exit 1
+            echo "has_token=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::RAILWAY_TOKEN nincs beállítva – a CLI railway up kihagyva."
+            echo "Ha a gulumen-webshop service GitHub Source-ja a master/main branch,"
+            echo "a Railway automatikusan elindítja a deployt ebből a pushból."
+            echo "CLI deployhoz: Railway → Tokens → GitHub Actions secret: RAILWAY_TOKEN"
+            exit 0
           fi
-      - name: Deploy to gulumen-webshop (build + deploy)
-        run: railway up --service gulumen-webshop --ci -y -m "GitHub Actions deploy ${GITHUB_SHA}"
+          echo "has_token=true" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy via Railway CLI
+        if: steps.token.outputs.has_token == 'true'
+        uses: docker://ghcr.io/railwayapp/cli:latest
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        with:
+          args: >-
+            up --service gulumen-webshop --ci -y
+            -m "GitHub Actions deploy ${{ github.sha }}"
