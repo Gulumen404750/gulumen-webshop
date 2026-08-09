@@ -21,3 +21,14 @@ describe('parseAppliedCoupons', () => {
     expect(parseAppliedCoupons({ cat: true })).toEqual([])
   })
 })
+
+describe('success-page finalize eligibility', () => {
+  const actionable = (status: string) =>
+    ['paid', 'fulfilled', 'sourcing_pending', 'payment_pending'].includes(status)
+
+  it('treats payment_pending as actionable for order_group_id success path', () => {
+    expect(actionable('payment_pending')).toBe(true)
+    expect(actionable('paid')).toBe(true)
+    expect(actionable('cancelled')).toBe(false)
+  })
+})

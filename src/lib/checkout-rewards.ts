@@ -214,3 +214,62 @@ export async function finalizeOrderGroupRewards(orderGroupId: string): Promise<F
   }
   return results
 }
+
+/**
+ * Dummy / pending checkout + siker oldal:
+ * payment_pending rendeléseket lezárja (paid / sourcing_pending), majd éget.
+ * Stripe tranzakciónál NEM confirmál – azt a webhook / session.paid intézi
+ * (ne lehessen order_group_id-vel fizetés nélkül paid-ra állítani).
+ */
+export async function confirmPendingAndFinalizeOrderGroup(
+  orderGroupId: string
+): Promise<FinalizeOrderRewardsResult[]> {
+  if (!isDbConfigured() || !orderGroupId) return []
+
+  const orders = await prisma.order.findMany({
+    where: { orderGroupId },
+    select: { id: true, status: true, orderType: true },
+    orderBy: { createdAt: 'asc' },
+  })
+
+  const { getPaymentTransactionsByOrderId, updatePaymentTransactionStatus } = await import(
+    '@/lib/payment-transactions'
+  )
+
+  for (const order of orders) {
+    if (order.status !== 'payment_pending') continue
+
+    const txs = getPaymentTransactionsByOrderId(order.id)
+    const hasOpenStripeTx = txs.some(
+      (tx) =>
+        tx.provider === 'stripe' &&
+        (tx.status === 'pending' || tx.status === 'created')
+    )
+    if (hasOpenStripeTx) {
+      // Stripe: várjuk a webhookot / session paid-et
+      continue
+    }
+
+    const nextStatus = order.orderType === 'sourcing' ? 'sourcing_pending' : 'paid'
+    await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        status: nextStatus,
+        ...(nextStatus === 'paid' ? { paidAt: new Date() } : {}),
+      },
+    })
+    try {
+      const { markReservationsPaidByOrderId } = await import('@/lib/reservations')
+      await markReservationsPaidByOrderId(order.id)
+    } catch {
+      /* non-fatal */
+    }
+    for (const tx of txs) {
+      if (tx.status === 'pending' || tx.status === 'created') {
+        updatePaymentTransactionStatus(tx.id, 'succeeded')
+      }
+    }
+  }
+
+  return finalizeOrderGroupRewards(orderGroupId)
+}

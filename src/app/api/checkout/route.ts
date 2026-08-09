@@ -498,7 +498,14 @@ export async function POST(request: Request) {
   const needsExternalPayment = paymentResults.some(
     (p) => p.type === 'redirect' || p.type === 'client_secret'
   )
+  // Dummy / pending provider: nincs Stripe redirect → azonnal paid + kupon/pont égetés
   if (!needsExternalPayment && createdOrders.length > 0) {
+    try {
+      const { confirmPendingAndFinalizeOrderGroup } = await import('@/lib/checkout-rewards')
+      await confirmPendingAndFinalizeOrderGroup(orderGroupId)
+    } catch (err) {
+      logger.error({ err, orderGroupId }, 'checkout: confirmPendingAndFinalizeOrderGroup failed')
+    }
     try {
       const emailResult = await maybeSendOrderGroupConfirmationEmail(
         createdOrders[0]!.id,

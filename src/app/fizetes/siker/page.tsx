@@ -6,6 +6,8 @@ import { useSearchParams } from 'next/navigation'
 import { useLocale } from '@/context/LocaleContext'
 import { useCart } from '@/context/CartContext'
 import { useCatCoupon } from '@/context/CatCouponContext'
+import { useAuth } from '@/context/AuthContext'
+import { usePointWallet } from '@/hooks/usePointWallet'
 import type { Order } from '@/lib/orders'
 import { trackPurchase } from '@/lib/analytics'
 
@@ -54,6 +56,8 @@ export default function PaymentSuccessPage() {
   const { t } = useLocale()
   const { clearCart } = useCart()
   const { markUsed } = useCatCoupon()
+  const { userId } = useAuth()
+  const { refresh: refreshWallet } = usePointWallet(!!userId)
   const [order, setOrder] = useState<Order | null>(null)
   const [ordersByGroup, setOrdersByGroup] = useState<Order[] | null>(null)
   const [loading, setLoading] = useState(true)
@@ -66,37 +70,54 @@ export default function PaymentSuccessPage() {
 
   const finalizeRewardsOnce = (orders: Order[]) => {
     if (didFinalizeRewardsRef.current) return
-    const paidLike = orders.filter((o) =>
-      o.status === 'paid' || o.status === 'fulfilled' || o.status === 'sourcing_pending'
+    // payment_pending is is számít: Dummy / pending checkout a siker oldalon zárul le
+    const actionable = orders.filter((o) =>
+      ['paid', 'fulfilled', 'sourcing_pending', 'payment_pending'].includes(o.status)
     )
-    if (!paidLike.length) return
+    if (!actionable.length) return
     didFinalizeRewardsRef.current = true
     const body: Record<string, string> = {}
-    const groupId = paidLike[0]?.orderGroupId ?? orderGroupId
+    const groupId = actionable[0]?.orderGroupId ?? orderGroupId
     if (groupId) body.orderGroupId = groupId
     else if (sessionId) body.sessionId = sessionId
-    else if (paidLike[0]?.id) body.orderId = paidLike[0].id
-    if (!Object.keys(body).length) return
+    else if (actionable[0]?.id) body.orderId = actionable[0].id
+    if (!Object.keys(body).length) {
+      didFinalizeRewardsRef.current = false
+      return
+    }
     void fetch('/api/checkout/finalize-rewards', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       body: JSON.stringify(body),
     })
-      .catch(() => {
-        // webhook még lefuthat; engedjük az újrapróbát következő pollnál
-        didFinalizeRewardsRef.current = false
-      })
-      .finally(() => {
+      .then(async (res) => {
+        if (!res.ok) {
+          didFinalizeRewardsRef.current = false
+          return
+        }
         markUsed()
+        void refreshWallet()
+        // Friss státusz a lezárás után
+        if (orderGroupId) {
+          try {
+            const fresh = await fetchOrdersByGroup(orderGroupId)
+            setOrdersByGroup(fresh)
+          } catch {
+            /* ignore */
+          }
+        }
+      })
+      .catch(() => {
+        didFinalizeRewardsRef.current = false
       })
   }
 
   const clearCartOnce = (orders: Order[]) => {
     finalizeRewardsOnce(orders)
     if (!didTrackPurchaseRef.current) {
-      const paid = orders.filter(
-        (o) => o.status === 'paid' || o.status === 'fulfilled' || o.status === 'sourcing_pending'
+      const paid = orders.filter((o) =>
+        ['paid', 'fulfilled', 'sourcing_pending', 'payment_pending'].includes(o.status)
       )
       if (paid.length) {
         didTrackPurchaseRef.current = true
@@ -147,9 +168,9 @@ export default function PaymentSuccessPage() {
       }
     }
     return () => {}
-    // clearCartOnce depends on clearCart/markUsed; intentionally inline via refs+stable deps
+    // clearCartOnce depends on clearCart/markUsed/refreshWallet; intentionally inline via refs+stable deps
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderGroupId, t, clearCart, markUsed])
+  }, [orderGroupId, t, clearCart, markUsed, refreshWallet])
 
   useEffect(() => {
     if (!sessionId || orderGroupId) return
@@ -209,7 +230,7 @@ export default function PaymentSuccessPage() {
       clearTimeout(timeoutId)
       clearTimeout(giveUpId)
     }
-  }, [sessionId, orderGroupId, t, clearCart, markUsed])
+  }, [sessionId, orderGroupId, t, clearCart, markUsed, refreshWallet])
 
   if (orderGroupId && ordersByGroup && ordersByGroup.length > 0) {
     const allTerminal = ordersByGroup.every((o) =>
