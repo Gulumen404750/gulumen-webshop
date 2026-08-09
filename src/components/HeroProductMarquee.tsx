@@ -39,7 +39,7 @@ function MarqueeRow({
 
   return (
     <div
-      className="hero-marquee-mask w-full overflow-hidden opacity-25 blur-[2px] sm:blur-[3px]"
+      className="hero-marquee-mask w-full overflow-hidden opacity-20 blur-[2px] sm:blur-[3px] -rotate-2 scale-105 origin-center"
       aria-hidden
     >
       <div
@@ -105,6 +105,8 @@ export function HeroProductMarquee({ products }: Props) {
       <div className="absolute inset-x-0 bottom-[8%] sm:bottom-[12%]">
         <MarqueeRow products={bottomRow} reverse />
       </div>
+      {/* Diszkrét sötétítő réteg a tipográfia kontrasztjához */}
+      <div className="absolute inset-0 bg-slate-950/50 dark:bg-slate-950/40" />
     </div>
   )
 }
