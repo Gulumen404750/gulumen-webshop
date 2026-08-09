@@ -27,6 +27,7 @@ const ProductModelViewer = dynamic(
 import { is3DProduct } from '@/lib/data'
 import {
   getAvailableColorVariants,
+  shouldShowStorefrontColorPicker,
   getBaseColorVariant,
   getFilamentColorName,
   getGalleryImagesForColor,
@@ -145,8 +146,8 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
   const priceEur = hufToEur(priceHuf)
   const hasDiscount = saleActive && !!product.discountPriceHuf
 
-  /** Színvariációknál / színezhető 3D-nél a szín kötelező. */
-  const showColorPicker = availableColors.length > 0
+  /** Színválasztó csak több színvariációnál; egyszínű / „Nincs szín” terméknél rejtve. */
+  const showColorPicker = shouldShowStorefrontColorPicker(product.colorImages, isColorable)
   const canAddToCart = !showColorPicker || selectedColor !== null
   const canShareConfiguration = showColorPicker && selectedColor !== null
 

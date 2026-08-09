@@ -1,13 +1,11 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { categories, threeDSubcategories } from '@/lib/data'
-import { CdnImageManager } from '@/components/CdnImageManager'
 import { ProductColorImagesEditor } from '@/components/ProductColorImagesEditor'
 import {
-  ensureExactlyOneBase,
   getBaseColorVariant,
   normalizeColorVariants,
   serializeColorVariants,
@@ -36,7 +34,6 @@ type Product = {
   images: string[]
   images360: string[]
   colorImages: ColorVariant[] | Record<string, string[]> | null
-  modelUrl: string | null
   priceHuf: number
   priceEur: number
   discountPriceHuf: number | null
@@ -60,17 +57,6 @@ type Product = {
   sortOrder: number | null
 }
 
-/** Alaptermék színvariáció képeinek szinkronja a fő galériával. */
-function syncBaseVariantImages(
-  colorImages: ColorVariant[] | Record<string, string[]> | null | undefined,
-  images: string[]
-): ColorVariant[] {
-  const variants = ensureExactlyOneBase(normalizeColorVariants(colorImages))
-  if (variants.length === 0) return variants
-  const cleaned = cleanCdnUrls(images)
-  return variants.map((v) => (v.isBase ? { ...v, images: cleaned } : v))
-}
-
 export default function AdminProductEditPage() {
   const params = useParams()
   const router = useRouter()
@@ -84,9 +70,6 @@ export default function AdminProductEditPage() {
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null)
-  const modelInputRef = useRef<HTMLInputElement>(null)
-  const [modelUploading, setModelUploading] = useState(false)
-  const [modelError, setModelError] = useState<string | null>(null)
   const [slugTouched, setSlugTouched] = useState(false)
 
   useEffect(() => {
@@ -113,12 +96,10 @@ export default function AdminProductEditPage() {
           const images = cleanCdnUrls(
             buildProductGallery(data.product.image, data.product.images)
           )
-          const colorImages = ensureExactlyOneBase(
-            normalizeColorVariants(data.product.colorImages).map((v) => ({
-              ...v,
-              images: cleanCdnUrls(v.images),
-            }))
-          )
+          const colorImages = normalizeColorVariants(data.product.colorImages).map((v) => ({
+            ...v,
+            images: cleanCdnUrls(v.images),
+          }))
           setProduct({
             ...data.product,
             stock: unlimited ? null : stock,
@@ -150,20 +131,22 @@ export default function AdminProductEditPage() {
       const url = isNew ? '/api/admin/products' : `/api/admin/products/${id}`
       const method = isNew ? 'POST' : 'PATCH'
       const colorVariants = serializeColorVariants(
-        ensureExactlyOneBase(
-          normalizeColorVariants(product.colorImages).map((v) => ({
-            ...v,
-            images: cleanCdnUrls(v.images),
-          }))
-        )
+        normalizeColorVariants(product.colorImages).map((v) => ({
+          ...v,
+          images: cleanCdnUrls(v.images),
+        }))
       )
+      // Egyszínű (nincs színvariáció): product.images. Színes: alaptermék / első szín galériája.
       const baseVariant = getBaseColorVariant(colorVariants)
-      const baseGallery = baseVariant?.images?.length
-        ? cleanCdnUrls(baseVariant.images)
-        : cleanCdnUrls(normalizeImageUrls(product.images))
-      const cleanedImages = baseGallery.length
-        ? baseGallery
-        : cleanCdnUrls(normalizeImageUrls(product.images))
+      const cleanedImages =
+        colorVariants.length === 0
+          ? cleanCdnUrls(normalizeImageUrls(product.images))
+          : baseVariant?.images?.length
+            ? cleanCdnUrls(baseVariant.images)
+            : cleanCdnUrls(
+                colorVariants.find((v) => v.images.length > 0)?.images ??
+                  normalizeImageUrls(product.images)
+              )
       const mainImage = cleanCdnUrl(
         normalizeImageUrl(cleanedImages[0] || product.image || '')
       )
@@ -185,8 +168,7 @@ export default function AdminProductEditPage() {
             image: mainImage,
             images: gallery,
             images360: cleanCdnUrls(normalizeImageUrls(product.images360)),
-            colorImages: colorVariants,
-            modelUrl: product.modelUrl || undefined,
+            colorImages: colorVariants.length > 0 ? colorVariants : null,
             priceHuf: product.priceHuf ?? 0,
             priceEur: product.priceEur ?? 0,
             discountPriceHuf: product.discountPriceHuf ?? undefined,
@@ -221,8 +203,7 @@ export default function AdminProductEditPage() {
             image: mainImage,
             images: gallery,
             images360: cleanCdnUrls(normalizeImageUrls(product.images360)),
-            colorImages: colorVariants,
-            modelUrl: product.modelUrl ?? undefined,
+            colorImages: colorVariants.length > 0 ? colorVariants : null,
             priceHuf: product.priceHuf ?? 0,
             priceEur: product.priceEur ?? 0,
             discountPriceHuf: product.discountPriceHuf ?? undefined,
@@ -658,148 +639,6 @@ export default function AdminProductEditPage() {
           </div>
         </div>
 
-        <div className="space-y-6 border-t border-[var(--border)] pt-4">
-          <div>
-            <h2 className="text-sm font-medium text-foreground mb-1">Alaptermék képei (fő galéria)</h2>
-            <p className="text-xs text-muted mb-3">
-              Ezek a termék alapértelmezett fotói. Ha van kijelölt alaptermék színvariáció képekkel,
-              mentéskor annak galériája felülírja ezeket.
-            </p>
-          </div>
-          <CdnImageManager
-            label="Alaptermék fő termékfotó"
-            value={product?.image ?? ''}
-            onChange={(url) =>
-              setProduct((p) => {
-                if (!p) return p
-                const cleaned = cleanCdnUrl(url)
-                const gallery = [...(p.images ?? [])]
-                if (!gallery.length && cleaned) gallery.push(cleaned)
-                else if (gallery.length && gallery[0] === (p.image || '')) gallery[0] = cleaned
-                const nextImages = gallery.filter(Boolean)
-                const colorImages = syncBaseVariantImages(
-                  normalizeColorVariants(p.colorImages),
-                  nextImages
-                )
-                return { ...p, image: cleaned, images: nextImages, colorImages }
-              })
-            }
-            multiple={false}
-          />
-
-          <CdnImageManager
-            label="Alaptermék galéria"
-            values={product?.images ?? []}
-            onChangeMultiple={(urls) =>
-              setProduct((p) => {
-                if (!p) return p
-                const nextImages = cleanCdnUrls(urls)
-                const colorImages = syncBaseVariantImages(
-                  normalizeColorVariants(p.colorImages),
-                  nextImages
-                )
-                return {
-                  ...p,
-                  images: nextImages,
-                  image: p.image || nextImages[0] || '',
-                  colorImages,
-                }
-              })
-            }
-            multiple
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-1">3D model URL</label>
-          <p className="text-xs text-muted mb-2">
-            Add meg a modell URL-jét (pl. <code className="bg-[var(--border)] px-1 rounded">/models/xxx.glb</code>), vagy tölts fel egy .glb / .gltf fájlt.
-          </p>
-          <div className="flex flex-wrap gap-2 items-center mb-2">
-            <input
-              value={product?.modelUrl ?? ''}
-              onChange={(e) => { setModelError(null); setProduct((p) => ({ ...p, modelUrl: e.target.value || null })) }}
-              placeholder="/models/xxx.glb"
-              className="flex-1 min-w-[200px] rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
-            />
-            <input
-              ref={modelInputRef}
-              type="file"
-              accept=".glb,.gltf,model/gltf-binary,model/gltf+json"
-              className="hidden"
-              onChange={async (e) => {
-                const file = e.target.files?.[0]
-                if (!file) return
-                if (!/\.(glb|gltf)$/i.test(file.name)) {
-                  setModelError('Csak .glb vagy .gltf fájl tölthető fel.')
-                  return
-                }
-                setModelError(null)
-                setModelUploading(true)
-                try {
-                  const form = new FormData()
-                  form.append('file', file)
-                  const res = await fetch('/api/admin/upload-model', { method: 'POST', credentials: 'include', body: form })
-                  const data = await res.json().catch(() => ({}))
-                  if (res.ok && data.url) {
-                    setProduct((p) => (p ? { ...p, modelUrl: data.url } : p))
-                    setMessage({ type: 'ok', text: '3D modell feltöltve.' })
-                  } else {
-                    setModelError(data?.error || 'Feltöltés sikertelen.')
-                  }
-                } catch {
-                  setModelError('Hálózati hiba.')
-                } finally {
-                  setModelUploading(false)
-                  e.target.value = ''
-                }
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => modelInputRef.current?.click()}
-              disabled={modelUploading}
-              className="shrink-0 rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-sm font-medium text-foreground hover:bg-[var(--border)]/30 disabled:opacity-60"
-            >
-              {modelUploading ? 'Feltöltés…' : 'Fájl feltöltése (.glb / .gltf)'}
-            </button>
-          </div>
-          <div
-            className="border-2 border-dashed border-[var(--border)] rounded-lg p-4 text-center text-sm text-muted hover:border-accent/50 hover:bg-[var(--border)]/10 transition-colors cursor-pointer"
-            onClick={() => !modelUploading && modelInputRef.current?.click()}
-            onDragOver={(e) => { e.preventDefault(); e.stopPropagation() }}
-            onDrop={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              const file = e.dataTransfer?.files?.[0]
-              if (!file || modelUploading) return
-              if (!/\.(glb|gltf)$/i.test(file.name)) {
-                setModelError('Csak .glb vagy .gltf fájl.')
-                return
-              }
-              setModelError(null)
-              setModelUploading(true)
-              const form = new FormData()
-              form.append('file', file)
-              fetch('/api/admin/upload-model', { method: 'POST', credentials: 'include', body: form })
-                .then((r) => r.json().catch(() => ({})))
-                .then((data) => {
-                  if (data?.url) {
-                    setProduct((p) => (p ? { ...p, modelUrl: data.url } : p))
-                    setMessage({ type: 'ok', text: '3D modell feltöltve.' })
-                  } else {
-                    setModelError(data?.error || 'Feltöltés sikertelen.')
-                  }
-                })
-                .catch(() => setModelError('Hálózati hiba.'))
-                .finally(() => { setModelUploading(false) })
-            }}
-          >
-            {modelUploading ? 'Feltöltés…' : 'Húzd ide a .glb / .gltf fájlt, vagy kattints a feltöltéshez'}
-          </div>
-          {modelError && <p className="text-sm text-red-600 dark:text-red-400 mt-1">{modelError}</p>}
-        </div>
-
         <div className="flex flex-wrap gap-4">
           <label className="flex items-center gap-2">
             <input
@@ -864,22 +703,18 @@ export default function AdminProductEditPage() {
 
         <ProductColorImagesEditor
           value={normalizeColorVariants(product?.colorImages)}
-          onChange={(colorImages) =>
-            setProduct((p) => {
-              if (!p) return p
-              const variants = ensureExactlyOneBase(colorImages)
-              const base = getBaseColorVariant(variants)
-              if (base?.images?.length) {
-                const images = cleanCdnUrls(base.images)
-                return {
-                  ...p,
-                  colorImages: variants,
-                  images,
-                  image: images[0] || p.image || '',
-                }
-              }
-              return { ...p, colorImages: variants }
-            })
+          productImages={product?.images ?? []}
+          onChange={({ colorImages, productImages, image }) =>
+            setProduct((p) =>
+              p
+                ? {
+                    ...p,
+                    colorImages,
+                    images: productImages,
+                    image: image || productImages[0] || '',
+                  }
+                : p
+            )
           }
         />
 

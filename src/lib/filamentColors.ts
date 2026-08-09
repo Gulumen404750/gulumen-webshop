@@ -272,6 +272,17 @@ export function getAvailableColorVariants(
   return []
 }
 
+/**
+ * Shop színválasztó megjelenítése: csak ha legalább 2 választható szín van.
+ * Egyszínű / „Nincs szín” termékeknél (0 vagy 1 variáns) ne jelenjen meg.
+ */
+export function shouldShowStorefrontColorPicker(
+  colorImages: ColorImagesMap | ColorVariant[] | null | undefined,
+  isColorable: boolean
+): boolean {
+  return getAvailableColorVariants(colorImages, isColorable).length > 1
+}
+
 /** Galéria egy színhez; ha nincs, a termék általános képei. */
 export function getGalleryImagesForColor(
   product: { image?: string; images?: string[]; colorImages?: ColorImagesMap | ColorVariant[] | null },
@@ -290,5 +301,8 @@ export function getGalleryImagesForColor(
     const main = product.image.trim()
     if (main) return [main]
   }
+  // Fallback: alaptermék / első színvariáció képei (ha a termék.images üres).
+  const base = getBaseColorVariant(product.colorImages)
+  if (base?.images?.length) return base.images
   return []
 }

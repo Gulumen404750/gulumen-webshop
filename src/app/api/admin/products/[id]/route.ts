@@ -53,6 +53,7 @@ const updateProductSchema = z.object({
           nameEn: z.string().optional(),
           nameDe: z.string().optional(),
           nameRo: z.string().optional(),
+          isBase: z.boolean().optional(),
         })
       ),
     ])
