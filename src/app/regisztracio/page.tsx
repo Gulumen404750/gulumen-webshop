@@ -1,26 +1,49 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { useCatCoupon } from '@/context/CatCouponContext'
 import { useLocale } from '@/context/LocaleContext'
+import { GoogleSignInButton } from '@/components/GoogleSignInButton'
+import { RegistrationConsentFields } from '@/components/RegistrationConsentFields'
 
 export default function RegistrationPage() {
   const { t } = useLocale()
   const router = useRouter()
-  const { register } = useAuth()
+  const { isLoggedIn, register, loginWithGoogle } = useAuth()
   const { claimRegistrationCoupon } = useCatCoupon()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [acceptPrivacy, setAcceptPrivacy] = useState(false)
   const [acceptOffers, setAcceptOffers] = useState(false)
+  const [birthDate, setBirthDate] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [couponGranted, setCouponGranted] = useState(false)
+
+  useEffect(() => {
+    if (isLoggedIn) router.replace('/profil')
+  }, [isLoggedIn, router])
+
+  const handleGoogleRegister = () => {
+    setError(null)
+    if (!acceptPrivacy) {
+      setError(t('register.errorPrivacy') || 'A regisztrációhoz fogadd el az ÁSZF-et és az adatkezelési tájékoztatót.')
+      return
+    }
+    loginWithGoogle({
+      acceptPrivacy: true,
+      ...(acceptOffers ? { acceptOffers: true } : {}),
+      callbackUrl: typeof window !== 'undefined' ? `${window.location.origin}/termekek` : '/termekek',
+    })
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-    const trimmedEmail = email.trim()
+    setCouponGranted(false)
+    const trimmedEmail = email.trim().toLowerCase()
     if (!trimmedEmail) {
       setError(t('register.errorEmail'))
       return
@@ -29,20 +52,54 @@ export default function RegistrationPage() {
       setError(t('register.errorPassword') || 'A jelszónak legalább 8 karakter hosszúnak kell lennie.')
       return
     }
-    const result = await register(trimmedEmail, password)
+    if (!acceptPrivacy) {
+      setError(t('register.errorPrivacy') || 'A regisztrációhoz fogadd el az ÁSZF-et és az adatkezelési tájékoztatót.')
+      return
+    }
+    const result = await register(
+      trimmedEmail,
+      password,
+      undefined,
+      acceptOffers,
+      birthDate.trim() || null
+    )
     if (!result.ok) {
-      setError(result.error ?? 'Regisztráció sikertelen')
+      const msg = result.error ?? ''
+      const already =
+        /már regisztráltak|already registered|already exists|409/i.test(msg) ||
+        msg.includes('Ezzel az e-mail')
+      setError(
+        already
+          ? t('register.errorEmailTaken') ||
+            'Ezzel az e-mail címmel már regisztráltak. Jelentkezz be.'
+          : msg || (t('register.errorGeneric') || 'Regisztráció sikertelen')
+      )
       return
     }
     if (acceptOffers) {
-      claimRegistrationCoupon(trimmedEmail)
+      const uid = result.email ?? trimmedEmail
+      const claimed = claimRegistrationCoupon(uid)
+      if (claimed) setCouponGranted(true)
+    }
+    // Születési dátum mentve – profilon látja a rögzített állapotot (kupon csak születésnapon)
+    if (birthDate.trim()) {
+      router.push('/profil')
+      return
     }
     router.push('/termekek')
   }
 
+  if (isLoggedIn) {
+    return (
+      <div className="max-w-md mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <p className="text-muted">{t('profile.loggedInAs')}</p>
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-md mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <h1 className="font-heading text-2xl font-bold text-foreground mb-6">
+      <h1 className="font-heading text-2xl font-bold text-foreground mb-2">
         {t('pages.registerTitle')}
       </h1>
       <p className="text-muted mb-6">{t('register.intro')}</p>
@@ -75,22 +132,41 @@ export default function RegistrationPage() {
             autoComplete="new-password"
           />
         </div>
-        <div className="flex items-start gap-3">
-          <input
-            id="reg-offers"
-            type="checkbox"
-            checked={acceptOffers}
-            onChange={(e) => setAcceptOffers(e.target.checked)}
-            className="mt-1 w-4 h-4 rounded border-[var(--border)] text-accent focus:ring-accent"
-            aria-describedby="reg-offers-desc"
-          />
-          <label id="reg-offers-desc" htmlFor="reg-offers" className="text-sm text-foreground cursor-pointer">
-            {t('register.checkboxOffers')}
+        <div>
+          <label htmlFor="reg-birthDate" className="block text-sm font-medium text-foreground mb-1">
+            {t('register.birthDateLabel')}{' '}
+            <span className="text-muted font-normal">({t('register.optionalLabel')})</span>
           </label>
+          <input
+            id="reg-birthDate"
+            type="date"
+            value={birthDate}
+            onChange={(e) => setBirthDate(e.target.value)}
+            max={new Date().toISOString().slice(0, 10)}
+            className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
+            autoComplete="bday"
+          />
+          <p className="mt-1.5 text-xs text-muted leading-relaxed">
+            {t('register.birthDateHint')}
+          </p>
         </div>
+
+        <RegistrationConsentFields
+          idPrefix="reg"
+          acceptPrivacy={acceptPrivacy}
+          acceptOffers={acceptOffers}
+          onPrivacyChange={setAcceptPrivacy}
+          onOffersChange={setAcceptOffers}
+        />
+
         {error && (
           <p className="text-sm text-red-600 dark:text-red-400" role="alert">
             {error}
+          </p>
+        )}
+        {couponGranted && (
+          <p className="text-sm text-green-700 dark:text-green-400" role="status">
+            {t('register.couponGranted')}
           </p>
         )}
         <button
@@ -99,10 +175,22 @@ export default function RegistrationPage() {
         >
           {t('buttons.register')}
         </button>
+        <div className="relative my-2">
+          <span className="absolute inset-0 flex items-center">
+            <span className="w-full border-t border-[var(--border)]" />
+          </span>
+          <span className="relative flex justify-center text-xs uppercase text-muted">
+            {t('profile.or') || 'vagy'}
+          </span>
+        </div>
+        <GoogleSignInButton
+          label={t('register.withGoogle') || 'Regisztráció Google-lel'}
+          onClick={handleGoogleRegister}
+        />
       </form>
       <p className="mt-4 text-sm text-muted">
         {t('pages.registerHaveAccount')}{' '}
-        <Link href="/profil" className="text-accent hover:underline">
+        <Link href="/profil" className="text-accent hover:underline font-medium">
           {t('buttons.login')}
         </Link>
       </p>

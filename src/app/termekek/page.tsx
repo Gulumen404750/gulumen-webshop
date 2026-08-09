@@ -3,7 +3,7 @@ import { ShopContent } from '@/components/ShopContent'
 import { ProductListSkeleton } from '@/components/ProductListSkeleton'
 import { getAllProductsAsync } from '@/lib/data'
 
-export const revalidate = 10
+export const revalidate = 60
 
 export default async function ShopPage() {
   const allProducts = await getAllProductsAsync()

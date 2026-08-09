@@ -10,7 +10,6 @@ import { restoreStockAtomic } from '@/lib/inventory'
 import { markReservationsCanceledByOrderId } from '@/lib/reservations'
 import { logger } from '@/lib/logger'
 
-/** Alapértelmezett: 45 perc után stuck-nak tekintjük. */
 const DEFAULT_STUCK_AFTER_MS = 45 * 60 * 1000
 
 export async function cleanupStuckPayments(options?: {

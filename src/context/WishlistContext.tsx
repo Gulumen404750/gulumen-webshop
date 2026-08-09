@@ -1,43 +1,182 @@
 'use client'
 
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  type ReactNode,
+} from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { onLogoutCleanup } from '@/lib/logout-cleanup'
+import type { Product } from '@/lib/data'
 
-/**
- * Kedvencek lista privát: csak API-ból (GET /api/me/wishlist), userId alapján.
- * Nincs localStorage – különböző user külön listát lát.
- */
+/** localStorage kulcs – kedvenc termék ID-k (oldalváltás / Vissza gomb után is). */
+export const FAVORITES_STORAGE_KEY = 'gulumen_favorites'
+
+type StoredFavorites = {
+  userId: string
+  ids: string[]
+}
+
 type WishlistContextValue = {
   productIds: string[]
+  /** Alias a specifikáció szerinti névre. */
+  favoriteIds: string[]
+  products: Product[]
+  isLoading: boolean
   isInWishlist: (productId: string) => boolean
   count: number
   syncFromServer: (() => void) | undefined
+  /** Alias: BFCache / focus utáni újraszinkron. */
+  syncFavorites: () => void
+  /** Azonnali UI frissítés like/unlike kattintáskor – szerver sync csak POST után. */
+  applyOptimisticToggle: (product: Product, liked: boolean) => void
+  toggleFavorite: (product: Product, liked: boolean) => void
 }
 
 const WishlistContext = createContext<WishlistContextValue | null>(null)
 
-/** Session cookie automatikusan megy; csak credentials kell. */
 function getFetchOpts(): RequestInit {
-  return { credentials: 'include' }
+  return { credentials: 'include', cache: 'no-store' }
+}
+
+function readStoredFavoriteIds(userId: string | null | undefined): string[] {
+  if (typeof window === 'undefined' || !userId) return []
+  try {
+    const raw = localStorage.getItem(FAVORITES_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as StoredFavorites | string[]
+    if (Array.isArray(parsed)) {
+      return parsed.filter((id): id is string => typeof id === 'string')
+    }
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      parsed.userId === userId &&
+      Array.isArray(parsed.ids)
+    ) {
+      return parsed.ids.filter((id): id is string => typeof id === 'string')
+    }
+    return []
+  } catch {
+    return []
+  }
+}
+
+function writeStoredFavoriteIds(userId: string | null | undefined, ids: string[]) {
+  if (typeof window === 'undefined') return
+  try {
+    if (!userId) {
+      localStorage.removeItem(FAVORITES_STORAGE_KEY)
+      return
+    }
+    const payload: StoredFavorites = { userId, ids }
+    localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(payload))
+  } catch {
+    /* private mode / quota */
+  }
 }
 
 export function WishlistProvider({ children }: { children: ReactNode }) {
-  const { userId } = useAuth()
+  const { userId, authChecked } = useAuth()
   const [productIds, setProductIds] = useState<string[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const fetchGenRef = useRef(0)
+  const hydratedUserRef = useRef<string | null>(null)
 
-  const fetchWishlist = useCallback(() => {
-    if (!userId) {
+  // Kijelentkezés: azonnali memory reset (storage-t a runLogoutCleanup törli)
+  useEffect(() => {
+    return onLogoutCleanup(() => {
+      hydratedUserRef.current = null
+      fetchGenRef.current += 1
       setProductIds([])
+      setProducts([])
+      setIsLoading(false)
+    })
+  }, [])
+
+  // localStorage azonnali hidratálás – ne villogjon üres szív visszanavigációkor
+  useEffect(() => {
+    if (!authChecked) return
+    if (!userId) {
+      hydratedUserRef.current = null
+      setProductIds([])
+      setProducts([])
+      writeStoredFavoriteIds(null, [])
       return
     }
+    if (hydratedUserRef.current === userId) return
+    hydratedUserRef.current = userId
+    const stored = readStoredFavoriteIds(userId)
+    if (stored.length > 0) {
+      setProductIds((prev) => (prev.length > 0 ? prev : stored))
+    }
+  }, [userId, authChecked])
+
+  // Persistálás minden ID-változáskor
+  useEffect(() => {
+    if (!authChecked || !userId) return
+    writeStoredFavoriteIds(userId, productIds)
+  }, [productIds, userId, authChecked])
+
+  const fetchWishlist = useCallback(() => {
+    if (!authChecked) return
+
+    if (!userId) {
+      setProductIds([])
+      setProducts([])
+      setIsLoading(false)
+      return
+    }
+
+    const gen = ++fetchGenRef.current
+    setIsLoading(true)
+
     fetch('/api/me/wishlist', getFetchOpts())
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        const ids = Array.isArray(data?.productIds) ? data.productIds : []
-        setProductIds(ids.filter((id: unknown): id is string => typeof id === 'string'))
+      .then(async (r) => {
+        if (!r.ok) return null
+        return r.json()
       })
-      .catch(() => setProductIds([]))
-  }, [userId])
+      .then((data) => {
+        if (gen !== fetchGenRef.current) return
+        if (data == null) return
+
+        const ids = Array.isArray(data?.productIds) ? data.productIds : []
+        const nextIds = ids.filter((id: unknown): id is string => typeof id === 'string')
+        setProductIds(nextIds)
+        writeStoredFavoriteIds(userId, nextIds)
+
+        const prods = Array.isArray(data?.products) ? data.products : []
+        const nextProds = prods.filter(
+          (p: unknown): p is Product => typeof (p as Product)?.id === 'string'
+        )
+        setProducts((prev) => {
+          if (nextProds.length >= nextIds.length) return nextProds
+          return nextIds
+            .map(
+              (id: string) =>
+                nextProds.find((p: Product) => p.id === id) ??
+                prev.find((p: Product) => p.id === id)
+            )
+            .filter((p: Product | undefined): p is Product => p != null)
+        })
+      })
+      .catch(() => {
+        if (gen !== fetchGenRef.current) return
+        // Hiba esetén megtartjuk a meglévő / localStorage listát
+        const stored = readStoredFavoriteIds(userId)
+        if (stored.length > 0) {
+          setProductIds((prev) => (prev.length > 0 ? prev : stored))
+        }
+      })
+      .finally(() => {
+        if (gen === fetchGenRef.current) setIsLoading(false)
+      })
+  }, [userId, authChecked])
 
   useEffect(() => {
     fetchWishlist()
@@ -47,6 +186,73 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     fetchWishlist()
   }, [fetchWishlist])
 
+  const lastSyncAtRef = useRef(0)
+
+  const syncFavorites = useCallback(() => {
+    if (!authChecked) return
+    if (!userId) {
+      setProductIds([])
+      return
+    }
+    const now = Date.now()
+    if (now - lastSyncAtRef.current < 1500) {
+      // Gyors egymás utáni focus/pageshow: csak localStorage refresh
+      const stored = readStoredFavoriteIds(userId)
+      if (stored.length > 0) {
+        setProductIds((prev) => Array.from(new Set([...stored, ...prev])))
+      }
+      return
+    }
+    lastSyncAtRef.current = now
+    // Először localStorage (azonnali UI), majd szerver
+    const stored = readStoredFavoriteIds(userId)
+    if (stored.length > 0) {
+      setProductIds((prev) => Array.from(new Set([...stored, ...prev])))
+    }
+    fetchWishlist()
+  }, [authChecked, userId, fetchWishlist])
+
+  // Böngésző Vissza (BFCache) + ablak fókusz → újraszinkron
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        syncFavorites()
+      } else {
+        // SPA / soft navigation visszatérés: localStorage + esetleges szerver sync
+        syncFavorites()
+      }
+    }
+    const handleFocus = () => {
+      syncFavorites()
+    }
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        syncFavorites()
+      }
+    }
+
+    window.addEventListener('pageshow', handlePageShow)
+    window.addEventListener('focus', handleFocus)
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      window.removeEventListener('pageshow', handlePageShow)
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [syncFavorites])
+
+  const applyOptimisticToggle = useCallback((product: Product, liked: boolean) => {
+    if (liked) {
+      setProductIds((prev) => (prev.includes(product.id) ? prev : [...prev, product.id]))
+      setProducts((prev) => (prev.some((p) => p.id === product.id) ? prev : [...prev, product]))
+    } else {
+      setProductIds((prev) => prev.filter((id) => id !== product.id))
+      setProducts((prev) => prev.filter((p) => p.id !== product.id))
+    }
+  }, [])
+
   const isInWishlist = useCallback(
     (productId: string) => productIds.includes(productId),
     [productIds]
@@ -54,9 +260,15 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
 
   const value: WishlistContextValue = {
     productIds,
+    favoriteIds: productIds,
+    products,
+    isLoading,
     isInWishlist,
     count: productIds.length,
     syncFromServer,
+    syncFavorites,
+    applyOptimisticToggle,
+    toggleFavorite: applyOptimisticToggle,
   }
 
   return <WishlistContext.Provider value={value}>{children}</WishlistContext.Provider>
@@ -66,4 +278,9 @@ export function useWishlist(): WishlistContextValue {
   const ctx = useContext(WishlistContext)
   if (!ctx) throw new Error('useWishlist must be used within WishlistProvider')
   return ctx
+}
+
+/** Spec szerinti alias. */
+export function useFavoritesStore(): WishlistContextValue {
+  return useWishlist()
 }

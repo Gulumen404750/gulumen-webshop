@@ -8,8 +8,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: BASE_URL, lastModified: new Date(), changeFrequency: 'daily', priority: 1 },
     { url: `${BASE_URL}/termekek`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.9 },
     { url: `${BASE_URL}/ujdonsagok`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.8 },
-    { url: `${BASE_URL}/akciok`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.8 },
-    { url: `${BASE_URL}/beszerzesre-rendelheto`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.8 },
     { url: `${BASE_URL}/szallitas`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
     { url: `${BASE_URL}/visszakuldes`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
     { url: `${BASE_URL}/kapcsolat`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },

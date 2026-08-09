@@ -6,7 +6,6 @@
 const TIME_API_URL = 'https://worldtimeapi.org/api/ip'
 const TIMEOUT_MS = 2000
 const CACHE_MS = 5000 // max 5 mp cache, hogy ne terheljük az API-t
-
 let cached: { nowMs: number; at: number } | null = null
 
 /**
@@ -35,4 +34,10 @@ export async function getServerTimeMs(): Promise<number> {
     cached = null
     return Date.now()
   }
+}
+
+/** @deprecated Használd: getAiVisitorDateTimeContext (@/lib/visitor-time). */
+export async function getAiDateTimeContext(): Promise<string> {
+  const { getAiVisitorDateTimeContext } = await import('@/lib/visitor-time')
+  return getAiVisitorDateTimeContext({ locale: 'hu' })
 }

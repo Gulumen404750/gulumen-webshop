@@ -3,7 +3,7 @@ import { getClearSessionCookieHeader } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
 
 export async function POST(request: Request) {
-  const limit = await rateLimit(request, 'auth')
+  const limit = await rateLimit(request, { preset: 'auth' })
   if (!limit.ok) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
   }

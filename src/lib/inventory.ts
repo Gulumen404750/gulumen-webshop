@@ -1,6 +1,7 @@
 /**
  * Atomi készletkezelés – TOCTOU / oversell védelem.
- * UPDATE ... WHERE stock >= qty; 0 sor → OutOfStockException.
+ * stock < 0 = végtelen (nem csökkentünk).
+ * UPDATE ... WHERE stock < 0 OR stock >= qty; 0 sor → OutOfStockException.
  */
 
 import { prisma, isDbConfigured } from '@/lib/prisma'
@@ -19,8 +20,8 @@ type TxClient = {
 }
 
 /**
- * Atomian csökkenti a készletet. Ha bármelyik terméknél nincs elég stock,
- * OutOfStockException-t dob (a tranzakció rollbackel).
+ * Atomian csökkenti a korlátozott készletet.
+ * Végtelen stock (< 0) érintetlen marad.
  */
 export async function decrementStockAtomic(
   items: StockItem[],
@@ -31,8 +32,11 @@ export async function decrementStockAtomic(
     if (qty < 1) continue
     const updated = await tx.$executeRaw`
       UPDATE "Product"
-      SET stock = stock - ${qty}, "updatedAt" = NOW()
-      WHERE id = ${productId} AND stock >= ${qty}
+      SET
+        stock = CASE WHEN stock < 0 THEN stock ELSE stock - ${qty} END,
+        "updatedAt" = NOW()
+      WHERE id = ${productId}
+        AND (stock < 0 OR stock >= ${qty})
     `
     if (Number(updated) === 0) {
       throw new OutOfStockException(productId)
@@ -40,7 +44,7 @@ export async function decrementStockAtomic(
   }
 }
 
-/** Készlet visszaírása (pl. elakadt payment_pending cancel után). */
+/** Készlet visszaírása (csak ha stock >= 0 volt / korlátozott). */
 export async function restoreStockAtomic(
   items: StockItem[],
   tx: TxClient = prisma
@@ -50,7 +54,9 @@ export async function restoreStockAtomic(
     if (qty < 1) continue
     await tx.$executeRaw`
       UPDATE "Product"
-      SET stock = stock + ${qty}, "updatedAt" = NOW()
+      SET
+        stock = CASE WHEN stock < 0 THEN stock ELSE stock + ${qty} END,
+        "updatedAt" = NOW()
       WHERE id = ${productId}
     `
   }

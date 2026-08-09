@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rate-limit'
+import {
+  getAiVisitorDateTimeContext,
+  getCountryCodeFromRequest,
+} from '@/lib/visitor-time'
+import type { Locale } from '@/i18n/locales'
 
 /**
  * POST /api/ai-voice
@@ -44,6 +49,12 @@ export async function POST(request: Request) {
 
     const langInstruction = language === 'en' ? 'Reply in English only.' : 'Válaszolj csak magyarul.'
     const apiKey = process.env.OPENAI_API_KEY?.trim()
+    const locale: Locale = language === 'en' ? 'en' : 'hu'
+    const nowContext = await getAiVisitorDateTimeContext({
+      locale,
+      timezone: typeof body?.timezone === 'string' ? body.timezone.trim() : null,
+      countryCode: getCountryCodeFromRequest(request),
+    })
 
     if (apiKey) {
       const res = await fetch(OPENAI_API_URL, {
@@ -55,7 +66,10 @@ export async function POST(request: Request) {
         body: JSON.stringify({
           model: 'gpt-4o-mini',
           messages: [
-            { role: 'system', content: `${VOICE_SYSTEM_PROMPT} ${langInstruction}` },
+            {
+              role: 'system',
+              content: `${VOICE_SYSTEM_PROMPT} ${langInstruction}\n\n${nowContext}`,
+            },
             { role: 'user', content: message },
           ],
           max_tokens: 150,

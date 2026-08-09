@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { isDbConfigured } from '@/lib/prisma'
-import { validateCronSecret } from '@/lib/cron-auth'
+import { assertCronAuthorized } from '@/lib/cron-auth'
 
 /**
  * GET /api/cron/data-retention
@@ -14,9 +14,8 @@ const CALL_SUMMARY_RETENTION_DAYS = 180
 const TRANSCRIPT_RETENTION_DAYS = 60
 
 export async function GET(request: Request) {
-  if (!validateCronSecret(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const denied = assertCronAuthorized(request)
+  if (denied) return denied
 
   if (!isDbConfigured()) {
     return NextResponse.json(

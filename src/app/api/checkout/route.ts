@@ -6,9 +6,9 @@ import {
   generateOrderGroupId,
   createCheckoutOrders,
   setOrderCustomerEmail,
+  setOrderStatus,
   getProductOrdersCount,
   OutOfStockException,
-  type OrderItem,
 } from '@/lib/orders'
 import {
   createPaymentTransaction,
@@ -16,6 +16,7 @@ import {
 } from '@/lib/payment-transactions'
 import { getPaymentProvider } from '@/lib/payment-provider'
 import { getLoyaltyByEmail } from '@/lib/loyalty'
+import { capCombinedCouponPercent, CAT_COUPON_PERCENT, REGISTRATION_COUPON_PERCENT } from '@/lib/coupon-config'
 import { rateLimit } from '@/lib/rate-limit'
 import {
   getIdempotencyKey,
@@ -28,6 +29,30 @@ import {
   linkReservationsToOrder,
   SoldOutError,
 } from '@/lib/reservations'
+import { getSession, resolveSessionUserId } from '@/lib/auth'
+import { getPointBalance } from '@/lib/gamification/point-ledger'
+import {
+  MAX_CART_POINTS_COVERAGE,
+  POINTS_PER_HUF,
+} from '@/lib/gamification/constants'
+import { validatePurchasePoints } from '@/lib/gamification/purchase-points'
+import { getLuckySpinForCheckout } from '@/lib/gamification/lucky-spin'
+import { getMaxQty } from '@/lib/data'
+import {
+  computeCheckoutTotals,
+  resolveCartLines,
+  validateCouponPercent,
+  FREE_SHIPPING_THRESHOLD,
+} from '@/lib/checkout'
+import { maybeSendOrderGroupConfirmationEmail } from '@/lib/order-email'
+import { resolveCheckoutCoupon } from '@/lib/coupon-checkout'
+import { getUserPromoCouponState } from '@/lib/promo-coupons'
+import { acceptWelcomeCheckoutOffer } from '@/lib/welcome-checkout-offer'
+import { finalizeOrderRewards } from '@/lib/checkout-rewards'
+import { WELCOME_CHECKOUT_COUPON_PERCENT } from '@/lib/coupon-config'
+import type { CouponDiscount } from '@/lib/checkout'
+
+const selectedCouponEnum = z.enum(['cat', 'registration', 'loyalty', 'welcome', 'birthday'])
 
 const checkoutBodySchema = z.object({
   items: z
@@ -51,61 +76,15 @@ const checkoutBodySchema = z.object({
   }),
   isDiscountActive: z.boolean().optional(),
   discountPercent: z.number().min(0).max(1).optional(),
+  /** Szerver validálja: max. kosár 30%-a, egyenleg ellenőrzés. */
+  pointsDiscountHuf: z.number().int().min(0).optional(),
+  /** DB kupon kód (pl. születésnapi) – manuális választás részeként. */
+  couponCode: z.string().min(1).optional(),
+  /** Checkout welcome 10% + hírlevél ajánlat (manuális kijelölés). */
+  welcomeOfferAccepted: z.boolean().optional(),
+  /** Manuálisan kiválasztott kuponok (nincs automatikus alkalmazás). */
+  selectedCoupons: z.array(selectedCouponEnum).optional(),
 })
-
-type CartItemInput = z.infer<typeof checkoutBodySchema>['items'][number]
-
-function splitCartAndComputeTotals(
-  items: CartItemInput[],
-  discountPercent: number,
-  productMap: Map<string, Product>
-): {
-  inStock: { items: OrderItem[]; subtotalHuf: number; discountHuf: number; totalHuf: number }
-  sourcing: { items: OrderItem[]; subtotalHuf: number; discountHuf: number; totalHuf: number }
-} {
-  const inStockItems: OrderItem[] = []
-  const sourcingItems: OrderItem[] = []
-  let inStockSubtotal = 0
-  let sourcingSubtotal = 0
-
-  for (const { productId, qty } of items) {
-    const product = productMap.get(productId)
-    if (!product || qty < 1) continue
-    const priceHuf = product.discountPriceHuf ?? product.priceHuf
-    const lineTotal = priceHuf * qty
-    const orderItem: OrderItem = {
-      productId,
-      qty,
-      fulfillmentType: product.type === 'sourcing_deal' ? 'procurement' : 'stock',
-      priceHuf,
-      name: product.name,
-    }
-    if (product.type === 'sourcing_deal') {
-      sourcingItems.push(orderItem)
-      sourcingSubtotal += lineTotal
-    } else {
-      inStockItems.push(orderItem)
-      inStockSubtotal += lineTotal
-    }
-  }
-
-  const inStockDiscount = Math.round(inStockSubtotal * discountPercent)
-  const sourcingDiscount = Math.round(sourcingSubtotal * discountPercent)
-  return {
-    inStock: {
-      items: inStockItems,
-      subtotalHuf: inStockSubtotal,
-      discountHuf: inStockDiscount,
-      totalHuf: inStockSubtotal - inStockDiscount,
-    },
-    sourcing: {
-      items: sourcingItems,
-      subtotalHuf: sourcingSubtotal,
-      discountHuf: sourcingDiscount,
-      totalHuf: sourcingSubtotal - sourcingDiscount,
-    },
-  }
-}
 
 export async function POST(request: Request) {
   const idemKey = getIdempotencyKey(request)
@@ -144,23 +123,48 @@ export async function POST(request: Request) {
     )
   }
 
-  const { items, customer, isDiscountActive, discountPercent: bodyPercent } = parsed.data
+  const {
+    items,
+    customer,
+    isDiscountActive,
+    discountPercent: bodyPercent,
+    pointsDiscountHuf: requestedPointsHuf = 0,
+    couponCode: bodyCouponCode,
+    welcomeOfferAccepted,
+    selectedCoupons: bodySelectedCoupons,
+  } = parsed.data
+
+  const couponCodeTrimmed = bodyCouponCode?.trim() ?? ''
+  const selectedCoupons = new Set(bodySelectedCoupons ?? [])
+  // Legacy: isDiscountActive + percent → cat/registration kijelölésként kezeljük
+  const hasLegacyPromo = Boolean(isDiscountActive && bodyPercent != null && bodyPercent > 0)
+  if (hasLegacyPromo && selectedCoupons.size === 0) {
+    selectedCoupons.add('cat')
+    selectedCoupons.add('registration')
+  }
+  if (welcomeOfferAccepted === true) selectedCoupons.add('welcome')
+  if (couponCodeTrimmed) selectedCoupons.add('birthday')
+  const wantsWelcomeOffer = selectedCoupons.has('welcome')
+  const hasClientCoupon =
+    selectedCoupons.has('cat') || selectedCoupons.has('registration') || hasLegacyPromo
+
+  let checkoutUserId: string | null = null
+  const session = await getSession(request)
+  if (session) {
+    checkoutUserId = await resolveSessionUserId(session)
+  }
+  if (requestedPointsHuf > 0) {
+    if (!session || !checkoutUserId) {
+      return NextResponse.json({ error: 'Login required to use points' }, { status: 401 })
+    }
+  }
 
   const productIds = Array.from(new Set(items.map((i) => i.productId)))
   const products = await getProductsByIdsAsync(productIds)
   const productMap = new Map<string, Product>(products.map((p) => [p.id, p]))
 
-  let effectiveDiscountPercent = 0
-  if (isDiscountActive && bodyPercent != null && bodyPercent > 0) {
-    effectiveDiscountPercent = bodyPercent
-  } else {
-    const loyalty = getLoyaltyByEmail(customer.email)
-    if (loyalty && loyalty.loyaltyPercent > 0) {
-      effectiveDiscountPercent = loyalty.loyaltyPercent / 100
-    }
-  }
-
   const now = new Date()
+
   for (const item of items) {
     const product = productMap.get(item.productId)
     if (!product) {
@@ -181,19 +185,163 @@ export async function POST(request: Request) {
           { status: 400 }
         )
       }
+    } else {
+      const maxQty = getMaxQty(product)
+      if (item.qty > maxQty) {
+        return NextResponse.json(
+          {
+            code: 'insufficient_stock',
+            error: 'One or more items exceed available stock. Please update your cart.',
+            productId: item.productId,
+            maxQty,
+          },
+          { status: 409 }
+        )
+      }
     }
   }
 
-  const { inStock, sourcing } = splitCartAndComputeTotals(items, effectiveDiscountPercent, productMap)
+  let couponDiscount: CouponDiscount = { percent: 0 }
+  let appliedCouponId: string | null = null
+  let appliedCouponCode: string | null = null
 
-  const hasInStock = inStock.items.length > 0 && inStock.totalHuf > 0
-  const hasSourcing = sourcing.items.length > 0 && sourcing.totalHuf > 0
+  const luckySpin = checkoutUserId ? await getLuckySpinForCheckout(checkoutUserId, now) : null
+  const lines = resolveCartLines(items, productMap)
+
+  if (lines.length === 0) {
+    return NextResponse.json({ error: 'No valid items' }, { status: 400 })
+  }
+
+  const cartSubtotalHuf = lines.reduce((s, l) => s + l.priceHuf * l.qty, 0)
+
+  // Manuális kuponválasztás: összeadás + 20% plafon. Nincs automatikus loyalty/promo.
+  let combinedPercent = 0
+  let fixedHufFromDb = 0
+
+  if (selectedCoupons.has('cat') || selectedCoupons.has('registration')) {
+    if (!checkoutUserId) {
+      return NextResponse.json({ error: 'Login required for promo coupon' }, { status: 401 })
+    }
+    const state = await getUserPromoCouponState(checkoutUserId)
+    if (selectedCoupons.has('cat')) {
+      if (state.cat !== 'claimed') {
+        return NextResponse.json(
+          { code: 'promo_coupon_inactive', error: 'Cat coupon is not active' },
+          { status: 400 }
+        )
+      }
+      combinedPercent += CAT_COUPON_PERCENT
+    }
+    if (selectedCoupons.has('registration')) {
+      if (state.registration !== 'claimed') {
+        return NextResponse.json(
+          { code: 'promo_coupon_inactive', error: 'Registration coupon is not active' },
+          { status: 400 }
+        )
+      }
+      combinedPercent += REGISTRATION_COUPON_PERCENT
+    }
+  }
+
+  if (selectedCoupons.has('loyalty')) {
+    const loyalty = getLoyaltyByEmail(customer.email)
+    if (!loyalty || loyalty.loyaltyPercent <= 0) {
+      return NextResponse.json(
+        { code: 'loyalty_inactive', error: 'No loyalty discount on this account' },
+        { status: 400 }
+      )
+    }
+    combinedPercent += loyalty.loyaltyPercent / 100
+  }
+
+  if (wantsWelcomeOffer) {
+    const welcome = await acceptWelcomeCheckoutOffer({
+      email: customer.email,
+      userId: checkoutUserId,
+    })
+    if (!welcome.ok) {
+      return NextResponse.json(
+        { code: welcome.code, error: welcome.error },
+        { status: 400 }
+      )
+    }
+    combinedPercent += welcome.percent || WELCOME_CHECKOUT_COUPON_PERCENT
+  }
+
+  if (couponCodeTrimmed) {
+    const resolved = await resolveCheckoutCoupon({
+      couponCode: couponCodeTrimmed,
+      checkoutUserId,
+      subtotalHuf: cartSubtotalHuf,
+      now,
+    })
+    if (!resolved.ok) {
+      return NextResponse.json({ code: resolved.code, error: resolved.error }, { status: 400 })
+    }
+    appliedCouponId = resolved.coupon.id
+    appliedCouponCode = resolved.coupon.code
+    if (resolved.discount.fixedHuf && resolved.discount.fixedHuf > 0) {
+      fixedHufFromDb = resolved.discount.fixedHuf
+    } else if (resolved.discount.percent && resolved.discount.percent > 0) {
+      combinedPercent += resolved.discount.percent
+    }
+  }
+
+  const cappedPercent = capCombinedCouponPercent(combinedPercent)
+  if (!validateCouponPercent(cappedPercent, Boolean(checkoutUserId) || wantsWelcomeOffer || Boolean(couponCodeTrimmed))) {
+    return NextResponse.json({ error: 'Invalid coupon discount' }, { status: 400 })
+  }
+  couponDiscount = {
+    percent: cappedPercent,
+    ...(fixedHufFromDb > 0 ? { fixedHuf: fixedHufFromDb } : {}),
+  }
+
+  const prePointsTotals = computeCheckoutTotals({
+    lines,
+    coupon: couponDiscount,
+    luckySpin,
+    now,
+  })
+
+  let validatedPointsHuf = 0
+  if (requestedPointsHuf > 0 && checkoutUserId) {
+    const validation = await validatePurchasePoints(
+      checkoutUserId,
+      prePointsTotals.afterCouponAndLuckyHuf,
+      requestedPointsHuf
+    )
+    if (!validation.ok) {
+      return NextResponse.json({ error: validation.error }, { status: 400 })
+    }
+    validatedPointsHuf = validation.pointsDiscountHuf
+  }
+
+  const totals = computeCheckoutTotals({
+    lines,
+    coupon: couponDiscount,
+    luckySpin,
+    points:
+      validatedPointsHuf > 0 && checkoutUserId
+        ? {
+            requestedDiscountHuf: validatedPointsHuf,
+            userBalance: await getPointBalance(checkoutUserId),
+          }
+        : undefined,
+    now,
+  })
+
+  const { inStock, sourcing, luckySpin: luckySpinDiscount } = totals
+  const combinedMerchandise = totals.merchandiseTotalHuf
+
+  if (combinedMerchandise <= 0 && totals.subtotalHuf <= 0) {
+    return NextResponse.json({ error: 'No valid items or invalid total' }, { status: 400 })
+  }
+
+  const hasInStock = inStock.items.length > 0
+  const hasSourcing = sourcing.items.length > 0
 
   if (!hasInStock && !hasSourcing) {
-    return NextResponse.json(
-      { error: 'No valid items or invalid total' },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: 'No valid items or invalid total' }, { status: 400 })
   }
 
   let reservationIds: string[] = []
@@ -215,18 +363,39 @@ export async function POST(request: Request) {
   const provider = getPaymentProvider()
   const currency = 'huf'
 
+  const appliedCouponsList = Array.from(selectedCoupons)
+
   let createdOrders
   try {
     createdOrders = await createCheckoutOrders({
       orderGroupId,
-      inStock: hasInStock ? inStock : undefined,
-      sourcing: hasSourcing ? sourcing : undefined,
+      userId: checkoutUserId ?? undefined,
+      couponId: appliedCouponId ?? undefined,
+      appliedCoupons: appliedCouponsList,
+      inStock: hasInStock
+        ? {
+            items: inStock.items,
+            subtotalHuf: inStock.subtotalHuf,
+            discountHuf: inStock.couponDiscountHuf + inStock.luckySpinDiscountHuf,
+            totalHuf: Math.max(0, inStock.totalHuf),
+            pointsDiscountHuf: inStock.pointsDiscountHuf,
+            pointsUsed: inStock.pointsUsed,
+          }
+        : undefined,
+      sourcing: hasSourcing
+        ? {
+            items: sourcing.items,
+            subtotalHuf: sourcing.subtotalHuf,
+            discountHuf: sourcing.couponDiscountHuf + sourcing.luckySpinDiscountHuf,
+            totalHuf: Math.max(0, sourcing.totalHuf),
+            pointsDiscountHuf: sourcing.pointsDiscountHuf,
+            pointsUsed: sourcing.pointsUsed,
+          }
+        : undefined,
       currency,
     })
   } catch (err) {
     if (reservationIds.length > 0) {
-      // Best-effort: ha a rendelés létrehozás elbukik, felszabadítjuk a sourcing slotokat.
-      // (Nincs orderId még – a reservationök orderId nélkül maradnak, expire cron / manuális cancel.)
       try {
         const { prisma, isDbConfigured } = await import('@/lib/prisma')
         if (isDbConfigured()) {
@@ -269,6 +438,23 @@ export async function POST(request: Request) {
   }> = []
 
   for (const order of createdOrders) {
+    if (order.totalHuf === 0 && (order.pointsUsed ?? 0) > 0) {
+      await setOrderStatus(order.id, 'paid')
+      try {
+        await finalizeOrderRewards(order.id)
+      } catch (err) {
+        logger.error({ err, orderId: order.id }, 'checkout: finalizeOrderRewards failed (points-only)')
+      }
+      paymentResults.push({
+        orderId: order.id,
+        orderType: order.orderType!,
+        mode: 'capture',
+        type: 'pending',
+        message: 'Paid with points only',
+      })
+      continue
+    }
+
     const isCapture = order.orderType === 'in_stock'
     const mode = isCapture ? 'capture' : 'authorize'
     const tx = createPaymentTransaction({
@@ -331,7 +517,65 @@ export async function POST(request: Request) {
     'checkout completed'
   )
 
-  const payload = { orderGroupId, payments: paymentResults }
+  const needsExternalPayment = paymentResults.some(
+    (p) => p.type === 'redirect' || p.type === 'client_secret'
+  )
+  // Dummy / pending provider: nincs Stripe redirect → azonnal paid + kupon/pont égetés
+  if (!needsExternalPayment && createdOrders.length > 0) {
+    try {
+      const { confirmPendingAndFinalizeOrderGroup } = await import('@/lib/checkout-rewards')
+      await confirmPendingAndFinalizeOrderGroup(orderGroupId)
+    } catch (err) {
+      logger.error({ err, orderGroupId }, 'checkout: confirmPendingAndFinalizeOrderGroup failed')
+    }
+    try {
+      const emailResult = await maybeSendOrderGroupConfirmationEmail(
+        createdOrders[0]!.id,
+        customer.email
+      )
+      if (!emailResult.ok) {
+        logger.error({ err: emailResult.error }, 'checkout: order confirmation email failed')
+      }
+    } catch (emailErr) {
+      logger.error({ err: emailErr }, 'checkout: order confirmation email error')
+    }
+  }
+
+  const payload = {
+    orderGroupId,
+    payments: paymentResults,
+    couponApplied: appliedCouponCode
+      ? { code: appliedCouponCode, discountHuf: totals.couponDiscountHuf }
+      : undefined,
+    luckySpinApplied: luckySpinDiscount.active
+      ? {
+          discountHuf: luckySpinDiscount.discountHuf,
+          qualifyingItemCount: luckySpinDiscount.qualifyingItemCount,
+        }
+      : undefined,
+    pointsApplied: totals.pointsDiscountHuf > 0
+      ? {
+          pointsDiscountHuf: totals.pointsDiscountHuf,
+          pointsUsed: totals.pointsUsed,
+          cardTotalHuf: totals.finalTotalHuf,
+          maxPointsDiscountHuf: Math.floor(totals.afterCouponAndLuckyHuf * MAX_CART_POINTS_COVERAGE),
+          pointsPerHuf: POINTS_PER_HUF,
+          maxCoveragePercent: MAX_CART_POINTS_COVERAGE,
+        }
+      : undefined,
+    shipping: {
+      shippingHuf: totals.shippingHuf,
+      freeShippingThreshold: FREE_SHIPPING_THRESHOLD,
+      freeShippingRemainingHuf: totals.freeShippingRemainingHuf,
+    },
+    totals: {
+      subtotalHuf: totals.subtotalHuf,
+      couponDiscountHuf: totals.couponDiscountHuf,
+      luckySpinDiscountHuf: totals.luckySpinDiscountHuf,
+      merchandiseTotalHuf: totals.merchandiseTotalHuf,
+      finalTotalHuf: totals.finalTotalHuf,
+    },
+  }
   if (idemKey) {
     await setIdempotentResponse(idemKey, payload, 200)
   }

@@ -2,9 +2,18 @@
 
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import Image from 'next/image'
-import { useState, useEffect } from 'react'
-import { getDisplayStock, getProductName, getSourcingDealStatus, mockProducts } from '@/lib/data'
+import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { Share2 } from 'lucide-react'
+import { getDisplayStock, getProductName, getSourcingDealStatus, isUnlimitedStock } from '@/lib/data'
+import { isValidImageUrl, normalizeImageUrl } from '@/lib/product-images'
+import {
+  cleanCdnUrls,
+  cdnGalleryMainUrl,
+  cdnThumbnailUrl,
+  resolveImageUrl,
+} from '@/lib/cdn'
+import { SafeProductImage } from '@/components/SafeProductImage'
 import { ProductTabs } from '@/components/ProductTabs'
 import { SourcingDealBox } from '@/components/SourcingDealBox'
 import { Breadcrumbs, productBreadcrumbs } from '@/components/Breadcrumbs'
@@ -21,7 +30,17 @@ const ProductModelViewer = dynamic(
   { ssr: false, loading: () => <div className="min-h-[280px] flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--card-bg)] text-muted">3D modell betöltése…</div> }
 )
 import { is3DProduct } from '@/lib/data'
-import { FILAMENT_COLORS, getFilamentColorName, type FilamentColor } from '@/lib/filamentColors'
+import {
+  getAvailableColorVariants,
+  shouldShowStorefrontColorPicker,
+  getBaseColorVariant,
+  getFilamentColorName,
+  getGalleryImagesForColor,
+  hasAnyColorImages,
+  normalizeHexColor,
+  type ColorVariant,
+} from '@/lib/filamentColors'
+import { buildColorableProductShareUrl } from '@/lib/product-share-url'
 import { useLocale } from '@/context/LocaleContext'
 import { useCart } from '@/context/CartContext'
 import { useAuth } from '@/context/AuthContext'
@@ -29,6 +48,8 @@ import { useWishlist } from '@/context/WishlistContext'
 import { useEuroRate } from '@/context/EuroRateContext'
 import { useToast } from '@/context/ToastContext'
 import { trackAddToCart } from '@/lib/analytics'
+import { SaleCountdown } from '@/components/SaleCountdown'
+import { useSaleActive } from '@/hooks/useSaleActive'
 import type { Product } from '@/lib/data'
 
 const RECENTLY_VIEWED_KEY = 'gulumen-recently-viewed'
@@ -47,37 +68,65 @@ function useRecentlyViewed(productId: string, productSlug: string) {
   }, [productId, productSlug])
 }
 
+/** Szerver oldali viewsCount növelés – bot/admin a API-n kiszűrve. */
+function useProductViewCount(productId: string) {
+  useEffect(() => {
+    if (!productId) return
+    const key = `gulumen-viewed-${productId}`
+    try {
+      // Sessionenként egyszer (ugyanarra a termékre ne pörögjön feleslegesen)
+      if (sessionStorage.getItem(key) === '1') return
+      sessionStorage.setItem(key, '1')
+    } catch {
+      // sessionStorage nem elérhető – akkor is elküldjük
+    }
+    void fetch(`/api/products/${encodeURIComponent(productId)}/view`, {
+      method: 'POST',
+      credentials: 'include',
+      keepalive: true,
+    }).catch(() => {})
+  }, [productId])
+}
+
 const showLikesForProduct = (type: string | undefined) => type === 'stock' || type === 'sourcing_deal'
 
-type Props = { product: Product; slug: string; serverNow?: number }
+type Props = { product: Product; slug: string; serverNow?: number; similarProducts: Product[] }
 
-export function ProductPageContent({ product, slug, serverNow }: Props) {
+export function ProductPageContent({ product, slug, serverNow, similarProducts }: Props) {
   const { t, locale } = useLocale()
+  const searchParams = useSearchParams()
   const { items, addItem, itemCount } = useCart()
   const { userId } = useAuth()
-  const { syncFromServer } = useWishlist()
+  const { isInWishlist, syncFromServer, applyOptimisticToggle } = useWishlist()
   const { toast } = useToast()
-  const [liked, setLiked] = useState(false)
+  const isFavorite = isInWishlist(product.id)
   const [likesCount, setLikesCount] = useState<number | null>(null)
+  const [pointLimitReached, setPointLimitReached] = useState(false)
   const { hufToEur, formatEur } = useEuroRate()
   useRecentlyViewed(product.id, product.slug)
+  useProductViewCount(product.id)
   const productName = getProductName(product, locale)
   const cartQty = items.find((x) => x.productId === product.id)?.qty ?? 0
   const effectiveOrdersCount = (product.ordersCount ?? 0) + cartQty
+  const unlimitedStock = product.type !== 'sourcing_deal' && isUnlimitedStock(product)
   const stockFromSource = product.type === 'sourcing_deal' ? getDisplayStock(product, effectiveOrdersCount) : getDisplayStock(product)
-  const maxAddable = product.type === 'sourcing_deal' ? stockFromSource : Math.max(0, stockFromSource - cartQty)
+  const maxAddable = product.type === 'sourcing_deal'
+    ? stockFromSource
+    : unlimitedStock
+      ? Math.max(0, stockFromSource - cartQty)
+      : Math.max(0, stockFromSource - cartQty)
   const [addQty, setAddQty] = useState(1)
   const [mainImageIndex, setMainImageIndex] = useState(0)
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [view360Open, setView360Open] = useState(false)
   const [show3DViewer, setShow3DViewer] = useState(false)
-  const [mainImageError, setMainImageError] = useState(false)
   const isColorable = !!product.isColorable
-  const is3DWithMaterial = isColorable && is3DProduct(product)
-  /** 3D színezhetőnél nincs alapértelmezett szín – a felhasználónak kell választania. */
-  const [selectedColor, setSelectedColor] = useState<FilamentColor | null>(null)
-  /** 3D termék: PLA vagy PETG anyag választása (nincs alapértelmezett). */
-  const [selectedMaterial, setSelectedMaterial] = useState<'PLA' | 'PETG' | null>(null)
+  const availableColors = getAvailableColorVariants(product.colorImages, isColorable)
+  const usesColorGalleries = hasAnyColorImages(product.colorImages)
+  /** Alapértelmezés: az Alaptermék (isBase) – a Kosárba gomb azonnal aktív. */
+  const [selectedColor, setSelectedColor] = useState<ColorVariant | null>(() =>
+    getBaseColorVariant(availableColors) ?? availableColors[0] ?? null
+  )
   const sourcingStatus =
     product.type === 'sourcing_deal'
       ? getSourcingDealStatus(product, new Date(serverNow ?? Date.now()), effectiveOrdersCount)
@@ -87,35 +136,84 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
   )
   const safeAddQty = maxAddable > 0 ? Math.min(Math.max(1, addQty), maxAddable) : 1
 
-  const images = product.images?.length ? product.images : product.image ? [product.image] : []
-  const mainImage = images[mainImageIndex] || product.image
+  const images = cleanCdnUrls(
+    getGalleryImagesForColor(product, selectedColor?.id).map(normalizeImageUrl).filter(isValidImageUrl)
+  )
+  const mainImage = resolveImageUrl(
+    images[mainImageIndex] || images[0] || (isValidImageUrl(normalizeImageUrl(product.image || '')) ? normalizeImageUrl(product.image) : '')
+  )
   const hasMultipleImages = images.length > 1
   const has360 = product.images360 && product.images360.length > 0
   const has3DModel = is3DProduct(product) && product.modelUrl
 
-  const similarProducts = mockProducts
-    .filter((p) => p.category === product.category && p.id !== product.id && p.type !== 'sourcing_deal')
-    .slice(0, 4)
-
-  const priceHuf = product.discountPriceHuf ?? product.priceHuf
+  const saleActive = useSaleActive(product)
+  const priceHuf = saleActive && product.discountPriceHuf ? product.discountPriceHuf : product.priceHuf
   const priceEur = hufToEur(priceHuf)
-  const hasDiscount = !!product.discountPriceHuf
+  const hasDiscount = saleActive && !!product.discountPriceHuf
 
-  /** 3D színezhető terméknél szín + anyag is kötelező. */
-  const canAddToCart =
-    !isColorable ||
-    (selectedColor !== null && (!is3DWithMaterial || selectedMaterial !== null))
+  /** Színválasztó csak több színvariációnál; egyszínű / „Nincs szín” terméknél rejtve. */
+  const showColorPicker = shouldShowStorefrontColorPicker(product.colorImages, isColorable)
+  const canAddToCart = !showColorPicker || selectedColor !== null
+  const canShareConfiguration = showColorPicker && selectedColor !== null
+
+  const availableColorIds = availableColors.map((c) => c.id).join(',')
+
+  useEffect(() => {
+    if (!showColorPicker) {
+      setSelectedColor(null)
+      return
+    }
+    const colors = getAvailableColorVariants(product.colorImages, isColorable)
+    if (colors.length === 0) {
+      setSelectedColor(null)
+      return
+    }
+
+    const colorParam = searchParams.get('color')
+    if (colorParam) {
+      const normalized = normalizeHexColor(colorParam, '')
+      if (normalized) {
+        const fromUrl = colors.find((c) => c.hex.toLowerCase() === normalized)
+        if (fromUrl) {
+          setSelectedColor(fromUrl)
+          setMainImageIndex(0)
+          return
+        }
+      }
+    }
+
+    // URL-ben nincs érvényes szín → tartsuk meg a jelenlegi érvényes választást, különben az Alaptermék
+    setSelectedColor((prev) => {
+      if (prev && colors.some((c) => c.id === prev.id)) return prev
+      return getBaseColorVariant(colors) ?? colors[0] ?? null
+    })
+  }, [searchParams, showColorPicker, availableColorIds, product.colorImages, isColorable])
+
+  const handleSelectColor = (color: ColorVariant) => {
+    setSelectedColor(color)
+    setMainImageIndex(0)
+  }
+
+  const handleShareConfiguration = useCallback(async () => {
+    if (!canShareConfiguration || !selectedColor) return
+    const url = buildColorableProductShareUrl(window.location.origin, slug, {
+      colorHex: selectedColor.hex,
+    })
+    try {
+      await navigator.clipboard.writeText(url)
+      toast(t('product.shareCopied'))
+    } catch {
+      toast(t('product.shareCopied'))
+    }
+  }, [canShareConfiguration, selectedColor, slug, t, toast])
 
   const handleAddToCart = () => {
     if (!canAddToCart) return
     const options =
-      isColorable && selectedColor
+      showColorPicker && selectedColor
         ? {
             colorName: getFilamentColorName(selectedColor, locale),
             colorHex: selectedColor.hex,
-            ...(is3DWithMaterial && selectedMaterial
-              ? { materialName: selectedMaterial }
-              : {}),
           }
         : undefined
     addItem(product.id, safeAddQty, options, product)
@@ -128,13 +226,17 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
   const showLikes = showLikesForProduct(product.type)
   useEffect(() => {
     if (!showLikes) return
-    fetch(`/api/products/${product.id}/like`, { credentials: 'include' })
+    fetch(`/api/products/${product.id}/like`, { credentials: 'include', cache: 'no-store' })
       .then((r) => r.ok && r.json())
       .then((data) => {
         if (data?.likesCount != null) setLikesCount(data.likesCount)
-        if (typeof data?.liked === 'boolean') setLiked(data.liked)
+        if (data?.liked === true && !isInWishlist(product.id)) {
+          applyOptimisticToggle(product, true)
+        }
+        if (typeof data?.pointLimitReached === 'boolean') setPointLimitReached(data.pointLimitReached)
       })
       .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product.id, showLikes, userId])
 
   const displayLikes = likesCount ?? product.likesCount ?? 0
@@ -149,18 +251,63 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
           <div className="space-y-2">
             {has3DModel && show3DViewer ? (
               <div className="space-y-3">
-                <div className="aspect-square rounded-xl border border-[var(--border)] bg-[var(--card-bg)] overflow-hidden relative">
+                <div className="relative aspect-[3/4] sm:aspect-square rounded-xl border border-[var(--border)] bg-[var(--card-bg)] overflow-hidden">
                   <ProductModelViewer
                     src={product.modelUrl!}
                     alt={productName}
-                    className="aspect-square w-full"
+                    className="absolute inset-0 w-full h-full"
                     selectedColorHex={selectedColor?.hex}
                     enableFullscreen
                   />
                 </div>
                 <p className="text-center text-sm text-muted">
-                  {t('product.view360Hint') || 'Húzd balra-jobbra a forgatáshoz'}
+                  {t('product.view360Hint') || 'Húzd balra-jobbra a forgatáshoz · csipeteld a nagyításhoz'}
                 </p>
+                {showColorPicker && (
+                  <div className="rounded-xl border border-accent/40 bg-accent/5 p-3 lg:hidden">
+                    <p className="text-sm font-medium text-foreground mb-2">
+                      {t('product.color') || 'Szín'} * — {t('product.tapColorToTint') || 'Koppints egy színre a tok színezéséhez'}
+                    </p>
+                    <div
+                      role="radiogroup"
+                      aria-label={t('product.color') || 'Szín'}
+                      className="flex flex-wrap gap-2"
+                    >
+                      {availableColors.map((color) => {
+                        const colorName = getFilamentColorName(color, locale)
+                        const isSelected = selectedColor?.id === color.id
+                        return (
+                          <button
+                            key={`mobile-3d-${color.id}`}
+                            type="button"
+                            role="radio"
+                            onClick={() => handleSelectColor(color)}
+                            className={`flex items-center gap-2 rounded-lg border-2 px-3 py-1.5 text-sm transition-colors ${
+                              isSelected
+                                ? 'border-accent bg-accent/10 text-foreground'
+                                : 'border-[var(--border)] bg-[var(--card-bg)] text-foreground hover:border-accent/50'
+                            }`}
+                            aria-checked={isSelected}
+                            aria-label={colorName}
+                            title={colorName}
+                          >
+                            <span
+                              className="w-5 h-5 rounded-full shrink-0 border border-[var(--border)] shadow-inner"
+                              style={{ backgroundColor: color.hex }}
+                              aria-hidden
+                            />
+                            <span>{colorName}</span>
+                            {color.isBase && (
+                              <span className="text-[10px] uppercase tracking-wide font-semibold text-accent">
+                                {t('product.baseVariant') || 'Alap'}
+                              </span>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={() => setShow3DViewer(false)}
@@ -178,41 +325,15 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
                 onKeyDown={(e) => e.key === 'Enter' && setLightboxOpen(true)}
                 aria-label={t('product.openGallery') || 'Kép nagyítása / Galéria'}
               >
-                {mainImage && !mainImageError ? (
-                  mainImage.startsWith('/') ? (
-                    has3DModel ? (
-                      <img
-                        src={mainImage}
-                        alt={productName}
-                        className="absolute inset-0 w-full h-full object-contain"
-                        onError={() => setMainImageError(true)}
-                      />
-                    ) : (
-                      <Image
-                        src={mainImage}
-                        alt={productName}
-                        fill
-                        className="object-contain"
-                        sizes="(max-width: 1024px) 100vw, 50vw"
-                        priority
-                        unoptimized={mainImage.startsWith('/uploads/')}
-                        onError={() => setMainImageError(true)}
-                      />
-                    )
-                  ) : mainImage.startsWith('http') ? (
-                    <img
-                      src={mainImage}
-                      alt={productName}
-                      className="absolute inset-0 w-full h-full object-contain"
-                      referrerPolicy="no-referrer"
-                      onError={() => setMainImageError(true)}
-                    />
-                  ) : null
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-muted">
-                    {mainImageError ? (t('product.noImage') || 'Kép nem tölthető') : (t('product.noImage') || 'Nincs kép')}
-                  </div>
-                )}
+                <SafeProductImage
+                  src={cdnGalleryMainUrl(mainImage)}
+                  alt={productName}
+                  fit="contain"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  priority
+                  optimize
+                />
                 {showSoldOverlay && <SoldImpactOverlay className="rounded-xl" label={t('status.expired')} />}
               </div>
             )}
@@ -226,12 +347,60 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
                 {t('product.view3D') || '🔄 Forgasd körbe (3D megtekintés)'}
               </button>
             )}
+            {showColorPicker && !show3DViewer && (
+              <div className="rounded-xl border border-accent/40 bg-accent/5 p-3 lg:hidden">
+                <p className="text-sm font-medium text-foreground mb-2">
+                  {t('product.color') || 'Szín'} *
+                </p>
+                <div
+                  role="radiogroup"
+                  aria-label={t('product.color') || 'Szín'}
+                  className="flex flex-wrap gap-2"
+                >
+                  {availableColors.map((color) => {
+                    const colorName = getFilamentColorName(color, locale)
+                    const isSelected = selectedColor?.id === color.id
+                    return (
+                      <button
+                        key={`mobile-img-${color.id}`}
+                        type="button"
+                        role="radio"
+                        onClick={() => handleSelectColor(color)}
+                        className={`flex items-center gap-2 rounded-lg border-2 px-3 py-1.5 text-sm transition-colors ${
+                          isSelected
+                            ? 'border-accent bg-accent/10 text-foreground'
+                            : 'border-[var(--border)] bg-[var(--card-bg)] text-foreground hover:border-accent/50'
+                        }`}
+                        aria-checked={isSelected}
+                        aria-label={colorName}
+                        title={colorName}
+                      >
+                        <span
+                          className="w-5 h-5 rounded-full shrink-0 border border-[var(--border)] shadow-inner"
+                          style={{ backgroundColor: color.hex }}
+                          aria-hidden
+                        />
+                        <span>{colorName}</span>
+                        {color.isBase && (
+                          <span className="text-[10px] uppercase tracking-wide font-semibold text-accent">
+                            {t('product.baseVariant') || 'Alap'}
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+                <p className="mt-2 text-xs text-muted">
+                  {t('product.tapColorToTint') || 'Koppints egy színre. A 3D nézetben a tok ezzel a színnel jelenik meg.'}
+                </p>
+              </div>
+            )}
           </div>
           {(hasMultipleImages || has360 || has3DModel) && (
             <div className="flex gap-2 overflow-x-auto items-center">
-              {images.slice(0, 6).map((img, i) => (
+              {images.slice(0, 12).map((img, i) => (
                 <button
-                  key={i}
+                  key={`${img}-${i}`}
                   type="button"
                   onClick={() => setMainImageIndex(i)}
                   className={`w-20 h-20 shrink-0 rounded-lg border-2 bg-[var(--card-bg)] relative overflow-hidden transition-colors ${
@@ -240,15 +409,16 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
                   aria-label={`${productName} ${i + 1}`}
                   aria-pressed={mainImageIndex === i}
                 >
-                  {img.startsWith('/') ? (
-                    has3DModel ? (
-                      <img src={img} alt="" className="absolute inset-0 w-full h-full object-cover" />
-                    ) : (
-                      <Image src={img} alt="" fill className="object-cover" sizes="80px" unoptimized={img.startsWith('/uploads/')} />
-                    )
-                  ) : img.startsWith('http') ? (
-                    <img src={img} alt="" className="absolute inset-0 w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  ) : null}
+                  {/* Csak 80px thumbnail (~KB) – a nagy kép a kattintáskor töltődik a főnézetbe */}
+                  <SafeProductImage
+                    src={cdnThumbnailUrl(img)}
+                    alt=""
+                    fit="cover"
+                    fill
+                    sizes="80px"
+                    optimize
+                    priority={i < 2}
+                  />
                 </button>
               ))}
               {has360 && (
@@ -309,16 +479,15 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
                   toast(t('wishlist.loginRequired') || 'Jelentkezz be a kedveléshez.')
                   return
                 }
-                const prevLiked = liked
+                const prevLiked = isFavorite
                 const prevCount = likesCount ?? displayLikes
-                setLiked(!prevLiked)
                 setLikesCount((c) => (prevLiked ? Math.max(0, (c ?? 0) - 1) : (c ?? 0) + 1))
-                syncFromServer?.()
+                applyOptimisticToggle(product, !prevLiked)
                 fetch(`/api/products/${product.id}/like`, { method: 'POST', credentials: 'include' })
                   .then((r) => {
                     if (r.status === 401) {
-                      setLiked(prevLiked)
                       setLikesCount(prevCount)
+                      applyOptimisticToggle(product, prevLiked)
                       toast(t('wishlist.loginRequired') || 'Jelentkezz be a kedveléshez.')
                       return null
                     }
@@ -326,20 +495,26 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
                   })
                   .then((d) => {
                     if (d?.likesCount != null) setLikesCount(d.likesCount)
-                    if (typeof d?.liked === 'boolean') setLiked(d.liked)
+                    if (typeof d?.liked === 'boolean') {
+                      applyOptimisticToggle(product, d.liked)
+                    }
+                    if (typeof d?.pointLimitReached === 'boolean') setPointLimitReached(d.pointLimitReached)
                     syncFromServer?.()
                   })
                   .catch(() => {
-                    setLiked(prevLiked)
                     setLikesCount(prevCount)
+                    applyOptimisticToggle(product, prevLiked)
                     syncFromServer?.()
                   })
               }}
               className="text-sm font-medium text-accent hover:underline"
-              aria-label={liked ? (t('wishlist.remove') || 'Eltávolítás a kedvencekből') : (t('wishlist.add') || 'Kedvencekhez')}
+              aria-label={isFavorite ? (t('wishlist.remove') || 'Eltávolítás a kedvencekből') : (t('wishlist.add') || 'Kedvencekhez')}
             >
-              {liked ? (t('wishlist.remove') || 'Eltávolítás a kedvencekből') : (t('wishlist.add') || 'Kedvencekhez')}
+              {isFavorite ? (t('wishlist.remove') || 'Eltávolítás a kedvencekből') : (t('wishlist.add') || 'Kedvencekhez')}
             </button>
+            {pointLimitReached && userId && !isFavorite && (
+              <p className="text-xs text-muted w-full">{t('gamification.likeLimitReached')}</p>
+            )}
           </div>
           <div className="mt-4 flex items-baseline gap-3 flex-wrap">
             {hasDiscount && (
@@ -351,6 +526,9 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
               {priceHuf.toLocaleString('hu-HU')} Ft
             </span>
             <span className="text-muted">(€{formatEur(priceEur)})</span>
+            {saleActive && product.type !== 'sourcing_deal' && (
+              <SaleCountdown product={product} variant="inline" />
+            )}
           </div>
           <p className="mt-2 text-muted">{product.condition}</p>
           {product.variants && product.variants.length > 0 && (
@@ -367,69 +545,75 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
             </div>
           ) : (
             <>
-              {is3DWithMaterial && (
+              {showColorPicker && (
                 <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-3">
-                  <p className="text-sm font-medium text-foreground mb-2">{t('product.material') || 'Anyag'} *</p>
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {(['PLA', 'PETG'] as const).map((mat) => (
-                      <button
-                        key={mat}
-                        type="button"
-                        onClick={() => setSelectedMaterial(mat)}
-                        className={`rounded-lg border-2 px-4 py-2 text-sm font-medium transition-colors ${
-                          selectedMaterial === mat
-                            ? 'border-accent bg-accent/10 text-foreground'
-                            : 'border-[var(--border)] bg-[var(--card-bg)] text-foreground hover:border-accent/50'
-                        }`}
-                        aria-pressed={selectedMaterial === mat}
-                      >
-                        {mat}
-                      </button>
-                    ))}
+                  <p id="product-color-label" className="text-sm font-medium text-foreground mb-2">
+                    {t('product.color') || 'Szín'} *
+                  </p>
+                  <div
+                    role="radiogroup"
+                    aria-labelledby="product-color-label"
+                    className="flex flex-wrap gap-2"
+                  >
+                    {availableColors.map((color) => {
+                      const colorName = getFilamentColorName(color, locale)
+                      const isSelected = selectedColor?.id === color.id
+                      return (
+                        <button
+                          key={color.id}
+                          type="button"
+                          role="radio"
+                          onClick={() => handleSelectColor(color)}
+                          className={`flex items-center gap-2 rounded-lg border-2 px-3 py-1.5 text-sm transition-colors ${
+                            isSelected
+                              ? 'border-accent bg-accent/10 text-foreground'
+                              : 'border-[var(--border)] bg-[var(--card-bg)] text-foreground hover:border-accent/50'
+                          }`}
+                          aria-checked={isSelected}
+                          aria-label={colorName}
+                          title={colorName}
+                        >
+                          <span
+                            className="w-5 h-5 rounded-full shrink-0 border border-[var(--border)] shadow-inner"
+                            style={{ backgroundColor: color.hex }}
+                            aria-hidden
+                          />
+                          <span>{colorName}</span>
+                          {color.isBase && (
+                            <span className="text-[10px] uppercase tracking-wide font-semibold text-accent">
+                              {t('product.baseVariant') || 'Alap'}
+                            </span>
+                          )}
+                        </button>
+                      )
+                    })}
                   </div>
-                  <details className="text-xs text-muted">
-                    <summary className="cursor-pointer font-medium text-foreground hover:text-accent">
-                      {t('product.materialInfoTitle') || 'PLA és PETG – tulajdonságok'}
-                    </summary>
-                    <ul className="mt-2 space-y-1 list-disc list-inside">
-                      <li><strong>PLA:</strong> {t('product.materialPla') || 'Biobázisú. Belső és kerti használatra ideális. Kevésbé hőálló, kevésbé ütésálló.'}</li>
-                      <li><strong>PETG:</strong> {t('product.materialPetg') || 'Erősebb, rugalmasabb, jobban ellenáll a hőnek és az ütésnek. Konyha, tartós használat.'}</li>
-                    </ul>
-                  </details>
-                </div>
-              )}
-              {isColorable && (
-                <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-3">
-                  <p className="text-sm font-medium text-foreground mb-2">{t('product.color') || 'Szín'} *</p>
-                  <div className="flex flex-wrap gap-2">
-                    {FILAMENT_COLORS.map((color) => (
-                      <button
-                        key={color.id}
-                        type="button"
-                        onClick={() => setSelectedColor(color)}
-                        className={`flex items-center gap-2 rounded-lg border-2 px-3 py-1.5 text-sm transition-colors ${
-                          selectedColor?.id === color.id
-                            ? 'border-accent bg-accent/10 text-foreground'
-                            : 'border-[var(--border)] bg-[var(--card-bg)] text-foreground hover:border-accent/50'
-                        }`}
-                        aria-pressed={selectedColor?.id === color.id}
-                        aria-label={getFilamentColorName(color, locale)}
-                        title={getFilamentColorName(color, locale)}
-                      >
-                        <span
-                          className="w-5 h-5 rounded-full shrink-0 border border-[var(--border)] shadow-inner"
-                          style={{ backgroundColor: color.hex }}
-                        />
-                        <span>{getFilamentColorName(color, locale)}</span>
-                      </button>
-                    ))}
-                  </div>
-                  <p className="mt-2 text-xs text-muted">{t('product.selectColorHint') || 'A kosárba a kiválasztott szín kerül; a termékfotó csak illusztráció.'}</p>
+                  <p className="mt-2 text-xs text-muted">
+                    {usesColorGalleries
+                      ? t('product.selectColorHintWithPhotos') ||
+                        'A kiválasztott színhez tartozó termékfotók jelennek meg; a kosárba is ez a szín kerül.'
+                      : t('product.selectColorHint') ||
+                        'A kosárba a kiválasztott szín kerül; a termékfotó csak illusztráció.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void handleShareConfiguration()}
+                    disabled={!canShareConfiguration}
+                    className="mt-3 inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-[var(--border)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title={!canShareConfiguration ? t('product.shareNeedSelection') : undefined}
+                  >
+                    <Share2 className="w-4 h-4 shrink-0" aria-hidden />
+                    {t('product.share')}
+                  </button>
                 </div>
               )}
               <p className="mt-2 text-sm text-foreground">
                 <strong>{t('product.inStock')}</strong>
-                {has3DModel ? ` – ${t('product.inStockUnlimited') || 'rendelhető bármennyi darab'}` : ` – ${t('product.inStockCount', { count: stockFromSource })}`}
+                {unlimitedStock || has3DModel
+                  ? ` – ${t('product.inStockUnlimited') || 'rendelhető'}`
+                  : stockFromSource > 0
+                    ? ` – ${t('product.inStockCount', { count: stockFromSource })}`
+                    : ''}
               </p>
               {cartQty > 0 && (
                 <p className="mt-1 text-sm text-muted">
@@ -441,11 +625,9 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
               </p>
               {stockFromSource > 0 ? (
                 <div className="mt-6 flex flex-wrap items-center gap-3">
-                  {isColorable && (!selectedColor || (is3DWithMaterial && !selectedMaterial)) && (
+                  {showColorPicker && !selectedColor && (
                     <p className="text-sm text-amber-600 dark:text-amber-400 font-medium w-full">
-                      {is3DWithMaterial && !selectedMaterial
-                        ? (t('product.selectMaterialAndColorToAdd') || 'Válaszd ki a színt és az anyagot (PLA/PETG) a kosárba tétel előtt.')
-                        : (t('product.selectColorToAdd') || 'Válaszd ki a színt és az anyagot (PLA/PETG) a kosárba tétel előtt.')}
+                      {t('product.selectColorToAdd') || 'Válaszd ki a színt a kosárba tétel előtt.'}
                     </p>
                   )}
                   {maxAddable > 0 && canAddToCart && (
@@ -459,7 +641,7 @@ export function ProductPageContent({ product, slug, serverNow }: Props) {
                         onChange={(e) => setAddQty(Math.min(maxAddable, Math.max(1, parseInt(e.target.value, 10) || 1)))}
                         className="rounded-lg border border-[var(--border)] bg-[var(--card-bg)] px-3 py-2 text-foreground min-w-[4rem]"
                       >
-                        {Array.from({ length: has3DModel ? Math.min(maxAddable, 99) : maxAddable }, (_, i) => i + 1).map((n) => (
+                        {Array.from({ length: unlimitedStock || has3DModel ? Math.min(maxAddable, 99) : maxAddable }, (_, i) => i + 1).map((n) => (
                           <option key={n} value={n}>
                             {n}
                           </option>

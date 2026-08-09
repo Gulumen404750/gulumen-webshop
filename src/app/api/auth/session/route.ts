@@ -7,16 +7,22 @@ import { rateLimit } from '@/lib/rate-limit'
  * Cookie alapján visszaadja a user adatokat vagy 401.
  */
 export async function GET(request: Request) {
-  const limit = await rateLimit(request, 'auth')
+  const limit = await rateLimit(request, { preset: 'auth' })
   if (!limit.ok) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
   }
 
-  const session = await getSession(request)
-  if (!session) {
+  try {
+    const session = await getSession(request)
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    return NextResponse.json({
+      user: { id: session.userId, email: session.email },
+      provider: session.provider ?? 'credentials',
+      isNewUser: session.isNewUser === true,
+    })
+  } catch {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-  return NextResponse.json({
-    user: { id: session.userId, email: session.email },
-  })
 }

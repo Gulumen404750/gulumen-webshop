@@ -1,25 +1,99 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
 import { useEffect, useRef, useMemo, useState } from 'react'
+import { SafeProductImage } from '@/components/SafeProductImage'
 import { useRouter } from 'next/navigation'
-import { getProductName, getProductById as getProductByIdFromData } from '@/lib/data'
+import { getProductById as getProductByIdFromData } from '@/lib/data'
 import { useCart } from '@/context/CartContext'
 import { useProducts } from '@/context/ProductsContext'
 import { useLocale } from '@/context/LocaleContext'
+import { useAuth } from '@/context/AuthContext'
+import { useLuckySpin } from '@/hooks/useLuckySpin'
+import { useFocusTrap } from '@/hooks/useFocusTrap'
 import { CheckoutSourcingModal } from '@/components/CheckoutSourcingModal'
+import {
+  computeCheckoutTotals,
+  applyLuckySpinLockedPrices,
+} from '@/lib/checkout'
+import { resolveCartLine, resolveCartLinePriceHuf } from '@/lib/cart-line'
 
 type Props = { isOpen: boolean; onClose: () => void }
 
 export function CartDrawer({ isOpen, onClose }: Props) {
   const { t, locale } = useLocale()
   const router = useRouter()
-  const { items, subtotalHuf, removeItem } = useCart()
+  const { items, removeItem } = useCart()
   const { getProductById: getProductByIdFromContext } = useProducts()
   const getProductById = (id: string) => getProductByIdFromContext(id) ?? getProductByIdFromData(id)
+  const { userId } = useAuth()
+  const { data: luckySpinData } = useLuckySpin(!!userId)
   const drawerRef = useRef<HTMLDivElement>(null)
   const [showCheckoutModal, setShowCheckoutModal] = useState(false)
+
+  useFocusTrap(drawerRef, isOpen && !showCheckoutModal)
+
+  const luckySpinRecord = useMemo(() => {
+    if (!luckySpinData?.spin || !luckySpinData.isActive) return null
+    return {
+      id: luckySpinData.spin.id,
+      userId: userId ?? '',
+      weekId: luckySpinData.spin.weekId,
+      productIds: luckySpinData.spin.productIds,
+      priceSnapshot: Object.fromEntries(
+        (luckySpinData.spin.products ?? []).map((p) => [
+          p.id,
+          p.discountPriceHuf ?? p.priceHuf,
+        ])
+      ),
+      generatedAt: new Date(luckySpinData.spin.generatedAt),
+      expiresAt: new Date(luckySpinData.spin.expiresAt),
+    }
+  }, [luckySpinData, userId])
+
+  const spinProductIds = useMemo(
+    () => new Set(luckySpinRecord?.productIds ?? []),
+    [luckySpinRecord]
+  )
+
+  const checkoutPreview = useMemo(() => {
+    const cartLines = items.map((item) => {
+      const p = getProductById(item.productId)
+      const line = resolveCartLine(item, p, locale)
+      return {
+        productId: item.productId,
+        qty: item.qty,
+        priceHuf: line.priceHuf,
+        fulfillmentType: (p?.type === 'sourcing_deal' ? 'procurement' : 'stock') as 'stock' | 'procurement',
+        name: line.name,
+      }
+    })
+    const lockedLines = applyLuckySpinLockedPrices(cartLines, luckySpinRecord)
+    // Kosár előnézet: nincs automatikus kupon – a kiválasztás a fizetésnél történik.
+    return computeCheckoutTotals({
+      lines: lockedLines,
+      coupon: { percent: 0 },
+      luckySpin: luckySpinRecord,
+    })
+  }, [items, getProductById, luckySpinRecord, locale])
+
+  const {
+    subtotalHuf,
+    luckySpinDiscountHuf,
+    merchandiseTotalHuf,
+  } = checkoutPreview
+  const luckySpinDiscountActive = checkoutPreview.luckySpin.active
+  const luckySpinDiscountPercent = checkoutPreview.luckySpin.discountPercent
+
+  const sortedItems = useMemo(() => {
+    const promo: typeof items = []
+    const normal: typeof items = []
+    for (const item of items) {
+      if (spinProductIds.has(item.productId)) promo.push(item)
+      else normal.push(item)
+    }
+    return [...promo, ...normal]
+  }, [items, spinProductIds])
 
   const hasSourcingItems = useMemo(() => {
     return items.some((item) => getProductById(item.productId)?.type === 'sourcing_deal')
@@ -70,34 +144,52 @@ export function CartDrawer({ isOpen, onClose }: Props) {
             <p className="text-muted py-8">{t('cart.empty')}</p>
           ) : (
             <ul className="space-y-3">
-              {items.map((item) => {
+              {sortedItems.map((item) => {
                 const product = getProductById(item.productId)
-                const name = product ? getProductName(product, locale) : item.productId
-                const priceHuf = product ? (product.discountPriceHuf ?? product.priceHuf) : 0
-                const img = product?.image?.trim() ? product.image : ''
-                const isLocalImg = img?.startsWith('/')
+                const line = resolveCartLine(item, product, locale)
+                const catalogUnitHuf = resolveCartLinePriceHuf(item, product)
+                const isPromo = spinProductIds.has(item.productId)
+                const lockedUnitHuf = luckySpinRecord?.priceSnapshot?.[item.productId]
+                const unitPriceHuf = lockedUnitHuf != null && lockedUnitHuf > 0 ? lockedUnitHuf : catalogUnitHuf
+                const showPromoPrice = isPromo && luckySpinDiscountActive
+                const discountedUnitHuf = showPromoPrice && luckySpinDiscountPercent > 0
+                  ? Math.round(unitPriceHuf * (1 - luckySpinDiscountPercent))
+                  : unitPriceHuf
                 const lineKey = `${item.productId}-${item.options?.colorHex ?? item.options?.colorName ?? ''}-${item.options?.materialName ?? ''}`
                 return (
                   <li key={lineKey} className="flex gap-3 p-3 rounded-lg border border-[var(--border)]">
                     <div className="w-14 h-14 shrink-0 rounded-lg bg-[var(--border)] relative overflow-hidden">
-                      {img ? (
-                        isLocalImg ? (
-                          <Image src={img} alt="" fill className="object-cover" sizes="56px" />
-                        ) : (
-                          <img src={img} alt="" className="absolute inset-0 w-full h-full object-cover" referrerPolicy="no-referrer" />
-                        )
-                      ) : null}
+                      <SafeProductImage
+                        src={line.image}
+                        alt={line.name}
+                        fit="cover"
+                        fill
+                        sizes="56px"
+                      />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-foreground text-sm line-clamp-2">{name}</p>
-                      {(item.options?.colorName || item.options?.materialName) && (
+                      <p className="font-medium text-foreground text-sm line-clamp-2">{line.name}</p>
+                      {isPromo && (
+                        <span className="inline-block text-[10px] font-semibold uppercase tracking-wide text-accent mt-0.5">
+                          {t('luckySpin.weeklyOffer')}
+                        </span>
+                      )}
+                      {item.options?.colorName && (
                         <p className="text-foreground text-xs">
-                          {item.options?.materialName && <span>{t('product.material') || 'Anyag'}: {item.options.materialName}</span>}
-                          {item.options?.materialName && item.options?.colorName && ' · '}
-                          {item.options?.colorName && <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>}
+                          <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>
                         </p>
                       )}
-                      <p className="text-muted text-xs">{priceHuf.toLocaleString('hu-HU')} Ft × {item.qty}</p>
+                      <p className="text-muted text-xs mt-0.5">
+                        {showPromoPrice ? (
+                          <>
+                            <span className="line-through mr-1.5">{unitPriceHuf.toLocaleString('hu-HU')} Ft</span>
+                            <span className="text-discount font-medium">{discountedUnitHuf.toLocaleString('hu-HU')} Ft</span>
+                          </>
+                        ) : (
+                          <span>{discountedUnitHuf.toLocaleString('hu-HU')} Ft</span>
+                        )}
+                        {' '}× {item.qty}
+                      </p>
                     </div>
                     <div className="flex flex-col items-end gap-1">
                       <button
@@ -115,10 +207,20 @@ export function CartDrawer({ isOpen, onClose }: Props) {
           )}
         </div>
         {items.length > 0 && (
-          <div className="p-4 border-t border-[var(--border)] space-y-3">
-            <div className="flex justify-between font-heading font-semibold text-foreground">
+          <div className="p-4 border-t border-[var(--border)] space-y-2">
+            <div className="flex justify-between text-sm text-foreground">
               <span>{t('cart.subtotal')}</span>
               <span>{subtotalHuf.toLocaleString('hu-HU')} Ft</span>
+            </div>
+            {luckySpinDiscountHuf > 0 && (
+              <div className="flex justify-between text-sm text-discount">
+                <span>{t('luckySpin.cartDiscount')}</span>
+                <span>−{luckySpinDiscountHuf.toLocaleString('hu-HU')} Ft</span>
+              </div>
+            )}
+            <div className="flex justify-between font-heading font-semibold text-foreground pt-1">
+              <span>{t('cart.total')}</span>
+              <span>{merchandiseTotalHuf.toLocaleString('hu-HU')} Ft</span>
             </div>
             <Link
               href="/kosar"

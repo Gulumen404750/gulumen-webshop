@@ -1,12 +1,10 @@
 /**
- * Checkout idempotencia: ugyanazzal az Idempotency-Key headerrel
- * érkező kérésnél a korábbi választ adjuk vissza.
- * Upstash Redis (multi-instance); fallback in-memory Map.
+ * Checkout idempotencia – Upstash Redis (multi-instance); fallback in-memory Map.
  */
 
 import { getRedis, isRedisConfigured } from '@/lib/redis'
 
-const TTL_MS = 24 * 60 * 60 * 1000 // 24 óra
+const TTL_MS = 24 * 60 * 60 * 1000
 const TTL_SEC = 24 * 60 * 60
 const REDIS_PREFIX = 'idem:'
 
@@ -26,7 +24,6 @@ function pruneExpired(): void {
   })
 }
 
-/** Visszaadja a kulcshoz tartozó cache-elt választ, vagy null. */
 export async function getIdempotentResponse(
   key: string
 ): Promise<{ body: unknown; status: number; headers: Record<string, string> } | null> {
@@ -53,19 +50,13 @@ export async function getIdempotentResponse(
   return { body: entry.body, status: entry.status, headers: entry.headers }
 }
 
-/** Eltárolja a választ az idempotency key alatt. */
 export async function setIdempotentResponse(
   key: string,
   body: unknown,
   status: number,
   headers: Record<string, string> = {}
 ): Promise<void> {
-  const entry: CachedResponse = {
-    body,
-    status,
-    headers,
-    createdAt: Date.now(),
-  }
+  const entry: CachedResponse = { body, status, headers, createdAt: Date.now() }
 
   if (isRedisConfigured()) {
     try {
@@ -83,7 +74,6 @@ export async function setIdempotentResponse(
   store.set(key, entry)
 }
 
-/** Idempotency-Key header kiolvasása (max 128 karakter). */
 export function getIdempotencyKey(request: Request): string | null {
   const key = request.headers.get('Idempotency-Key')?.trim()
   if (!key || key.length > 128) return null

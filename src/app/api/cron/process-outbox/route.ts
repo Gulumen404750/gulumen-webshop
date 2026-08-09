@@ -1,27 +1,38 @@
 import { NextResponse } from 'next/server'
-import { validateCronSecret } from '@/lib/cron-auth'
-import { isDbConfigured } from '@/lib/prisma'
-import { processOutbox } from '@/lib/outbox'
+import { isDbConfigured, prisma } from '@/lib/prisma'
+import { assertCronAuthorized } from '@/lib/cron-auth'
+import { processPendingPointEvents } from '@/lib/gamification/point-event-queue'
+
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 /**
  * GET /api/cron/process-outbox
- * Railway / külső cron: lejárt reservationök + PointEvent outbox.
+ * Railway cron: lejárt reservationök + PointEvent outbox feldolgozás.
  * Auth: Authorization: Bearer <CRON_SECRET>
  */
 export async function GET(request: Request) {
-  if (!validateCronSecret(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const denied = assertCronAuthorized(request)
+  if (denied) return denied
 
   if (!isDbConfigured()) {
     return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
   }
 
   try {
-    const result = await processOutbox()
-    return NextResponse.json({ ok: true, ...result })
+    const now = new Date()
+    const expired = await prisma.productReservation.updateMany({
+      where: { status: 'RESERVED', expiresAt: { lt: now } },
+      data: { status: 'EXPIRED' },
+    })
+    const processed = await processPendingPointEvents()
+    return NextResponse.json({
+      ok: true,
+      expiredReservations: expired.count,
+      pointEventsProcessed: processed,
+    })
   } catch (e) {
-    console.error('[cron/process-outbox] Error:', e)
+    console.error('[cron/process-outbox]', e)
     return NextResponse.json(
       { ok: false, error: e instanceof Error ? e.message : String(e) },
       { status: 500 }

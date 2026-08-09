@@ -1,20 +1,21 @@
 'use client'
 
-import { createContext, useContext, useState, useCallback, useEffect, useMemo, type ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react'
+import { useAuth } from './AuthContext'
 import { useCatCoupon } from './CatCouponContext'
 import { useSourcingDealOrders } from './SourcingDealOrdersContext'
 import { useProducts } from './ProductsContext'
 import { getProductById as getProductByIdFromData, getMaxQty } from '@/lib/data'
 import type { Product } from '@/lib/data'
-
-const CART_STORAGE_KEY = 'gulumen-cart'
-
-/** Opcionális termék opciók (pl. 3D: filament szín + anyag PLA/PETG). */
-export type CartItemOptions = {
-  colorName?: string
-  colorHex?: string
-  materialName?: string
-}
+import { onLogoutCleanup } from '@/lib/logout-cleanup'
+import {
+  clearPersistedCart,
+  loadPersistedCart,
+  savePersistedCart,
+  type CartItem,
+  type CartItemOptions,
+} from '@/lib/cart-storage'
+import { buildCartItemSnapshot, resolveCartLinePriceHuf } from '@/lib/cart-line'
 
 function hasOptions(opts: CartItemOptions | undefined): boolean {
   return Boolean(
@@ -39,17 +40,27 @@ function sameCartLine(item: CartItem, productId: string, options?: CartItemOptio
   return item.productId === productId && optionsEqual(item.options, options)
 }
 
-/**
- * A kosár NEM foglal készletet. A termék product.stock értéke SOHA nem változik
- * kosár művelet miatt. Csak productId + qty (+ opcionális options) tárolunk; a termék adatot mindig
- * a product listából (getProductById) kell lookupolni rendereléskor.
- * A kosár semmilyen körülmények között nem tárolhat Product referenciát.
- */
-export type CartItem = {
-  productId: string
-  qty: number
-  options?: CartItemOptions
+function withSnapshot(
+  productId: string,
+  qty: number,
+  options: CartItemOptions | undefined,
+  product: Product
+): CartItem {
+  const snap = buildCartItemSnapshot(product, options)
+  return {
+    productId,
+    qty,
+    options,
+    ...snap,
+  }
 }
+
+/**
+ * Kosár: productId + qty + options + megjelenítési snapshot (név, ár, kép).
+ * A snapshot biztosítja, hogy a terméklista betöltése előtt se legyen
+ * nyers ID / 0 Ft / üres kép. Élő termékadat rendereléskor felülírhatja.
+ */
+export type { CartItem, CartItemOptions } from '@/lib/cart-storage'
 
 type CartContextValue = {
   items: CartItem[]
@@ -67,44 +78,14 @@ type CartContextValue = {
 
 const CartContext = createContext<CartContextValue | null>(null)
 
-function loadCart(): CartItem[] {
-  if (typeof window === 'undefined') return []
-  try {
-    const raw = localStorage.getItem(CART_STORAGE_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return []
-    return parsed.map((x: Record<string, unknown>) => {
-      const opts = x.options as Record<string, unknown> | undefined
-      return {
-        productId: String(x.productId ?? ''),
-        qty: Math.max(1, Number(x.qty) || 1),
-        options:
-          opts && (opts.colorName != null || opts.colorHex != null || opts.materialName != null)
-            ? {
-                colorName: opts.colorName != null ? String(opts.colorName) : undefined,
-                colorHex: opts.colorHex != null ? String(opts.colorHex) : undefined,
-                materialName: opts.materialName != null ? String(opts.materialName) : undefined,
-              }
-            : undefined,
-      }
-    }).filter((x: CartItem) => x.productId !== '')
-  } catch {
-    return []
-  }
-}
-
-function saveCart(items: CartItem[]) {
-  if (typeof window === 'undefined') return
-  localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items))
-}
-
 export function CartProvider({ children }: { children: ReactNode }) {
+  const { isLoggedIn, authChecked } = useAuth()
   const { isDiscountActive, discountPercent } = useCatCoupon()
   const { syncFromCart } = useSourcingDealOrders()
-  const { getProductById: getProductByIdFromContext } = useProducts()
+  const { getProductById: getProductByIdFromContext, productsLoaded } = useProducts()
   const [items, setItems] = useState<CartItem[]>([])
   const [mounted, setMounted] = useState(false)
+  const wasLoggedInRef = useRef(false)
 
   const getProductById = useCallback(
     (id: string) => getProductByIdFromContext(id) ?? getProductByIdFromData(id),
@@ -113,15 +94,79 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setMounted(true)
-    const loaded = loadCart()
+    const loaded = loadPersistedCart()
     setItems(loaded)
     const sourcingItems = loaded.filter((item) => getProductById(item.productId)?.type === 'sourcing_deal')
     if (sourcingItems.length > 0) syncFromCart(sourcingItems)
   }, [syncFromCart, getProductById])
 
+  /** Régi kosár sorok (snapshot nélkül) feltöltése, ha a terméklista megérkezett. */
   useEffect(() => {
-    if (mounted) saveCart(items)
+    if (!mounted || !productsLoaded) return
+    setItems((prev) => {
+      let changed = false
+      const next = prev.map((item) => {
+        const needsSnap =
+          !item.name ||
+          item.priceHuf == null ||
+          item.priceHuf <= 0 ||
+          !item.image
+        if (!needsSnap) return item
+        const product = getProductById(item.productId)
+        if (!product) return item
+        changed = true
+        const snap = buildCartItemSnapshot(product, item.options)
+        return {
+          ...item,
+          name: item.name || snap.name,
+          nameEn: item.nameEn || snap.nameEn,
+          nameDe: item.nameDe || snap.nameDe,
+          nameRo: item.nameRo || snap.nameRo,
+          priceHuf:
+            item.priceHuf != null && item.priceHuf > 0 ? item.priceHuf : snap.priceHuf,
+          image: item.image || snap.image,
+        }
+      })
+      return changed ? next : prev
+    })
+  }, [mounted, productsLoaded, getProductById])
+
+  useEffect(() => {
+    return onLogoutCleanup(() => {
+      setItems([])
+      clearPersistedCart()
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!authChecked) return
+    if (wasLoggedInRef.current && !isLoggedIn) {
+      setItems([])
+      clearPersistedCart()
+    }
+    wasLoggedInRef.current = isLoggedIn
+  }, [isLoggedIn, authChecked])
+
+  useEffect(() => {
+    if (mounted) savePersistedCart(items)
   }, [items, mounted])
+
+  useEffect(() => {
+    if (!mounted || !authChecked || !isLoggedIn) return
+    const timer = window.setTimeout(() => {
+      if (items.length === 0) {
+        fetch('/api/me/cart', { method: 'DELETE', credentials: 'include' }).catch(() => {})
+      } else {
+        fetch('/api/me/cart', {
+          method: 'PUT',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items }),
+        }).catch(() => {})
+      }
+    }, 1500)
+    return () => window.clearTimeout(timer)
+  }, [items, mounted, authChecked, isLoggedIn])
 
   const addItem = useCallback(
     (productId: string, qty = 1, options?: CartItemOptions, productSnapshot?: Product) => {
@@ -137,10 +182,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const i = prev.findIndex((x) => sameCartLine(x, productId, normalizedOptions))
       if (i >= 0) {
         const next = [...prev]
-        next[i] = { ...next[i], qty: next[i].qty + toAdd }
+        const snap = buildCartItemSnapshot(product, normalizedOptions)
+        next[i] = {
+          ...next[i],
+          ...snap,
+          qty: next[i].qty + toAdd,
+          options: normalizedOptions,
+        }
         return next
       }
-      return [...prev, { productId, qty: toAdd, options: normalizedOptions }]
+      return [...prev, withSnapshot(productId, toAdd, normalizedOptions, product)]
     })
   },
     [getProductById]
@@ -170,14 +221,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
     )
   }, [])
 
-  const clearCart = useCallback(() => setItems([]), [])
+  const clearCart = useCallback(() => {
+    setItems([])
+    clearPersistedCart()
+    // Szerver snapshot azonnal (ne várjon a 1.5s debounce-ra)
+    if (typeof window !== 'undefined') {
+      fetch('/api/me/cart', { method: 'DELETE', credentials: 'include' }).catch(() => {})
+    }
+  }, [])
 
   const { subtotalHuf, discountHuf, totalHuf, itemCount } = useMemo(() => {
     let sub = 0
     let count = 0
     for (const item of items) {
       const p = getProductById(item.productId)
-      const priceHuf = p ? (p.discountPriceHuf ?? p.priceHuf) : 0
+      const priceHuf = resolveCartLinePriceHuf(item, p)
       sub += priceHuf * item.qty
       count += item.qty
     }

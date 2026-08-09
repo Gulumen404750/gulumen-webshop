@@ -5,6 +5,7 @@ node_modules
 
 # build
 .next
+tsconfig.tsbuildinfo
 out
 build
 dist
@@ -26,6 +27,12 @@ public/uploads/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
 
 # IDE
 .idea

@@ -55,6 +55,14 @@ export type Order = {
   refundedAmount?: number
   refundStatus?: RefundStatus
   cancelRequestedAt?: string
+  userId?: string
+  pointsDiscountHuf?: number
+  pointsUsed?: number
+  couponId?: string
+  couponUsageRecorded?: boolean
+  /** Manuálisan kiválasztott kuponok (cat, birthday, welcome, …). */
+  appliedCoupons?: string[]
+  rewardsFinalized?: boolean
 }
 
 const COUPON_PERCENT = 0.05
@@ -128,8 +136,18 @@ function dbOrderToOrder(row: {
   refundedAmount: number | null
   refundStatus: string | null
   cancelRequestedAt: Date | null
+  userId: string | null
+  pointsDiscountHuf: number
+  pointsUsed: number
+  couponId: string | null
+  couponUsageRecorded: boolean
+  appliedCoupons?: unknown
+  rewardsFinalized?: boolean
   items: { productId: string; qty: number; fulfillmentType: string; priceHuf: number; name: string | null }[]
 }): Order {
+  const appliedCoupons = Array.isArray(row.appliedCoupons)
+    ? row.appliedCoupons.filter((x): x is string => typeof x === 'string')
+    : undefined
   return {
     id: row.id,
     status: row.status as OrderStatus,
@@ -141,6 +159,13 @@ function dbOrderToOrder(row: {
     currency: row.currency,
     createdAt: row.createdAt.toISOString(),
     customerEmail: row.customerEmail ?? undefined,
+    userId: row.userId ?? undefined,
+    pointsDiscountHuf: row.pointsDiscountHuf,
+    pointsUsed: row.pointsUsed,
+    couponId: row.couponId ?? undefined,
+    couponUsageRecorded: row.couponUsageRecorded,
+    appliedCoupons,
+    rewardsFinalized: row.rewardsFinalized,
     stripeSessionId: row.stripeSessionId ?? undefined,
     paymentIntentId: row.paymentIntentId ?? undefined,
     amountPaid: row.amountPaid ?? undefined,
@@ -257,20 +282,25 @@ export async function setOrderPaid(params: {
     if (!existing) return null
     if (existing.status === 'paid') return dbOrderToOrder(existing)
     if (existing.paidWebhookEventId === params.webhookEventId) return dbOrderToOrder(existing)
-    await prisma.order.update({
-      where: { id: params.orderId },
-      data: {
-        status: 'paid',
-        stripeSessionId: params.stripeSessionId,
-        paymentIntentId: params.paymentIntentId ?? null,
-        amountPaid: params.amountPaid,
-        currencyPaid: params.currencyPaid,
-        paidAt: new Date(),
-        paidWebhookEventId: params.webhookEventId ?? null,
-        customerEmail: params.customerEmail ?? existing.customerEmail,
-        refundStatus: existing.refundStatus ?? 'none',
-        refundedAmount: existing.refundedAmount ?? 0,
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: params.orderId },
+        data: {
+          status: 'paid',
+          stripeSessionId: params.stripeSessionId,
+          paymentIntentId: params.paymentIntentId ?? null,
+          amountPaid: params.amountPaid,
+          currencyPaid: params.currencyPaid,
+          paidAt: new Date(),
+          paidWebhookEventId: params.webhookEventId ?? null,
+          customerEmail: params.customerEmail ?? existing.customerEmail,
+          refundStatus: existing.refundStatus ?? 'none',
+          refundedAmount: existing.refundedAmount ?? 0,
+        },
+      })
+
+      // Készlet már a checkout createCheckoutOrders atomi UPDATE-jében levonva (oversell védelem).
+      // Itt NEM csökkentünk újra – elkerüljük a dupla levonást.
     })
     return getOrderById(params.orderId)
   }
@@ -341,15 +371,34 @@ export function generateOrderGroupId(): string {
 
 export async function createCheckoutOrders(params: {
   orderGroupId: string
-  inStock?: { items: OrderItem[]; subtotalHuf: number; discountHuf: number; totalHuf: number }
-  sourcing?: { items: OrderItem[]; subtotalHuf: number; discountHuf: number; totalHuf: number }
+  userId?: string
+  couponId?: string
+  /** Manuálisan kiválasztott kuponok a fizetésnél. */
+  appliedCoupons?: string[]
+  inStock?: {
+    items: OrderItem[]
+    subtotalHuf: number
+    discountHuf: number
+    totalHuf: number
+    pointsDiscountHuf?: number
+    pointsUsed?: number
+  }
+  sourcing?: {
+    items: OrderItem[]
+    subtotalHuf: number
+    discountHuf: number
+    totalHuf: number
+    pointsDiscountHuf?: number
+    pointsUsed?: number
+  }
   currency?: string
 }): Promise<Order[]> {
   const currency = params.currency ?? 'huf'
   const result: Order[] = []
+  const appliedCoupons = Array.isArray(params.appliedCoupons) ? params.appliedCoupons : []
 
   if (isDbConfigured()) {
-    // Atomi tranzakció: in_stock rendelés + stock decrement (oversell védelem).
+    // Atomi tranzakció: in_stock stock decrement + rendelés létrehozás (oversell védelem).
     await prisma.$transaction(async (tx) => {
       if (params.inStock && params.inStock.items.length > 0) {
         await decrementStockAtomic(
@@ -366,6 +415,11 @@ export async function createCheckoutOrders(params: {
             subtotalHuf: params.inStock.subtotalHuf,
             discountHuf: params.inStock.discountHuf,
             totalHuf: params.inStock.totalHuf,
+            pointsDiscountHuf: params.inStock.pointsDiscountHuf ?? 0,
+            pointsUsed: params.inStock.pointsUsed ?? 0,
+            userId: params.userId ?? null,
+            couponId: params.couponId ?? null,
+            appliedCoupons,
             currency,
             items: {
               create: params.inStock.items.map((i) => ({
@@ -387,6 +441,11 @@ export async function createCheckoutOrders(params: {
           subtotalHuf: params.inStock.subtotalHuf,
           discountHuf: params.inStock.discountHuf,
           totalHuf: params.inStock.totalHuf,
+          pointsDiscountHuf: params.inStock.pointsDiscountHuf ?? 0,
+          pointsUsed: params.inStock.pointsUsed ?? 0,
+          userId: params.userId,
+          couponId: params.couponId,
+          appliedCoupons,
           currency,
           createdAt: new Date().toISOString(),
         })
@@ -402,6 +461,11 @@ export async function createCheckoutOrders(params: {
             subtotalHuf: params.sourcing.subtotalHuf,
             discountHuf: params.sourcing.discountHuf,
             totalHuf: params.sourcing.totalHuf,
+            pointsDiscountHuf: params.sourcing.pointsDiscountHuf ?? 0,
+            pointsUsed: params.sourcing.pointsUsed ?? 0,
+            userId: params.userId ?? null,
+            couponId: params.couponId ?? null,
+            appliedCoupons,
             currency,
             items: {
               create: params.sourcing.items.map((i) => ({
@@ -423,6 +487,11 @@ export async function createCheckoutOrders(params: {
           subtotalHuf: params.sourcing.subtotalHuf,
           discountHuf: params.sourcing.discountHuf,
           totalHuf: params.sourcing.totalHuf,
+          pointsDiscountHuf: params.sourcing.pointsDiscountHuf ?? 0,
+          pointsUsed: params.sourcing.pointsUsed ?? 0,
+          userId: params.userId,
+          couponId: params.couponId,
+          appliedCoupons,
           currency,
           createdAt: new Date().toISOString(),
         })
@@ -442,6 +511,7 @@ export async function createCheckoutOrders(params: {
       subtotalHuf: params.inStock.subtotalHuf,
       discountHuf: params.inStock.discountHuf,
       totalHuf: params.inStock.totalHuf,
+      couponId: params.couponId,
       currency,
       createdAt: new Date().toISOString(),
     }
@@ -458,6 +528,7 @@ export async function createCheckoutOrders(params: {
       subtotalHuf: params.sourcing.subtotalHuf,
       discountHuf: params.sourcing.discountHuf,
       totalHuf: params.sourcing.totalHuf,
+      couponId: params.couponId,
       currency,
       createdAt: new Date().toISOString(),
     }

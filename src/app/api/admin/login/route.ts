@@ -10,10 +10,9 @@ import {
 /**
  * POST /api/admin/login
  * Body: { key: string }. Ha key === ADMIN_API_KEY, beállítja az aláírt admin JWT cookie-t.
- * Brute-force védelem: szigorú rate limit (5 / 10 perc / IP).
  */
 export async function POST(request: Request) {
-  const limit = await rateLimit(request, 'adminLogin')
+  const limit = await rateLimit(request, { preset: 'adminLogin' })
   if (!limit.ok) {
     return NextResponse.json(
       { error: 'Too many login attempts. Try again later.' },

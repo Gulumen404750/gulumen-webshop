@@ -1,11 +1,16 @@
+/**
+ * @deprecated Használd helyette POST /api/checkout – a StripeProvider integrációval.
+ * Ez a route a régi, egyszeres rendeléses Stripe Checkout flow-t szolgálja ki.
+ * Nem törlendő még – visszafelé kompatibilitás miatt megmarad.
+ */
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { z } from 'zod'
 import { getProductsByIdsAsync, getTimedPurchaseStatus } from '@/lib/data'
 import type { Product } from '@/lib/data'
 import { createOrder, getProductOrdersCount, type OrderItem } from '@/lib/orders'
-import { getLoyaltyByEmail } from '@/lib/loyalty'
 import { rateLimit } from '@/lib/rate-limit'
+import { resolvePublicAppUrl } from '@/lib/bootstrap-auth-env'
 
 function getStripe(): Stripe | null {
   const key = process.env.STRIPE_SECRET_KEY
@@ -72,7 +77,7 @@ export async function POST(request: Request) {
       { status: 501 }
     )
   }
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const appUrl = resolvePublicAppUrl()
 
   let raw: unknown
   try {
@@ -94,18 +99,12 @@ export async function POST(request: Request) {
   const products = await getProductsByIdsAsync(productIds)
   const productMap = new Map<string, Product>(products.map((p) => [p.id, p]))
 
-  // Kupon elsőbbség; ha nincs kupon, hűségkedvezmény email alapján (nem összevonható)
+  // Csak manuálisan kért kupon (nincs automatikus loyalty / promo alkalmazás).
   let effectiveDiscountActive = false
   let effectiveDiscountPercent = 0
   if (isDiscountActive && bodyPercent != null && bodyPercent > 0) {
     effectiveDiscountActive = true
-    effectiveDiscountPercent = bodyPercent
-  } else if (customer_email) {
-    const loyalty = getLoyaltyByEmail(customer_email)
-    if (loyalty && loyalty.loyaltyPercent > 0) {
-      effectiveDiscountActive = true
-      effectiveDiscountPercent = loyalty.loyaltyPercent / 100
-    }
+    effectiveDiscountPercent = Math.min(bodyPercent, 0.2)
   }
 
   const now = new Date()

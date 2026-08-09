@@ -1,47 +1,383 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { Loader2 } from 'lucide-react'
 import { useCart } from '@/context/CartContext'
 import { useCatCoupon } from '@/context/CatCouponContext'
 import { useAuth } from '@/context/AuthContext'
 import { useLocale } from '@/context/LocaleContext'
 import { useEuroRate } from '@/context/EuroRateContext'
 import { trackBeginCheckout } from '@/lib/analytics'
-import { getProductById as getProductByIdFromData, getProductName } from '@/lib/data'
+import { getProductById as getProductByIdFromData } from '@/lib/data'
 import { useProducts } from '@/context/ProductsContext'
+import { resolveCartLine } from '@/lib/cart-line'
+import { usePointWallet } from '@/hooks/usePointWallet'
+import { optimisticRedeemPoints, stashPendingPointsRedeem } from '@/lib/point-wallet-client'
+import { useLuckySpin } from '@/hooks/useLuckySpin'
+import {
+  computeCheckoutTotals,
+  applyLuckySpinLockedPrices,
+  MAX_CART_POINTS_COVERAGE,
+  POINTS_PER_HUF,
+} from '@/lib/checkout'
+import { getLuckySpinNextTierRemaining } from '@/lib/gamification/lucky-spin'
+import { PaymentTrustBadges } from '@/components/PaymentTrustBadges'
+import { WELCOME_CHECKOUT_COUPON_PERCENT } from '@/lib/coupon-config'
+import { CouponSelector } from '@/components/CouponSelector'
+import {
+  buildPromoCoupons,
+  calculateSelectedCouponPercent,
+  type SelectableCouponId,
+} from '@/lib/coupon-selection'
+
+function createCheckoutIdempotencyKey(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `checkout-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`
+}
 
 export default function PaymentPage() {
   const router = useRouter()
   const { t, locale } = useLocale()
   const { userId } = useAuth()
-  const { items, subtotalHuf, discountHuf, totalHuf, isDiscountActive } = useCart()
+  const { items, clearCart } = useCart()
   const { getProductById: getProductByIdFromContext } = useProducts()
   const getProductById = (id: string) => getProductByIdFromContext(id) ?? getProductByIdFromData(id)
-  const { isDiscountActive: couponActive, discountPercent } = useCatCoupon()
+  const { catStatus, registrationStatus } = useCatCoupon()
   const { hufToEur, formatEur } = useEuroRate()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loyaltyPercent, setLoyaltyPercent] = useState(0)
   const [guestEmail, setGuestEmail] = useState('')
+  const [usePoints, setUsePoints] = useState(false)
+  const [couponCodeInput, setCouponCodeInput] = useState('')
+  const [selectedCouponIds, setSelectedCouponIds] = useState<SelectableCouponId[]>([])
+  const [birthdayCouponBanner, setBirthdayCouponBanner] = useState<{
+    code: string
+    percent: number
+    validUntil: string
+  } | null>(null)
+  /** Checkout welcome 10% + hírlevél (csak ha még nem feliratkozott / nem váltotta be). */
+  const [welcomeOfferEligible, setWelcomeOfferEligible] = useState(false)
+  const [welcomeOfferBusy, setWelcomeOfferBusy] = useState(false)
+  const [welcomeOfferError, setWelcomeOfferError] = useState<string | null>(null)
+  const [checkoutResult, setCheckoutResult] = useState<{
+    orderGroupId: string
+    payments: Array<{ orderType: 'in_stock' | 'sourcing'; type: string; url?: string; clientSecret?: string; message?: string }>
+  } | null>(null)
+  const [pointsPreview, setPointsPreview] = useState<{
+    maxUsablePointsDiscountHuf: number
+    maxUsablePoints: number
+    balance: number
+  } | null>(null)
+  const { wallet, refresh: refreshWallet } = usePointWallet(!!userId)
+  const { data: luckySpinData } = useLuckySpin(!!userId)
+  const checkoutInFlightRef = useRef(false)
+  const idempotencyKeyRef = useRef<string | null>(null)
+
+  const luckySpinRecord = luckySpinData?.spin && luckySpinData.isActive
+    ? {
+        id: luckySpinData.spin.id,
+        userId: userId ?? '',
+        weekId: luckySpinData.spin.weekId,
+        productIds: luckySpinData.spin.productIds,
+        priceSnapshot: Object.fromEntries(
+          (luckySpinData.spin.products ?? []).map((p) => [
+            p.id,
+            p.discountPriceHuf ?? p.priceHuf,
+          ])
+        ),
+        generatedAt: new Date(luckySpinData.spin.generatedAt),
+        expiresAt: new Date(luckySpinData.spin.expiresAt),
+      }
+    : null
+
+  const cartLines = items.map((item) => {
+    const p = getProductById(item.productId)
+    const line = resolveCartLine(item, p, locale)
+    return {
+      productId: item.productId,
+      qty: item.qty,
+      priceHuf: line.priceHuf,
+      fulfillmentType: (p?.type === 'sourcing_deal' ? 'procurement' : 'stock') as 'stock' | 'procurement',
+      name: line.name,
+    }
+  })
+
+  const lockedLines = applyLuckySpinLockedPrices(cartLines, luckySpinRecord)
+
+  const availableCoupons = useMemo(
+    () =>
+      buildPromoCoupons({
+        catClaimed: catStatus === 'claimed',
+        registrationClaimed: registrationStatus === 'claimed',
+        loyaltyPercent,
+        welcomeEligible: welcomeOfferEligible,
+        birthday: birthdayCouponBanner
+          ? {
+              code: birthdayCouponBanner.code,
+              percent: birthdayCouponBanner.percent,
+              validUntil: birthdayCouponBanner.validUntil,
+            }
+          : null,
+        labels: {
+          cat: t('payment.couponCatLabel') || 'Macska játék kupon',
+          registration: t('payment.couponRegistrationLabel') || 'Regisztrációs kupon',
+          loyalty: t('payment.loyaltyDiscountLine', { percent: loyaltyPercent }) || `Hűségkedvezmény (${loyaltyPercent}%)`,
+          welcome: t('payment.welcomeOfferDiscountLine', {
+            percent: Math.round(WELCOME_CHECKOUT_COUPON_PERCENT * 100),
+          }) || 'Hírlevél welcome kedvezmény (10%)',
+          birthday: t('payment.birthdayCouponTitle', {
+            percent: birthdayCouponBanner?.percent ?? 15,
+          }) || 'Születésnapi kupon',
+        },
+      }),
+    [
+      catStatus,
+      registrationStatus,
+      loyaltyPercent,
+      welcomeOfferEligible,
+      birthdayCouponBanner,
+      t,
+    ]
+  )
+
+  const couponSelection = useMemo(
+    () => calculateSelectedCouponPercent(availableCoupons, selectedCouponIds),
+    [availableCoupons, selectedCouponIds]
+  )
+
+  const effectiveCouponPercent = couponSelection.finalPercent
+
+  const checkoutPreview = computeCheckoutTotals({
+    lines: lockedLines,
+    coupon: { percent: effectiveCouponPercent },
+    luckySpin: luckySpinRecord,
+    points:
+      usePoints && pointsPreview
+        ? {
+            requestedDiscountHuf: pointsPreview.maxUsablePointsDiscountHuf,
+            userBalance: pointsPreview.balance,
+          }
+        : undefined,
+  })
+
+  const couponDiscountOnTotal = checkoutPreview.couponDiscountHuf
+  const luckySpinDiscount = checkoutPreview.luckySpin
+  const displayTotalHuf = checkoutPreview.afterCouponAndLuckyHuf
+  const pointsDiscountHuf = checkoutPreview.pointsDiscountHuf
+  const pointsUsedPreview = checkoutPreview.pointsUsed
+  const shippingHuf = checkoutPreview.shippingHuf
+  const cardTotalHuf = checkoutPreview.finalTotalHuf
+  const freeShippingRemainingHuf = checkoutPreview.freeShippingRemainingHuf
+  const effectiveCouponDiscountHuf = couponDiscountOnTotal > 0 ? couponDiscountOnTotal : 0
+
+  const spinProductIds = useMemo(
+    () => new Set(luckySpinRecord?.productIds ?? []),
+    [luckySpinRecord]
+  )
+
+  const { promoItems, normalItems, promoSubtotalHuf, normalSubtotalHuf } = useMemo(() => {
+    const promo: typeof items = []
+    const normal: typeof items = []
+    let promoSub = 0
+    let normalSub = 0
+    for (const item of items) {
+      const line = lockedLines.find((l) => l.productId === item.productId)
+      const lineTotal = (line?.priceHuf ?? 0) * item.qty
+      if (spinProductIds.has(item.productId)) {
+        promo.push(item)
+        promoSub += lineTotal
+      } else {
+        normal.push(item)
+        normalSub += lineTotal
+      }
+    }
+    return {
+      promoItems: promo,
+      normalItems: normal,
+      promoSubtotalHuf: promoSub,
+      normalSubtotalHuf: normalSub,
+    }
+  }, [items, lockedLines, spinProductIds])
+
+  const luckySpinDiscountActive = luckySpinDiscount.active
+  const luckySpinDiscountPercent = luckySpinDiscount.discountPercent
+  const luckySpinNextTierRemaining = getLuckySpinNextTierRemaining(luckySpinDiscount.qualifyingItemCount)
+
+  // Születésnapi kupon betöltése – listázáshoz (NEM automatikus alkalmazás)
+  useEffect(() => {
+    if (!userId) {
+      setBirthdayCouponBanner(null)
+      return
+    }
+    let cancelled = false
+    fetch('/api/me/profile', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (cancelled || !data?.birthdayCoupon?.code) return
+        const bc = data.birthdayCoupon as { code: string; percent: number; validUntil: string }
+        setBirthdayCouponBanner({
+          code: bc.code,
+          percent: bc.percent,
+          validUntil: bc.validUntil,
+        })
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [userId])
 
   useEffect(() => {
-    if (!couponActive && userId) {
-      fetch(`/api/loyalty?email=${encodeURIComponent(userId)}`)
-        .then((r) => r.json())
-        .then((d) => setLoyaltyPercent(d.loyaltyPercent ?? 0))
-        .catch(() => setLoyaltyPercent(0))
-    } else {
+    if (!userId) {
       setLoyaltyPercent(0)
+      return
     }
-  }, [couponActive, userId])
+    fetch(`/api/loyalty?email=${encodeURIComponent(userId)}`)
+      .then((r) => r.json())
+      .then((d) => setLoyaltyPercent(d.loyaltyPercent ?? 0))
+      .catch(() => setLoyaltyPercent(0))
+  }, [userId])
 
-  const loyaltyDiscountHuf = !couponActive && loyaltyPercent > 0 ? Math.round(subtotalHuf * (loyaltyPercent / 100)) : 0
-  const displayTotalHuf = couponActive ? totalHuf : subtotalHuf - loyaltyDiscountHuf
-  const subtotalEur = hufToEur(subtotalHuf)
-  const discountEur = hufToEur(couponActive ? discountHuf : loyaltyDiscountHuf)
-  const totalEur = hufToEur(displayTotalHuf)
+  // Welcome ajánlat elérhetőség (lista elemként; nincs auto-apply)
+  useEffect(() => {
+    const email = (userId || guestEmail).trim().toLowerCase()
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      if (!userId) setWelcomeOfferEligible(true)
+      else setWelcomeOfferEligible(false)
+      return
+    }
+
+    let cancelled = false
+    fetch(`/api/checkout/welcome-offer?email=${encodeURIComponent(email)}`, {
+      credentials: 'include',
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return
+        if (data.claimedPending) {
+          setWelcomeOfferEligible(true)
+          setSelectedCouponIds((prev) =>
+            prev.includes('welcome') ? prev : [...prev, 'welcome']
+          )
+          return
+        }
+        setWelcomeOfferEligible(Boolean(data.eligible))
+      })
+      .catch(() => {
+        if (!cancelled) setWelcomeOfferEligible(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [userId, guestEmail])
+
+  // Birthday kód szinkron a kijelöléssel
+  useEffect(() => {
+    if (couponSelection.birthdayCode) {
+      setCouponCodeInput(couponSelection.birthdayCode)
+    } else if (!selectedCouponIds.includes('birthday')) {
+      setCouponCodeInput('')
+    }
+  }, [couponSelection.birthdayCode, selectedCouponIds])
+
+  const totalEur = hufToEur(cardTotalHuf)
+
+  const handleCouponSelectionChange = async (next: SelectableCouponId[]) => {
+    setWelcomeOfferError(null)
+    const turningWelcomeOn = next.includes('welcome') && !selectedCouponIds.includes('welcome')
+    if (turningWelcomeOn) {
+      const email = (userId || guestEmail).trim().toLowerCase()
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        setWelcomeOfferError(
+          t('payment.welcomeOfferEmailRequired') ||
+            'A 10% kedvezményhez add meg az e-mail címed (vendég vásárlás).'
+        )
+        return
+      }
+      setWelcomeOfferBusy(true)
+      try {
+        const res = await fetch('/api/checkout/welcome-offer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ email }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          setWelcomeOfferError(data.error || t('payment.welcomeOfferError') || 'Az ajánlat nem elérhető.')
+          return
+        }
+      } catch {
+        setWelcomeOfferError(t('payment.welcomeOfferError') || 'Az ajánlat nem elérhető.')
+        return
+      } finally {
+        setWelcomeOfferBusy(false)
+      }
+    }
+    setSelectedCouponIds(next)
+  }
+
+  const renderLineItem = (item: (typeof items)[number]) => {
+    const product = getProductById(item.productId)
+    const resolved = resolveCartLine(item, product, locale)
+    const line = lockedLines.find((l) => l.productId === item.productId)
+    const unitPriceHuf = line?.priceHuf ?? resolved.priceHuf
+    const isPromo = spinProductIds.has(item.productId)
+    const showPromoPrice = isPromo && luckySpinDiscountActive
+    const discountedUnitHuf = showPromoPrice && luckySpinDiscountPercent > 0
+      ? Math.round(unitPriceHuf * (1 - luckySpinDiscountPercent))
+      : unitPriceHuf
+    const lineKey = `${item.productId}-${item.options?.colorHex ?? ''}-${item.options?.colorName ?? ''}-${item.options?.materialName ?? ''}`
+
+    return (
+      <li key={lineKey} className="flex justify-between gap-3 text-sm">
+        <div className="min-w-0">
+          <span className="text-foreground">{resolved.name} × {item.qty}</span>
+          {item.options?.colorName && (
+            <p className="text-xs text-muted mt-0.5">
+              <span>{t('product.color')}: {item.options.colorName}</span>
+            </p>
+          )}
+        </div>
+        <span className="shrink-0 text-right text-muted tabular-nums">
+          {showPromoPrice ? (
+            <>
+              <span className="line-through block">{unitPriceHuf.toLocaleString('hu-HU')} Ft</span>
+              <span className="text-discount font-medium">{discountedUnitHuf.toLocaleString('hu-HU')} Ft</span>
+            </>
+          ) : (
+            <span>{unitPriceHuf.toLocaleString('hu-HU')} Ft</span>
+          )}
+        </span>
+      </li>
+    )
+  }
+
+  useEffect(() => {
+    if (!userId || displayTotalHuf <= 0) {
+      setPointsPreview(null)
+      return
+    }
+    fetch(`/api/gamification/purchase-preview?cartTotalHuf=${displayTotalHuf}`, {
+      credentials: 'include',
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data) {
+          setPointsPreview({
+            maxUsablePointsDiscountHuf: data.maxUsablePointsDiscountHuf ?? 0,
+            maxUsablePoints: data.maxUsablePoints ?? 0,
+            balance: data.balance ?? 0,
+          })
+        }
+      })
+      .catch(() => setPointsPreview(null))
+  }, [userId, displayTotalHuf, wallet?.balance])
 
   useEffect(() => {
     if (items.length === 0) {
@@ -49,12 +385,9 @@ export default function PaymentPage() {
     }
   }, [items.length, router])
 
-  const [checkoutResult, setCheckoutResult] = useState<{
-    orderGroupId: string
-    payments: Array<{ orderType: 'in_stock' | 'sourcing'; type: string; url?: string; clientSecret?: string; message?: string }>
-  } | null>(null)
+  const handlePayByCard = useCallback(async () => {
+    if (checkoutInFlightRef.current || loading || checkoutResult) return
 
-  const handlePayByCard = async () => {
     setError(null)
     setCheckoutResult(null)
     if (!userId && !guestEmail.trim()) {
@@ -66,13 +399,22 @@ export default function PaymentPage() {
       setError(t('payment.emailInvalid') || 'Érvényes e-mail címet adj meg.')
       return
     }
-    // Timed offer validity: decided by /api/checkout (fresh ordersCount + server now). No client-side block.
+
+    checkoutInFlightRef.current = true
+    if (!idempotencyKeyRef.current) {
+      idempotencyKeyRef.current = createCheckoutIdempotencyKey()
+    }
+
     setLoading(true)
-    trackBeginCheckout(displayTotalHuf)
+    trackBeginCheckout(cardTotalHuf)
     try {
       const res = await fetch('/api/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKeyRef.current,
+        },
+        credentials: 'include',
         body: JSON.stringify({
           items: items.map(({ productId, qty, options }) => ({
             productId,
@@ -80,43 +422,94 @@ export default function PaymentPage() {
             ...(options && (options.colorName != null || options.colorHex != null || options.materialName != null) ? { options } : {}),
           })),
           customer: { email },
-          isDiscountActive: couponActive,
-          discountPercent: couponActive ? discountPercent : undefined,
+          isDiscountActive: couponSelection.useCat || couponSelection.useRegistration,
+          discountPercent:
+            couponSelection.useCat || couponSelection.useRegistration
+              ? effectiveCouponPercent
+              : undefined,
+          couponCode: couponSelection.birthdayCode || couponCodeInput.trim() || undefined,
+          welcomeOfferAccepted: couponSelection.useWelcome ? true : undefined,
+          selectedCoupons: couponSelection.selectedIds,
+          pointsDiscountHuf: pointsDiscountHuf > 0 ? pointsDiscountHuf : undefined,
         }),
       })
       const data = await res.json()
       if (!res.ok) {
         const isTimedOfferError = res.status === 400 && (data.code === 'timed_offer_unavailable' || data.error?.includes('timed'))
         setError(isTimedOfferError ? t('payment.timedOfferNoLongerAvailable') : (data.error || t('payment.errorCreateSession')))
+        idempotencyKeyRef.current = null
+        checkoutInFlightRef.current = false
         setLoading(false)
         return
       }
+      // Azonnali UI: pontok levonása a fejlécből / profilból (ne várjunk webhookra)
+      const pointsUsedNow =
+        typeof data.pointsApplied?.pointsUsed === 'number'
+          ? data.pointsApplied.pointsUsed
+          : pointsUsedPreview > 0
+            ? pointsUsedPreview
+            : 0
+      if (pointsUsedNow > 0) {
+        const balanceBefore =
+          pointsPreview?.balance ?? wallet?.balance ?? pointsUsedNow
+        stashPendingPointsRedeem(pointsUsedNow, balanceBefore)
+        void optimisticRedeemPoints(pointsUsedNow, {
+          persist: true,
+          balanceBefore,
+        })
+      }
       const redirectPayment = data.payments?.find((p: { type: string }) => p.type === 'redirect')
       if (redirectPayment?.url) {
+        // Stripe / külső redirect: kosár a siker oldalon ürül (megszakításkor megmarad)
         window.location.href = redirectPayment.url
         return
       }
       const clientSecretPayment = data.payments?.find((p: { type: string }) => p.type === 'client_secret')
       if (clientSecretPayment?.clientSecret) {
         setCheckoutResult({ orderGroupId: data.orderGroupId, payments: data.payments })
+        checkoutInFlightRef.current = false
         setLoading(false)
+        clearCart()
         setTimeout(() => {
           router.push(`/fizetes/siker?order_group_id=${encodeURIComponent(data.orderGroupId)}`)
         }, 2000)
         return
       }
       setCheckoutResult({ orderGroupId: data.orderGroupId, payments: data.payments || [] })
+      void refreshWallet()
+      checkoutInFlightRef.current = false
       setLoading(false)
+      clearCart()
       setTimeout(() => {
         router.push(`/fizetes/siker?order_group_id=${encodeURIComponent(data.orderGroupId)}`)
       }, 2500)
     } catch {
       setError(t('payment.errorCreateSession'))
+      idempotencyKeyRef.current = null
+      checkoutInFlightRef.current = false
       setLoading(false)
     }
-  }
+  }, [
+    loading,
+    checkoutResult,
+    userId,
+    guestEmail,
+    t,
+    cardTotalHuf,
+    items,
+    couponSelection,
+    effectiveCouponPercent,
+    couponCodeInput,
+    pointsDiscountHuf,
+    pointsUsedPreview,
+    pointsPreview?.balance,
+    wallet?.balance,
+    refreshWallet,
+    router,
+    clearCart,
+  ])
 
-  if (items.length === 0) {
+  if (items.length === 0 && !checkoutResult) {
     return (
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <p className="text-muted">{t('cart.empty')}</p>
@@ -133,46 +526,140 @@ export default function PaymentPage() {
 
       <section className="mb-8 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
         <h2 className="font-heading text-lg font-semibold text-foreground mb-4">{t('payment.summary')}</h2>
-        {items.length > 0 && (
-          <ul className="mb-4 space-y-1 text-sm text-muted border-b border-[var(--border)] pb-3">
-            {items.map((item) => {
-              const product = getProductById(item.productId)
-              const name = product ? getProductName(product, locale) : item.productId
-              return (
-                <li key={item.productId} className="flex justify-between gap-2">
-                  <span className="truncate">{name} × {item.qty}</span>
-                  {(item.options?.colorName || item.options?.materialName) && (
-                    <span className="shrink-0">
-                      {item.options?.materialName && <span>{t('product.material') || 'Anyag'}: {item.options.materialName}</span>}
-                      {item.options?.materialName && item.options?.colorName && ' · '}
-                      {item.options?.colorName && <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>}
-                    </span>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-        )}
-        <div className="space-y-2">
-          <div className="flex justify-between text-foreground">
-            <span>{t('cart.subtotal')}</span>
-            <span>{subtotalHuf.toLocaleString('hu-HU')} Ft <span className="text-muted">(€{formatEur(subtotalEur)})</span></span>
+
+        {promoItems.length > 0 && (
+          <div className="mb-5 rounded-lg border border-accent/30 bg-accent/5 p-3">
+            <div className="flex justify-between items-baseline gap-3 mb-2">
+              <h3 className="text-sm font-semibold text-accent">{t('cart.blockPromoTitle')}</h3>
+              <span className="text-sm font-medium text-foreground tabular-nums shrink-0">
+                {promoSubtotalHuf.toLocaleString('hu-HU')} Ft
+              </span>
+            </div>
+            <ul className="space-y-2">
+              {promoItems.map(renderLineItem)}
+            </ul>
           </div>
-          {couponActive && discountHuf > 0 && (
-            <div className="flex justify-between text-discount">
-              <span>{t('cart.discountLabel', { percent: Math.round(discountPercent * 100) })}</span>
-              <span>−{discountHuf.toLocaleString('hu-HU')} Ft <span className="text-muted">(€{formatEur(discountEur)})</span></span>
+        )}
+
+        {normalItems.length > 0 && (
+          <div className="mb-5 rounded-lg border border-[var(--border)] p-3">
+            <div className="flex justify-between items-baseline gap-3 mb-2">
+              <h3 className="text-sm font-semibold text-foreground">
+                {promoItems.length > 0 ? t('cart.blockNormalTitle') : t('payment.allItems')}
+              </h3>
+              <span className="text-sm font-medium text-foreground tabular-nums shrink-0">
+                {normalSubtotalHuf.toLocaleString('hu-HU')} Ft
+              </span>
+            </div>
+            <ul className="space-y-2">
+              {normalItems.map(renderLineItem)}
+            </ul>
+          </div>
+        )}
+
+        {luckySpinRecord && luckySpinNextTierRemaining != null && luckySpinDiscount.qualifyingItemCount > 0 && (
+          <p className="text-xs text-muted mb-3 leading-tight">
+            {t('luckySpin.cartProgress').replace(
+              '{remaining}',
+              String(luckySpinNextTierRemaining)
+            )}
+          </p>
+        )}
+
+        <div className="space-y-4 text-sm">
+          <div>
+            <h3 className="font-heading font-semibold text-foreground mb-2">{t('payment.itemsTotalSection')}</h3>
+            <div className="space-y-1.5">
+              {promoSubtotalHuf > 0 && (
+                <div className="flex justify-between text-foreground">
+                  <span>{t('payment.subtotalPromo')}</span>
+                  <span className="tabular-nums">{promoSubtotalHuf.toLocaleString('hu-HU')} Ft</span>
+                </div>
+              )}
+              {normalSubtotalHuf > 0 && (
+                <div className="flex justify-between text-foreground">
+                  <span>{t('payment.subtotalNormal')}</span>
+                  <span className="tabular-nums">{normalSubtotalHuf.toLocaleString('hu-HU')} Ft</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {(luckySpinDiscount.discountHuf > 0 || effectiveCouponDiscountHuf > 0 || pointsDiscountHuf > 0) && (
+            <div className="border-t border-[var(--border)] pt-3">
+              <h3 className="font-heading font-semibold text-foreground mb-2">{t('payment.discountsSection')}</h3>
+              <div className="space-y-1.5">
+                {luckySpinDiscount.discountHuf > 0 && (
+                  <div className="flex justify-between text-discount">
+                    <span>
+                      {t('payment.luckySpinDiscountLine', {
+                        percent: Math.round(luckySpinDiscountPercent * 100),
+                      })}
+                    </span>
+                    <span className="tabular-nums">−{luckySpinDiscount.discountHuf.toLocaleString('hu-HU')} Ft</span>
+                  </div>
+                )}
+                {effectiveCouponDiscountHuf > 0 && (
+                  <div className="flex justify-between text-discount">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span>
+                        {t('payment.couponDiscountWithCode', {
+                          percent: Math.round(effectiveCouponPercent * 100),
+                        })}
+                        {couponSelection.capped
+                          ? ` (${t('payment.couponCappedHint') || 'max. 20%'})`
+                          : ''}
+                      </span>
+                      <button
+                        type="button"
+                        title={t('payment.couponScopeHint')}
+                        aria-label={t('payment.couponScopeHint')}
+                        className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-current text-[10px] leading-none opacity-70 hover:opacity-100"
+                      >
+                        i
+                      </button>
+                    </span>
+                    <span className="tabular-nums">−{effectiveCouponDiscountHuf.toLocaleString('hu-HU')} Ft</span>
+                  </div>
+                )}
+                {pointsDiscountHuf > 0 && (
+                  <div className="flex justify-between text-accent">
+                    <span>{t('payment.pointsDiscount')}</span>
+                    <span className="tabular-nums">−{pointsDiscountHuf.toLocaleString('hu-HU')} Ft</span>
+                  </div>
+                )}
+              </div>
             </div>
           )}
-          {!couponActive && loyaltyDiscountHuf > 0 && (
-            <div className="flex justify-between text-discount">
-              <span>{t('cart.loyaltyDiscountLabel', { percent: loyaltyPercent })}</span>
-              <span>−{loyaltyDiscountHuf.toLocaleString('hu-HU')} Ft <span className="text-muted">(€{formatEur(discountEur)})</span></span>
+
+          <div className="border-t border-[var(--border)] pt-3 space-y-1.5">
+            <div className="flex justify-between text-foreground">
+              <span>{t('payment.shippingFee')}</span>
+              <span className="tabular-nums">
+                {shippingHuf === 0 ? (
+                  <span className="text-green-600 dark:text-green-400 font-medium">
+                    {t('payment.shippingFreeBadge')}
+                  </span>
+                ) : (
+                  `${shippingHuf.toLocaleString('hu-HU')} Ft`
+                )}
+              </span>
             </div>
-          )}
-          <div className="flex justify-between font-heading font-bold text-lg text-foreground pt-2 border-t border-[var(--border)]">
-            <span>{t('cart.total')}</span>
-            <span>{displayTotalHuf.toLocaleString('hu-HU')} Ft <span className="text-muted">(€{formatEur(totalEur)})</span></span>
+            {freeShippingRemainingHuf > 0 && (
+              <p className="text-xs text-muted">
+                {t('cart.freeShippingProgress', { amount: freeShippingRemainingHuf.toLocaleString('hu-HU') })}
+              </p>
+            )}
+            {freeShippingRemainingHuf === 0 && checkoutPreview.merchandiseTotalHuf > 0 && shippingHuf === 0 && (
+              <p className="text-xs text-green-600 dark:text-green-400">{t('cart.freeShippingReached')}</p>
+            )}
+            <div className="flex justify-between font-heading font-bold text-lg text-foreground pt-2 mt-1">
+              <span>{t('payment.totalDue')}</span>
+              <span className="tabular-nums">
+                {cardTotalHuf.toLocaleString('hu-HU')} Ft{' '}
+                <span className="text-muted text-sm font-normal">(€{formatEur(totalEur)})</span>
+              </span>
+            </div>
           </div>
         </div>
       </section>
@@ -195,13 +682,69 @@ export default function PaymentPage() {
         </section>
       )}
 
+      <CouponSelector
+        coupons={availableCoupons}
+        selectedIds={selectedCouponIds}
+        onChange={(next) => void handleCouponSelectionChange(next)}
+        title={t('payment.couponSelectorTitle') || 'Elérhető kuponok'}
+        hint={
+          t('payment.couponSelectorHint') ||
+          'Válaszd ki manuálisan a kedvezmény(eke)t. Összesen legfeljebb 20%.'
+        }
+        emptyText={t('payment.couponSelectorEmpty') || 'Jelenleg nincs felhasználható kuponod.'}
+        capReachedText={
+          t('payment.couponCapReached') ||
+          'A kiválasztott kuponok összege nem haladhatja meg a 20%-ot.'
+        }
+        selectedPercentDisplay={Math.round(couponSelection.finalPercent * 100)}
+        capped={couponSelection.capped}
+      />
+      {welcomeOfferBusy && (
+        <p className="text-xs text-muted -mt-6 mb-6 flex items-center gap-1.5">
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          {t('payment.welcomeOfferSaving') || 'Kedvezmény aktiválása…'}
+        </p>
+      )}
+      {welcomeOfferError && (
+        <p className="text-xs text-red-600 dark:text-red-400 -mt-4 mb-6" role="alert">
+          {welcomeOfferError}
+        </p>
+      )}
+      {!userId && selectedCouponIds.includes('welcome') && !guestEmail.trim() && (
+        <p className="text-xs text-muted -mt-4 mb-6">
+          {t('payment.welcomeOfferEmailHint') ||
+            'Vendégként előbb add meg az e-mail címed a fenti mezőben.'}
+        </p>
+      )}
+
+      {userId && pointsPreview && pointsPreview.maxUsablePointsDiscountHuf > 0 && (
+        <section className="mb-8 p-4 rounded-xl border border-accent/30 bg-accent/5">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={usePoints}
+              onChange={(e) => setUsePoints(e.target.checked)}
+              className="mt-1 w-4 h-4 rounded border-[var(--border)] text-accent focus:ring-accent"
+            />
+            <span className="text-sm text-foreground">
+              {t('payment.usePoints')
+                .replace('{points}', String(pointsPreview.maxUsablePoints))
+                .replace('{huf}', pointsPreview.maxUsablePointsDiscountHuf.toLocaleString('hu-HU'))
+                .replace('{percent}', String(Math.round(MAX_CART_POINTS_COVERAGE * 100)))}
+            </span>
+          </label>
+          <p className="text-xs text-muted mt-2 ml-7">
+            {t('payment.pointsRate').replace('{rate}', String(POINTS_PER_HUF))}
+          </p>
+          {userId && luckySpinDiscount.active && usePoints && (
+            <p className="text-xs text-accent mt-1 ml-7">{t('luckySpin.pointsBonusHint')}</p>
+          )}
+        </section>
+      )}
+
       <section className="mb-8 p-4 rounded-xl border-2 border-[var(--border)] bg-[var(--card-bg)]">
         <p className="text-sm text-muted mb-3">{t('payment.cardOnly')}</p>
         <p className="text-xs text-muted mb-4">{t('payment.secureNote')}</p>
-        <p className="flex items-center gap-2 text-sm text-foreground mb-4">
-          <LockIcon className="w-5 h-5 text-accent shrink-0" />
-          {t('payment.securePayment') || 'Biztonságos fizetés'}
-        </p>
         {error && (
           <p className="text-red-600 dark:text-red-400 text-sm mb-4" role="alert">
             {error}
@@ -224,13 +767,23 @@ export default function PaymentPage() {
             </p>
           </div>
         )}
+        <PaymentTrustBadges className="mb-4" />
         <button
           type="button"
           onClick={handlePayByCard}
           disabled={loading || !!checkoutResult}
-          className="w-full py-3 px-6 bg-accent text-white font-heading font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          aria-busy={loading}
+          aria-disabled={loading || !!checkoutResult}
+          className="w-full py-3 px-6 bg-accent text-white font-heading font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
-          {loading ? t('payment.redirecting') : checkoutResult ? (t('checkout.redirecting') || 'Átirányítás…') : t('payment.payWithCard')}
+          {loading && <Loader2 className="w-5 h-5 shrink-0 animate-spin" aria-hidden />}
+          <span>
+            {loading
+              ? t('payment.redirecting')
+              : checkoutResult
+                ? (t('checkout.redirecting') || 'Átirányítás…')
+                : t('payment.payWithCard')}
+          </span>
         </button>
       </section>
 
@@ -241,13 +794,5 @@ export default function PaymentPage() {
         ← {t('payment.backToCart')}
       </Link>
     </div>
-  )
-}
-
-function LockIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-    </svg>
   )
 }

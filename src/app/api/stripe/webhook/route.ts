@@ -8,8 +8,10 @@ import {
   setOrderCountedForLoyalty,
 } from '@/lib/orders'
 import { markReservationsPaidByOrderId } from '@/lib/reservations'
-import { sendOrderConfirmationEmail } from '@/lib/order-email'
+import { maybeSendOrderGroupConfirmationEmail } from '@/lib/order-email'
 import { qualifiesForLoyalty, incrementQualifyingOrder, decrementQualifyingOrder } from '@/lib/loyalty'
+import { finalizeOrderRewards } from '@/lib/checkout-rewards'
+import { clearUserCartSnapshot } from '@/lib/cart-snapshot'
 import { logger } from '@/lib/logger'
 
 /** Stripe HUF: zero-decimal – amount_total forintban (egész), nem fillér. */
@@ -76,10 +78,13 @@ export async function POST(request: Request) {
         return NextResponse.json({ received: true })
       }
 
-      if (order.status === 'paid') {
-        return NextResponse.json({ received: true })
-      }
-      if (order.paidWebhookEventId === event.id) {
+      // Már paid: ne állítsuk újra paid-ra, de a jutalomégés idempotens – futtassuk le (retry).
+      if (order.status === 'paid' || order.paidWebhookEventId === event.id) {
+        try {
+          await finalizeOrderRewards(orderId)
+        } catch (err) {
+          logger.error({ err, orderId }, 'checkout.session.completed: finalize retry failed')
+        }
         return NextResponse.json({ received: true })
       }
 
@@ -122,8 +127,19 @@ export async function POST(request: Request) {
       })
       await markReservationsPaidByOrderId(orderId)
 
-      // Hűségkedvezmény: csak ha még nem számoltuk, és a végösszeg eléri a küszöböt (HUF/EUR)
+      // Kuponok érvénytelenítése + pontlevonás (idempotens)
+      try {
+        await finalizeOrderRewards(orderId)
+      } catch (err) {
+        logger.error({ err, orderId }, 'checkout.session.completed: finalizeOrderRewards failed')
+      }
+
       const updatedOrder = await getOrderById(orderId)
+      if (updatedOrder?.userId) {
+        await clearUserCartSnapshot(updatedOrder.userId)
+      }
+
+      // Hűségkedvezmény: csak ha még nem számoltuk, és a végösszeg eléri a küszöböt (HUF/EUR)
       if (updatedOrder && !updatedOrder.countedForLoyalty && customerEmail) {
         if (qualifiesForLoyalty(amountTotal, currency)) {
           incrementQualifyingOrder(customerEmail)
@@ -132,14 +148,9 @@ export async function POST(request: Request) {
       }
 
       try {
-        if (updatedOrder) {
-          const emailResult = await sendOrderConfirmationEmail(
-            updatedOrder,
-            customerEmail
-          )
-          if (!emailResult.ok) {
-            logger.error({ err: emailResult.error }, 'checkout.session.completed: email send failed')
-          }
+        const emailResult = await maybeSendOrderGroupConfirmationEmail(orderId, customerEmail)
+        if (!emailResult.ok) {
+          logger.error({ err: emailResult.error }, 'checkout.session.completed: email send failed')
         }
       } catch (emailErr) {
         logger.error({ err: emailErr }, 'checkout.session.completed: email error (webhook still 200)')
@@ -158,6 +169,8 @@ export async function POST(request: Request) {
     }
 
     case 'charge.refunded': {
+      // Üzleti szabály: elállás / visszatérítéskor CSAK a kifizetett pénz jár vissza.
+      // Felhasznált pontok (PURCHASE_REDEEM) és kuponok NEM állnak vissza – véglegesen elhasználódtak.
       const charge = event.data.object as Stripe.Charge
       const paymentIntentId =
         typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id

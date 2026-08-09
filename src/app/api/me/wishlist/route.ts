@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rate-limit'
 import * as ProductLikes from '@/lib/product-likes'
-import { getSession } from '@/lib/auth'
+import { getSession, resolveSessionUserId } from '@/lib/auth'
+import { isDbConfigured } from '@/lib/prisma'
+import { getProductsByIdsFromDb } from '@/lib/products'
+import { getProductByIdAsync } from '@/lib/data'
+import type { Product } from '@/lib/data'
 
 /**
  * GET /api/me/wishlist – user kedvencei (privát), session alapján.
- * Rate limit: 60/perc/IP. Vissza: { productIds: string[] }.
+ * Visszaadja a productIds-t és a teljes termékobjektumokat (katalógus-szűrés nélkül).
  */
 export async function GET(request: Request) {
   const limit = await rateLimit(request)
@@ -21,13 +25,26 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const productIds = ProductLikes.getLikedProductIdsByUser(session.userId)
-    return NextResponse.json({ productIds })
+    const userId = await resolveSessionUserId(session)
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const productIds = await ProductLikes.getLikedProductIdsByUser(userId, session.email)
+
+    let products: Product[] = []
+    if (isDbConfigured()) {
+      products = await getProductsByIdsFromDb(productIds)
+    } else {
+      for (const id of productIds) {
+        const product = await getProductByIdAsync(id)
+        if (product) products.push(product)
+      }
+    }
+
+    return NextResponse.json({ productIds, products })
   } catch (e) {
     console.error('[api/me/wishlist] GET', e)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

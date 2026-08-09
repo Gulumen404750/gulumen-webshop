@@ -6,12 +6,35 @@ import { useSearchParams } from 'next/navigation'
 import { useLocale } from '@/context/LocaleContext'
 import { useCart } from '@/context/CartContext'
 import { useCatCoupon } from '@/context/CatCouponContext'
+import { useAuth } from '@/context/AuthContext'
+import { usePointWallet } from '@/hooks/usePointWallet'
 import type { Order } from '@/lib/orders'
 import { trackPurchase } from '@/lib/analytics'
+import {
+  applyStashedPointsRedeemOnce,
+  stashPendingPointsRedeem,
+  syncPointWalletAfterPayment,
+} from '@/lib/point-wallet-client'
 
 const POLL_INTERVAL_MS = 1500
 const POLL_MAX_ATTEMPTS = 8
 const GIVE_UP_MS = 10 * 1000
+
+/** Sikeres checkout után a kosár ürítendő – sourcing authorize = sourcing_pending. */
+const CART_CLEAR_STATUSES = new Set([
+  'paid',
+  'fulfilled',
+  'sourcing_pending',
+  'payment_pending', // Dummy / webhook késés: a siker oldalon már létrejött a rendelés
+])
+
+function shouldClearCartForOrders(orders: Order[]): boolean {
+  if (!orders.length) return false
+  // Ha minden rendelés cancelled/failed, ne ürítsünk (hibaág)
+  const allFailed = orders.every((o) => o.status === 'cancelled' || o.status === 'sourcing_failed')
+  if (allFailed) return false
+  return orders.some((o) => CART_CLEAR_STATUSES.has(o.status))
+}
 
 function fetchOrderBySession(sessionId: string): Promise<Order> {
   return fetch(
@@ -38,13 +61,105 @@ export default function PaymentSuccessPage() {
   const { t } = useLocale()
   const { clearCart } = useCart()
   const { markUsed } = useCatCoupon()
+  const { userId } = useAuth()
+  const { refresh: refreshWallet } = usePointWallet(!!userId)
   const [order, setOrder] = useState<Order | null>(null)
   const [ordersByGroup, setOrdersByGroup] = useState<Order[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [gaveUp, setGaveUp] = useState(false)
   const pollCountRef = useRef(0)
-  const didMarkUsedRef = useRef(false)
+  const didClearCartRef = useRef(false)
+  const didFinalizeRewardsRef = useRef(false)
+  const didTrackPurchaseRef = useRef(false)
+  const didOptimisticPointsRef = useRef(false)
+
+  // Stripe-ról visszatérve azonnal mutassuk a levont pontokat a fejlécben is
+  useEffect(() => {
+    void applyStashedPointsRedeemOnce()
+  }, [])
+
+  const applyOptimisticPointsFromOrders = (orders: Order[]) => {
+    if (didOptimisticPointsRef.current) return
+    const pointsUsed = orders.reduce((sum, o) => sum + (o.pointsUsed ?? 0), 0)
+    if (pointsUsed <= 0) return
+    didOptimisticPointsRef.current = true
+    // Ha a checkout már stash-elt (balanceBefore-ral), ne írjuk felül
+    stashPendingPointsRedeem(pointsUsed, undefined, { replace: false })
+    void applyStashedPointsRedeemOnce()
+  }
+
+  const finalizeRewardsOnce = (orders: Order[]) => {
+    applyOptimisticPointsFromOrders(orders)
+    if (didFinalizeRewardsRef.current) return
+    // payment_pending is is számít: Dummy / pending checkout a siker oldalon zárul le
+    const actionable = orders.filter((o) =>
+      ['paid', 'fulfilled', 'sourcing_pending', 'payment_pending'].includes(o.status)
+    )
+    if (!actionable.length) return
+    didFinalizeRewardsRef.current = true
+    const body: Record<string, string> = {}
+    const groupId = actionable[0]?.orderGroupId ?? orderGroupId
+    if (groupId) body.orderGroupId = groupId
+    else if (sessionId) body.sessionId = sessionId
+    else if (actionable[0]?.id) body.orderId = actionable[0].id
+    if (!Object.keys(body).length) {
+      didFinalizeRewardsRef.current = false
+      return
+    }
+    void fetch('/api/checkout/finalize-rewards', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(body),
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          didFinalizeRewardsRef.current = false
+          return
+        }
+        const data = (await res.json().catch(() => ({}))) as {
+          balance?: number
+          pointsUsed?: number
+        }
+        markUsed()
+        if (typeof data.balance === 'number') {
+          void syncPointWalletAfterPayment(data.balance)
+        } else {
+          void syncPointWalletAfterPayment()
+        }
+        void refreshWallet()
+        // Friss státusz a lezárás után
+        if (orderGroupId) {
+          try {
+            const fresh = await fetchOrdersByGroup(orderGroupId)
+            setOrdersByGroup(fresh)
+          } catch {
+            /* ignore */
+          }
+        }
+      })
+      .catch(() => {
+        didFinalizeRewardsRef.current = false
+      })
+  }
+
+  const clearCartOnce = (orders: Order[]) => {
+    finalizeRewardsOnce(orders)
+    if (!didTrackPurchaseRef.current) {
+      const paid = orders.filter((o) =>
+        ['paid', 'fulfilled', 'sourcing_pending', 'payment_pending'].includes(o.status)
+      )
+      if (paid.length) {
+        didTrackPurchaseRef.current = true
+        paid.forEach((o) => trackPurchase(o.id, o.totalHuf))
+      }
+    }
+    if (didClearCartRef.current) return
+    if (!shouldClearCartForOrders(orders)) return
+    didClearCartRef.current = true
+    clearCart()
+  }
 
   useEffect(() => {
     if (!sessionId && !orderGroupId) {
@@ -63,15 +178,9 @@ export default function PaymentSuccessPage() {
             if (cancelled) return
             setOrdersByGroup(data)
             setLoading(false)
-            const anyPaidOrFulfilled = data.some((o) => o.status === 'paid' || o.status === 'fulfilled')
-            if (anyPaidOrFulfilled && !didMarkUsedRef.current) {
-              didMarkUsedRef.current = true
-              clearCart()
-              data.filter((o) => o.status === 'paid' || o.status === 'fulfilled').forEach((o) => trackPurchase(o.id, o.totalHuf))
-              markUsed()
-            }
+            clearCartOnce(data)
             const allTerminal = data.every((o) =>
-              ['paid', 'fulfilled', 'cancelled', 'sourcing_failed'].includes(o.status)
+              ['paid', 'fulfilled', 'cancelled', 'sourcing_failed', 'sourcing_pending'].includes(o.status)
             )
             if (!allTerminal && pollCountRef.current < POLL_MAX_ATTEMPTS) {
               pollCountRef.current += 1
@@ -90,7 +199,9 @@ export default function PaymentSuccessPage() {
       }
     }
     return () => {}
-  }, [orderGroupId, t, clearCart, markUsed])
+    // clearCartOnce depends on clearCart/markUsed/refreshWallet; intentionally inline via refs+stable deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderGroupId, t, clearCart, markUsed, refreshWallet])
 
   useEffect(() => {
     if (!sessionId || orderGroupId) return
@@ -98,22 +209,23 @@ export default function PaymentSuccessPage() {
     let cancelled = false
     let timeoutId: ReturnType<typeof setTimeout>
 
+    const handleOrder = (data: Order) => {
+      if (cancelled) return
+      setOrder(data)
+      setLoading(false)
+      clearCartOnce([data])
+      const terminal = ['paid', 'fulfilled', 'cancelled', 'sourcing_failed', 'sourcing_pending'].includes(
+        data.status
+      )
+      return terminal
+    }
+
     const poll = () => {
       if (cancelled) return
       fetchOrderBySession(sessionId)
         .then((data: Order) => {
-          if (cancelled) return
-          setOrder(data)
-          setLoading(false)
-          if (data.status === 'paid') {
-            if (!didMarkUsedRef.current) {
-              didMarkUsedRef.current = true
-              trackPurchase(data.id, data.totalHuf)
-              clearCart()
-              markUsed()
-            }
-            return
-          }
+          const terminal = handleOrder(data)
+          if (terminal) return
           pollCountRef.current += 1
           if (pollCountRef.current < POLL_MAX_ATTEMPTS) {
             timeoutId = setTimeout(poll, POLL_INTERVAL_MS)
@@ -128,18 +240,8 @@ export default function PaymentSuccessPage() {
 
     fetchOrderBySession(sessionId)
       .then((data: Order) => {
-        if (cancelled) return
-        setOrder(data)
-        setLoading(false)
-        if (data.status === 'paid') {
-          if (!didMarkUsedRef.current) {
-            didMarkUsedRef.current = true
-            trackPurchase(data.id, data.totalHuf)
-            clearCart()
-            markUsed()
-          }
-          return
-        }
+        const terminal = handleOrder(data)
+        if (terminal) return
         pollCountRef.current = 1
         timeoutId = setTimeout(poll, POLL_INTERVAL_MS)
       })
@@ -159,7 +261,7 @@ export default function PaymentSuccessPage() {
       clearTimeout(timeoutId)
       clearTimeout(giveUpId)
     }
-  }, [sessionId, orderGroupId, t, clearCart, markUsed])
+  }, [sessionId, orderGroupId, t, clearCart, markUsed, refreshWallet])
 
   if (orderGroupId && ordersByGroup && ordersByGroup.length > 0) {
     const allTerminal = ordersByGroup.every((o) =>

@@ -4,10 +4,11 @@
 nixPkgs = ["nodejs_20"]
 
 [phases.install]
-cmds = ["npm ci"]
+cmds = ["npm install --no-audit --no-fund"]
 
 [phases.build]
 cmds = ["npm run build"]
 
+# Start: scripts/start.js → prisma migrate deploy + next start (NO seed, NO reset)
 [start]
 cmd = "npm run start"

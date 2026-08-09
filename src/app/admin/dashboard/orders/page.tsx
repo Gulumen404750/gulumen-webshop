@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { AdminOrdersListSkeleton } from '@/components/AdminTableSkeleton'
 
 type Order = {
   id: string
@@ -20,9 +21,11 @@ type Order = {
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
   const [statusFilter, setStatusFilter] = useState('')
 
   useEffect(() => {
+    setLoading(true)
     const params = new URLSearchParams()
     if (statusFilter) params.set('status', statusFilter)
     fetch(`/api/admin/orders?${params}`)
@@ -33,11 +36,36 @@ export default function AdminOrdersPage() {
       .finally(() => setLoading(false))
   }, [statusFilter])
 
+  const handleExportCsv = async () => {
+    setExporting(true)
+    try {
+      const params = new URLSearchParams({ format: 'csv' })
+      if (statusFilter) params.set('status', statusFilter)
+      const res = await fetch(`/api/admin/orders/export?${params}`)
+      if (!res.ok) throw new Error('Export sikertelen')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const disposition = res.headers.get('Content-Disposition')
+      const match = disposition?.match(/filename="([^"]+)"/)
+      a.download = match?.[1] ?? `rendelesek-${new Date().toISOString().slice(0, 10)}.csv`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      alert('CSV export sikertelen.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-heading font-bold text-foreground">Rendelések</h1>
 
-      <div className="flex flex-wrap gap-4">
+      <div className="flex flex-wrap items-center gap-4">
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
@@ -53,10 +81,18 @@ export default function AdminOrdersPage() {
           <option value="fulfilled">fulfilled</option>
           <option value="cancelled">cancelled</option>
         </select>
+        <button
+          type="button"
+          onClick={handleExportCsv}
+          disabled={exporting}
+          className="rounded-lg border border-[var(--border)] bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-[var(--border)]/30 disabled:opacity-60"
+        >
+          {exporting ? 'Exportálás…' : 'Export CSV'}
+        </button>
       </div>
 
       {loading ? (
-        <p className="text-muted">Betöltés…</p>
+        <AdminOrdersListSkeleton />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
           <table className="w-full text-left text-sm">

@@ -22,6 +22,11 @@ export function isDbConfigured(): boolean {
   return Boolean(process.env.DATABASE_URL && process.env.DATABASE_URL.trim() !== '')
 }
 
+/** mockProducts fallback: csak dev módban, DATABASE_URL nélkül. */
+export function shouldUseMockProductsFallback(): boolean {
+  return process.env.NODE_ENV === 'development' && !isDbConfigured()
+}
+
 const CONNECTIVITY_CACHE_MS = 60_000
 let connectivityCache: { ok: boolean; at: number } | null = null
 

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800" role="img" aria-label="Nincs kép">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e8eef3"/>
+      <stop offset="100%" stop-color="#d5dde5"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="800" fill="url(#bg)"/>
+  <g fill="none" stroke="#94a3b8" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="220" y="240" width="360" height="280" rx="28"/>
+    <circle cx="320" cy="340" r="36"/>
+    <path d="M240 480 L340 380 L420 450 L480 400 L580 480"/>
+  </g>
+  <text x="400" y="580" text-anchor="middle" font-family="system-ui,sans-serif" font-size="28" fill="#64748b">Nincs elérhetQ kép</text>
+</svg>

@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { getProductBySlugAsync } from '@/lib/data'
+import { getProductBySlugAsync, getSimilarProductsAsync } from '@/lib/data'
 import { getProductOrdersCount } from '@/lib/orders'
 import { getServerTimeMs } from '@/lib/server-time'
 import { ProductPageContent } from './ProductPageContent'
@@ -21,5 +21,13 @@ export default async function ProductPage({ params }: PageProps) {
   }
 
   const serverNow = await getServerTimeMs()
-  return <ProductPageContent product={productWithCount} slug={slug} serverNow={serverNow} />
+  const similarProducts = await getSimilarProductsAsync(productWithCount)
+  return (
+    <ProductPageContent
+      product={productWithCount}
+      slug={slug}
+      serverNow={serverNow}
+      similarProducts={similarProducts}
+    />
+  )
 }

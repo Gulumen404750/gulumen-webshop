@@ -21,7 +21,7 @@ export default function NotFound() {
           Termékek
         </Link>
         <Link
-          href="/akciok"
+          href="/termekek"
           className="px-6 py-3 border-2 border-[var(--border)] text-foreground font-heading font-semibold rounded-lg hover:bg-[var(--border)] transition-colors"
         >
           Akciók

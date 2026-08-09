@@ -1,6 +1,5 @@
 /**
  * Edge-safe admin session verify (middleware).
- * Nincs Node-only dependency; csak jose jwtVerify.
  */
 
 import { jwtVerify } from 'jose'
@@ -15,7 +14,6 @@ function getSecret(): Uint8Array | null {
   return new TextEncoder().encode(secret)
 }
 
-/** True ha a cookie érték érvényes, aláírt admin JWT. */
 export async function verifyAdminSessionToken(token: string | undefined | null): Promise<boolean> {
   if (!token || token === '1') return false
   const secret = getSecret()

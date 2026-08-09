@@ -3,196 +3,230 @@
 import Link from 'next/link'
 import type { Product } from '@/lib/data'
 import { ProductCard } from '@/components/ProductCard'
+import { FeaturedProductsGrid } from '@/components/FeaturedProductsGrid'
 import { HeroCat } from '@/components/HeroCat'
 import { RecentlyViewed } from '@/components/RecentlyViewed'
-import { NewsletterSignup } from '@/components/NewsletterSignup'
 import { useLocale } from '@/context/LocaleContext'
+import { useAuth } from '@/context/AuthContext'
+import { getRegistrationCouponPercentDisplay } from '@/lib/coupon-config'
 
 type Props = {
-  newProducts: Product[]
+  featuredProducts: Product[]
   dealProducts: Product[]
+  newProducts: Product[]
 }
 
-export default function HomePageClient({ newProducts, dealProducts }: Props) {
+export default function HomePageClient({ featuredProducts, dealProducts, newProducts }: Props) {
   const { t } = useLocale()
+  const { isLoggedIn, authChecked } = useAuth()
+  const showRegisterCta = authChecked && !isLoggedIn
+  const registrationCouponPercent = getRegistrationCouponPercentDisplay()
+
+  const faqItems = [
+    { q: t('home.faq1q'), a: t('home.faq1a') },
+    { q: t('home.faq2q'), a: t('home.faq2a') },
+    { q: t('home.faq3q'), a: t('home.faq3a') },
+    { q: t('home.faq4q'), a: t('home.faq4a') },
+  ]
+
+  const reviews = [
+    { name: t('home.review1name'), text: t('home.review1text'), stars: 5 },
+    { name: t('home.review2name'), text: t('home.review2text'), stars: 5 },
+    { name: t('home.review3name'), text: t('home.review3text'), stars: 5 },
+  ]
 
   return (
     <>
-      <section className="relative bg-background py-20 lg:py-28 overflow-hidden">
+      {/* Hero */}
+      <section className="relative bg-gradient-to-b from-indigo-950/5 via-background to-background py-20 lg:py-28 overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none opacity-30 dark:opacity-20">
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl" />
+          <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-sky-500/15 rounded-full blur-3xl" />
+        </div>
         <HeroCat />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
-          <h1 className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground max-w-3xl mx-auto leading-tight">
+          <p className="text-sm font-medium tracking-widest uppercase text-indigo-600 dark:text-indigo-400 mb-4">
+            {t('home.heroBadge')}
+          </p>
+          <h1 className="font-heading text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-bold text-foreground max-w-4xl mx-auto leading-tight">
             {t('home.heroTitle')}
           </h1>
-          <p className="mt-4 text-lg sm:text-xl text-muted max-w-2xl mx-auto">
+          <p className="mt-5 text-lg sm:text-xl text-muted max-w-2xl mx-auto leading-relaxed">
             {t('home.heroSubtitle')}
           </p>
-          <div className="group inline-block mt-8">
+          <div className="mt-10 flex flex-col items-center gap-6">
             <Link
-              href="/termekek"
-              className="inline-block px-8 py-3 bg-accent text-white font-heading font-semibold rounded-lg hover:opacity-90 transition-opacity"
+              href="/termekek?kategoria=3d-nyomtatott"
+              className="inline-block px-8 py-3.5 bg-indigo-600 text-white font-heading font-semibold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-500/20"
             >
-              {t('buttons.viewProducts')}
+              {t('home.heroCta')}
             </Link>
-            <p className="mt-3 min-h-[1.5rem] text-center font-medium transition-all duration-300 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 flex-wrap">
-              <span className="magic-gold-sparkle inline-block opacity-0 group-hover:opacity-100" aria-hidden>
-                <MagicGoldIcon className="w-5 h-5 text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.8)]" />
-              </span>
-              <span className="magic-gold-shimmer bg-gradient-to-r from-amber-200 via-yellow-400 to-amber-300 bg-[length:200%_100%] bg-clip-text text-transparent">
-                {t('home.catchTheCat')}
-              </span>
-              <span className="magic-gold-sparkle-delay inline-block opacity-0 group-hover:opacity-100" aria-hidden>
-                <MagicGoldIcon className="w-5 h-5 text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.8)]" />
-              </span>
-            </p>
+
+            {showRegisterCta && registrationCouponPercent > 0 && (
+              <div className="register-cta-blink w-full max-w-2xl rounded-2xl border-2 border-[var(--border)] bg-[var(--card-bg)]/90 backdrop-blur-sm p-5 sm:p-8 text-center overflow-hidden">
+                <h2 className="font-heading text-xl sm:text-2xl font-bold text-foreground leading-snug">
+                  {t('register.firstPurchasePromo', { percent: registrationCouponPercent })}
+                </h2>
+                <p className="mt-2 text-sm sm:text-base text-muted leading-relaxed">{t('home.registerDesc')}</p>
+                <div className="mt-5 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2 sm:gap-4 max-w-md mx-auto pb-1">
+                  <Link
+                    href="/regisztracio"
+                    className="inline-flex items-center justify-center px-6 sm:px-8 py-3 bg-accent text-white font-heading font-semibold rounded-xl hover:opacity-90 transition-opacity"
+                  >
+                    {t('buttons.register')}
+                  </Link>
+                  <Link
+                    href="/profil"
+                    className="inline-flex items-center justify-center px-6 sm:px-8 py-3 rounded-xl border-2 border-[var(--border)] bg-background text-foreground font-heading font-semibold hover:border-accent/50 hover:bg-[var(--border)]/40 transition-colors"
+                  >
+                    {t('buttons.login')}
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </section>
 
-      <section className="py-10 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-2xl mx-auto rounded-2xl border-2 border-[var(--border)] bg-[var(--card-bg)] p-6 lg:p-8 text-center register-cta-blink">
-          <h2 className="font-heading text-xl font-bold text-foreground">{t('home.registerTitle')}</h2>
-          <p className="mt-2 text-muted">{t('home.registerDesc')}</p>
-          <Link
-            href="/regisztracio"
-            className="inline-block mt-5 px-6 py-3 bg-accent text-white font-heading font-semibold rounded-lg hover:opacity-90 transition-opacity"
-          >
-            {t('buttons.register')}
-          </Link>
+      {/* Bemutatkozás */}
+      <section className="py-16 lg:py-20">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="font-heading text-2xl sm:text-3xl font-bold text-foreground">{t('home.introTitle')}</h2>
+          <p className="mt-4 text-muted text-lg leading-relaxed">{t('home.introText')}</p>
         </div>
       </section>
 
-      <section className="py-16">
+      {/* Kiemelt termékek */}
+      <section className="py-16 bg-[var(--card-bg)] border-y border-[var(--border)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="font-heading text-2xl font-bold text-foreground">{t('home.new')}</h2>
-            <Link href="/ujdonsagok" className="text-accent font-medium hover:underline">
+          <div className="flex items-center justify-between mb-10">
+            <div>
+              <h2 className="font-heading text-2xl sm:text-3xl font-bold text-foreground">{t('home.featuredTitle')}</h2>
+              <p className="mt-1 text-muted text-sm">{t('home.featuredSubtitle')}</p>
+            </div>
+            <Link href="/termekek?kategoria=3d-nyomtatott" className="text-indigo-600 dark:text-indigo-400 font-medium hover:underline shrink-0">
               {t('home.all')}
             </Link>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {newProducts.map((p) => (
-              <ProductCard key={p.id} product={p} />
+          <FeaturedProductsGrid
+            initialProducts={featuredProducts}
+            newProducts={newProducts}
+            dealProducts={dealProducts}
+          />
+        </div>
+      </section>
+
+      {/* Miért minket */}
+      <section className="py-16 lg:py-20 bg-[var(--card-bg)] border-y border-[var(--border)]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="font-heading text-2xl sm:text-3xl font-bold text-foreground text-center mb-12">
+            {t('home.whyUsTitle')}
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            {[
+              { icon: '🖨️', title: t('home.whyUs1Title'), text: t('home.whyUs1Text') },
+              { icon: '✨', title: t('home.whyUs2Title'), text: t('home.whyUs2Text') },
+              { icon: '🎨', title: t('home.whyUs3Title'), text: t('home.whyUs3Text') },
+              { icon: '🚀', title: t('home.whyUs4Title'), text: t('home.whyUs4Text') },
+            ].map((item) => (
+              <div key={item.title} className="text-center p-6 rounded-2xl border border-[var(--border)] bg-background">
+                <div className="text-3xl mb-3">{item.icon}</div>
+                <h3 className="font-heading font-semibold text-foreground">{item.title}</h3>
+                <p className="mt-2 text-sm text-muted leading-relaxed">{item.text}</p>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="py-16 bg-[var(--card-bg)] border-y border-[var(--border)]">
+      {/* Vélemények */}
+      <section className="py-16 lg:py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between mb-8">
-            <h2 className="font-heading text-2xl font-bold text-foreground">{t('home.deals')}</h2>
-            <Link href="/akciok" className="text-accent font-medium hover:underline">
-              {t('home.allDeals')}
+          <h2 className="font-heading text-2xl sm:text-3xl font-bold text-foreground text-center mb-12">
+            {t('home.reviewsTitle')}
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {reviews.map((r) => (
+              <blockquote key={r.name} className="p-6 rounded-2xl border border-[var(--border)] bg-[var(--card-bg)]">
+                <div className="flex gap-0.5 mb-3" aria-hidden>
+                  {Array.from({ length: r.stars }).map((_, i) => (
+                    <span key={i} className="text-amber-400">★</span>
+                  ))}
+                </div>
+                <p className="text-foreground leading-relaxed">&ldquo;{r.text}&rdquo;</p>
+                <footer className="mt-4 text-sm font-medium text-muted">— {r.name}</footer>
+              </blockquote>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* GYIK */}
+      <section className="py-16 bg-[var(--card-bg)] border-y border-[var(--border)]">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="font-heading text-2xl sm:text-3xl font-bold text-foreground text-center mb-10">
+            {t('home.faqTitle')}
+          </h2>
+          <div className="space-y-4">
+            {faqItems.map((item) => (
+              <details key={item.q} className="group rounded-xl border border-[var(--border)] bg-background overflow-hidden">
+                <summary className="px-5 py-4 font-medium text-foreground cursor-pointer list-none flex items-center justify-between gap-4">
+                  {item.q}
+                  <span className="text-muted group-open:rotate-180 transition-transform shrink-0">▼</span>
+                </summary>
+                <p className="px-5 pb-4 text-muted text-sm leading-relaxed">{item.a}</p>
+              </details>
+            ))}
+          </div>
+          <p className="text-center mt-8">
+            <Link href="/gyik" className="text-indigo-600 dark:text-indigo-400 font-medium hover:underline">
+              {t('home.faqMore')}
+            </Link>
+          </p>
+        </div>
+      </section>
+
+      {/* Kapcsolat */}
+      <section id="kapcsolat" className="py-16 lg:py-20">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="font-heading text-2xl sm:text-3xl font-bold text-foreground">{t('home.contactTitle')}</h2>
+          <p className="mt-4 text-muted text-lg">{t('home.contactText')}</p>
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link
+              href="/kapcsolat"
+              className="inline-block px-8 py-3 bg-indigo-600 text-white font-heading font-semibold rounded-xl hover:bg-indigo-700 transition-colors"
+            >
+              {t('nav.contact')}
+            </Link>
+            <Link
+              href="/szallitas"
+              className="inline-block px-8 py-3 border border-[var(--border)] text-foreground font-medium rounded-xl hover:bg-[var(--border)]/50 transition-colors"
+            >
+              {t('nav.shipping')}
             </Link>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {dealProducts.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
         </div>
       </section>
 
-      <section className="py-12 border-t border-[var(--border)]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 text-center">
-            <div>
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-accent/10 text-accent mb-3">
-                <TruckIcon className="w-6 h-6" />
-              </div>
-              <p className="font-heading font-semibold text-foreground">{t('home.trustDispatch')}</p>
-            </div>
-            <div>
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-accent/10 text-accent mb-3">
-                <CardIcon className="w-6 h-6" />
-              </div>
-              <p className="font-heading font-semibold text-foreground">{t('home.trustPayment')}</p>
-            </div>
-            <div>
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-accent/10 text-accent mb-3">
-                <ReturnIcon className="w-6 h-6" />
-              </div>
-              <p className="font-heading font-semibold text-foreground">{t('home.trustReturns')}</p>
-            </div>
-            <div>
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-accent/10 text-accent mb-3">
-                <ChatIcon className="w-6 h-6" />
-              </div>
-              <p className="font-heading font-semibold text-foreground">{t('home.trustChat')}</p>
-            </div>
+      {/* Trust strip */}
+      <section className="py-10 border-y border-[var(--border)] bg-[var(--card-bg)]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-4 gap-6 text-center text-sm text-muted">
+          <div>
+            <p className="font-medium text-foreground">{t('home.trustDispatch')}</p>
           </div>
-        </div>
-      </section>
-
-      <section className="py-16 bg-[var(--card-bg)] border-y border-[var(--border)]">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="font-heading text-xl font-bold text-foreground">{t('home.whyGoodPriceTitle')}</h2>
-          <p className="mt-3 text-muted">{t('home.whyGoodPriceText')}</p>
+          <div>
+            <p className="font-medium text-foreground">{t('home.trustPayment')}</p>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">{t('home.trustReturns')}</p>
+          </div>
+          <div>
+            <p className="font-medium text-foreground">{t('home.trustChat')}</p>
+          </div>
         </div>
       </section>
 
       <RecentlyViewed />
-
-      <section className="py-16">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="font-heading text-xl font-bold text-foreground">{t('home.loyaltyTitle')}</h2>
-          <p className="mt-3 text-muted">{t('home.loyaltyText')}</p>
-        </div>
-      </section>
-
-      <section className="py-16 bg-[var(--card-bg)] border-y border-[var(--border)]">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="font-heading text-xl font-bold text-foreground">{t('home.aboutUsTitle')}</h2>
-          <p className="mt-3 text-muted">{t('home.aboutUsText')}</p>
-        </div>
-      </section>
-
-      <section className="py-12 border-t border-[var(--border)]">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="font-heading text-xl font-bold text-foreground">{t('newsletter.title') || 'Hírlevél'}</h2>
-          <p className="mt-2 text-muted text-sm">{t('newsletter.desc') || 'Iratkozz fel a legújabb ajánlatokra.'}</p>
-          <div className="mt-6">
-            <NewsletterSignup />
-          </div>
-        </div>
-      </section>
     </>
-  )
-}
-
-function TruckIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 01-1-1V4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1zm-3-1a1 1 0 001-1V6a1 1 0 00-1-1H9a1 1 0 00-1 1v8a1 1 0 001 1z" />
-    </svg>
-  )
-}
-function CardIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-    </svg>
-  )
-}
-function ReturnIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-    </svg>
-  )
-}
-function ChatIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-    </svg>
-  )
-}
-function MagicGoldIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <path d="M12 2l2.4 7.4h7.6l-6 4.6 2.3 7-6.3-4.6-6.3 4.6 2.3-7-6-4.6h7.6L12 2z" />
-    </svg>
   )
 }

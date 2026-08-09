@@ -1,10 +1,10 @@
 /**
- * Auth: NextAuth (Google) + httpOnly session cookie (JWT, email/jelszó).
- * getSession(request) – először NextAuth session, majd saját JWT.
+ * Auth: JWT cookie session (email/jelszó) + NextAuth JWT (Google OAuth).
+ * getToken() dinamikus secret-tel – elkerüli a Railway NO_SECRET build/runtime problémákat.
  */
 import { SignJWT, jwtVerify } from 'jose'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth-options'
+import { decode } from 'next-auth/jwt'
+import { resolveJwtSecret, resolveNextAuthSecret } from '@/lib/bootstrap-auth-env'
 
 const COOKIE_NAME = 'gulumen-session'
 const JWT_ISSUER = 'gulumen'
@@ -14,25 +14,22 @@ const MAX_AGE_SEC = 30 * 24 * 60 * 60 // 30 nap
 export type SessionUser = {
   userId: string
   email: string
+  provider?: 'credentials' | 'google'
+  isNewUser?: boolean
 }
 
 function getSecret(): Uint8Array | null {
-  const secret = process.env.JWT_SECRET
+  const secret = resolveJwtSecret()
   if (!secret || secret.length < 16) return null
   return new TextEncoder().encode(secret)
 }
 
-/** True ha JWT_SECRET be van állítva (legalább 16 karakter). Auth 503 ellenőrzéshez. */
+/** True ha JWT titok be van állítva (legalább 16 karakter). */
 export function isJwtConfigured(): boolean {
   return getSecret() !== null
 }
 
-export async function getSession(request: Request): Promise<SessionUser | null> {
-  const nextSession = await getServerSession(authOptions)
-  if (nextSession?.user?.email) {
-    const id = (nextSession.user as { id?: string }).id
-    if (id) return { userId: id, email: nextSession.user.email }
-  }
+async function getCredentialsSession(request: Request): Promise<SessionUser | null> {
   const secret = getSecret()
   if (!secret) return null
   const cookie = request.headers.get('cookie')
@@ -48,10 +45,64 @@ export async function getSession(request: Request): Promise<SessionUser | null> 
     const sub = payload.sub
     const email = payload.email as string | undefined
     if (!sub || !email) return null
-    return { userId: sub, email }
+    return { userId: sub, email: email.trim().toLowerCase(), provider: 'credentials' }
   } catch {
     return null
   }
+}
+
+function getNextAuthSessionToken(cookieHeader: string | null): string | undefined {
+  if (!cookieHeader) return undefined
+  const cookieNames = ['__Secure-next-auth.session-token', 'next-auth.session-token']
+  for (const name of cookieNames) {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const match = cookieHeader.match(new RegExp(`(?:^|;)\\s*${escaped}=([^;]+)`))
+    if (match?.[1]) return decodeURIComponent(match[1])
+  }
+  return undefined
+}
+
+async function getGoogleSession(request: Request): Promise<SessionUser | null> {
+  const secret = resolveNextAuthSecret()
+  if (!secret) return null
+  const sessionToken = getNextAuthSessionToken(request.headers.get('cookie'))
+  if (!sessionToken) return null
+  try {
+    const token = await decode({ token: sessionToken, secret })
+    if (!token?.email) return null
+    const email = String(token.email).trim().toLowerCase()
+    const userId = (token.userId as string | undefined) || (token.sub as string | undefined) || email
+    return {
+      userId,
+      email,
+      provider: 'google',
+      isNewUser: token.isNewUser === true,
+    }
+  } catch {
+    return null
+  }
+}
+
+export async function getSession(request: Request): Promise<SessionUser | null> {
+  const credentials = await getCredentialsSession(request)
+  if (credentials) return credentials
+  return getGoogleSession(request)
+}
+
+/** Prisma User.id – kedvelésekhez és wishlisthez (email/jelszó és Google OAuth). */
+export async function resolveSessionUserId(session: SessionUser): Promise<string | null> {
+  const email = session.email?.trim().toLowerCase()
+  if (!email) return null
+  const { isDbConfigured, prisma } = await import('@/lib/prisma')
+  if (isDbConfigured()) {
+    const user = await prisma.user.findUnique({ where: { email }, select: { id: true } })
+    return user?.id ?? null
+  }
+  const { devFindUserByEmail, devFindUserById } = await import('@/lib/dev-auth')
+  const byEmail = devFindUserByEmail(email)
+  if (byEmail) return byEmail.id
+  const byId = devFindUserById(session.userId)
+  return byId?.id ?? session.userId
 }
 
 export async function createSession(userId: string, email: string): Promise<string> {

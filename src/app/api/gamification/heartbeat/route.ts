@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
-import { getSession } from '@/lib/auth'
+import { getSession, resolveSessionUserId } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
+import { recordBrowseHeartbeat } from '@/lib/gamification/browse-heartbeat'
+import { processPendingPointEvents } from '@/lib/gamification/point-event-queue'
 import {
   checkHeartbeatVelocity,
   getClientIp,
@@ -8,22 +10,29 @@ import {
 
 /**
  * POST /api/gamification/heartbeat
- * Anti-abuse: IP rate-limit (max 3/perc) + user/IP velocity.
- * A kliensoldali isVisible/hasFocus flagek NEM megbízhatók – nem befolyásolják a döntést.
+ * Percenkénti tick – aktív böngészés logolása (UserDailyActivity).
+ * Anti-abuse: IP + user velocity (max 3 tick/perc), kliens flagek nem megbízhatók.
  */
 export async function POST(request: Request) {
-  const limit = await rateLimit(request, 'heartbeat')
+  const limit = await rateLimit(request, { preset: 'heartbeat' })
   if (!limit.ok) {
     return NextResponse.json(
-      { error: 'Too many requests', accepted: false, reason: 'rate_limit' },
+      { error: 'Túl sok kérés. Próbáld újra később.' },
       { status: 429 }
     )
   }
 
-  const ip = getClientIp(request)
   const session = await getSession(request)
-  const userId = session?.userId ?? `anon:${ip}`
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
+  const userId = await resolveSessionUserId(session)
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const ip = getClientIp(request)
   const velocity = await checkHeartbeatVelocity({ userId, ip })
   if (!velocity.ok) {
     return NextResponse.json(
@@ -42,18 +51,38 @@ export async function POST(request: Request) {
     )
   }
 
-  // Body opcionális – flageket szándékosan figyelmen kívül hagyjuk (anti-abuse).
-  if (request.headers.get('content-type')?.includes('application/json')) {
-    try {
-      await request.json()
-    } catch {
-      // ignore invalid/empty body
-    }
+  let body: { isVisible?: boolean; hasFocus?: boolean }
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  return NextResponse.json({
-    ok: true,
-    accepted: true,
-    ts: Date.now(),
-  })
+  // Soft hints only – server velocity / min-interval dönt.
+  const isVisible = body.isVisible === true
+  const hasFocus = body.hasFocus === true
+
+  try {
+    const result = await recordBrowseHeartbeat({ userId, isVisible, hasFocus })
+
+    console.info('[gamification/heartbeat]', {
+      userId,
+      ip,
+      accepted: result.accepted,
+      activeSecondsToday: result.activeSecondsToday,
+      bonusQueued: result.bonusQueued,
+      reason: result.reason,
+    })
+
+    if (result.bonusQueued) {
+      await processPendingPointEvents(5, userId)
+    } else {
+      await processPendingPointEvents(3, userId)
+    }
+
+    return NextResponse.json(result)
+  } catch (e) {
+    console.error('[api/gamification/heartbeat] POST', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 }

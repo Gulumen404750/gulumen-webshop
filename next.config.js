@@ -2,6 +2,11 @@ const { withSentryConfig } = require('@sentry/nextjs')
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    instrumentationHook: true,
+    // Keep next-auth as Node require – avoids webpack inlining process.env at build time
+    serverComponentsExternalPackages: ['next-auth'],
+  },
   images: {
     formats: ['image/avif', 'image/webp'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048],
@@ -12,6 +17,10 @@ const nextConfig = {
       { protocol: 'https', hostname: 'i.imgur.com', pathname: '/**' },
       { protocol: 'https', hostname: 'res.cloudinary.com', pathname: '/**' },
       { protocol: 'https', hostname: '**.cloudinary.com', pathname: '/**' },
+      { protocol: 'https', hostname: 'gulumen.b-cdn.net', pathname: '/**' },
+      { protocol: 'https', hostname: '**.b-cdn.net', pathname: '/**' },
+      { protocol: 'https', hostname: 'storage.bunnycdn.com', pathname: '/**' },
+      { protocol: 'https', hostname: '**.storage.bunnycdn.com', pathname: '/**' },
       { protocol: 'http', hostname: 'localhost', pathname: '/**' },
     ],
   },

@@ -7,10 +7,16 @@ const ADMIN_LOGIN = '/admin/login'
 
 /**
  * Security middleware – minden route-on fut.
- * X-Frame-Options, CSP, HSTS, stb.
  * /admin/* (kivéve /admin/login) védve: aláírt admin JWT cookie.
  */
 export async function middleware(request: NextRequest) {
+  const host = request.nextUrl.hostname
+  if (host === 'gulumen.com') {
+    const wwwUrl = request.nextUrl.clone()
+    wwwUrl.hostname = 'www.gulumen.com'
+    return NextResponse.redirect(wwwUrl, 308)
+  }
+
   const pathname = request.nextUrl.pathname
   if (pathname.startsWith(ADMIN_PREFIX) && !pathname.startsWith(ADMIN_LOGIN)) {
     const token = request.cookies.get(ADMIN_COOKIE_NAME)?.value
@@ -23,6 +29,8 @@ export async function middleware(request: NextRequest) {
   }
 
   const response = NextResponse.next()
+  response.headers.set('x-pathname', request.nextUrl.pathname)
+  response.headers.set('x-search', request.nextUrl.search)
   response.headers.set('X-Frame-Options', 'DENY')
   response.headers.set('X-Content-Type-Options', 'nosniff')
   response.headers.set('Referrer-Policy', 'strict-origin')
@@ -39,6 +47,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // /models/* ne menjen middleware-en keresztül (statikus GLB kiszolgálás)
   matcher: ['/((?!_next/static|_next/image|favicon.ico|models/).*)'],
 }

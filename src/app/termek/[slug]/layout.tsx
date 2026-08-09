@@ -1,6 +1,11 @@
 import type { Metadata } from 'next'
 import { getProductBySlugAsync, getProductDescription } from '@/lib/data'
 import { categories } from '@/lib/data'
+import {
+  getProductOgImageUrl,
+  OG_IMAGE_HEIGHT,
+  OG_IMAGE_WIDTH,
+} from '@/lib/product-og-image'
 
 const SITE_NAME = 'Gulumen'
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://gulumen.hu'
@@ -20,9 +25,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const description =
     descText.slice(0, 155) ||
     `${product.name}. ${categoryName}. ${product.condition}. ${(product.discountPriceHuf ?? product.priceHuf).toLocaleString('hu-HU')} Ft.`
-  const canonical = `${BASE_URL}/termek/${product.slug}`
-  const imagePath = product.image?.startsWith('/') ? product.image : '/img/logo.png'
-  const imageUrl = imagePath.startsWith('http') ? imagePath : `${BASE_URL}${imagePath}`
+  const canonical = `${BASE_URL}/termek/${encodeURIComponent(product.slug)}`
+  const ogImageUrl = getProductOgImageUrl(product.slug)
 
   return {
     title,
@@ -34,14 +38,21 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
       url: canonical,
       siteName: SITE_NAME,
       type: 'website',
-      images: [{ url: imageUrl, width: 1200, height: 630, alt: product.name }],
+      images: [
+        {
+          url: ogImageUrl,
+          width: OG_IMAGE_WIDTH,
+          height: OG_IMAGE_HEIGHT,
+          alt: product.name,
+        },
+      ],
       locale: 'hu_HU',
     },
     twitter: {
       card: 'summary_large_image',
       title,
       description,
-      images: [imageUrl],
+      images: [ogImageUrl],
     },
     alternates: { canonical },
   }

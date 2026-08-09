@@ -7,6 +7,7 @@
 
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import type { Product } from '@/lib/data'
+import { isSaleActive } from '@/lib/storefront-config'
 
 const SETTING_KEY = 'deal_popup_config'
 
@@ -29,7 +30,7 @@ export { DEFAULT_CONFIG }
 
 /** Megfelelő akciós termék a popupba: akciós, aktív, megjeleníthető, van képe, neve, ára. */
 export function isEligibleForDealPopup(p: Product): boolean {
-  if (!p.onSale) return false
+  if (!isSaleActive(p)) return false
   if (p.type === 'sourcing_deal') return false
   const hasImage = Boolean(p.image && String(p.image).trim())
   const hasName = Boolean(

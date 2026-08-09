@@ -19,6 +19,7 @@ import {
   LOCALES,
 } from '@/i18n/locales'
 import { getTranslations, t as translate } from '@/i18n/translations'
+import { persistLocaleToCookie } from '@/lib/locale-cookie'
 
 type LocaleContextValue = {
   locale: Locale
@@ -35,22 +36,41 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window === 'undefined') return
     setMounted(true)
+
+    const params = new URLSearchParams(window.location.search)
+    const langParam = params.get('lang')
+    if (langParam && isValidLocale(langParam)) {
+      setLocaleState(langParam)
+      localStorage.setItem(STORAGE_KEY, langParam)
+      persistLocaleToCookie(langParam)
+      document.documentElement.lang = langParam
+      return
+    }
+
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored && isValidLocale(stored)) {
-      setLocaleState(stored as Locale)
-    } else {
-      const detected = getLocaleFromBrowser()
-      setLocaleState(detected)
-      localStorage.setItem(STORAGE_KEY, detected)
-      document.documentElement.lang = detected
+      setLocaleState(stored)
+      persistLocaleToCookie(stored)
+      document.documentElement.lang = stored
+      return
     }
+
+    const detected = getLocaleFromBrowser()
+    setLocaleState(detected)
+    localStorage.setItem(STORAGE_KEY, detected)
+    persistLocaleToCookie(detected)
+    document.documentElement.lang = detected
   }, [])
 
   const setLocale = useCallback((next: Locale) => {
     setLocaleState(next)
     if (typeof window !== 'undefined') {
       localStorage.setItem(STORAGE_KEY, next)
+      persistLocaleToCookie(next)
       document.documentElement.lang = next
+      const url = new URL(window.location.href)
+      url.searchParams.set('lang', next)
+      window.history.replaceState(null, '', url.toString())
     }
   }, [])
 

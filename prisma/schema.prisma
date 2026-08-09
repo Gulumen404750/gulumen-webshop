@@ -30,19 +30,26 @@ model Product {
   image            String
   images           String[] @default([])
   images360        String[] @default([])
+  /// Színenkénti galéria: ColorVariant[] vagy legacy { [colorId]: string[] }.
+  colorImages      Json?
   modelUrl         String?
   priceHuf         Int
   priceEur         Int
   discountPriceHuf Int?
   discountPriceEur Int?
-  stock            Int      @default(0)
+  /// Készlet: -1 = végtelen/készleten; 0 = elfogyott; >0 = darabszám.
+  stock            Int      @default(-1)
   variants         Json?    // [{ size?, color? }]
   isNew            Boolean  @default(false)
   onSale           Boolean  @default(false)
+  saleStartAt      DateTime?
+  saleEndAt        DateTime?
   active           Boolean  @default(true)
   archived         Boolean  @default(false)
   isColorable      Boolean  @default(false)
   likesCount       Int      @default(0)
+  /// Termékoldal megtekintések (kattintások) – bot/admin nélkül növelve.
+  viewsCount       Int      @default(0)
   // Sourcing / visszaszámlálós: minden időzítés DB-ben, deploy után nem változik
   type             String   @default("stock") // stock | sourcing_deal
   sourcingEnabled  Boolean  @default(false)
@@ -72,8 +79,18 @@ model Coupon {
   minOrderHuf  Int?
   maxUses      Int?     // null = unlimited
   usedCount    Int       @default(0)
+  /// Gamification: személyes kupon tulajdonos (egy user = egy aktív gamification kupon)
+  userId       String?
+  user         User?     @relation("GamificationCoupons", fields: [userId], references: [id], onDelete: SetNull)
+  /// gamification | admin | registration | abandoned_cart | birthday
+  source       String?
+  /// Melyik pontlevonás hozta létre (append-only audit)
+  pointTransactionId String? @unique
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  orders       Order[]
+  @@index([userId, active])
+  @@index([source])
 }
 
 /// Admin / chatbot / webshop beállítások – key-value.
@@ -89,11 +106,82 @@ model User {
   email     String   @unique
   passwordHash String?  // null = OAuth (pl. Google) felhasználó
   name      String?
+  /// Marketing / hírlevél hozzájárulás (GDPR). Tranzakciós e-mailektől független.
+  marketingOptIn       Boolean   @default(false)
+  marketingOptInAt     DateTime?
+  marketingOptOutAt    DateTime?
+  /// registration | newsletter | checkout | admin | unsubscribe
+  marketingOptInSource String?
+  /// Checkout welcome 10% hírlevél-kupon egyszer felhasználva (ne lehessen újra).
+  hasRedeemedWelcomeCoupon Boolean @default(false)
+  /// Opcionális születési dátum (születésnapi 15% kupon).
+  birthDate DateTime?
+  /// Melyik naptári évben küldtünk már születésnapi kupont (év / Europe/Budapest).
+  birthdayCouponLastSentYear Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   orders    Order[]
   productLikes ProductLike[]
   loyaltyRecords LoyaltyRecord[]
+  pointWallet UserPointWallet?
+  pointTransactions PointTransaction[]
+  pointEvents PointEvent[]
+  dailyActivities UserDailyActivity[]
+  gamificationCoupons Coupon[] @relation("GamificationCoupons")
+  promoCoupons        UserPromoCoupon[]
+  cartSnapshot        UserCartSnapshot?
+  likePointWindow UserLikePointWindow?
+  luckySpins LuckySpin[]
+}
+
+/// E-mail szintű marketing hozzájárulás (hírlevél, vendég, leiratkozási token).
+model MarketingConsent {
+  id          String    @id @default(cuid())
+  email       String    @unique
+  optedIn     Boolean   @default(false)
+  confirmed   Boolean   @default(false)
+  source      String?
+  optedInAt   DateTime?
+  optedOutAt  DateTime?
+  unsubToken  String    @unique @default(cuid())
+  /// Vendég checkout welcome 10% – e-mailhez kötve, hogy ne lehessen újra.
+  hasRedeemedWelcomeCoupon Boolean @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  @@index([optedIn, confirmed])
+}
+
+/// Bejelentkezett felhasználó kosár pillanatképe (elhagyott kosár adminhoz).
+model UserCartSnapshot {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items           Json
+  itemCount       Int      @default(0)
+  subtotalHuf     Int      @default(0)
+  lastUpdatedAt   DateTime @updatedAt
+  createdAt       DateTime @default(now())
+  lastOfferAt     DateTime?
+  lastOfferPercent Int?
+  lastOfferCouponId String?
+  @@index([lastUpdatedAt])
+  @@index([itemCount])
+}
+
+/// Macska (5%) és regisztrációs (10%) egyszeri kupon – szerver oldali napló (admin láthatóság).
+model UserPromoCoupon {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// cat | registration
+  kind      String
+  /// claimed | used
+  status    String   @default("claimed")
+  claimedAt DateTime @default(now())
+  usedAt    DateTime?
+  @@unique([userId, kind])
+  @@index([kind, status])
+  @@index([claimedAt])
 }
 
 model Order {
@@ -119,6 +207,19 @@ model Order {
   cancelRequestedAt DateTime?
   userId             String?
   user              User?    @relation(fields: [userId], references: [id])
+  /// Ponttal fizetett összeg (Ft) – max. kosár 30%-a.
+  pointsDiscountHuf Int      @default(0)
+  /// Levont pontok száma (checkout mentés).
+  pointsUsed         Int      @default(0)
+  /// Checkout DB kupon (admin / gamification kód).
+  couponId           String?
+  coupon             Coupon?  @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  /// Sikeres fizetés után usedCount növelve (rendelés-csoportonként egyszer).
+  couponUsageRecorded Boolean @default(false)
+  /// Manuálisan kiválasztott kuponok a checkouton: ["cat","birthday","welcome",...].
+  appliedCoupons     Json?
+  /// Kuponégés + pontlevonás lefuttatva (webhook / siker oldal – idempotens).
+  rewardsFinalized   Boolean  @default(false)
   items             OrderItem[]
   paymentTransactions PaymentTransaction[]
 
@@ -157,8 +258,12 @@ model ProductLike {
   productId String
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Gamification: napi 10 lájk számlálóhoz – unlike esetén false, sor megmarad auditra
+  countsForDailyBonus Boolean @default(true)
   createdAt DateTime @default(now())
   @@unique([productId, userId])
+  @@index([userId, createdAt])
+  @@index([createdAt])
 }
 
 model LoyaltyRecord {
@@ -251,16 +356,134 @@ model VoiceApiLog {
   @@index([createdAt])
 }
 
-/// Outbox események (hűségpont / loyalty) – cron process-outbox dolgozza fel.
-model PointEvent {
-  id          String    @id @default(cuid())
-  type        String    // loyalty_increment | loyalty_decrement
-  payload     Json
-  status      String    @default("pending") // pending | processed | failed
-  attempts    Int       @default(0)
-  error       String?
-  createdAt   DateTime  @default(now())
-  processedAt DateTime?
+/// AI chat kérdések naplója – anonim (IP hash), admin statisztikához.
+model ChatLog {
+  id           String   @id @default(cuid())
+  question     String
+  /// Normalizált szöveg csoportosításhoz (kisbetű, trim, whitespace).
+  questionNorm String
+  /// SHA-256 hash – nyers IP nem tárolódik.
+  ipHash       String
+  locale       String   @default("hu")
+  createdAt    DateTime @default(now())
+  @@index([questionNorm])
+  @@index([createdAt])
+}
 
-  @@index([status, createdAt])
+// ─── Gamification (pontrendszer) ───────────────────────────────────────────
+
+/// Gyors olvasás: cache-elt egyenleg. Forrás igazság: PointTransaction (append-only).
+model UserPointWallet {
+  userId               String   @id
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balance              Int      @default(0)
+  lifetimeEarned       Int      @default(0)
+  lifetimeRedeemed     Int      @default(0)
+  gamificationSuspended Boolean @default(false)
+  suspendedAt          DateTime?
+  suspendReason        String?
+  lastReconciledAt     DateTime?
+  /// Optimistic lock – párhuzamos pontírás ellen
+  version              Int      @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+/// Append-only pont főkönyv – UPDATE/DELETE tiltva az app rétegben.
+model PointTransaction {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Pozitív = jóváírás, negatív = levonás. Soha 0.
+  delta           Int
+  balanceAfter    Int
+  type            String   // BROWSE_5MIN | LIKE_DAILY_BONUS | REDEEM_COUPON | REVERSAL | ADMIN_ADJUST
+  reason          String?
+  idempotencyKey  String   @unique
+  referenceType   String?  // browse_day | product_like | coupon | order
+  referenceId     String?
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  @@index([userId, createdAt])
+  @@index([type, createdAt])
+  @@index([referenceType, referenceId])
+}
+
+/// Outbox: API gyors válasz → háttérben feldolgozás (nem terheli a fő requestet).
+model PointEvent {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type            String   // BROWSE_5MIN | LIKE_DAILY_BONUS | REDEEM_COUPON
+  idempotencyKey  String   @unique
+  payload         Json     @default("{}")
+  status          String   @default("pending") // pending | processing | completed | failed
+  attempts        Int      @default(0)
+  maxAttempts     Int      @default(5)
+  lastError       String?
+  scheduledAt     DateTime @default(now())
+  processedAt     DateTime?
+  createdAt       DateTime @default(now())
+  @@index([status, scheduledAt])
+  @@index([userId, createdAt])
+}
+
+/// Napi összesítő snapshot – gyors dashboard / reconciliation (opcionális cache).
+model PointSnapshot {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime @db.Date
+  balance   Int
+  txCount   Int      @default(0)
+  createdAt DateTime @default(now())
+  @@unique([userId, date])
+  @@index([date])
+}
+
+/// Napi 5 perc aktív böngészés – Europe/Budapest naptári nap.
+model UserDailyActivity {
+  id                     String    @id @default(cuid())
+  userId                 String
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activityDate           DateTime  @db.Date
+  activeSeconds          Int       @default(0)
+  /// Aktuális 5 perces session haladása (bónusz után nullázódik).
+  sessionProgressSeconds Int       @default(0)
+  /// Ma hány böngészés bónusz járt (max 2 / nap).
+  bonusGrantedCount      Int       @default(0)
+  lastBonusGrantedAt     DateTime?
+  lastHeartbeatAt        DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  @@unique([userId, activityDate])
+  @@index([activityDate])
+}
+
+/// 12 órás gördülő ablak: max 10 pontszerző lájk / ablak.
+model UserLikePointWindow {
+  userId              String   @id
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  windowStartedAt     DateTime
+  qualifyingLikeCount Int      @default(0)
+  bonusGranted        Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+/// Heti Szerencsekerék – 10 kedvelt termék, 3 napig érvényes, tier kedvezmény (15/20/25%).
+model LuckySpin {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// ISO hét azonosító (Europe/Budapest), pl. "2026-W28"
+  weekId      String
+  /// Kiválasztott 10 termék ID (ProductLike alapján)
+  productIds  String[]
+  /// Pörgetéskor zárolt árak: { productId: priceHuf }
+  priceSnapshot Json     @default("{}")
+  generatedAt DateTime @default(now())
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  @@unique([userId, weekId])
+  @@index([userId, expiresAt])
 }

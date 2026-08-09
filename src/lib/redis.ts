@@ -1,6 +1,6 @@
 /**
  * Upstash Redis kliens. Ha UPSTASH_REDIS_REST_URL / TOKEN nincs beállítva,
- * null-t ad vissza → a rate-limit / idempotency in-memory fallbackre vált.
+ * null → rate-limit / idempotency in-memory fallback.
  */
 
 import { Redis } from '@upstash/redis'

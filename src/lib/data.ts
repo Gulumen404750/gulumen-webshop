@@ -1,3 +1,5 @@
+import { productSlugLookupCandidates } from '@/lib/slug'
+
 export type Condition = 'Új' | 'Új, címkés' | 'Új kinézetű' | 'Kiváló' | 'Jó'
 
 export type ProductType = 'stock' | 'sourcing_deal'
@@ -26,8 +28,19 @@ export interface Product {
   images: string[]
   /** Opcionális 360° megtekintés: képkockák URL-jei (körbe húzva lapozható). */
   images360?: string[]
+  /**
+   * Színenkénti galéria: legacy map (id → képek) vagy ColorVariant tömb
+   * ({ id, name, hex, images }[]). Shopban a képpel rendelkező színek jelennek meg.
+   */
+  colorImages?: Record<string, string[]> | import('@/lib/filamentColors').ColorVariant[]
   /** 3D termék: GLB modell URL (pl. /models/noveny-kotozo.glb), körbe forgatható megjelenítéshez. */
   modelUrl?: string
+  /**
+   * Készlet:
+   * - negatív (pl. -1) vagy null/undefined → végtelen / „Készleten”
+   * - 0 → elfogyott
+   * - pozitív → pontos darabszám
+   */
   stock: number
   variants?: { size?: string; color?: string }[]
   /** Leírás (mock: egyetlen mező; DB: getProductDescription használja a _hu/_en/_de mezőket). */
@@ -39,6 +52,12 @@ export interface Product {
   description_ro?: string
   isNew?: boolean
   onSale?: boolean
+  /** Storefront láthatóság (DB). Mock módban a storefront-config szűr. */
+  active?: boolean
+  archived?: boolean
+  /** Időzített akció kezdete/vége (ISO string). */
+  saleStartAt?: string
+  saleEndAt?: string
   type?: ProductType
   previewFrom?: string
   saleFrom?: string
@@ -205,13 +224,26 @@ export function getAddToCartReason(
     if (status === 'closed') return { canAdd: false, reasonKey: 'status.expired' }
     return { canAdd: false, reasonKey: 'addToCartReason.previewNotStarted' }
   }
-  const stock = is3DProduct(product) ? UNLIMITED_STOCK_CAP : Math.max(0, product.stock ?? 0)
+  if (isUnlimitedStock(product)) return { canAdd: true }
+  const stock = Math.max(0, product.stock ?? 0)
   if (stock <= 0) return { canAdd: false, reasonKey: 'status.soldOut' }
   return { canAdd: true }
 }
 
 /**
+ * Végtelen / nem számozott készlet: stock < 0 (admin üresen hagyta → -1).
+ * Legacy: 3D termék stock === 0 is végtelennek számít (korábbi viselkedés).
+ */
+export function isUnlimitedStock(product: Product): boolean {
+  if (product.type === 'sourcing_deal') return false
+  if (product.stock == null || product.stock < 0) return true
+  if (product.stock === 0 && is3DProduct(product)) return true
+  return false
+}
+
+/**
  * Kijelzett készlet a termék típusa szerint.
+ * - unlimited → UNLIMITED_STOCK_CAP (UI: „Készleten”, darabszám nélkül)
  * - stock: product.stock
  * - sourcing_deal: maxOrders - ordersCount (rendelhető maradék)
  */
@@ -221,6 +253,7 @@ export function getDisplayStock(product: Product, ordersCountOverride?: number):
     const count = ordersCountOverride ?? product.ordersCount ?? 0
     return Math.max(0, maxOrders - count)
   }
+  if (isUnlimitedStock(product)) return UNLIMITED_STOCK_CAP
   return Math.max(0, product.stock ?? 0)
 }
 
@@ -232,13 +265,15 @@ export function getDisplayStock(product: Product, ordersCountOverride?: number):
  * - Cart Quantity (kosárban lévő): külön, pl. "Kosárban: X db".
  * - Max in cart (max. kosárban): getMaxQty(product) = getStockById(id) készletes terméknél; validáció: cartQty + addQty <= getMaxQty.
  */
-/** 3D nyomtatott termékeknél nincs készletlimit – ennyi db-ig lehet egyszerre választani (gyakorlatilag bármennyit). */
-const UNLIMITED_STOCK_CAP = 999
+/** Végtelen készletnél ennyi db-ig lehet egyszerre választani a kosárban. */
+export const UNLIMITED_STOCK_CAP = 999
+/** Admin üres készletmező → ezt mentjük (végtelen / készleten). */
+export const UNLIMITED_STOCK_VALUE = -1
 
 export function getStockById(productId: string): number {
   const p = mockProducts.find((x) => x.id === productId)
   if (!p) return 0
-  if (is3DProduct(p)) return UNLIMITED_STOCK_CAP
+  if (isUnlimitedStock(p)) return UNLIMITED_STOCK_CAP
   return Math.max(0, p.stock ?? 0)
 }
 
@@ -261,21 +296,27 @@ export function getMaxQty(
     const count = ordersCountOverride ?? product.ordersCount ?? 0
     return Math.max(0, maxOrders - count)
   }
-  if (is3DProduct(product)) return UNLIMITED_STOCK_CAP
+  if (isUnlimitedStock(product)) return UNLIMITED_STOCK_CAP
   return Math.max(0, product.stock ?? 0)
 }
 
 export const categories = [
-  { slug: 'taskak', name: 'Táskák', nameEn: 'Bags', nameDe: 'Taschen', nameRo: 'Genți' },
-  { slug: 'ruhazat', name: 'Ruházat', nameEn: 'Clothing', nameDe: 'Kleidung', nameRo: 'Îmbrăcăminte' },
-  { slug: 'kiegeszitok', name: 'Kiegészítők', nameEn: 'Accessories', nameDe: 'Accessoires', nameRo: 'Accesorii' },
-  { slug: 'elektronika', name: 'Elektronika / Egyéb', nameEn: 'Electronics & More', nameDe: 'Elektronik & Mehr', nameRo: 'Electronică și altele' },
-  { slug: 'otthon', name: 'Otthon', nameEn: 'Home', nameDe: 'Zuhause', nameRo: 'Casă' },
-  { slug: '3d-nyomtatott', name: '3D Nyomtatott Termékek', nameEn: '3D Printed Products', nameDe: '3D-Druck Produkte', nameRo: 'Produse printate 3D' },
+  { slug: 'taskak', name: 'Táskák', nameEn: 'Bags', nameDe: 'Taschen', nameRo: 'Genți', storefrontVisible: false },
+  { slug: 'ruhazat', name: 'Ruházat', nameEn: 'Clothing', nameDe: 'Kleidung', nameRo: 'Îmbrăcăminte', storefrontVisible: false },
+  { slug: 'kiegeszitok', name: 'Kiegészítők', nameEn: 'Accessories', nameDe: 'Accessoires', nameRo: 'Accesorii', storefrontVisible: false },
+  { slug: 'elektronika', name: 'Elektronika / Egyéb', nameEn: 'Electronics & More', nameDe: 'Elektronik & Mehr', nameRo: 'Electronică și altele', storefrontVisible: false },
+  { slug: 'otthon', name: 'Otthon', nameEn: 'Home', nameDe: 'Zuhause', nameRo: 'Casă', storefrontVisible: false },
+  { slug: '3d-nyomtatott', name: '3D Nyomtatott Termékek', nameEn: '3D Printed Products', nameDe: '3D-Druck Produkte', nameRo: 'Produse printate 3D', storefrontVisible: true },
 ] as const
+
+/** Nav és shop: jelenleg látható kategóriák (a többi rejtett, de megmarad). */
+export function getStorefrontCategories() {
+  return categories.filter((c) => c.storefrontVisible)
+}
 
 /** 3D nyomtatott alkategóriák (fülek) – slug = product.category érték. */
 export const threeDSubcategories = [
+  { slug: '3d-otthon', name: 'Otthon', nameEn: 'Home', nameDe: 'Zuhause', nameRo: 'Casă', icon: '🏠' },
   { slug: '3d-konyha', name: 'Konyha', nameEn: 'Kitchen', nameDe: 'Küche', nameRo: 'Bucătărie', icon: '🍳' },
   { slug: '3d-jatek', name: 'Játék', nameEn: 'Toys', nameDe: 'Spielzeug', nameRo: 'Jocuri', icon: '🧸' },
   { slug: '3d-kert', name: 'Kert', nameEn: 'Garden', nameDe: 'Garten', nameRo: 'Grădină', icon: '🌿' },
@@ -596,7 +637,6 @@ export const mockProducts: Product[] = [
     description: 'SENDIA® ágytakaró pléd, 100% poliészter. 180x200 cm. Piros alapon fehér hópirosos minta.',
     onSale: true,
   },
-  ...getSourcingDealMockProducts(),
   // 3D nyomtatott termékek (kategória = 3d-*)
   ...get3DMockProducts(),
 ]
@@ -990,6 +1030,8 @@ function get3DMockProducts(): Product[] {
       isColorable: true,
       description: '3D nyomtatott növénykötöző (PLA), strap 80 mm. Ellenőrzött, saját tervezés. Ideális kerti és benti növényekhez.',
       type: 'stock',
+      active: true,
+      isNew: true,
     },
     {
       id: '3d-2',
@@ -1009,13 +1051,89 @@ function get3DMockProducts(): Product[] {
       isColorable: true,
       description: '3D nyomtatott szalvétatartó, fa stílusú körök (PLA). Ellenőrzött, saját tervezés. Asztalra, konyhába.',
       type: 'stock',
+      active: true,
+      isNew: true,
     },
+    {
+      id: '3d-3',
+      name: 'Kábel rendező klipsz',
+      nameEn: 'Cable organizer clip',
+      nameDe: 'Kabel-Organizer-Klammer',
+      nameRo: 'Cleme organizator cabluri',
+      slug: 'kabel-rendezo-klipsz',
+      priceHuf: 1290,
+      priceEur: 4,
+      discountPriceHuf: 990,
+      discountPriceEur: 3,
+      condition: 'Új',
+      category: '3d-eszkozok',
+      image: '/img/3d-szalveta-tarto.png',
+      images: ['/img/3d-szalveta-tarto.png'],
+      stock: 10,
+      isColorable: true,
+      onSale: true,
+      saleStartAt: new Date(Date.now() - 2 * 86400000).toISOString(),
+      saleEndAt: new Date(Date.now() + 14 * 86400000).toISOString(),
+      description: '3D nyomtatott kábelrendező klipsz (PLA). Asztal szélére vagy falra rögzíthető. Praktikus, minimalista design.',
+      type: 'stock',
+      active: true,
+    },
+    ...([
+      { id: '3d-4', slug: 'viragcserep-alatet', name: 'Virágcserép alátét', nameEn: 'Plant pot saucer', category: '3d-kert', priceHuf: 1590, priceEur: 4, image: '/img/3d-noveny-kotozo.png' },
+      { id: '3d-5', slug: 'fuszertarto-doboz', name: 'Fűszertartó doboz', nameEn: 'Spice storage box', category: '3d-konyha', priceHuf: 2190, priceEur: 6, image: '/img/3d-szalveta-tarto.png' },
+      { id: '3d-6', slug: 'tolltarto-minimal', name: 'Tolltartó – minimal', nameEn: 'Pen holder – minimal', category: '3d-iroda', priceHuf: 1790, priceEur: 5, image: '/img/demo/demo-taskav-teal.png' },
+      { id: '3d-7', slug: 'konyvjelzo-szett', name: 'Könyvjelző szett', nameEn: 'Bookmark set', category: '3d-dekor', priceHuf: 990, priceEur: 3, image: '/img/demo/demo-taskav-piros.png' },
+      { id: '3d-8', slug: 'ruhafogo-mini', name: 'Ruhafogó mini', nameEn: 'Mini clothes hanger', category: '3d-lakberendezes', priceHuf: 1490, priceEur: 4, image: '/img/3d-szalveta-tarto.png' },
+      { id: '3d-9', slug: 'fali-fejkosar', name: 'Fali fejkosár', nameEn: 'Wall headband holder', category: '3d-furdoszoba', priceHuf: 1290, priceEur: 4, image: '/img/3d-noveny-kotozo.png' },
+      { id: '3d-10', slug: 'jatekfigura-allvany', name: 'Játékfigura állvány', nameEn: 'Figurine display stand', category: '3d-hobby', priceHuf: 2490, priceEur: 6, image: '/img/demo/demo-taskav-teal.png' },
+      { id: '3d-11', slug: 'kulcstarto-tarto', name: 'Kulcstartó tartó', nameEn: 'Keychain holder', category: '3d-eloszoba', priceHuf: 1890, priceEur: 5, image: '/img/demo/demo-taskav-piros.png' },
+      { id: '3d-12', slug: 'szappantarto-lekerekített', name: 'Szappantartó – lekerekített', nameEn: 'Soap dish – rounded', category: '3d-furdoszoba', priceHuf: 1690, priceEur: 4, image: '/img/3d-szalveta-tarto.png' },
+      { id: '3d-13', slug: 'csipteto-tarto', name: 'Csiptető tartó', nameEn: 'Clothespin holder', category: '3d-konyha', priceHuf: 1390, priceEur: 4, image: '/img/3d-noveny-kotozo.png' },
+      { id: '3d-14', slug: 'parna-tarto-klipsz', name: 'Párna tartó klipsz', nameEn: 'Cushion clip holder', category: '3d-lakberendezes', priceHuf: 1190, priceEur: 3, image: '/img/demo/demo-taskav-teal.png' },
+      { id: '3d-15', slug: 'kabel-cimke-szett', name: 'Kábel címke szett', nameEn: 'Cable label set', category: '3d-eszkozok', priceHuf: 890, priceEur: 3, image: '/img/demo/demo-taskav-piros.png' },
+      { id: '3d-16', slug: 'asztali-papir-tarto', name: 'Asztali papír tartó', nameEn: 'Desk paper tray', category: '3d-iroda', priceHuf: 2790, priceEur: 7, image: '/img/3d-szalveta-tarto.png' },
+      { id: '3d-17', slug: 'mini-viragvaza', name: 'Mini virágváza', nameEn: 'Mini flower vase', category: '3d-dekor', priceHuf: 1990, priceEur: 5, image: '/img/3d-noveny-kotozo.png' },
+      { id: '3d-18', slug: 'ajandek-szalag-csevelo', name: 'Ajándék szalag csévélő', nameEn: 'Gift ribbon spool holder', category: '3d-hobby', priceHuf: 2290, priceEur: 6, image: '/img/demo/demo-taskav-teal.png' },
+      { id: '3d-19', slug: 'telefontarto-allvany', name: 'Telefontartó állvány', nameEn: 'Phone stand', category: '3d-iroda', priceHuf: 1590, priceEur: 4, image: '/img/demo/demo-taskav-piros.png' },
+      { id: '3d-20', slug: 'fulhallgato-tarto', name: 'Fülhallgató tartó', nameEn: 'Headphone holder', category: '3d-iroda', priceHuf: 2890, priceEur: 7, image: '/img/3d-szalveta-tarto.png' },
+      { id: '3d-21', slug: 'poharalatet-szett', name: 'Poháralátét szett (4 db)', nameEn: 'Coaster set (4 pcs)', category: '3d-konyha', priceHuf: 1990, priceEur: 5, image: '/img/3d-noveny-kotozo.png' },
+      { id: '3d-22', slug: 'szemuvegtarto-asztali', name: 'Szemüvegtartó – asztali', nameEn: 'Desktop glasses holder', category: '3d-iroda', priceHuf: 1490, priceEur: 4, image: '/img/demo/demo-taskav-teal.png' },
+      { id: '3d-23', slug: 'jatekkartya-tarto', name: 'Játékkártya tartó', nameEn: 'Playing card holder', category: '3d-hobby', priceHuf: 1290, priceEur: 4, image: '/img/demo/demo-taskav-piros.png' },
+      { id: '3d-24', slug: 'monitor-emelo', name: 'Monitor emelő', nameEn: 'Monitor riser', category: '3d-iroda', priceHuf: 3490, priceEur: 9, image: '/img/3d-szalveta-tarto.png' },
+      { id: '3d-25', slug: 'furdoszobai-szappanado', name: 'Fürdőszobai szappanadó', nameEn: 'Bathroom soap saver', category: '3d-furdoszoba', priceHuf: 1090, priceEur: 3, image: '/img/3d-noveny-kotozo.png' },
+      { id: '3d-26', slug: 'evokanal-tarto', name: 'Evőkanál tartó', nameEn: 'Spoon rest', category: '3d-konyha', priceHuf: 890, priceEur: 3, image: '/img/demo/demo-taskav-teal.png' },
+      { id: '3d-27', slug: 'fali-kapcsolo-vedo', name: 'Fali kapcsoló védő', nameEn: 'Wall switch guard', category: '3d-lakberendezes', priceHuf: 1190, priceEur: 3, image: '/img/demo/demo-taskav-piros.png' },
+      { id: '3d-28', slug: 'usb-kabel-tarto', name: 'USB kábel tartó', nameEn: 'USB cable holder', category: '3d-eszkozok', priceHuf: 990, priceEur: 3, image: '/img/3d-szalveta-tarto.png' },
+      { id: '3d-29', slug: 'teljes-aru-termek-1', name: 'Teljes árú termék 1', nameEn: 'Full price product 1', category: '3d-konyha', priceHuf: 2990, priceEur: 8, image: '/img/demo/demo-taskav-teal.png' },
+      { id: '3d-30', slug: 'teljes-aru-termek-2', name: 'Teljes árú termék 2', nameEn: 'Full price product 2', category: '3d-iroda', priceHuf: 3490, priceEur: 9, image: '/img/demo/demo-taskav-piros.png' },
+      { id: '3d-31', slug: 'teljes-aru-termek-3', name: 'Teljes árú termék 3', nameEn: 'Full price product 3', category: '3d-kert', priceHuf: 3990, priceEur: 10, image: '/img/3d-noveny-kotozo.png' },
+      { id: '3d-32', slug: 'teljes-aru-termek-4', name: 'Teljes árú termék 4', nameEn: 'Full price product 4', category: '3d-dekor', priceHuf: 4490, priceEur: 11, image: '/img/3d-szalveta-tarto.png' },
+      { id: '3d-33', slug: 'teljes-aru-termek-5', name: 'Teljes árú termék 5', nameEn: 'Full price product 5', category: '3d-hobby', priceHuf: 4990, priceEur: 13, image: '/img/demo/demo-taskav-teal.png' },
+    ] as const).map((p) => ({
+      id: p.id,
+      name: p.name,
+      nameEn: p.nameEn,
+      slug: p.slug,
+      priceHuf: p.priceHuf,
+      priceEur: p.priceEur,
+      condition: 'Új' as const,
+      category: p.category,
+      image: p.image,
+      images: [p.image],
+      stock: 20,
+      isColorable: true,
+      description: `3D nyomtatott teszttermék (PLA) – ${p.name}. Pontgyűjtés teszteléshez.`,
+      type: 'stock' as const,
+      active: true,
+      isNew: true,
+    })),
   ]
 }
 
 /** Termék slug alapján. Készlet/kijelzés: mindig a canonical listából (getStockById / product.stock a visszaadott másolaton). A kosár nem módosíthatja a készletet. */
 export function getProductBySlug(slug: string): Product | undefined {
-  const p = mockProducts.find((x) => x.slug === slug)
+  const candidates = productSlugLookupCandidates(slug)
+  const p = mockProducts.find((x) => candidates.includes(x.slug))
   return p ? { ...p } : undefined
 }
 
@@ -1060,34 +1178,66 @@ export function getEarliestSourcingExpiry(products: Product[], now: Date = new D
   return earliest != null ? new Date(earliest) : null
 }
 
-// --- Async: DB-ből jönnek a termékek, ha konfigurált; különben mock (sync) fallback. ---
-async function getProductsSource(): Promise<Product[]> {
-  const { isDbConfigured } = await import('@/lib/prisma')
-  const { getAllProductsFromDb } = await import('@/lib/products')
-  if (isDbConfigured()) return getAllProductsFromDb()
-  return mockProducts
+// --- Async storefront: DB-first; mockProducts csak dev + nincs DATABASE_URL. ---
+
+async function loadFromDbOrMock<T>(
+  loadDb: () => Promise<T>,
+  loadMock: () => T,
+  empty: T
+): Promise<T> {
+  const { isDbConfigured, shouldUseMockProductsFallback } = await import('@/lib/prisma')
+  if (isDbConfigured()) {
+    try {
+      return await loadDb()
+    } catch {
+      // DB hiba: prod-ban vagy DB URL mellett ne essünk mock-ra
+    }
+  }
+  if (shouldUseMockProductsFallback()) {
+    return loadMock()
+  }
+  return empty
 }
 
-/** Async: termék slug alapján (DB vagy mock). */
+/** Async: összes termék (DB-first), storefront szűréssel. */
+export async function getAllProductsAsync(): Promise<Product[]> {
+  const { filterStorefrontProducts } = await import('@/lib/storefront-config')
+  const { shouldUseMockProductsFallback } = await import('@/lib/prisma')
+  const raw = await loadFromDbOrMock(
+    async () => {
+      const { getAllProductsFromDb } = await import('@/lib/products')
+      return getAllProductsFromDb()
+    },
+    () => mockProducts,
+    [] as Product[]
+  )
+  return filterStorefrontProducts(raw, shouldUseMockProductsFallback())
+}
+
+/** Async: termék slug alapján (DB-first). */
 export async function getProductBySlugAsync(slug: string): Promise<Product | undefined> {
-  const { isDbConfigured } = await import('@/lib/prisma')
-  const { getProductBySlugFromDb } = await import('@/lib/products')
-  if (isDbConfigured()) {
-    const p = await getProductBySlugFromDb(slug)
-    return p ?? undefined
-  }
-  return getProductBySlug(slug)
+  const result = await loadFromDbOrMock(
+    async () => {
+      const { getProductBySlugFromDb } = await import('@/lib/products')
+      return (await getProductBySlugFromDb(slug)) ?? undefined
+    },
+    () => getProductBySlug(slug),
+    undefined as Product | undefined
+  )
+  return result
 }
 
-/** Async: termék id alapján (DB vagy mock). */
+/** Async: termék id alapján (DB-first). */
 export async function getProductByIdAsync(id: string): Promise<Product | undefined> {
-  const { isDbConfigured } = await import('@/lib/prisma')
-  const { getProductByIdFromDb } = await import('@/lib/products')
-  if (isDbConfigured()) {
-    const p = await getProductByIdFromDb(id)
-    return p ?? undefined
-  }
-  return getProductById(id)
+  const result = await loadFromDbOrMock(
+    async () => {
+      const { getProductByIdFromDb } = await import('@/lib/products')
+      return (await getProductByIdFromDb(id)) ?? undefined
+    },
+    () => getProductById(id),
+    undefined as Product | undefined
+  )
+  return result
 }
 
 /** Async: több termék ID alapján egy batch lekérdezéssel (N+1 elkerülés). */
@@ -1095,42 +1245,47 @@ export async function getProductsByIdsAsync(ids: string[]): Promise<Product[]> {
   const unique = Array.from(new Set(ids.filter(Boolean)))
   if (unique.length === 0) return []
 
-  const { isDbConfigured } = await import('@/lib/prisma')
-  const { getProductsByIdsFromDb } = await import('@/lib/products')
+  const fromDb = await loadFromDbOrMock(
+    async () => {
+      const { getProductsByIdsFromDb } = await import('@/lib/products')
+      return getProductsByIdsFromDb(unique)
+    },
+    () => unique.map((id) => getProductById(id)).filter((p): p is Product => p != null),
+    [] as Product[]
+  )
 
-  if (isDbConfigured()) {
-    try {
-      const fromDb = await getProductsByIdsFromDb(unique)
-      if (fromDb.length >= unique.length) return fromDb
-      const byId = new Map(fromDb.map((p) => [p.id, p]))
-      for (const id of unique) {
-        if (!byId.has(id)) {
-          const p = getProductById(id)
-          if (p) byId.set(id, p)
-        }
-      }
-      return unique.map((id) => byId.get(id)).filter((p): p is Product => p != null)
-    } catch {
-      // fall through to mock
+  if (fromDb.length >= unique.length) return fromDb
+
+  // DB részleges találat: hiányzó ID-k mock/fallback-ből
+  const byId = new Map(fromDb.map((p) => [p.id, p]))
+  for (const id of unique) {
+    if (!byId.has(id)) {
+      const p = getProductById(id)
+      if (p) byId.set(id, p)
     }
   }
-
-  return unique.map((id) => getProductById(id)).filter((p): p is Product => p != null)
+  return unique.map((id) => byId.get(id)).filter((p): p is Product => p != null)
 }
 
-/** Async: összes termék (DB vagy mock). */
-export async function getAllProductsAsync(): Promise<Product[]> {
-  try {
-    return await getProductsSource()
-  } catch {
-    return mockProducts
-  }
-}
-
-/** Async: beszerzésre rendelhető termékek (DB vagy mock). */
+/** Async: beszerzésre rendelhető termékek – kikapcsolva. */
 export async function getSourcingDealProductsAsync(): Promise<Product[]> {
-  const { isDbConfigured } = await import('@/lib/prisma')
-  const { getSourcingDealProductsFromDb } = await import('@/lib/products')
-  if (isDbConfigured()) return getSourcingDealProductsFromDb()
-  return getSourcingDealProducts()
+  return []
+}
+
+/** Async: hasonló termékek (DB-first). */
+export async function getSimilarProductsAsync(product: Product, limit = 4): Promise<Product[]> {
+  return loadFromDbOrMock(
+    async () => {
+      const { getSimilarProductsFromDb } = await import('@/lib/products')
+      return getSimilarProductsFromDb(product.category, product.id, limit)
+    },
+    () =>
+      mockProducts
+        .filter(
+          (p) =>
+            p.category === product.category && p.id !== product.id && p.type !== 'sourcing_deal'
+        )
+        .slice(0, limit),
+    [] as Product[]
+  )
 }

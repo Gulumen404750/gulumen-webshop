@@ -43,15 +43,7 @@ async function redisAllow(
   await redis.zremrangebyscore(redisKey, 0, now - HEARTBEAT_VELOCITY_WINDOW_MS)
   const count = await redis.zcard(redisKey)
   if ((count ?? 0) >= HEARTBEAT_VELOCITY_MAX_TICKS) {
-    const oldest = await redis.zrange(redisKey, 0, 0, { withScores: true })
-    let retryAfterMs = HEARTBEAT_VELOCITY_WINDOW_MS
-    if (Array.isArray(oldest) && oldest.length >= 2) {
-      const oldestScore = Number(oldest[1])
-      if (Number.isFinite(oldestScore)) {
-        retryAfterMs = Math.max(0, HEARTBEAT_VELOCITY_WINDOW_MS - (now - oldestScore))
-      }
-    }
-    return { ok: false, retryAfterMs }
+    return { ok: false, retryAfterMs: HEARTBEAT_VELOCITY_WINDOW_MS }
   }
   await redis.zadd(redisKey, {
     score: now,

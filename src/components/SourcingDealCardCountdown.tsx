@@ -90,7 +90,7 @@ export function SourcingDealCardCountdown({
   // Lejárt termékek oldal: "Lejárt" szöveg, nincs visszaszámláló.
   if (forceArchivingSoon) {
     return (
-      <div className="px-3 py-2.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-center text-sm font-medium rounded-b-xl">
+      <div className="px-3 py-2.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-center text-sm font-medium rounded-b-xl">
         {t('status.expired')}
       </div>
     )
@@ -107,7 +107,7 @@ export function SourcingDealCardCountdown({
         onExpired(product.id)
       }
       return (
-        <div className="px-3 py-2.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-center text-sm font-medium rounded-b-xl">
+        <div className="px-3 py-2.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-center text-sm font-medium rounded-b-xl">
           {t('sourcing.archivingSoon')}
         </div>
       )
@@ -130,7 +130,7 @@ export function SourcingDealCardCountdown({
       onExpired(product.id)
     }
     return (
-      <div className="px-3 py-2.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-center text-sm font-medium rounded-b-xl">
+      <div className="px-3 py-2.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-center text-sm font-medium rounded-b-xl">
         {t('sourcing.archivingSoon')}
       </div>
     )
@@ -138,7 +138,11 @@ export function SourcingDealCardCountdown({
 
   if (status === 'preview' && saleFrom - effectiveNowMs > 0) {
     return (
-      <div className="px-3 py-2.5 bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-center text-sm font-medium border-y border-blue-200 dark:border-blue-800 rounded-b-xl">
+      <div
+        aria-live="polite"
+        aria-atomic="true"
+        className="px-3 py-2.5 bg-blue-50 dark:bg-blue-950/50 text-blue-900 dark:text-blue-100 text-center text-sm font-medium border-y border-blue-200 dark:border-blue-800 rounded-b-xl"
+      >
         <span className="font-semibold">{t('status.startsIn')}:</span>{' '}
         <span className="tabular-nums">{formatCountdownDDHHMMSS(saleFrom - effectiveNowMs)}</span>
       </div>
@@ -149,7 +153,11 @@ export function SourcingDealCardCountdown({
     // Kijelzés: mindig a teljes rendelhető mennyiség (maxOrders - ordersCount). A kosár ne csökkentse.
     const displayAvailable = Math.max(0, (product.maxOrders ?? 0) - (product.ordersCount ?? 0))
     return (
-      <div className="px-3 py-2.5 bg-red-50 dark:bg-red-900/40 text-red-800 dark:text-red-200 text-center text-sm font-semibold border-y border-red-200 dark:border-red-800 rounded-b-xl">
+      <div
+        aria-live="polite"
+        aria-atomic="true"
+        className="px-3 py-2.5 bg-red-50 dark:bg-red-950/50 text-red-900 dark:text-red-100 text-center text-sm font-semibold border-y border-red-200 dark:border-red-800 rounded-b-xl"
+      >
         <div>
           <span>{t('status.endsIn')}:</span>{' '}
           <span className="tabular-nums">{formatCountdownDDHHMMSS(saleTo - effectiveNowMs)}</span>

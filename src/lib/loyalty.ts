@@ -4,6 +4,16 @@
  * Nem összevonható más kuponnal.
  */
 
+export type LoyaltyTier = 'bronze' | 'silver' | 'gold'
+
+/** Hűségszint a minősített rendelésszám alapján. 0 rendelés → null (nincs badge). */
+export function getLoyaltyTier(orderCount: number): LoyaltyTier | null {
+  if (orderCount <= 0) return null
+  if (orderCount <= 2) return 'bronze'
+  if (orderCount <= 5) return 'silver'
+  return 'gold'
+}
+
 export type LoyaltyRecord = {
   email: string
   qualifyingPaidOrdersCount: number
