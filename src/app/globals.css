@@ -48,6 +48,59 @@
   animation: nav-dropdown-in 0.18s ease-out;
 }
 
+/* Hero háttér – végtelen terméksáv (seamless: tartalom 2×, shift 50%) */
+@keyframes hero-marquee {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@keyframes hero-marquee-reverse {
+  from {
+    transform: translate3d(-50%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.animate-marquee {
+  animation: hero-marquee 55s linear infinite;
+  will-change: transform;
+}
+
+.animate-marquee-reverse {
+  animation: hero-marquee-reverse 65s linear infinite;
+  will-change: transform;
+}
+
+.hero-marquee-mask {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 15%,
+    black 85%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 15%,
+    black 85%,
+    transparent
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee,
+  .animate-marquee-reverse {
+    animation: none;
+  }
+}
+
 /* Macska cikázik a sávban, faltól falig */
 @keyframes hero-cat-zigzag {
   0%   { left: 2%; top: 42%; transform: translateY(-50%) scaleX(1); }

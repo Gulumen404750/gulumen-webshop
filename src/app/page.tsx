@@ -1,6 +1,11 @@
 import type { Metadata } from 'next'
 import { getAllProductsAsync } from '@/lib/data'
-import { getFeaturedProducts, getActiveDealProducts, getNewProducts } from '@/lib/storefront-config'
+import {
+  filterStorefrontProducts,
+  getFeaturedProducts,
+  getActiveDealProducts,
+  getNewProducts,
+} from '@/lib/storefront-config'
 import HomePageClient from './HomePageClient'
 
 export const revalidate = 10
@@ -16,12 +21,16 @@ export default async function HomePage() {
   const featuredProducts = getFeaturedProducts(all)
   const dealProducts = getActiveDealProducts(all)
   const newProducts = getNewProducts(all)
+  const marqueeProducts = filterStorefrontProducts(all)
+    .filter((p) => Boolean(p.image?.trim()))
+    .slice(0, 24)
 
   return (
     <HomePageClient
       featuredProducts={featuredProducts}
       dealProducts={dealProducts}
       newProducts={newProducts}
+      marqueeProducts={marqueeProducts}
     />
   )
 }

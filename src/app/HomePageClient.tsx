@@ -5,6 +5,7 @@ import type { Product } from '@/lib/data'
 import { ProductCard } from '@/components/ProductCard'
 import { FeaturedProductsGrid } from '@/components/FeaturedProductsGrid'
 import { HeroCat } from '@/components/HeroCat'
+import { HeroProductMarquee } from '@/components/HeroProductMarquee'
 import { RecentlyViewed } from '@/components/RecentlyViewed'
 import { useLocale } from '@/context/LocaleContext'
 import { useAuth } from '@/context/AuthContext'
@@ -14,9 +15,15 @@ type Props = {
   featuredProducts: Product[]
   dealProducts: Product[]
   newProducts: Product[]
+  marqueeProducts: Product[]
 }
 
-export default function HomePageClient({ featuredProducts, dealProducts, newProducts }: Props) {
+export default function HomePageClient({
+  featuredProducts,
+  dealProducts,
+  newProducts,
+  marqueeProducts,
+}: Props) {
   const { t } = useLocale()
   const { isLoggedIn, authChecked } = useAuth()
   const showRegisterCta = authChecked && !isLoggedIn
@@ -39,7 +46,8 @@ export default function HomePageClient({ featuredProducts, dealProducts, newProd
     <>
       {/* Hero */}
       <section className="relative bg-gradient-to-b from-indigo-950/5 via-background to-background py-20 lg:py-28 overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none opacity-30 dark:opacity-20">
+        <HeroProductMarquee products={marqueeProducts} />
+        <div className="absolute inset-0 z-[1] pointer-events-none opacity-30 dark:opacity-20">
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl" />
           <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-sky-500/15 rounded-full blur-3xl" />
         </div>
