@@ -336,6 +336,9 @@ export type SetOrderPaidResult = {
   latePayment: boolean
 }
 
+/** Státuszok, ahonnan CAS-szal paid-re lehet lépni (párhuzamos webhook biztonság). */
+const ORDER_PAYABLE_PENDING = new Set<OrderStatus>(['payment_pending', 'pending', 'created'])
+
 export async function setOrderPaid(params: {
   orderId: string
   stripeSessionId: string
@@ -352,7 +355,11 @@ export async function setOrderPaid(params: {
     if (existing.status === 'needs_manual_review') {
       return { order: dbOrderToOrder(existing), latePayment: true }
     }
-    if (existing.paidWebhookEventId === params.webhookEventId) {
+    if (
+      params.webhookEventId &&
+      existing.paidWebhookEventId &&
+      existing.paidWebhookEventId === params.webhookEventId
+    ) {
       return { order: dbOrderToOrder(existing), latePayment: false }
     }
 
@@ -370,8 +377,12 @@ export async function setOrderPaid(params: {
         },
         'LATE_PAYMENT_WARNING: payment arrived after order terminal status – needs_manual_review'
       )
-      await prisma.order.update({
-        where: { id: params.orderId },
+      // CAS: csak ha még terminális non-payable (ne írjuk felül a paid-et)
+      await prisma.order.updateMany({
+        where: {
+          id: params.orderId,
+          status: { in: Array.from(ORDER_TERMINAL_NON_PAYABLE) },
+        },
         data: {
           status: 'needs_manual_review',
           stripeSessionId: params.stripeSessionId,
@@ -386,26 +397,39 @@ export async function setOrderPaid(params: {
       return { order: await getOrderById(params.orderId), latePayment: true }
     }
 
-    await prisma.$transaction(async (tx) => {
-      await tx.order.update({
-        where: { id: params.orderId },
-        data: {
-          status: 'paid',
-          stripeSessionId: params.stripeSessionId,
-          paymentIntentId: params.paymentIntentId ?? null,
-          amountPaid: params.amountPaid,
-          currencyPaid: params.currencyPaid,
-          paidAt: new Date(),
-          paidWebhookEventId: params.webhookEventId ?? null,
-          customerEmail: params.customerEmail ?? existing.customerEmail,
-          refundStatus: existing.refundStatus ?? 'none',
-          refundedAmount: existing.refundedAmount ?? 0,
-        },
-      })
-
-      // Készlet már a checkout createCheckoutOrders atomi UPDATE-jében levonva (oversell védelem).
-      // Itt NEM csökkentünk újra – elkerüljük a dupla levonást.
+    // CAS: payment_pending (és legacy pending/created) → paid – csak egy webhook nyer
+    const claimed = await prisma.order.updateMany({
+      where: {
+        id: params.orderId,
+        status: { in: Array.from(ORDER_PAYABLE_PENDING) },
+      },
+      data: {
+        status: 'paid',
+        stripeSessionId: params.stripeSessionId,
+        paymentIntentId: params.paymentIntentId ?? null,
+        amountPaid: params.amountPaid,
+        currencyPaid: params.currencyPaid,
+        paidAt: new Date(),
+        paidWebhookEventId: params.webhookEventId ?? null,
+        customerEmail: params.customerEmail ?? existing.customerEmail,
+        refundStatus: existing.refundStatus ?? 'none',
+        refundedAmount: existing.refundedAmount ?? 0,
+      },
     })
+
+    if (claimed.count === 0) {
+      // Race: másik webhook már paid-re állította / státusz változott
+      const latest = await getOrderById(params.orderId)
+      if (!latest) return { order: null, latePayment: false }
+      if (latest.status === 'paid') return { order: latest, latePayment: false }
+      if (latest.status === 'needs_manual_review') return { order: latest, latePayment: true }
+      if (ORDER_TERMINAL_NON_PAYABLE.has(latest.status)) {
+        return setOrderPaid(params)
+      }
+      return { order: latest, latePayment: false }
+    }
+
+    // Készlet már a checkout createCheckoutOrders atomi UPDATE-jében levonva (oversell védelem).
     return { order: await getOrderById(params.orderId), latePayment: false }
   }
   const orders = loadOrders()
@@ -438,6 +462,10 @@ export async function setOrderPaid(params: {
     memoryStore = orders
     saveOrders()
     return { order, latePayment: true }
+  }
+  // Dev JSON CAS: csak pending státuszból
+  if (!ORDER_PAYABLE_PENDING.has(order.status)) {
+    return { order, latePayment: false }
   }
   order.status = 'paid'
   order.stripeSessionId = params.stripeSessionId

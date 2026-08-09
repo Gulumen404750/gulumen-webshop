@@ -6,6 +6,7 @@ import { logAdminAction } from '@/lib/admin-audit'
 import { logger } from '@/lib/logger'
 import { markReservationsCanceledByOrderId } from '@/lib/reservations'
 import { requireAdmin } from '@/lib/admin-auth'
+import { secureCompare } from '@/lib/secure-compare'
 
 /**
  * POST /api/admin/sourcing/:orderId/fail
@@ -21,7 +22,7 @@ export async function POST(
 
   const adminKey = process.env.ADMIN_API_KEY
   const cookieAuth = await requireAdmin()
-  const keyAuth = adminKey && request.headers.get('x-admin-key') === adminKey
+  const keyAuth = Boolean(adminKey && secureCompare(request.headers.get('x-admin-key'), adminKey))
   if (!cookieAuth && !keyAuth) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

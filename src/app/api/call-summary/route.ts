@@ -4,6 +4,7 @@ import { isDbConfigured } from '@/lib/prisma'
 import { prisma } from '@/lib/prisma'
 import { sendCallSummaryNotification } from '@/lib/voice-email'
 import { sendTelegramMessage, formatCallSummaryTelegram, formatCallbackRequestTelegram } from '@/lib/telegram'
+import { secureCompare } from '@/lib/secure-compare'
 
 /**
  * POST /api/call-summary
@@ -18,9 +19,8 @@ function validateWebhookSecret(request: Request): boolean {
   const secret = process.env.VOICE_AGENT_WEBHOOK_SECRET?.trim()
   if (!secret) return false
   const auth = request.headers.get('authorization')
-  if (auth?.startsWith('Bearer ')) return auth.slice(7) === secret
-  const headerSecret = request.headers.get('x-webhook-secret')
-  return headerSecret === secret
+  if (auth?.startsWith('Bearer ')) return secureCompare(auth.slice(7), secret)
+  return secureCompare(request.headers.get('x-webhook-secret'), secret)
 }
 
 export async function POST(request: Request) {

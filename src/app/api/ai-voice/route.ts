@@ -5,6 +5,7 @@ import {
   getCountryCodeFromRequest,
 } from '@/lib/visitor-time'
 import type { Locale } from '@/i18n/locales'
+import { secureCompare } from '@/lib/secure-compare'
 
 /**
  * POST /api/ai-voice
@@ -22,9 +23,8 @@ function validateApiKey(request: Request): boolean {
   const secret = process.env.VOICE_AGENT_WEBHOOK_SECRET?.trim()
   if (!secret) return false
   const auth = request.headers.get('authorization')
-  if (auth?.startsWith('Bearer ')) return auth.slice(7) === secret
-  const key = request.headers.get('x-api-key')
-  return key === secret
+  if (auth?.startsWith('Bearer ')) return secureCompare(auth.slice(7), secret)
+  return secureCompare(request.headers.get('x-api-key'), secret)
 }
 
 export async function POST(request: Request) {

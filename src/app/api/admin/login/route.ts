@@ -6,6 +6,7 @@ import {
   ADMIN_COOKIE_NAME,
   isAdminSessionConfigured,
 } from '@/lib/admin-session'
+import { secureCompare } from '@/lib/secure-compare'
 
 /**
  * POST /api/admin/login
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => ({}))
   const key = typeof body?.key === 'string' ? body.key : ''
-  if (key !== adminKey) {
+  if (!secureCompare(key, adminKey)) {
     return NextResponse.json({ error: 'Invalid key' }, { status: 401 })
   }
 

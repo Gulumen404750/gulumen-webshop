@@ -11,6 +11,7 @@ import { finalizeOrderRewards } from '@/lib/checkout-rewards'
 import { clearUserCartSnapshot } from '@/lib/cart-snapshot'
 import { cancelPendingOrderWithStockRestore } from '@/lib/stuck-payments'
 import type { PaymentTransactionStatus } from '@/lib/payment-transactions'
+import { secureCompare } from '@/lib/secure-compare'
 
 /**
  * Provider-független payment webhook váz + Stripe webhook (checkout.session.completed).
@@ -229,7 +230,7 @@ async function handleGenericWebhook(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: 'Webhook not configured' }, { status: 503 })
   }
   const provided = request.headers.get('x-webhook-secret')
-  if (!provided || provided !== secret) {
+  if (!secureCompare(provided, secret)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

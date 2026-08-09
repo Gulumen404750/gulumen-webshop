@@ -1,5 +1,5 @@
-import { timingSafeEqual } from 'crypto'
 import { NextResponse } from 'next/server'
+import { secureCompare } from '@/lib/secure-compare'
 
 /**
  * Cron végpontok auth – csak CRON_SECRET Bearer tokennel hívhatók.
@@ -13,15 +13,7 @@ export function assertCronAuthorized(request: Request): NextResponse | null {
   }
 
   const auth = request.headers.get('authorization')?.trim()
-  if (!auth) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  const expected = `Bearer ${secret}`
-  const authBuf = Buffer.from(auth)
-  const expectedBuf = Buffer.from(expected)
-
-  if (authBuf.length !== expectedBuf.length || !timingSafeEqual(authBuf, expectedBuf)) {
+  if (!auth || !secureCompare(auth, `Bearer ${secret}`)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
