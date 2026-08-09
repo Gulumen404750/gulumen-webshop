@@ -17,6 +17,10 @@ import {
   getCountryCodeFromRequest,
   resolveVisitorLocalTime,
 } from '@/lib/visitor-time'
+import {
+  buildProductChatContextBlock,
+  loadChatProductContext,
+} from '@/lib/chat-product-context'
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'
 
@@ -35,6 +39,8 @@ export async function POST(request: Request) {
     const message = typeof body?.message === 'string' ? body.message.trim() : ''
     const locale = isValidLocale(body?.locale) ? body.locale : 'hu'
     const timezone = typeof body?.timezone === 'string' ? body.timezone.trim() : ''
+    const productId = typeof body?.productId === 'string' ? body.productId.trim() : ''
+    const productSlug = typeof body?.productSlug === 'string' ? body.productSlug.trim() : ''
     const countryCode = getCountryCodeFromRequest(request)
     const visitorTime = { locale, timezone: timezone || null, countryCode }
     const history = Array.isArray(body?.messages)
@@ -70,11 +76,23 @@ export async function POST(request: Request) {
       const lang = langNames[locale] ?? 'magyarul'
       const models = resolveOpenAiModels(settings.openaiModel)
       const nowContext = await getAiVisitorDateTimeContext(visitorTime)
+      const product = await loadChatProductContext({
+        productId: productId || null,
+        productSlug: productSlug || null,
+      })
+      const productContext = product ? buildProductChatContextBlock(product) : ''
 
       const openAiMessages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
         {
           role: 'system',
-          content: `${settings.systemPrompt}\n\n${nowContext}\n\nVálaszolj ${lang}.`,
+          content: [
+            settings.systemPrompt,
+            nowContext,
+            productContext,
+            `Válaszolj ${lang}.`,
+          ]
+            .filter(Boolean)
+            .join('\n\n'),
         },
         ...history,
         { role: 'user', content: message },

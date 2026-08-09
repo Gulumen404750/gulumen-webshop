@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { getResponse } from '@/lib/ai-assistant'
+import { extractProductSlugFromPathname } from '@/lib/chat-product-context'
 import {
   MOBILE_FAB_Z,
   mobileAiFabMaxWidth,
@@ -39,6 +41,8 @@ function getSpeechRecognition(): SpeechRecognition | null {
 
 export function AIAssistant() {
   const { t, locale } = useLocale()
+  const pathname = usePathname()
+  const productSlug = useMemo(() => extractProductSlugFromPathname(pathname), [pathname])
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -79,6 +83,7 @@ export function AIAssistant() {
             locale,
             timezone,
             messages: previousMessages,
+            ...(productSlug ? { productSlug } : {}),
           }),
         })
         const data = await res.json().catch(() => ({}))
@@ -106,7 +111,7 @@ export function AIAssistant() {
         setLoading(false)
       }
     },
-    [loading, locale, t]
+    [loading, locale, t, productSlug]
   )
 
   const send = () => sendMessage(input)

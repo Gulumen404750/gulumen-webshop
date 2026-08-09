@@ -36,6 +36,7 @@ const updateProductSchema = z.object({
   description_en: z.string().optional(),
   description_de: z.string().optional(),
   description_ro: z.string().optional(),
+  aiKnowledgeBase: z.string().max(20000).optional().nullable(),
   condition: z.string().optional(),
   category: z.string().min(1).optional(),
   image: z.string().optional(),
@@ -144,6 +145,9 @@ export async function PATCH(
       ...(d.description_en !== undefined && { description_en: d.description_en }),
       ...(d.description_de !== undefined && { description_de: d.description_de }),
       ...(d.description_ro !== undefined && { description_ro: d.description_ro }),
+      ...(d.aiKnowledgeBase !== undefined && {
+        aiKnowledgeBase: d.aiKnowledgeBase?.trim() ? d.aiKnowledgeBase.trim() : null,
+      }),
       ...(d.condition !== undefined && { condition: d.condition }),
       ...(d.category !== undefined && { category: d.category }),
       ...(imagePatch.image !== undefined && { image: imagePatch.image }),

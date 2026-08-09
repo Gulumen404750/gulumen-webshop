@@ -25,6 +25,8 @@ model Product {
   description_en   String   @default("")
   description_de   String   @default("")
   description_ro   String   @default("")
+  /// AI chat tudásbázis / termékspecifikációk (HU) – anyag, tisztítás, méretek, GYIK.
+  aiKnowledgeBase  String?  @db.Text
   condition        String   @default("Új")
   category         String
   image            String

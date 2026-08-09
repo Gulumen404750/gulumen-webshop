@@ -28,6 +28,7 @@ type Product = {
   description_en: string | null
   description_de: string | null
   description_ro: string | null
+  aiKnowledgeBase: string | null
   condition: string
   category: string
   image: string
@@ -163,6 +164,7 @@ export default function AdminProductEditPage() {
             description_en: product.description_en ?? product.description ?? '',
             description_de: product.description_de ?? product.description ?? '',
             description_ro: product.description_ro ?? product.description ?? '',
+            aiKnowledgeBase: product.aiKnowledgeBase?.trim() || null,
             condition: product.condition || 'Új',
             category: product.category || '3d-konyha',
             image: mainImage,
@@ -198,6 +200,7 @@ export default function AdminProductEditPage() {
             description_en: product.description_en ?? product.description ?? '',
             description_de: product.description_de ?? product.description ?? '',
             description_ro: product.description_ro ?? product.description ?? '',
+            aiKnowledgeBase: product.aiKnowledgeBase?.trim() || null,
             condition: product.condition ?? 'Új',
             category: product.category ?? '3d-konyha',
             image: mainImage,
@@ -491,6 +494,22 @@ export default function AdminProductEditPage() {
               rows={3}
               className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              AI Tudásbázis / Termékspecifikációk (HU)
+            </label>
+            <textarea
+              value={product?.aiKnowledgeBase ?? ''}
+              onChange={(e) => setProduct((p) => ({ ...p, aiKnowledgeBase: e.target.value }))}
+              rows={8}
+              placeholder="Anyaghasználat, tisztítás, méretek, használat, GYIK…"
+              className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
+            />
+            <p className="mt-1.5 text-xs text-muted">
+              Itt adhatsz meg részletes adatokat a termékről (anyaghasználat, tisztítás, méretek, használat, GYIK).
+              Elég magyarul beírnod, az AI automatikusan a vásárló által használt nyelven fog válaszolni belőle!
+            </p>
           </div>
         </div>
 
