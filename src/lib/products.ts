@@ -112,6 +112,17 @@ export async function getProductByIdFromDb(id: string): Promise<Product | null> 
   return row ? dbProductToProduct(row) : null
 }
 
+/** Több termék ID alapján egyetlen batch lekérdezéssel (N+1 elkerülés). */
+export async function getProductsByIdsFromDb(ids: string[]): Promise<Product[]> {
+  if (!isDbConfigured()) return []
+  const unique = Array.from(new Set(ids.filter(Boolean)))
+  if (unique.length === 0) return []
+  const rows = await prisma.product.findMany({
+    where: { id: { in: unique } },
+  })
+  return rows.map(dbProductToProduct)
+}
+
 /** Csak sourcing_deal típusú, aktív termékek (beszerzésre rendelhető oldalhoz). sortOrder szerint, majd dealEndAt. */
 export async function getSourcingDealProductsFromDb(): Promise<Product[]> {
   if (!isDbConfigured()) return []

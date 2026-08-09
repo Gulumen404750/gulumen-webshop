@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { z } from 'zod'
-import { getProductByIdAsync, getTimedPurchaseStatus } from '@/lib/data'
+import { getProductsByIdsAsync, getTimedPurchaseStatus } from '@/lib/data'
 import type { Product } from '@/lib/data'
 import { createOrder, getProductOrdersCount, type OrderItem } from '@/lib/orders'
 import { getLoyaltyByEmail } from '@/lib/loyalty'
@@ -91,11 +91,8 @@ export async function POST(request: Request) {
 
   const { items, isDiscountActive, discountPercent: bodyPercent, customer_email } = parsed.data
   const productIds = Array.from(new Set(items.map((i) => i.productId)))
-  const productMap = new Map<string, Product>()
-  for (const id of productIds) {
-    const p = await getProductByIdAsync(id)
-    if (p) productMap.set(id, p)
-  }
+  const products = await getProductsByIdsAsync(productIds)
+  const productMap = new Map<string, Product>(products.map((p) => [p.id, p]))
 
   // Kupon elsőbbség; ha nincs kupon, hűségkedvezmény email alapján (nem összevonható)
   let effectiveDiscountActive = false

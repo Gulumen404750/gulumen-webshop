@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { getProductByIdAsync, getTimedPurchaseStatus } from '@/lib/data'
+import { getProductsByIdsAsync, getTimedPurchaseStatus } from '@/lib/data'
 import type { Product } from '@/lib/data'
 import {
   generateOrderGroupId,
@@ -147,11 +147,8 @@ export async function POST(request: Request) {
   const { items, customer, isDiscountActive, discountPercent: bodyPercent } = parsed.data
 
   const productIds = Array.from(new Set(items.map((i) => i.productId)))
-  const productMap = new Map<string, Product>()
-  for (const id of productIds) {
-    const p = await getProductByIdAsync(id)
-    if (p) productMap.set(id, p)
-  }
+  const products = await getProductsByIdsAsync(productIds)
+  const productMap = new Map<string, Product>(products.map((p) => [p.id, p]))
 
   let effectiveDiscountPercent = 0
   if (isDiscountActive && bodyPercent != null && bodyPercent > 0) {

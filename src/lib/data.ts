@@ -1090,6 +1090,34 @@ export async function getProductByIdAsync(id: string): Promise<Product | undefin
   return getProductById(id)
 }
 
+/** Async: több termék ID alapján egy batch lekérdezéssel (N+1 elkerülés). */
+export async function getProductsByIdsAsync(ids: string[]): Promise<Product[]> {
+  const unique = Array.from(new Set(ids.filter(Boolean)))
+  if (unique.length === 0) return []
+
+  const { isDbConfigured } = await import('@/lib/prisma')
+  const { getProductsByIdsFromDb } = await import('@/lib/products')
+
+  if (isDbConfigured()) {
+    try {
+      const fromDb = await getProductsByIdsFromDb(unique)
+      if (fromDb.length >= unique.length) return fromDb
+      const byId = new Map(fromDb.map((p) => [p.id, p]))
+      for (const id of unique) {
+        if (!byId.has(id)) {
+          const p = getProductById(id)
+          if (p) byId.set(id, p)
+        }
+      }
+      return unique.map((id) => byId.get(id)).filter((p): p is Product => p != null)
+    } catch {
+      // fall through to mock
+    }
+  }
+
+  return unique.map((id) => getProductById(id)).filter((p): p is Product => p != null)
+}
+
 /** Async: összes termék (DB vagy mock). */
 export async function getAllProductsAsync(): Promise<Product[]> {
   try {

@@ -17,7 +17,8 @@ const PRESETS: Record<
   default: { windowMs: 60_000, max: 60, windowLabel: '1 m' },
   auth: { windowMs: 60_000, max: 20, windowLabel: '1 m' },
   adminLogin: { windowMs: 10 * 60_000, max: 5, windowLabel: '10 m' },
-  heartbeat: { windowMs: 60_000, max: 30, windowLabel: '1 m' },
+  /** Max 3 tick/perc – anti-abuse (IP). User/IP velocity a heartbeat route-ban is fut. */
+  heartbeat: { windowMs: 60_000, max: 3, windowLabel: '1 m' },
 }
 
 const memoryStores = new Map<string, Map<string, { count: number; resetAt: number }>>()
