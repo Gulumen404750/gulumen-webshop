@@ -1,6 +1,6 @@
 import { ImageResponse } from 'next/og'
 import { notFound } from 'next/navigation'
-import { getProductBySlugAsync } from '@/lib/data'
+import { getProductBySlugAsync, getProductName } from '@/lib/data'
 import { isSaleActive } from '@/lib/storefront-config'
 import {
   formatHufPrice,
@@ -10,6 +10,8 @@ import {
   toAbsoluteAssetUrl,
   truncateProductName,
 } from '@/lib/product-og-image'
+import { getServerLocale } from '@/lib/locale-server'
+import { getTranslations, t } from '@/i18n/translations'
 
 export const runtime = 'nodejs'
 export const revalidate = 10
@@ -21,11 +23,14 @@ type Props = { params: Promise<{ slug: string }> }
 
 export async function generateImageMetadata({ params }: Props) {
   const { slug } = await params
+  const locale = await getServerLocale()
+  const dict = getTranslations(locale)
   const product = await getProductBySlugAsync(slug)
+  const name = product ? getProductName(product, locale) : ''
   return [
     {
       id: slug,
-      alt: product?.name ? `${product.name} – Gulumen` : 'Gulumen termék',
+      alt: name ? `${name} – Gulumen` : t(dict, 'seo.productImageAlt'),
       size: { width: OG_IMAGE_WIDTH, height: OG_IMAGE_HEIGHT },
       contentType: 'image/png',
     },
@@ -37,12 +42,13 @@ export default async function ProductOgImage({ params }: Props) {
   const product = await getProductBySlugAsync(slug)
   if (!product) notFound()
 
+  const locale = await getServerLocale()
   const saleActive = isSaleActive(product)
   const priceHuf = getProductDisplayPriceHuf(product)
   const priceLabel = formatHufPrice(priceHuf)
   const showStrike = saleActive && product.discountPriceHuf != null && product.discountPriceHuf < product.priceHuf
   const strikeLabel = showStrike ? formatHufPrice(product.priceHuf) : null
-  const productName = truncateProductName(product.name)
+  const productName = truncateProductName(getProductName(product, locale))
   const imageUrl = toAbsoluteAssetUrl(product.image)
 
   return new ImageResponse(

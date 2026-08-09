@@ -336,7 +336,10 @@
     "tabShipping": "Szállítás",
     "tabReturns": "Visszaküldés",
     "sizeVariant": "Méret / változat",
-    "baseVariant": "Alap"
+    "baseVariant": "Alap",
+    "modelLoadError": "A 3D modell nem tölthető be.",
+    "modelLoadErrorHint": "A fájl hiányzik vagy átmenetileg nem érhető el. Próbáld újra később.",
+    "modelStillLoading": "Nagy modell, még tölt…"
   },
   "coupon": {
     "title": "🎁 5% kedvezmény ajándékba",
@@ -573,7 +576,9 @@
     "wishlistLoadingMore": "{count} kedvenc termék betöltése folyamatban…",
     "loadError": "Betöltési hiba",
     "saveError": "Mentés sikertelen",
-    "loading": "Betöltés…"
+    "loading": "Betöltés…",
+    "optional": "opcionális",
+    "imageN": "{name} – {n}. kép"
   },
   "addToCartReason": {
     "previewStarts": "Előnézet – vásárlás ekkor indul: {when}",
@@ -696,7 +701,19 @@
     "description": "Szerethető és hasznos kiegészítők a család minden tagjának, télen-nyáron. Nézz körül nálunk, és fedezd fel egyedi kínálatunkat!",
     "organizationDescription": "Szerethető és hasznos kiegészítők a család minden tagjának, télen-nyáron. A te otthonod, a mi szívügyünk.",
     "productNotFound": "Termék nem található – Gulumen",
-    "catHuntTitle": "Modern Macskavadászat"
+    "catHuntTitle": "Modern Macskavadászat",
+    "productImageAlt": "Gulumen termék",
+    "productsTitle": "Termékek – Gulumen",
+    "cartTitle": "Kosár – Gulumen",
+    "wishlistTitle": "Kedvencek – Gulumen",
+    "paymentTitle": "Fizetés – Gulumen",
+    "registerTitle": "Regisztráció – Gulumen",
+    "sourcingTitle": "Beszerzésre rendelhető – Gulumen",
+    "expiredTitle": "Lejárt termékek – Gulumen",
+    "shippingTitle": "Szállítás – Gulumen",
+    "returnsTitle": "Visszaküldés – Gulumen",
+    "contactTitle": "Kapcsolat – Gulumen",
+    "faqTitle": "GYIK – Gulumen"
   },
   "condition": {
     "Új": "Új",

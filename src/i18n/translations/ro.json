@@ -321,7 +321,10 @@
     "tabShipping": "Livrare",
     "tabReturns": "Returnare",
     "sizeVariant": "Mărime / variantă",
-    "baseVariant": "Bază"
+    "baseVariant": "Bază",
+    "modelLoadError": "Modelul 3D nu a putut fi încărcat.",
+    "modelLoadErrorHint": "Fișierul lipsește sau este temporar indisponibil. Încearcă din nou mai târziu.",
+    "modelStillLoading": "Model mare, încă se încarcă…"
   },
   "newsletter": {
     "title": "Newsletter",
@@ -558,7 +561,9 @@
     "wishlistLoadingMore": "Se încarcă încă {count} produse favorite…",
     "loadError": "Încărcare eșuată",
     "saveError": "Salvare eșuată",
-    "loading": "Se încarcă…"
+    "loading": "Se încarcă…",
+    "optional": "opțional",
+    "imageN": "{name} – imaginea {n}"
   },
   "addToCartReason": {
     "previewStarts": "Previzualizare – vânzarea începe la {when}",
@@ -696,7 +701,19 @@
     "description": "Accesorii drăguțe și utile pentru fiecare membru al familiei, tot anul. Explorează magazinul nostru și descoperă selecția unică!",
     "organizationDescription": "Accesorii drăguțe și utile pentru fiecare membru al familiei, tot anul. Casa ta ne este aproape de suflet.",
     "productNotFound": "Produs negăsit – Gulumen",
-    "catHuntTitle": "Vânătoare modernă de pisici"
+    "catHuntTitle": "Vânătoare modernă de pisici",
+    "productImageAlt": "Produs Gulumen",
+    "productsTitle": "Produse – Gulumen",
+    "cartTitle": "Coș – Gulumen",
+    "wishlistTitle": "Favorite – Gulumen",
+    "paymentTitle": "Plată – Gulumen",
+    "registerTitle": "Înregistrare – Gulumen",
+    "sourcingTitle": "Comandă pe aprovizionare – Gulumen",
+    "expiredTitle": "Produse expirate – Gulumen",
+    "shippingTitle": "Livrare – Gulumen",
+    "returnsTitle": "Returnare – Gulumen",
+    "contactTitle": "Contact – Gulumen",
+    "faqTitle": "Întrebări frecvente – Gulumen"
   },
   "condition": {
     "Új": "Nou",

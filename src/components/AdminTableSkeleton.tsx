@@ -12,7 +12,7 @@ export function AdminTableSkeleton({ columns, rows = 8, columnWidths }: AdminTab
     <div
       className="overflow-x-auto rounded-xl border border-[var(--border)]"
       aria-busy="true"
-      aria-label="Betöltés"
+      aria-label="Loading"
     >
       <table className="w-full text-left text-sm">
         <thead className="border-b border-[var(--border)] bg-[var(--border)]/30">

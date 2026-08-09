@@ -336,7 +336,10 @@
     "tabShipping": "Versand",
     "tabReturns": "Rückgabe",
     "sizeVariant": "Größe / Variante",
-    "baseVariant": "Basis"
+    "baseVariant": "Basis",
+    "modelLoadError": "Das 3D-Modell konnte nicht geladen werden.",
+    "modelLoadErrorHint": "Die Datei fehlt oder ist vorübergehend nicht verfügbar. Bitte später erneut versuchen.",
+    "modelStillLoading": "Großes Modell, lädt noch…"
   },
   "newsletter": {
     "title": "Newsletter",
@@ -573,7 +576,9 @@
     "wishlistLoadingMore": "{count} weitere Favoriten werden geladen…",
     "loadError": "Laden fehlgeschlagen",
     "saveError": "Speichern fehlgeschlagen",
-    "loading": "Laden…"
+    "loading": "Laden…",
+    "optional": "optional",
+    "imageN": "{name} – Bild {n}"
   },
   "addToCartReason": {
     "previewStarts": "Vorschau – Verkauf startet am {when}",
@@ -696,7 +701,19 @@
     "description": "Liebevolle und nützliche Accessoires für jedes Familienmitglied – das ganze Jahr. Stöbere bei uns und entdecke unser einzigartiges Sortiment!",
     "organizationDescription": "Liebevolle und nützliche Accessoires für jedes Familienmitglied – das ganze Jahr. Dein Zuhause liegt uns am Herzen.",
     "productNotFound": "Produkt nicht gefunden – Gulumen",
-    "catHuntTitle": "Moderne Katzenjagd"
+    "catHuntTitle": "Moderne Katzenjagd",
+    "productImageAlt": "Gulumen-Produkt",
+    "productsTitle": "Produkte – Gulumen",
+    "cartTitle": "Warenkorb – Gulumen",
+    "wishlistTitle": "Favoriten – Gulumen",
+    "paymentTitle": "Kasse – Gulumen",
+    "registerTitle": "Registrierung – Gulumen",
+    "sourcingTitle": "Auf Beschaffung bestellbar – Gulumen",
+    "expiredTitle": "Abgelaufene Produkte – Gulumen",
+    "shippingTitle": "Versand – Gulumen",
+    "returnsTitle": "Rückgabe – Gulumen",
+    "contactTitle": "Kontakt – Gulumen",
+    "faqTitle": "FAQ – Gulumen"
   },
   "condition": {
     "Új": "Neu",

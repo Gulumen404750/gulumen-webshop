@@ -51,7 +51,7 @@ export function productBreadcrumbs(
   productName: string,
   options?: { productsLabel?: string; locale?: Locale }
 ): BreadcrumbItem[] {
-  const productsLabel = options?.productsLabel ?? 'Termékek'
+  const productsLabel = options?.productsLabel ?? 'Products'
   const locale = options?.locale ?? 'hu'
   const base: BreadcrumbItem[] = [{ label: productsLabel, href: '/termekek' }]
   if (categorySlug) {

@@ -3,13 +3,14 @@
 @tailwind utilities;
 
 :root {
-  --bg: #ffffff;
-  --text: #111111;
-  --text-muted: #6b7280;
+  /* Soft off-white light mode: less glare, better long-read comfort */
+  --bg: #f8fafc;
+  --text: #111827;
+  --text-muted: #64748b;
   --accent: #0ea5e9;
   --discount: #dc2626;
   --card-bg: #ffffff;
-  --border: #e5e7eb;
+  --border: #e2e8f0;
 }
 
 .dark {

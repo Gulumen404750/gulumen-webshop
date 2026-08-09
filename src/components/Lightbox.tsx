@@ -200,7 +200,7 @@ export function Lightbox({ images, productName, currentIndex, onClose, onIndexCh
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={imgFailed ? PLACEHOLDER_IMAGE : src}
-              alt={`${productName} – ${currentIndex + 1}. kép`}
+              alt={t('common.imageN', { name: productName, n: currentIndex + 1 })}
               className="max-h-[85vh] w-auto object-contain pointer-events-none"
               draggable={false}
               referrerPolicy="no-referrer"

@@ -24,10 +24,12 @@ import dynamic from 'next/dynamic'
 import { Product360Viewer } from '@/components/Product360Viewer'
 import { SoldImpactOverlay } from '@/components/SoldImpactOverlay'
 
+import { ModelLoadingPlaceholder } from '@/components/ModelLoadingPlaceholder'
+
 /** 3D model viewer csak kliensen, hogy ne váltsa ki a Node/V8 JIT hibát Windows alatt. */
 const ProductModelViewer = dynamic(
   () => import('@/components/ProductModelViewer').then((m) => m.ProductModelViewer),
-  { ssr: false, loading: () => <div className="min-h-[280px] flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--card-bg)] text-muted">3D modell betöltése…</div> }
+  { ssr: false, loading: () => <ModelLoadingPlaceholder /> }
 )
 import { is3DProduct } from '@/lib/data'
 import {

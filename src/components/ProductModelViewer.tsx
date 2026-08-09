@@ -200,21 +200,16 @@ export function ProductModelViewer({ src, alt, className = '', selectedColorHex,
   if (modelError) {
     return (
       <div className={`${className} min-h-[280px] rounded-xl border border-[var(--border)] bg-[var(--card-bg)] flex flex-col items-center justify-center gap-3 p-6 text-center`}>
-        <span className="text-destructive font-medium">A 3D modell nem tölthető</span>
-        {attemptedUrl && (
+        <span className="text-destructive font-medium">{t('product.modelLoadError')}</span>
+        <p className="text-sm text-muted max-w-sm">{t('product.modelLoadErrorHint')}</p>
+        {process.env.NODE_ENV === 'development' && attemptedUrl ? (
           <p className="text-xs text-muted max-w-md break-all">
-            Próbált URL: <a href={attemptedUrl} target="_blank" rel="noopener noreferrer" className="underline">{attemptedUrl}</a> – nyisd meg új lapon: 200 = fájl elérhető, 404 = hiányzik.
+            URL:{' '}
+            <a href={attemptedUrl} target="_blank" rel="noopener noreferrer" className="underline">
+              {attemptedUrl}
+            </a>
           </p>
-        )}
-        <p className="text-sm text-muted max-w-sm">
-          A fájl hiányzik vagy nem érhető el. Tedd a <code className="bg-[var(--border)] px-1 rounded">.glb</code> fájlt a <code className="bg-[var(--border)] px-1 rounded">public/models</code> mappába.
-        </p>
-        <p className="text-xs text-muted max-w-sm">
-          STL-ből konvertálás (terminálban a projekt mappájából):<br />
-          <code className="bg-[var(--border)] px-2 py-1 rounded mt-1 inline-block font-mono select-all">npm run convert-3d:webshop</code><br />
-          <span className="text-muted/80">A <code className="bg-[var(--border)] px-1 rounded">3d</code> és a <code className="bg-[var(--border)] px-1 rounded">webshop</code> között <strong>kettőspont</strong> van, nem kötőjel.</span><br />
-          A <code className="bg-[var(--border)] px-1 rounded">scripts/3d-webshop-paths.json</code> tartalmazza a forrás STL útvonalakat.
-        </p>
+        ) : null}
       </div>
     )
   }
@@ -230,7 +225,7 @@ export function ProductModelViewer({ src, alt, className = '', selectedColorHex,
         )}
         {ready && showSlowLoadingHint && (
           <div className="absolute bottom-2 left-2 right-2 z-10 text-center text-sm text-muted bg-[var(--card-bg)]/90 rounded py-1">
-            Nagy modell, még tölt…
+            {t('product.modelStillLoading')}
           </div>
         )}
       </div>

@@ -877,7 +877,7 @@ export default function PaymentPage() {
             <div className="sm:col-span-2">
               <label htmlFor="checkout-delivery-notes" className="block text-sm font-medium text-foreground mb-1">
                 {t('payment.deliveryNotesLabel') || 'Megjegyzés a futárnak / Cím pontosítása'}{' '}
-                <span className="text-muted font-normal">(opcionális)</span>
+                <span className="text-muted font-normal">({t('common.optional')})</span>
               </label>
               <textarea
                 id="checkout-delivery-notes"

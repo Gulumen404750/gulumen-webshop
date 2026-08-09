@@ -336,7 +336,10 @@
     "tabShipping": "Shipping",
     "tabReturns": "Returns",
     "sizeVariant": "Size / variant",
-    "baseVariant": "Base"
+    "baseVariant": "Base",
+    "modelLoadError": "The 3D model could not be loaded.",
+    "modelLoadErrorHint": "The file is missing or temporarily unavailable. Please try again later.",
+    "modelStillLoading": "Large model, still loading…"
   },
   "newsletter": {
     "title": "Newsletter",
@@ -573,7 +576,9 @@
     "wishlistLoadingMore": "Loading {count} more favorite products…",
     "loadError": "Failed to load",
     "saveError": "Save failed",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "optional": "optional",
+    "imageN": "{name} – image {n}"
   },
   "addToCartReason": {
     "previewStarts": "Preview – sale starts at {when}",
@@ -696,7 +701,19 @@
     "description": "Lovable and useful accessories for every member of the family, all year round. Browse our shop and discover our unique selection!",
     "organizationDescription": "Lovable and useful accessories for every member of the family, all year round. Your home is close to our heart.",
     "productNotFound": "Product not found – Gulumen",
-    "catHuntTitle": "Modern Cat Hunt"
+    "catHuntTitle": "Modern Cat Hunt",
+    "productImageAlt": "Gulumen product",
+    "productsTitle": "Products – Gulumen",
+    "cartTitle": "Cart – Gulumen",
+    "wishlistTitle": "Favorites – Gulumen",
+    "paymentTitle": "Checkout – Gulumen",
+    "registerTitle": "Register – Gulumen",
+    "sourcingTitle": "Order for sourcing – Gulumen",
+    "expiredTitle": "Expired products – Gulumen",
+    "shippingTitle": "Shipping – Gulumen",
+    "returnsTitle": "Returns – Gulumen",
+    "contactTitle": "Contact – Gulumen",
+    "faqTitle": "FAQ – Gulumen"
   },
   "condition": {
     "Új": "New",
