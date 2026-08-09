@@ -1,9 +1,11 @@
 import { cookies } from 'next/headers'
+import { verifyAdminSessionToken, ADMIN_COOKIE_NAME } from '@/lib/admin-session'
 
-/** Admin cookie ellenőrzése (admin_authorized=1). API route-okban használd. */
+/** Admin aláírt session cookie ellenőrzése. API route-okban használd. */
 export async function requireAdmin(): Promise<boolean> {
   const cookieStore = await cookies()
-  return cookieStore.get('admin_authorized')?.value === '1'
+  const token = cookieStore.get(ADMIN_COOKIE_NAME)?.value
+  return verifyAdminSessionToken(token)
 }
 
 export function getAdminApiKey(): string | undefined {

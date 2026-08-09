@@ -5,6 +5,7 @@ import { isDbConfigured } from '@/lib/prisma'
 import { createSession, getSessionCookieHeader, isJwtConfigured } from '@/lib/auth'
 import { devVerifyUser } from '@/lib/dev-auth'
 import { findUserByEmail, normalizeEmail } from '@/lib/user-email'
+import { rateLimit } from '@/lib/rate-limit'
 import {
   loginRateLimitCheck,
   loginRateLimitRecordFailure,
@@ -21,7 +22,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Auth not configured' }, { status: 503 })
   }
 
-  const limit = loginRateLimitCheck(request)
+  const ipLimit = await rateLimit(request, { preset: 'auth' })
+  if (!ipLimit.ok) {
+    return NextResponse.json(
+      { error: 'Too many requests. Try again later.' },
+      { status: 429 }
+    )
+  }
+
+  const limit = await loginRateLimitCheck(request)
   if (!limit.ok) {
     return NextResponse.json(
       { error: 'Too many login attempts. Try again later.' },
@@ -48,14 +57,14 @@ export async function POST(request: Request) {
   if (isDbConfigured()) {
     const user = await findUserByEmail(emailNorm)
     if (!user) {
-      loginRateLimitRecordFailure(request)
+      await loginRateLimitRecordFailure(request)
       return NextResponse.json(
         { error: 'Hibás e-mail vagy jelszó' },
         { status: 401 }
       )
     }
     if (!user.passwordHash) {
-      loginRateLimitRecordFailure(request)
+      await loginRateLimitRecordFailure(request)
       return NextResponse.json(
         { error: 'Ehhez a fiókhoz Google-lel jelentkezz be.' },
         { status: 401 }
@@ -64,14 +73,14 @@ export async function POST(request: Request) {
 
     const ok = await bcrypt.compare(password, user.passwordHash)
     if (!ok) {
-      loginRateLimitRecordFailure(request)
+      await loginRateLimitRecordFailure(request)
       return NextResponse.json(
         { error: 'Hibás e-mail vagy jelszó' },
         { status: 401 }
       )
     }
 
-    loginRateLimitRecordSuccess(request)
+    await loginRateLimitRecordSuccess(request)
     const token = await createSession(user.id, user.email)
     const response = NextResponse.json({
       user: { id: user.id, email: user.email, name: user.name },
@@ -82,14 +91,14 @@ export async function POST(request: Request) {
 
   const devUser = await devVerifyUser(emailNorm, password)
   if (!devUser) {
-    loginRateLimitRecordFailure(request)
+    await loginRateLimitRecordFailure(request)
     return NextResponse.json(
       { error: 'Hibás e-mail vagy jelszó' },
       { status: 401 }
     )
   }
 
-  loginRateLimitRecordSuccess(request)
+  await loginRateLimitRecordSuccess(request)
   const token = await createSession(devUser.id, devUser.email)
   const response = NextResponse.json({
     user: { id: devUser.id, email: devUser.email, name: devUser.name },

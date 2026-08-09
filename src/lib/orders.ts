@@ -4,6 +4,9 @@
 
 import { logger } from '@/lib/logger'
 import { prisma, isDbConfigured } from '@/lib/prisma'
+import { decrementStockAtomic, OutOfStockException } from '@/lib/inventory'
+
+export { OutOfStockException }
 
 export type OrderStatus =
   | 'pending'
@@ -296,21 +299,8 @@ export async function setOrderPaid(params: {
         },
       })
 
-      // Korlátozott készletű raktári tételek: fizetéskor csökkentjük a darabszámot.
-      for (const item of existing.items) {
-        if (item.fulfillmentType !== 'stock' || item.qty <= 0) continue
-        const product = await tx.product.findUnique({
-          where: { id: item.productId },
-          select: { id: true, stock: true, type: true },
-        })
-        if (!product || product.type === 'sourcing_deal') continue
-        if (product.stock == null || product.stock < 0) continue // végtelen
-        if (product.stock <= 0) continue
-        await tx.product.update({
-          where: { id: product.id },
-          data: { stock: Math.max(0, product.stock - item.qty) },
-        })
-      }
+      // Készlet már a checkout createCheckoutOrders atomi UPDATE-jében levonva (oversell védelem).
+      // Itt NEM csökkentünk újra – elkerüljük a dupla levonást.
     })
     return getOrderById(params.orderId)
   }
@@ -408,98 +398,105 @@ export async function createCheckoutOrders(params: {
   const appliedCoupons = Array.isArray(params.appliedCoupons) ? params.appliedCoupons : []
 
   if (isDbConfigured()) {
-    if (params.inStock && params.inStock.items.length > 0) {
-      const id = generateOrderId()
-      await prisma.order.create({
-        data: {
+    // Atomi tranzakció: in_stock stock decrement + rendelés létrehozás (oversell védelem).
+    await prisma.$transaction(async (tx) => {
+      if (params.inStock && params.inStock.items.length > 0) {
+        await decrementStockAtomic(
+          params.inStock.items.map((i) => ({ productId: i.productId, qty: i.qty })),
+          tx
+        )
+        const id = generateOrderId()
+        await tx.order.create({
+          data: {
+            id,
+            status: 'payment_pending',
+            orderGroupId: params.orderGroupId,
+            orderType: 'in_stock',
+            subtotalHuf: params.inStock.subtotalHuf,
+            discountHuf: params.inStock.discountHuf,
+            totalHuf: params.inStock.totalHuf,
+            pointsDiscountHuf: params.inStock.pointsDiscountHuf ?? 0,
+            pointsUsed: params.inStock.pointsUsed ?? 0,
+            userId: params.userId ?? null,
+            couponId: params.couponId ?? null,
+            appliedCoupons,
+            currency,
+            items: {
+              create: params.inStock.items.map((i) => ({
+                productId: i.productId,
+                qty: i.qty,
+                fulfillmentType: i.fulfillmentType,
+                priceHuf: i.priceHuf,
+                name: i.name ?? null,
+              })),
+            },
+          },
+        })
+        result.push({
           id,
           status: 'payment_pending',
           orderGroupId: params.orderGroupId,
           orderType: 'in_stock',
+          items: params.inStock.items,
           subtotalHuf: params.inStock.subtotalHuf,
           discountHuf: params.inStock.discountHuf,
           totalHuf: params.inStock.totalHuf,
           pointsDiscountHuf: params.inStock.pointsDiscountHuf ?? 0,
           pointsUsed: params.inStock.pointsUsed ?? 0,
-          userId: params.userId ?? null,
-          couponId: params.couponId ?? null,
+          userId: params.userId,
+          couponId: params.couponId,
           appliedCoupons,
           currency,
-          items: {
-            create: params.inStock.items.map((i) => ({
-              productId: i.productId,
-              qty: i.qty,
-              fulfillmentType: i.fulfillmentType,
-              priceHuf: i.priceHuf,
-              name: i.name ?? null,
-            })),
+          createdAt: new Date().toISOString(),
+        })
+      }
+      if (params.sourcing && params.sourcing.items.length > 0) {
+        const id = generateOrderId()
+        await tx.order.create({
+          data: {
+            id,
+            status: 'payment_pending',
+            orderGroupId: params.orderGroupId,
+            orderType: 'sourcing',
+            subtotalHuf: params.sourcing.subtotalHuf,
+            discountHuf: params.sourcing.discountHuf,
+            totalHuf: params.sourcing.totalHuf,
+            pointsDiscountHuf: params.sourcing.pointsDiscountHuf ?? 0,
+            pointsUsed: params.sourcing.pointsUsed ?? 0,
+            userId: params.userId ?? null,
+            couponId: params.couponId ?? null,
+            appliedCoupons,
+            currency,
+            items: {
+              create: params.sourcing.items.map((i) => ({
+                productId: i.productId,
+                qty: i.qty,
+                fulfillmentType: i.fulfillmentType,
+                priceHuf: i.priceHuf,
+                name: i.name ?? null,
+              })),
+            },
           },
-        },
-      })
-      result.push({
-        id,
-        status: 'payment_pending',
-        orderGroupId: params.orderGroupId,
-        orderType: 'in_stock',
-        items: params.inStock.items,
-        subtotalHuf: params.inStock.subtotalHuf,
-        discountHuf: params.inStock.discountHuf,
-        totalHuf: params.inStock.totalHuf,
-        pointsDiscountHuf: params.inStock.pointsDiscountHuf ?? 0,
-        pointsUsed: params.inStock.pointsUsed ?? 0,
-        userId: params.userId,
-        couponId: params.couponId,
-        appliedCoupons,
-        currency,
-        createdAt: new Date().toISOString(),
-      })
-    }
-    if (params.sourcing && params.sourcing.items.length > 0) {
-      const id = generateOrderId()
-      await prisma.order.create({
-        data: {
+        })
+        result.push({
           id,
           status: 'payment_pending',
           orderGroupId: params.orderGroupId,
           orderType: 'sourcing',
+          items: params.sourcing.items,
           subtotalHuf: params.sourcing.subtotalHuf,
           discountHuf: params.sourcing.discountHuf,
           totalHuf: params.sourcing.totalHuf,
           pointsDiscountHuf: params.sourcing.pointsDiscountHuf ?? 0,
           pointsUsed: params.sourcing.pointsUsed ?? 0,
-          userId: params.userId ?? null,
-          couponId: params.couponId ?? null,
+          userId: params.userId,
+          couponId: params.couponId,
           appliedCoupons,
           currency,
-          items: {
-            create: params.sourcing.items.map((i) => ({
-              productId: i.productId,
-              qty: i.qty,
-              fulfillmentType: i.fulfillmentType,
-              priceHuf: i.priceHuf,
-              name: i.name ?? null,
-            })),
-          },
-        },
-      })
-      result.push({
-        id,
-        status: 'payment_pending',
-        orderGroupId: params.orderGroupId,
-        orderType: 'sourcing',
-        items: params.sourcing.items,
-        subtotalHuf: params.sourcing.subtotalHuf,
-        discountHuf: params.sourcing.discountHuf,
-        totalHuf: params.sourcing.totalHuf,
-        pointsDiscountHuf: params.sourcing.pointsDiscountHuf ?? 0,
-        pointsUsed: params.sourcing.pointsUsed ?? 0,
-        userId: params.userId,
-        couponId: params.couponId,
-        appliedCoupons,
-        currency,
-        createdAt: new Date().toISOString(),
-      })
-    }
+          createdAt: new Date().toISOString(),
+        })
+      }
+    })
     return result
   }
 

@@ -12,6 +12,7 @@ import {
   normalizeEmail,
 } from '@/lib/user-email'
 import { grantBirthdayCouponForUser, isBirthdayToday, parseBirthDateInput } from '@/lib/birthday-coupon'
+import { rateLimit } from '@/lib/rate-limit'
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -26,6 +27,11 @@ const EMAIL_ALREADY_REGISTERED = 'Ezzel az e-mail címmel már regisztráltak. J
 export async function POST(request: Request) {
   if (!isJwtConfigured()) {
     return NextResponse.json({ error: 'Auth not configured' }, { status: 503 })
+  }
+
+  const limit = await rateLimit(request, { preset: 'auth' })
+  if (!limit.ok) {
+    return NextResponse.json({ error: 'Too many requests. Try again later.' }, { status: 429 })
   }
 
   let body: unknown

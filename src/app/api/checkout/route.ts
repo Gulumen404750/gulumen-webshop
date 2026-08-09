@@ -8,6 +8,7 @@ import {
   setOrderCustomerEmail,
   setOrderStatus,
   getProductOrdersCount,
+  OutOfStockException,
 } from '@/lib/orders'
 import {
   createPaymentTransaction,
@@ -88,7 +89,7 @@ const checkoutBodySchema = z.object({
 export async function POST(request: Request) {
   const idemKey = getIdempotencyKey(request)
   if (idemKey) {
-    const cached = getIdempotentResponse(idemKey)
+    const cached = await getIdempotentResponse(idemKey)
     if (cached) {
       return NextResponse.json(cached.body, {
         status: cached.status,
@@ -97,7 +98,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const limit = rateLimit(request)
+  const limit = await rateLimit(request)
   if (!limit.ok) {
     return NextResponse.json(
       { error: 'Túl sok kérés. Próbáld újra később.' },
@@ -367,33 +368,57 @@ export async function POST(request: Request) {
 
   const appliedCouponsList = Array.from(selectedCoupons)
 
-  const createdOrders = await createCheckoutOrders({
-    orderGroupId,
-    userId: checkoutUserId ?? undefined,
-    couponId: appliedCouponId ?? undefined,
-    appliedCoupons: appliedCouponsList,
-    inStock: hasInStock
-      ? {
-          items: inStock.items,
-          subtotalHuf: inStock.subtotalHuf,
-          discountHuf: inStock.couponDiscountHuf + inStock.luckySpinDiscountHuf,
-          totalHuf: Math.max(0, inStock.totalHuf),
-          pointsDiscountHuf: inStock.pointsDiscountHuf,
-          pointsUsed: inStock.pointsUsed,
+  let createdOrders
+  try {
+    createdOrders = await createCheckoutOrders({
+      orderGroupId,
+      userId: checkoutUserId ?? undefined,
+      couponId: appliedCouponId ?? undefined,
+      appliedCoupons: appliedCouponsList,
+      inStock: hasInStock
+        ? {
+            items: inStock.items,
+            subtotalHuf: inStock.subtotalHuf,
+            discountHuf: inStock.couponDiscountHuf + inStock.luckySpinDiscountHuf,
+            totalHuf: Math.max(0, inStock.totalHuf),
+            pointsDiscountHuf: inStock.pointsDiscountHuf,
+            pointsUsed: inStock.pointsUsed,
+          }
+        : undefined,
+      sourcing: hasSourcing
+        ? {
+            items: sourcing.items,
+            subtotalHuf: sourcing.subtotalHuf,
+            discountHuf: sourcing.couponDiscountHuf + sourcing.luckySpinDiscountHuf,
+            totalHuf: Math.max(0, sourcing.totalHuf),
+            pointsDiscountHuf: sourcing.pointsDiscountHuf,
+            pointsUsed: sourcing.pointsUsed,
+          }
+        : undefined,
+      currency,
+    })
+  } catch (err) {
+    if (reservationIds.length > 0) {
+      try {
+        const { prisma, isDbConfigured } = await import('@/lib/prisma')
+        if (isDbConfigured()) {
+          await prisma.productReservation.updateMany({
+            where: { id: { in: reservationIds }, status: 'RESERVED' },
+            data: { status: 'CANCELED' },
+          })
         }
-      : undefined,
-    sourcing: hasSourcing
-      ? {
-          items: sourcing.items,
-          subtotalHuf: sourcing.subtotalHuf,
-          discountHuf: sourcing.couponDiscountHuf + sourcing.luckySpinDiscountHuf,
-          totalHuf: Math.max(0, sourcing.totalHuf),
-          pointsDiscountHuf: sourcing.pointsDiscountHuf,
-          pointsUsed: sourcing.pointsUsed,
-        }
-      : undefined,
-    currency,
-  })
+      } catch {
+        // ignore cleanup errors
+      }
+    }
+    if (err instanceof OutOfStockException) {
+      return NextResponse.json(
+        { error: 'Out of stock', productId: err.productId, code: 'out_of_stock' },
+        { status: 409 }
+      )
+    }
+    throw err
+  }
 
   for (const order of createdOrders) {
     await setOrderCustomerEmail(order.id, customer.email)
@@ -555,7 +580,7 @@ export async function POST(request: Request) {
     },
   }
   if (idemKey) {
-    setIdempotentResponse(idemKey, payload, 200)
+    await setIdempotentResponse(idemKey, payload, 200)
   }
   return NextResponse.json(payload)
 }

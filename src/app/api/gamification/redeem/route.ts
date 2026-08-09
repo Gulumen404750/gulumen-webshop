@@ -16,7 +16,7 @@ import { REDEEM_THRESHOLD_MIN } from '@/lib/gamification/constants'
  * Pont beváltás kuponra (>= 350 pont, tranzakcióban).
  */
 export async function POST(request: Request) {
-  const limit = rateLimit(request)
+  const limit = await rateLimit(request)
   if (!limit.ok) {
     return NextResponse.json(
       { error: 'Túl sok kérés. Próbáld újra később.' },

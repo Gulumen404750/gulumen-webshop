@@ -9,6 +9,14 @@
       "schedule": "* * * * *"
     },
     {
+      "path": "/api/cron/process-outbox",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/cleanup-stuck-payments",
+      "schedule": "*/10 * * * *"
+    },
+    {
       "path": "/api/cron/birthday-coupons",
       "schedule": "15 7 * * *"
     }

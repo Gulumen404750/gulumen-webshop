@@ -62,6 +62,9 @@ model Product {
   sortOrder        Int?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+
+  @@index([active, archived])
+  @@index([category, active])
 }
 
 /// Kuponok / kedvezmények – adminból kezelhetők.
@@ -219,6 +222,11 @@ model Order {
   rewardsFinalized   Boolean  @default(false)
   items             OrderItem[]
   paymentTransactions PaymentTransaction[]
+
+  @@index([status, createdAt])
+  @@index([orderGroupId])
+  @@index([userId, createdAt])
+  @@index([stripeSessionId])
 }
 
 model OrderItem {

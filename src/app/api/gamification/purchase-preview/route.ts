@@ -14,7 +14,7 @@ import { MAX_CART_POINTS_COVERAGE, POINTS_PER_HUF } from '@/lib/gamification/con
  * GET /api/gamification/purchase-preview?cartTotalHuf=50000
  */
 export async function GET(request: Request) {
-  const limit = rateLimit(request)
+  const limit = await rateLimit(request)
   if (!limit.ok) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
   }

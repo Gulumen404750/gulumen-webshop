@@ -34,7 +34,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const limit = rateLimit(request)
+    const limit = await rateLimit(request)
     if (!limit.ok) {
       return NextResponse.json({ ok: true, skipped: 'rate_limit' })
     }
@@ -44,7 +44,8 @@ export async function POST(
     }
 
     const cookieStore = await cookies()
-    if (cookieStore.get('admin_authorized')?.value === '1') {
+    const { verifyAdminSessionToken, ADMIN_COOKIE_NAME } = await import('@/lib/admin-session')
+    if (await verifyAdminSessionToken(cookieStore.get(ADMIN_COOKIE_NAME)?.value)) {
       return NextResponse.json({ ok: true, skipped: 'admin' })
     }
 

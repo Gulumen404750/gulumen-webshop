@@ -1,10 +1,12 @@
 /**
- * Checkout idempotencia: ugyanazzal az Idempotency-Key headerrel
- * érkező kérésnél a korábbi választ adjuk vissza (új rendelés nélkül).
- * Egyelőre in-memory Map; később Redis/DB.
+ * Checkout idempotencia – Upstash Redis (multi-instance); fallback in-memory Map.
  */
 
-const TTL_MS = 24 * 60 * 60 * 1000 // 24 óra
+import { getRedis, isRedisConfigured } from '@/lib/redis'
+
+const TTL_MS = 24 * 60 * 60 * 1000
+const TTL_SEC = 24 * 60 * 60
+const REDIS_PREFIX = 'idem:'
 
 type CachedResponse = {
   body: unknown
@@ -22,8 +24,22 @@ function pruneExpired(): void {
   })
 }
 
-/** Visszaadja a kulcshoz tartozó cache-elt választ, vagy null. */
-export function getIdempotentResponse(key: string): { body: unknown; status: number; headers: Record<string, string> } | null {
+export async function getIdempotentResponse(
+  key: string
+): Promise<{ body: unknown; status: number; headers: Record<string, string> } | null> {
+  if (isRedisConfigured()) {
+    try {
+      const redis = getRedis()
+      if (redis) {
+        const raw = await redis.get<CachedResponse>(REDIS_PREFIX + key)
+        if (!raw) return null
+        return { body: raw.body, status: raw.status, headers: raw.headers ?? {} }
+      }
+    } catch (err) {
+      console.warn('[idempotency] Redis get failed, memory fallback:', err)
+    }
+  }
+
   pruneExpired()
   const entry = store.get(key)
   if (!entry) return null
@@ -34,23 +50,30 @@ export function getIdempotentResponse(key: string): { body: unknown; status: num
   return { body: entry.body, status: entry.status, headers: entry.headers }
 }
 
-/** Eltárolja a választ az idempotency key alatt. */
-export function setIdempotentResponse(
+export async function setIdempotentResponse(
   key: string,
   body: unknown,
   status: number,
   headers: Record<string, string> = {}
-): void {
+): Promise<void> {
+  const entry: CachedResponse = { body, status, headers, createdAt: Date.now() }
+
+  if (isRedisConfigured()) {
+    try {
+      const redis = getRedis()
+      if (redis) {
+        await redis.set(REDIS_PREFIX + key, entry, { ex: TTL_SEC })
+        return
+      }
+    } catch (err) {
+      console.warn('[idempotency] Redis set failed, memory fallback:', err)
+    }
+  }
+
   pruneExpired()
-  store.set(key, {
-    body,
-    status,
-    headers,
-    createdAt: Date.now(),
-  })
+  store.set(key, entry)
 }
 
-/** Idempotency-Key header kiolvasása (max 128 karakter). */
 export function getIdempotencyKey(request: Request): string | null {
   const key = request.headers.get('Idempotency-Key')?.trim()
   if (!key || key.length > 128) return null

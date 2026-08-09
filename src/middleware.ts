@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { verifyAdminSessionToken, ADMIN_COOKIE_NAME } from '@/lib/admin-session-edge'
 
 const ADMIN_PREFIX = '/admin'
 const ADMIN_LOGIN = '/admin/login'
 
 /**
  * Security middleware – minden route-on fut.
- * X-Frame-Options, CSP, HSTS, stb.
- * /admin/* (kivéve /admin/login) védve: admin_authorized cookie.
+ * /admin/* (kivéve /admin/login) védve: aláírt admin JWT cookie.
  */
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const host = request.nextUrl.hostname
   if (host === 'gulumen.com') {
     const wwwUrl = request.nextUrl.clone()
@@ -19,7 +19,8 @@ export function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname
   if (pathname.startsWith(ADMIN_PREFIX) && !pathname.startsWith(ADMIN_LOGIN)) {
-    const authorized = request.cookies.get('admin_authorized')?.value === '1'
+    const token = request.cookies.get(ADMIN_COOKIE_NAME)?.value
+    const authorized = await verifyAdminSessionToken(token)
     if (!authorized) {
       const loginUrl = new URL(ADMIN_LOGIN, request.url)
       loginUrl.searchParams.set('from', pathname)
@@ -46,6 +47,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  // /models/* ne menjen middleware-en keresztül (statikus GLB kiszolgálás)
   matcher: ['/((?!_next/static|_next/image|favicon.ico|models/).*)'],
 }

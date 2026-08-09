@@ -16,7 +16,7 @@ const postSchema = z.object({
  * Elérhető-e a 10% + hírlevél checkout ajánlat.
  */
 export async function GET(request: Request) {
-  const limit = rateLimit(request)
+  const limit = await rateLimit(request)
   if (!limit.ok) {
     return NextResponse.json({ error: 'Túl sok kérés.' }, { status: 429 })
   }
@@ -47,7 +47,7 @@ export async function GET(request: Request) {
  * Azonnali elfogadás: marketingOptIn + hasRedeemedWelcomeCoupon.
  */
 export async function POST(request: Request) {
-  const limit = rateLimit(request)
+  const limit = await rateLimit(request)
   if (!limit.ok) {
     return NextResponse.json({ error: 'Túl sok kérés.' }, { status: 429 })
   }

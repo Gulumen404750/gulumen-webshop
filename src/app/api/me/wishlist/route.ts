@@ -12,7 +12,7 @@ import type { Product } from '@/lib/data'
  * Visszaadja a productIds-t és a teljes termékobjektumokat (katalógus-szűrés nélkül).
  */
 export async function GET(request: Request) {
-  const limit = rateLimit(request)
+  const limit = await rateLimit(request)
   if (!limit.ok) {
     return NextResponse.json(
       { error: 'Túl sok kérés. Próbáld újra később.' },

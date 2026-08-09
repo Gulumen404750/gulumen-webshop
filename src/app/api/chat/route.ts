@@ -23,7 +23,7 @@ const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'
 export async function POST(request: Request) {
   const settings = await getChatSettingsFromDb()
 
-  const limit = rateLimit(request, { maxPerWindow: settings.rateLimitPerMinute })
+  const limit = await rateLimit(request, { maxPerWindow: settings.rateLimitPerMinute })
   if (!limit.ok) {
     return NextResponse.json({ error: 'Túl sok kérés. Próbáld újra később.' }, { status: 429 })
   }

@@ -87,7 +87,7 @@ async function generateSpinForUser(userId: string, now: Date) {
 }
 
 async function handleSpinRequest(request: Request, forceGenerate: boolean) {
-  const limit = rateLimit(request)
+  const limit = await rateLimit(request)
   if (!limit.ok) {
     return NextResponse.json({ error: 'Túl sok kérés.' }, { status: 429 })
   }
