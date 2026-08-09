@@ -6,7 +6,7 @@ import { useLocale } from '@/context/LocaleContext'
 
 /**
  * Mobil (< md): a Header alatt sticky sáv, ha van tétel a kosárban.
- * Felül rögzített – nem ütközik az alsó lebegő gombokkal (AI jobb, CallUs bal).
+ * Felül rögzített – nem ütközik az alsó AI chat lebegő gombbal.
  */
 export function MobileCartStickyBanner() {
   const { itemCount, totalHuf } = useCart()

@@ -173,53 +173,13 @@ export function AIAssistant() {
     }
   }
 
-  const fabStyle = {
-    right: mobileFabRight,
-  } as const
-
   return (
     <>
-      <div
-        className="hidden md:flex fixed bottom-6 flex-col items-end gap-3"
-        style={{
-          ...fabStyle,
-          bottom: 'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))',
-          zIndex: MOBILE_FAB_Z,
-        }}
-      >
-        <button
-          type="button"
-          onClick={openCallUs}
-          className="group flex items-center gap-2 rounded-full pl-2 pr-4 py-2.5 shadow-lg bg-black/80 hover:bg-black/90 text-white font-heading font-semibold transition-colors border-2 border-red-500/60"
-          aria-label={t('callUs.title')}
-        >
-          <span className="flex items-center justify-center w-12 h-12 rounded-full overflow-hidden bg-red-900/30 phone-ring-hover shrink-0">
-            <Image
-              src="/img/rotary-phone.png"
-              alt=""
-              width={48}
-              height={48}
-              className="w-full h-full object-contain"
-              unoptimized
-            />
-          </span>
-          <span className="text-sm whitespace-nowrap">{t('callUs.title')}</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="flex items-center gap-2 px-4 py-3 rounded-full shadow-lg bg-accent text-white font-heading font-semibold hover:opacity-90 transition-opacity"
-          aria-label={t('ai.title')}
-        >
-          <span>{t('ai.cta')}</span>
-          <ChatBubbleIcon className="w-5 h-5" />
-        </button>
-      </div>
-
+      {/* Egyetlen lebegő gomb minden breakpointon: kék chat widget */}
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="md:hidden fixed flex items-center gap-2 px-4 py-3 rounded-full shadow-lg bg-accent text-white font-heading font-semibold hover:opacity-90 transition-opacity"
+        className="fixed flex items-center gap-2 px-4 py-3 rounded-full shadow-lg bg-accent text-white font-heading font-semibold hover:opacity-90 transition-opacity"
         style={{
           zIndex: MOBILE_FAB_Z,
           right: mobileFabRight,
@@ -239,16 +199,27 @@ export function AIAssistant() {
         >
           <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} />
           <div className="relative w-full sm:max-w-md h-[min(88vh,32rem)] sm:h-[min(80vh,28rem)] flex flex-col rounded-t-2xl sm:rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] shadow-xl">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)]">
+            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-[var(--border)]">
               <span className="font-heading font-semibold text-foreground">{t('ai.title')}</span>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="p-2 rounded-lg text-muted hover:text-foreground hover:bg-[var(--border)]"
-                aria-label={t('buttons.close')}
-              >
-                <CloseIcon className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={openCallUs}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium text-foreground hover:bg-[var(--border)] transition-colors"
+                  aria-label={t('callUs.title')}
+                >
+                  <PhoneIcon className="w-4 h-4 shrink-0" />
+                  <span>{t('callUs.title')}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="p-2 rounded-lg text-muted hover:text-foreground hover:bg-[var(--border)]"
+                  aria-label={t('buttons.close')}
+                >
+                  <CloseIcon className="w-5 h-5" />
+                </button>
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {messages.length === 0 && (
@@ -434,6 +405,19 @@ function CloseIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  )
+}
+
+function PhoneIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+      />
     </svg>
   )
 }

@@ -17,7 +17,6 @@ import { EuroRateProvider } from '@/context/EuroRateContext'
 import { OrganizationJsonLd } from '@/components/OrganizationJsonLd'
 import { Analytics } from '@/components/Analytics'
 import { WalletErrorGuard } from '@/components/WalletErrorGuard'
-import { CallUsStickyCTA } from '@/components/CallUsStickyCTA'
 import { MobileCartStickyBanner } from '@/components/MobileCartStickyBanner'
 import { Footer } from '@/components/Footer'
 import { BrowseHeartbeatTracker } from '@/components/BrowseHeartbeatTracker'
@@ -95,7 +94,6 @@ export default async function RootLayout({
                     <BrowseHeartbeatTracker />
                     <main className="flex-1 min-w-0 overflow-x-hidden">{children}</main>
                     <Footer />
-                    <CallUsStickyCTA />
                     <AIAssistant />
                     {/* Admin: /admin/dashboard/deal-popup – csak ha enabled + van termék */}
                     <DealPopup />
