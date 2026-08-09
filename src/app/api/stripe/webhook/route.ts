@@ -10,8 +10,7 @@ import {
 import { markReservationsPaidByOrderId } from '@/lib/reservations'
 import { maybeSendOrderGroupConfirmationEmail } from '@/lib/order-email'
 import { qualifiesForLoyalty, incrementQualifyingOrder, decrementQualifyingOrder } from '@/lib/loyalty'
-import { enqueueOrderPurchasePointsRedemption } from '@/lib/gamification/order-points'
-import { recordCouponUsageOnPayment } from '@/lib/coupon-checkout'
+import { finalizeOrderRewards } from '@/lib/checkout-rewards'
 import { clearUserCartSnapshot } from '@/lib/cart-snapshot'
 import { logger } from '@/lib/logger'
 
@@ -79,10 +78,13 @@ export async function POST(request: Request) {
         return NextResponse.json({ received: true })
       }
 
-      if (order.status === 'paid') {
-        return NextResponse.json({ received: true })
-      }
-      if (order.paidWebhookEventId === event.id) {
+      // Már paid: ne állítsuk újra paid-ra, de a jutalomégés idempotens – futtassuk le (retry).
+      if (order.status === 'paid' || order.paidWebhookEventId === event.id) {
+        try {
+          await finalizeOrderRewards(orderId)
+        } catch (err) {
+          logger.error({ err, orderId }, 'checkout.session.completed: finalize retry failed')
+        }
         return NextResponse.json({ received: true })
       }
 
@@ -125,33 +127,16 @@ export async function POST(request: Request) {
       })
       await markReservationsPaidByOrderId(orderId)
 
-      await recordCouponUsageOnPayment(orderId)
+      // Kuponok érvénytelenítése + pontlevonás (idempotens)
+      try {
+        await finalizeOrderRewards(orderId)
+      } catch (err) {
+        logger.error({ err, orderId }, 'checkout.session.completed: finalizeOrderRewards failed')
+      }
 
       const updatedOrder = await getOrderById(orderId)
-      if (customerEmail || updatedOrder?.customerEmail) {
-        try {
-          const { markWelcomeCouponRedeemed } = await import('@/lib/welcome-checkout-offer')
-          await markWelcomeCouponRedeemed(customerEmail ?? updatedOrder?.customerEmail ?? '')
-        } catch {
-          /* non-fatal */
-        }
-      }
       if (updatedOrder?.userId) {
-        try {
-          const { markUserPromoCouponsUsed } = await import('@/lib/promo-coupons')
-          await markUserPromoCouponsUsed(updatedOrder.userId)
-        } catch {
-          /* non-fatal */
-        }
         await clearUserCartSnapshot(updatedOrder.userId)
-      }
-      if (updatedOrder) {
-        await enqueueOrderPurchasePointsRedemption({
-          id: updatedOrder.id,
-          userId: updatedOrder.userId,
-          pointsUsed: updatedOrder.pointsUsed ?? 0,
-          pointsDiscountHuf: updatedOrder.pointsDiscountHuf ?? 0,
-        })
       }
 
       // Hűségkedvezmény: csak ha még nem számoltuk, és a végösszeg eléri a küszöböt (HUF/EUR)

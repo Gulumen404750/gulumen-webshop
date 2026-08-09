@@ -29,6 +29,10 @@ type CatCouponContextValue = {
   registrationStatus: CatCouponStatus
   isDiscountActive: boolean
   activate: () => boolean
+  /**
+   * Fizetés után: szerver állapotról szinkronizál (a tényleges égetés a
+   * finalize-rewards / webhook feladata – ne jelöljön minden kupont used-ra).
+   */
   markUsed: () => void
   discountPercent: number
   claimRegistrationCoupon: (userId: string) => boolean
@@ -91,14 +95,6 @@ async function claimPromoOnServer(kind: 'cat' | 'registration'): Promise<void> {
     })
   } catch {
     // localStorage fallback
-  }
-}
-
-async function markPromoUsedOnServer(): Promise<void> {
-  try {
-    await fetch('/api/me/promo-coupons', { method: 'PATCH', credentials: 'include' })
-  } catch {
-    // ignore
   }
 }
 
@@ -253,16 +249,10 @@ export function CatCouponProvider({ children }: { children: ReactNode }) {
 
   const markUsed = useCallback(() => {
     if (!userId) return
-    const cat = readCat(userId)
-    const reg = readReg(userId)
-    if (cat?.status === 'claimed') {
-      localStorage.setItem(getCatKey(userId), JSON.stringify({ status: 'used', percent: 5 }))
-    }
-    if (reg?.status === 'claimed') {
-      localStorage.setItem(getRegKey(userId), JSON.stringify({ status: 'used', percent: 10 }))
-    }
-    void markPromoUsedOnServer()
-    refresh(userId)
+    void (async () => {
+      await syncPromoCouponsFromServer(userId)
+      refresh(userId)
+    })()
   }, [userId, refresh])
 
   const isDiscountActive = status === 'claimed' && storedPercent > 0

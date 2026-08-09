@@ -35,7 +35,6 @@ import {
   POINTS_PER_HUF,
 } from '@/lib/gamification/constants'
 import { validatePurchasePoints } from '@/lib/gamification/purchase-points'
-import { enqueueOrderPurchasePointsRedemption } from '@/lib/gamification/order-points'
 import { getLuckySpinForCheckout } from '@/lib/gamification/lucky-spin'
 import { getMaxQty } from '@/lib/data'
 import {
@@ -45,9 +44,10 @@ import {
   FREE_SHIPPING_THRESHOLD,
 } from '@/lib/checkout'
 import { maybeSendOrderGroupConfirmationEmail } from '@/lib/order-email'
-import { resolveCheckoutCoupon, recordCouponUsageOnPayment } from '@/lib/coupon-checkout'
-import { getUserPromoCouponState, markUserPromoCouponUsed } from '@/lib/promo-coupons'
+import { resolveCheckoutCoupon } from '@/lib/coupon-checkout'
+import { getUserPromoCouponState } from '@/lib/promo-coupons'
 import { acceptWelcomeCheckoutOffer } from '@/lib/welcome-checkout-offer'
+import { finalizeOrderRewards } from '@/lib/checkout-rewards'
 import { WELCOME_CHECKOUT_COUPON_PERCENT } from '@/lib/coupon-config'
 import type { CouponDiscount } from '@/lib/checkout'
 
@@ -206,7 +206,6 @@ export async function POST(request: Request) {
   let couponDiscount: CouponDiscount = { percent: 0 }
   let appliedCouponId: string | null = null
   let appliedCouponCode: string | null = null
-  const selectedPromoKinds: Array<'cat' | 'registration'> = []
 
   const luckySpin = checkoutUserId ? await getLuckySpinForCheckout(checkoutUserId, now) : null
   const lines = resolveCartLines(items, productMap)
@@ -234,7 +233,6 @@ export async function POST(request: Request) {
         )
       }
       combinedPercent += CAT_COUPON_PERCENT
-      selectedPromoKinds.push('cat')
     }
     if (selectedCoupons.has('registration')) {
       if (state.registration !== 'claimed') {
@@ -244,7 +242,6 @@ export async function POST(request: Request) {
         )
       }
       combinedPercent += REGISTRATION_COUPON_PERCENT
-      selectedPromoKinds.push('registration')
     }
   }
 
@@ -368,10 +365,13 @@ export async function POST(request: Request) {
   const provider = getPaymentProvider()
   const currency = 'huf'
 
+  const appliedCouponsList = Array.from(selectedCoupons)
+
   const createdOrders = await createCheckoutOrders({
     orderGroupId,
     userId: checkoutUserId ?? undefined,
     couponId: appliedCouponId ?? undefined,
+    appliedCoupons: appliedCouponsList,
     inStock: hasInStock
       ? {
           items: inStock.items,
@@ -418,30 +418,11 @@ export async function POST(request: Request) {
   for (const order of createdOrders) {
     if (order.totalHuf === 0 && (order.pointsUsed ?? 0) > 0) {
       await setOrderStatus(order.id, 'paid')
-      await recordCouponUsageOnPayment(order.id)
-      if (wantsWelcomeOffer) {
-        try {
-          const { markWelcomeCouponRedeemed } = await import('@/lib/welcome-checkout-offer')
-          await markWelcomeCouponRedeemed(customer.email)
-        } catch {
-          /* non-fatal */
-        }
+      try {
+        await finalizeOrderRewards(order.id)
+      } catch (err) {
+        logger.error({ err, orderId: order.id }, 'checkout: finalizeOrderRewards failed (points-only)')
       }
-      if (checkoutUserId && selectedPromoKinds.length > 0) {
-        try {
-          for (const kind of selectedPromoKinds) {
-            await markUserPromoCouponUsed(checkoutUserId, kind)
-          }
-        } catch {
-          /* non-fatal */
-        }
-      }
-      await enqueueOrderPurchasePointsRedemption({
-        id: order.id,
-        userId: order.userId ?? checkoutUserId,
-        pointsUsed: order.pointsUsed ?? 0,
-        pointsDiscountHuf: order.pointsDiscountHuf ?? 0,
-      })
       paymentResults.push({
         orderId: order.id,
         orderType: order.orderType!,

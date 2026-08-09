@@ -3,9 +3,8 @@ import Stripe from 'stripe'
 import { getPaymentTransactionById, updatePaymentTransactionStatus } from '@/lib/payment-transactions'
 import { getOrderById, setOrderStatus } from '@/lib/orders'
 import { markReservationsPaidByOrderId, markReservationsCanceledByOrderId } from '@/lib/reservations'
-import { enqueueOrderPurchasePointsRedemption } from '@/lib/gamification/order-points'
 import { maybeSendOrderGroupConfirmationEmail } from '@/lib/order-email'
-import { recordCouponUsageOnPayment } from '@/lib/coupon-checkout'
+import { finalizeOrderRewards } from '@/lib/checkout-rewards'
 import { clearUserCartSnapshot } from '@/lib/cart-snapshot'
 import type { PaymentTransactionStatus } from '@/lib/payment-transactions'
 
@@ -68,36 +67,20 @@ async function applyTransactionOutcome(
     if (tx.mode === 'capture') {
       await setOrderStatus(order.id, 'paid')
       console.debug('[payments/webhook] Order marked paid (capture)', order.id)
-      await enqueueOrderPurchasePointsRedemption({
-        id: order.id,
-        userId: order.userId,
-        pointsUsed: order.pointsUsed ?? 0,
-        pointsDiscountHuf: order.pointsDiscountHuf ?? 0,
-      })
     } else {
       await setOrderStatus(order.id, 'sourcing_pending')
       console.debug('[payments/webhook] Order marked sourcing_pending (authorize)', order.id)
     }
     await markReservationsPaidByOrderId(order.id)
 
-    await recordCouponUsageOnPayment(order.id)
-
-    const paidEmail = customerEmail ?? order.customerEmail ?? null
-    if (paidEmail) {
-      try {
-        const { markWelcomeCouponRedeemed } = await import('@/lib/welcome-checkout-offer')
-        await markWelcomeCouponRedeemed(paidEmail)
-      } catch {
-        /* non-fatal */
-      }
+    // Kuponok érvénytelenítése + pontlevonás (capture és authorize esetén is)
+    try {
+      await finalizeOrderRewards(order.id)
+    } catch (err) {
+      console.error('[payments/webhook] finalizeOrderRewards failed', order.id, err)
     }
+
     if (order.userId) {
-      try {
-        const { markUserPromoCouponsUsed } = await import('@/lib/promo-coupons')
-        await markUserPromoCouponsUsed(order.userId)
-      } catch {
-        /* non-fatal */
-      }
       await clearUserCartSnapshot(order.userId)
     }
 

@@ -29,10 +29,6 @@ function shouldClearCartForOrders(orders: Order[]): boolean {
   return orders.some((o) => CART_CLEAR_STATUSES.has(o.status))
 }
 
-function shouldClearCartForOrder(order: Order): boolean {
-  return CART_CLEAR_STATUSES.has(order.status)
-}
-
 function fetchOrderBySession(sessionId: string): Promise<Order> {
   return fetch(
     `/api/orders/by-session?session_id=${encodeURIComponent(sessionId)}`
@@ -65,16 +61,52 @@ export default function PaymentSuccessPage() {
   const [gaveUp, setGaveUp] = useState(false)
   const pollCountRef = useRef(0)
   const didClearCartRef = useRef(false)
+  const didFinalizeRewardsRef = useRef(false)
+  const didTrackPurchaseRef = useRef(false)
+
+  const finalizeRewardsOnce = (orders: Order[]) => {
+    if (didFinalizeRewardsRef.current) return
+    const paidLike = orders.filter((o) =>
+      o.status === 'paid' || o.status === 'fulfilled' || o.status === 'sourcing_pending'
+    )
+    if (!paidLike.length) return
+    didFinalizeRewardsRef.current = true
+    const body: Record<string, string> = {}
+    const groupId = paidLike[0]?.orderGroupId ?? orderGroupId
+    if (groupId) body.orderGroupId = groupId
+    else if (sessionId) body.sessionId = sessionId
+    else if (paidLike[0]?.id) body.orderId = paidLike[0].id
+    if (!Object.keys(body).length) return
+    void fetch('/api/checkout/finalize-rewards', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(body),
+    })
+      .catch(() => {
+        // webhook még lefuthat; engedjük az újrapróbát következő pollnál
+        didFinalizeRewardsRef.current = false
+      })
+      .finally(() => {
+        markUsed()
+      })
+  }
 
   const clearCartOnce = (orders: Order[]) => {
+    finalizeRewardsOnce(orders)
+    if (!didTrackPurchaseRef.current) {
+      const paid = orders.filter(
+        (o) => o.status === 'paid' || o.status === 'fulfilled' || o.status === 'sourcing_pending'
+      )
+      if (paid.length) {
+        didTrackPurchaseRef.current = true
+        paid.forEach((o) => trackPurchase(o.id, o.totalHuf))
+      }
+    }
     if (didClearCartRef.current) return
     if (!shouldClearCartForOrders(orders)) return
     didClearCartRef.current = true
     clearCart()
-    markUsed()
-    orders
-      .filter((o) => o.status === 'paid' || o.status === 'fulfilled' || o.status === 'sourcing_pending')
-      .forEach((o) => trackPurchase(o.id, o.totalHuf))
   }
 
   useEffect(() => {
@@ -129,14 +161,7 @@ export default function PaymentSuccessPage() {
       if (cancelled) return
       setOrder(data)
       setLoading(false)
-      if (shouldClearCartForOrder(data) && !didClearCartRef.current) {
-        didClearCartRef.current = true
-        clearCart()
-        markUsed()
-        if (data.status === 'paid' || data.status === 'fulfilled' || data.status === 'sourcing_pending') {
-          trackPurchase(data.id, data.totalHuf)
-        }
-      }
+      clearCartOnce([data])
       const terminal = ['paid', 'fulfilled', 'cancelled', 'sourcing_failed', 'sourcing_pending'].includes(
         data.status
       )

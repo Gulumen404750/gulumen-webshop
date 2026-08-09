@@ -213,6 +213,10 @@ model Order {
   coupon             Coupon?  @relation(fields: [couponId], references: [id], onDelete: SetNull)
   /// Sikeres fizetés után usedCount növelve (rendelés-csoportonként egyszer).
   couponUsageRecorded Boolean @default(false)
+  /// Manuálisan kiválasztott kuponok a checkouton: ["cat","birthday","welcome",...].
+  appliedCoupons     Json?
+  /// Kuponégés + pontlevonás lefuttatva (webhook / siker oldal – idempotens).
+  rewardsFinalized   Boolean  @default(false)
   items             OrderItem[]
   paymentTransactions PaymentTransaction[]
 }
