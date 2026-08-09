@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { getProductName } from '@/lib/data'
 import { SafeProductImage } from '@/components/SafeProductImage'
 import { useLocale } from '@/context/LocaleContext'
@@ -18,23 +19,36 @@ type PopupConfig = {
   description: string
 }
 
+/**
+ * Storefront akciós popup.
+ * Admin beállítás: /admin/dashboard/deal-popup (enabled + termékek).
+ * Feltétel: enabled && products.length > 0 && session-ben még nem zárták be.
+ * Admin / fizetés útvonalakon nem jelenik meg.
+ */
 export function DealPopup() {
+  const pathname = usePathname()
   const [visible, setVisible] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [config, setConfig] = useState<PopupConfig | null>(null)
   const [products, setProducts] = useState<Product[]>([])
+
+  const suppressOnPath =
+    pathname?.startsWith('/admin') ||
+    pathname?.startsWith('/fizetes') ||
+    pathname?.startsWith('/profil')
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
   useEffect(() => {
-    if (!mounted) return
+    if (!mounted || suppressOnPath) return
     const closed = sessionStorage.getItem(STORAGE_KEY)
     if (closed !== 'true') setVisible(true)
-  }, [mounted])
+  }, [mounted, suppressOnPath])
 
   useEffect(() => {
+    if (suppressOnPath) return
     let cancelled = false
     async function fetchPopup() {
       try {
@@ -52,14 +66,14 @@ export function DealPopup() {
     }
     fetchPopup()
     return () => { cancelled = true }
-  }, [])
+  }, [suppressOnPath])
 
   const close = () => {
     setVisible(false)
     if (typeof window !== 'undefined') sessionStorage.setItem(STORAGE_KEY, 'true')
   }
 
-  const show = visible && config?.enabled && products.length > 0
+  const show = !suppressOnPath && visible && config?.enabled && products.length > 0
 
   if (!show) return null
 
