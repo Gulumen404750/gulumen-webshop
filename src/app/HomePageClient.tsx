@@ -56,7 +56,7 @@ export default function HomePageClient({ featuredProducts, dealProducts, newProd
           </p>
           <div className="mt-10 flex flex-col items-center gap-6">
             <Link
-              href="/termekek?kategoria=3d-nyomtatott"
+              href="/termekek"
               className="inline-block px-8 py-3.5 bg-indigo-600 text-white font-heading font-semibold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-500/20"
             >
               {t('home.heroCta')}
@@ -124,10 +124,10 @@ export default function HomePageClient({ featuredProducts, dealProducts, newProd
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {[
-              { icon: '🖨️', title: t('home.whyUs1Title'), text: t('home.whyUs1Text') },
-              { icon: '✨', title: t('home.whyUs2Title'), text: t('home.whyUs2Text') },
+              { icon: '🏠', title: t('home.whyUs1Title'), text: t('home.whyUs1Text') },
+              { icon: '💛', title: t('home.whyUs2Title'), text: t('home.whyUs2Text') },
               { icon: '🎨', title: t('home.whyUs3Title'), text: t('home.whyUs3Text') },
-              { icon: '🚀', title: t('home.whyUs4Title'), text: t('home.whyUs4Text') },
+              { icon: '📦', title: t('home.whyUs4Title'), text: t('home.whyUs4Text') },
             ].map((item) => (
               <div key={item.title} className="text-center p-6 rounded-2xl border border-[var(--border)] bg-background">
                 <div className="text-3xl mb-3">{item.icon}</div>

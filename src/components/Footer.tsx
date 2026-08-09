@@ -14,6 +14,14 @@ export function Footer() {
     <>
       <footer className="border-t border-[var(--border)] bg-[var(--card-bg)] mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="max-w-2xl mx-auto text-center mb-8">
+            <p className="font-heading text-base sm:text-lg font-semibold text-foreground">
+              {t('home.aboutUsTitle')}
+            </p>
+            <p className="mt-2 text-sm text-muted leading-relaxed">
+              {t('home.aboutUsText')}
+            </p>
+          </div>
           <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-6 sm:gap-8 text-sm text-muted">
             <Link href="/kapcsolat" className="hover:text-foreground hover:underline">
               {t('nav.contact')}

@@ -40,11 +40,13 @@ const inter = Inter({
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://gulumen.hu'
 
 export const metadata: Metadata = {
-  title: 'Gulumen – Gondosan válogatott, limitált minőségi termékek',
-  description: 'Gondosan válogatott, limitált darabszámú minőségi termékek – táskák, ruházat, kiegészítők, kedvező áron.',
+  title: 'Gulumen – Télen, nyáron, veletek – mint egy nagy család',
+  description:
+    'Kedves, családias webáruház mindenkinek: praktikus és szerethető dolgok a konyhába, gyerekszobába, íróasztalra és az otthon minden szegletébe. Télen-nyáron veletek vagyunk!',
   openGraph: {
-    title: 'Gulumen – Gondosan válogatott, limitált minőségi termékek',
-    description: 'Gondosan válogatott, limitált darabszámú minőségi termékek – táskák, ruházat, kiegészítők, kedvező áron.',
+    title: 'Gulumen – Télen, nyáron, veletek – mint egy nagy család',
+    description:
+      'Kedves, családias webáruház mindenkinek: praktikus és szerethető dolgok a konyhába, gyerekszobába, íróasztalra és az otthon minden szegletébe. Télen-nyáron veletek vagyunk!',
     url: BASE_URL,
     siteName: 'Gulumen',
     type: 'website',
@@ -53,8 +55,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Gulumen – Gondosan válogatott, limitált minőségi termékek',
-    description: 'Gondosan válogatott, limitált darabszámú minőségi termékek – táskák, ruházat, kiegészítők, kedvező áron.',
+    title: 'Gulumen – Télen, nyáron, veletek – mint egy nagy család',
+    description:
+      'Kedves, családias webáruház mindenkinek: praktikus és szerethető dolgok a konyhába, gyerekszobába, íróasztalra és az otthon minden szegletébe. Télen-nyáron veletek vagyunk!',
   },
 }
 

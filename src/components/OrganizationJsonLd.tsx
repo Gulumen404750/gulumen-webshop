@@ -7,7 +7,8 @@ export function OrganizationJsonLd() {
     name: 'Gulumen',
     url: BASE_URL,
     logo: `${BASE_URL}/img/logo.png`,
-    description: 'Gondosan válogatott, limitált darabszámú minőségi termékek – táskák, ruházat, kiegészítők.',
+    description:
+      'Kedves, családias webáruház mindenkinek – praktikus és szerethető dolgok az otthonba. Télen, nyáron, a mindennapokban veletek vagyunk, mint egy nagy család.',
   }
   return (
     <script
