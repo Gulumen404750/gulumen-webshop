@@ -1,10 +1,15 @@
 /**
  * Next.js instrumentation – server induláskor fut.
- * Production: fail-fast ha hiányzik JWT_SECRET / NEXTAUTH_SECRET.
+ * Fail-fast a scripts/start.js-ben történik; itt csak best-effort check.
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
-    const { bootstrapAuthEnv } = await import('./lib/bootstrap-auth-env')
-    bootstrapAuthEnv()
+    try {
+      const { bootstrapAuthEnv } = await import('./lib/bootstrap-auth-env')
+      bootstrapAuthEnv()
+    } catch (err) {
+      console.error('[instrumentation] bootstrap-auth-env failed:', err)
+      // Ne döntse el a process-t itt — a start.js már fail-fast-el indulás előtt.
+    }
   }
 }
