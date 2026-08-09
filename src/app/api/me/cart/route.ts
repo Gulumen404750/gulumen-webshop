@@ -15,6 +15,13 @@ const itemSchema = z.object({
       materialName: z.string().optional(),
     })
     .optional(),
+  /** Megjelenítési snapshot – név / ár / kép (client fallback). */
+  name: z.string().optional(),
+  nameEn: z.string().optional(),
+  nameDe: z.string().optional(),
+  nameRo: z.string().optional(),
+  priceHuf: z.number().int().min(0).optional(),
+  image: z.string().optional(),
 })
 
 const putSchema = z.object({

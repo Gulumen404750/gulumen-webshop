@@ -4,9 +4,10 @@ import Link from 'next/link'
 import { SafeProductImage } from '@/components/SafeProductImage'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useEffect, useRef, useMemo, useState, useCallback } from 'react'
-import { getProductById as getProductByIdFromData, getAddToCartReason, getMaxQty, getProductName, is3DProduct } from '@/lib/data'
+import { getProductById as getProductByIdFromData, getAddToCartReason, getMaxQty, is3DProduct } from '@/lib/data'
 import { useCart, type CartItem } from '@/context/CartContext'
 import { useProducts } from '@/context/ProductsContext'
+import { resolveCartLine, resolveCartLinePriceHuf } from '@/lib/cart-line'
 import { useCatCoupon } from '@/context/CatCouponContext'
 import { useAuth } from '@/context/AuthContext'
 import { useSourcingDealOrders } from '@/context/SourcingDealOrdersContext'
@@ -69,12 +70,13 @@ export default function CartPage() {
   const checkoutPreview = useMemo(() => {
     const cartLines = items.map((item) => {
       const p = getProductById(item.productId)
+      const line = resolveCartLine(item, p, locale)
       return {
         productId: item.productId,
         qty: item.qty,
-        priceHuf: p ? (p.discountPriceHuf ?? p.priceHuf) : 0,
+        priceHuf: line.priceHuf,
         fulfillmentType: (p?.type === 'sourcing_deal' ? 'procurement' : 'stock') as 'stock' | 'procurement',
-        name: p?.name,
+        name: line.name,
       }
     })
     const lockedLines = applyLuckySpinLockedPrices(cartLines, luckySpinRecord)
@@ -83,7 +85,7 @@ export default function CartPage() {
       coupon: { percent: isDiscountActive ? discountPercent : 0 },
       luckySpin: luckySpinRecord,
     })
-  }, [items, getProductById, luckySpinRecord, isDiscountActive, discountPercent])
+  }, [items, getProductById, luckySpinRecord, isDiscountActive, discountPercent, locale])
 
   const {
     subtotalHuf,
@@ -268,28 +270,24 @@ export default function CartPage() {
           <ul className="space-y-4">
             {stockItems.map((item) => {
               const product = getProductById(item.productId)
-              const maxAllowedInCart = product ? getMaxQty(product) : 0
-              const priceHuf = product ? (product.discountPriceHuf ?? product.priceHuf) : 0
+              const line = resolveCartLine(item, product, locale)
+              const maxAllowedInCart = product ? getMaxQty(product) : 99
+              const priceHuf = line.priceHuf
               const priceEur = hufToEur(priceHuf)
-              const img = product?.image?.trim() ? product.image : ''
               const lineKey = `${item.productId}-${item.options?.colorHex ?? item.options?.colorName ?? ''}-${item.options?.materialName ?? ''}`
               return (
                 <li key={lineKey} className="flex gap-4 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
                   <div className="w-20 h-20 shrink-0 rounded-lg bg-[var(--border)] relative overflow-hidden">
-                    {img ? (
-                      <SafeProductImage
-                        src={img}
-                        alt={product ? getProductName(product, locale) : ''}
-                        fit="cover"
-                        fill
-                        sizes="80px"
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-muted text-xs">{t('product.noImage')}</div>
-                    )}
+                    <SafeProductImage
+                      src={line.image}
+                      alt={line.name}
+                      fit="cover"
+                      fill
+                      sizes="80px"
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate">{product ? getProductName(product, locale) : item.productId}</p>
+                    <p className="font-medium text-foreground truncate">{line.name}</p>
                     <p className="text-muted text-sm">
                       {priceHuf.toLocaleString('hu-HU')} Ft × {item.qty}
                       {priceEur > 0 && <span className="ml-1">(€{formatEur(priceEur)})</span>}
@@ -336,28 +334,24 @@ export default function CartPage() {
           <ul className="space-y-4">
             {threeDItems.map((item) => {
               const product = getProductById(item.productId)
-              const maxAllowedInCart = product ? getMaxQty(product) : 0
-              const priceHuf = product ? (product.discountPriceHuf ?? product.priceHuf) : 0
+              const line = resolveCartLine(item, product, locale)
+              const maxAllowedInCart = product ? getMaxQty(product) : 99
+              const priceHuf = line.priceHuf
               const priceEur = hufToEur(priceHuf)
-              const img = product?.image?.trim() ? product.image : ''
               const lineKey = `${item.productId}-${item.options?.colorHex ?? item.options?.colorName ?? ''}-${item.options?.materialName ?? ''}`
               return (
                 <li key={lineKey} className="flex gap-4 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
                   <div className="w-20 h-20 shrink-0 rounded-lg bg-[var(--border)] relative overflow-hidden">
-                    {img ? (
-                      <SafeProductImage
-                        src={img}
-                        alt={product ? getProductName(product, locale) : ''}
-                        fit="cover"
-                        fill
-                        sizes="80px"
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-muted text-xs">{t('product.noImage')}</div>
-                    )}
+                    <SafeProductImage
+                      src={line.image}
+                      alt={line.name}
+                      fit="cover"
+                      fill
+                      sizes="80px"
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate">{product ? getProductName(product, locale) : item.productId}</p>
+                    <p className="font-medium text-foreground truncate">{line.name}</p>
                     <p className="text-muted text-sm">
                       {priceHuf.toLocaleString('hu-HU')} Ft × {item.qty}
                       {priceEur > 0 && <span className="ml-1">(€{formatEur(priceEur)})</span>}
@@ -404,27 +398,23 @@ export default function CartPage() {
           <ul className="space-y-4">
             {sourcingItems.map((item) => {
               const product = getProductById(item.productId)
-              const maxAllowedInCart = product ? Math.max(0, (product.maxOrders ?? 0) - (product.ordersCount ?? 0)) : 0
-              const priceHuf = product ? (product.discountPriceHuf ?? product.priceHuf) : 0
+              const line = resolveCartLine(item, product, locale)
+              const maxAllowedInCart = product ? Math.max(0, (product.maxOrders ?? 0) - (product.ordersCount ?? 0)) : 99
+              const priceHuf = line.priceHuf
               const priceEur = hufToEur(priceHuf)
-              const img = product?.image?.trim() ? product.image : ''
               return (
                 <li key={item.productId} className="flex gap-4 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
                   <div className="w-20 h-20 shrink-0 rounded-lg bg-[var(--border)] relative overflow-hidden">
-                    {img ? (
-                      <SafeProductImage
-                        src={img}
-                        alt={product ? getProductName(product, locale) : ''}
-                        fit="cover"
-                        fill
-                        sizes="80px"
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-muted text-xs">{t('product.noImage')}</div>
-                    )}
+                    <SafeProductImage
+                      src={line.image}
+                      alt={line.name}
+                      fit="cover"
+                      fill
+                      sizes="80px"
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate">{product ? getProductName(product, locale) : item.productId}</p>
+                    <p className="font-medium text-foreground truncate">{line.name}</p>
                     <p className="text-muted text-sm">
                       {priceHuf.toLocaleString('hu-HU')} Ft × {item.qty}
                       {priceEur > 0 && <span className="ml-1">(€{formatEur(priceEur)})</span>}
@@ -583,37 +573,33 @@ function CartLineRow({
   onRemoveSourcing,
 }: CartLineRowProps) {
   const product = getProductById(item.productId)
+  const line = resolveCartLine(item, product, locale)
   const isSourcingOrder = product?.type === 'sourcing_deal'
   const maxAllowedInCart = isSourcingOrder && product
     ? Math.max(0, (product.maxOrders ?? 0) - (product.ordersCount ?? 0))
-    : (product ? getMaxQty(product) : 0)
-  const catalogUnitHuf = product ? (product.discountPriceHuf ?? product.priceHuf) : 0
+    : (product ? getMaxQty(product) : 99)
+  const catalogUnitHuf = resolveCartLinePriceHuf(item, product)
   const unitPriceHuf = lockedUnitPriceHuf != null && lockedUnitPriceHuf > 0 ? lockedUnitPriceHuf : catalogUnitHuf
   const discountedUnitHuf = isPromo && luckySpinDiscountActive && luckySpinDiscountPercent > 0
     ? Math.round(unitPriceHuf * (1 - luckySpinDiscountPercent))
     : unitPriceHuf
   const displayUnitHuf = isPromo && luckySpinDiscountActive ? discountedUnitHuf : unitPriceHuf
   const priceEur = hufToEur(displayUnitHuf)
-  const img = product?.image?.trim() ? product.image : ''
   const lineKey = `${item.productId}-${item.options?.colorHex ?? item.options?.colorName ?? ''}-${item.options?.materialName ?? ''}`
 
   return (
     <li key={lineKey} className="flex gap-4 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
       <div className="w-20 h-20 shrink-0 rounded-lg bg-[var(--border)] relative overflow-hidden">
-        {img ? (
-                      <SafeProductImage
-                        src={img}
-                        alt={product ? getProductName(product, locale) : ''}
-                        fit="cover"
-                        fill
-                        sizes="80px"
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-muted text-xs">{t('product.noImage')}</div>
-                    )}
+        <SafeProductImage
+          src={line.image}
+          alt={line.name}
+          fit="cover"
+          fill
+          sizes="80px"
+        />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="font-medium text-foreground truncate">{product ? getProductName(product, locale) : item.productId}</p>
+        <p className="font-medium text-foreground truncate">{line.name}</p>
         <p className="text-muted text-sm">
           {isPromo && luckySpinDiscountActive ? (
             <>

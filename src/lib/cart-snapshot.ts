@@ -1,5 +1,5 @@
 import { prisma, isDbConfigured } from '@/lib/prisma'
-import type { CartItem } from '@/lib/cart-storage'
+import { normalizeCartItem, type CartItem } from '@/lib/cart-storage'
 
 export const ABANDONED_CART_DAYS = 7
 export const ABANDONED_CART_OFFER_VALID_DAYS = 14
@@ -36,24 +36,7 @@ export type AdminCartSnapshotRow = {
 
 function parseItems(raw: unknown): CartItem[] {
   if (!Array.isArray(raw)) return []
-  return raw
-    .map((x) => {
-      const row = x as Record<string, unknown>
-      const opts = row.options as Record<string, unknown> | undefined
-      return {
-        productId: String(row.productId ?? ''),
-        qty: Math.max(1, Number(row.qty) || 1),
-        options:
-          opts && (opts.colorName != null || opts.colorHex != null || opts.materialName != null)
-            ? {
-                colorName: opts.colorName != null ? String(opts.colorName) : undefined,
-                colorHex: opts.colorHex != null ? String(opts.colorHex) : undefined,
-                materialName: opts.materialName != null ? String(opts.materialName) : undefined,
-              }
-            : undefined,
-      }
-    })
-    .filter((x) => x.productId !== '')
+  return raw.map(normalizeCartItem).filter((x): x is CartItem => x != null)
 }
 
 async function computeLines(items: CartItem[]): Promise<{
@@ -76,7 +59,13 @@ async function computeLines(items: CartItem[]): Promise<{
 
   for (const item of items) {
     const p = byId.get(item.productId)
-    const unitPriceHuf = p ? (p.discountPriceHuf ?? p.priceHuf) : 0
+    const livePrice = p ? (p.discountPriceHuf ?? p.priceHuf) : undefined
+    const unitPriceHuf =
+      livePrice != null && livePrice > 0
+        ? livePrice
+        : item.priceHuf != null && item.priceHuf > 0
+          ? item.priceHuf
+          : livePrice ?? 0
     const lineTotalHuf = unitPriceHuf * item.qty
     itemCount += item.qty
     subtotalHuf += lineTotalHuf
@@ -84,7 +73,7 @@ async function computeLines(items: CartItem[]): Promise<{
       productId: item.productId,
       qty: item.qty,
       options: item.options,
-      name: p?.name ?? item.productId,
+      name: (p?.name || item.name || item.productId).trim(),
       unitPriceHuf,
       lineTotalHuf,
     })

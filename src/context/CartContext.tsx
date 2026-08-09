@@ -15,6 +15,7 @@ import {
   type CartItem,
   type CartItemOptions,
 } from '@/lib/cart-storage'
+import { buildCartItemSnapshot, resolveCartLinePriceHuf } from '@/lib/cart-line'
 
 function hasOptions(opts: CartItemOptions | undefined): boolean {
   return Boolean(
@@ -39,11 +40,25 @@ function sameCartLine(item: CartItem, productId: string, options?: CartItemOptio
   return item.productId === productId && optionsEqual(item.options, options)
 }
 
+function withSnapshot(
+  productId: string,
+  qty: number,
+  options: CartItemOptions | undefined,
+  product: Product
+): CartItem {
+  const snap = buildCartItemSnapshot(product, options)
+  return {
+    productId,
+    qty,
+    options,
+    ...snap,
+  }
+}
+
 /**
- * A kosár NEM foglal készletet. A termék product.stock értéke SOHA nem változik
- * kosár művelet miatt. Csak productId + qty (+ opcionális options) tárolunk; a termék adatot mindig
- * a product listából (getProductById) kell lookupolni rendereléskor.
- * A kosár semmilyen körülmények között nem tárolhat Product referenciát.
+ * Kosár: productId + qty + options + megjelenítési snapshot (név, ár, kép).
+ * A snapshot biztosítja, hogy a terméklista betöltése előtt se legyen
+ * nyers ID / 0 Ft / üres kép. Élő termékadat rendereléskor felülírhatja.
  */
 export type { CartItem, CartItemOptions } from '@/lib/cart-storage'
 
@@ -67,7 +82,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const { isLoggedIn, authChecked } = useAuth()
   const { isDiscountActive, discountPercent } = useCatCoupon()
   const { syncFromCart } = useSourcingDealOrders()
-  const { getProductById: getProductByIdFromContext } = useProducts()
+  const { getProductById: getProductByIdFromContext, productsLoaded } = useProducts()
   const [items, setItems] = useState<CartItem[]>([])
   const [mounted, setMounted] = useState(false)
   const wasLoggedInRef = useRef(false)
@@ -84,6 +99,37 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const sourcingItems = loaded.filter((item) => getProductById(item.productId)?.type === 'sourcing_deal')
     if (sourcingItems.length > 0) syncFromCart(sourcingItems)
   }, [syncFromCart, getProductById])
+
+  /** Régi kosár sorok (snapshot nélkül) feltöltése, ha a terméklista megérkezett. */
+  useEffect(() => {
+    if (!mounted || !productsLoaded) return
+    setItems((prev) => {
+      let changed = false
+      const next = prev.map((item) => {
+        const needsSnap =
+          !item.name ||
+          item.priceHuf == null ||
+          item.priceHuf <= 0 ||
+          !item.image
+        if (!needsSnap) return item
+        const product = getProductById(item.productId)
+        if (!product) return item
+        changed = true
+        const snap = buildCartItemSnapshot(product, item.options)
+        return {
+          ...item,
+          name: item.name || snap.name,
+          nameEn: item.nameEn || snap.nameEn,
+          nameDe: item.nameDe || snap.nameDe,
+          nameRo: item.nameRo || snap.nameRo,
+          priceHuf:
+            item.priceHuf != null && item.priceHuf > 0 ? item.priceHuf : snap.priceHuf,
+          image: item.image || snap.image,
+        }
+      })
+      return changed ? next : prev
+    })
+  }, [mounted, productsLoaded, getProductById])
 
   useEffect(() => {
     return onLogoutCleanup(() => {
@@ -136,10 +182,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const i = prev.findIndex((x) => sameCartLine(x, productId, normalizedOptions))
       if (i >= 0) {
         const next = [...prev]
-        next[i] = { ...next[i], qty: next[i].qty + toAdd }
+        const snap = buildCartItemSnapshot(product, normalizedOptions)
+        next[i] = {
+          ...next[i],
+          ...snap,
+          qty: next[i].qty + toAdd,
+          options: normalizedOptions,
+        }
         return next
       }
-      return [...prev, { productId, qty: toAdd, options: normalizedOptions }]
+      return [...prev, withSnapshot(productId, toAdd, normalizedOptions, product)]
     })
   },
     [getProductById]
@@ -183,7 +235,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     let count = 0
     for (const item of items) {
       const p = getProductById(item.productId)
-      const priceHuf = p ? (p.discountPriceHuf ?? p.priceHuf) : 0
+      const priceHuf = resolveCartLinePriceHuf(item, p)
       sub += priceHuf * item.qty
       count += item.qty
     }

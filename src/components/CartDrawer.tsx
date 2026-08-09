@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useEffect, useRef, useMemo, useState } from 'react'
 import { SafeProductImage } from '@/components/SafeProductImage'
 import { useRouter } from 'next/navigation'
-import { getProductName, getProductById as getProductByIdFromData } from '@/lib/data'
+import { getProductById as getProductByIdFromData } from '@/lib/data'
 import { useCart } from '@/context/CartContext'
 import { useProducts } from '@/context/ProductsContext'
 import { useLocale } from '@/context/LocaleContext'
@@ -17,6 +17,7 @@ import {
   computeCheckoutTotals,
   applyLuckySpinLockedPrices,
 } from '@/lib/checkout'
+import { resolveCartLine, resolveCartLinePriceHuf } from '@/lib/cart-line'
 
 type Props = { isOpen: boolean; onClose: () => void }
 
@@ -60,12 +61,13 @@ export function CartDrawer({ isOpen, onClose }: Props) {
   const checkoutPreview = useMemo(() => {
     const cartLines = items.map((item) => {
       const p = getProductById(item.productId)
+      const line = resolveCartLine(item, p, locale)
       return {
         productId: item.productId,
         qty: item.qty,
-        priceHuf: p ? (p.discountPriceHuf ?? p.priceHuf) : 0,
+        priceHuf: line.priceHuf,
         fulfillmentType: (p?.type === 'sourcing_deal' ? 'procurement' : 'stock') as 'stock' | 'procurement',
-        name: p?.name,
+        name: line.name,
       }
     })
     const lockedLines = applyLuckySpinLockedPrices(cartLines, luckySpinRecord)
@@ -74,7 +76,7 @@ export function CartDrawer({ isOpen, onClose }: Props) {
       coupon: { percent: isDiscountActive ? discountPercent : 0 },
       luckySpin: luckySpinRecord,
     })
-  }, [items, getProductById, luckySpinRecord, isDiscountActive, discountPercent])
+  }, [items, getProductById, luckySpinRecord, isDiscountActive, discountPercent, locale])
 
   const {
     subtotalHuf,
@@ -146,8 +148,8 @@ export function CartDrawer({ isOpen, onClose }: Props) {
             <ul className="space-y-3">
               {sortedItems.map((item) => {
                 const product = getProductById(item.productId)
-                const name = product ? getProductName(product, locale) : item.productId
-                const catalogUnitHuf = product ? (product.discountPriceHuf ?? product.priceHuf) : 0
+                const line = resolveCartLine(item, product, locale)
+                const catalogUnitHuf = resolveCartLinePriceHuf(item, product)
                 const isPromo = spinProductIds.has(item.productId)
                 const lockedUnitHuf = luckySpinRecord?.priceSnapshot?.[item.productId]
                 const unitPriceHuf = lockedUnitHuf != null && lockedUnitHuf > 0 ? lockedUnitHuf : catalogUnitHuf
@@ -155,17 +157,20 @@ export function CartDrawer({ isOpen, onClose }: Props) {
                 const discountedUnitHuf = showPromoPrice && luckySpinDiscountPercent > 0
                   ? Math.round(unitPriceHuf * (1 - luckySpinDiscountPercent))
                   : unitPriceHuf
-                const img = product?.image?.trim() ? product.image : ''
                 const lineKey = `${item.productId}-${item.options?.colorHex ?? item.options?.colorName ?? ''}-${item.options?.materialName ?? ''}`
                 return (
                   <li key={lineKey} className="flex gap-3 p-3 rounded-lg border border-[var(--border)]">
                     <div className="w-14 h-14 shrink-0 rounded-lg bg-[var(--border)] relative overflow-hidden">
-                      {img ? (
-                        <SafeProductImage src={img} alt="" fit="cover" fill sizes="56px" />
-                      ) : null}
+                      <SafeProductImage
+                        src={line.image}
+                        alt={line.name}
+                        fit="cover"
+                        fill
+                        sizes="56px"
+                      />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-foreground text-sm line-clamp-2">{name}</p>
+                      <p className="font-medium text-foreground text-sm line-clamp-2">{line.name}</p>
                       {isPromo && (
                         <span className="inline-block text-[10px] font-semibold uppercase tracking-wide text-accent mt-0.5">
                           {t('luckySpin.weeklyOffer')}

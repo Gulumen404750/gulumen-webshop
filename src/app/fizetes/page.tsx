@@ -10,8 +10,9 @@ import { useAuth } from '@/context/AuthContext'
 import { useLocale } from '@/context/LocaleContext'
 import { useEuroRate } from '@/context/EuroRateContext'
 import { trackBeginCheckout } from '@/lib/analytics'
-import { getProductById as getProductByIdFromData, getProductName } from '@/lib/data'
+import { getProductById as getProductByIdFromData } from '@/lib/data'
 import { useProducts } from '@/context/ProductsContext'
+import { resolveCartLine } from '@/lib/cart-line'
 import { usePointWallet } from '@/hooks/usePointWallet'
 import { useLuckySpin } from '@/hooks/useLuckySpin'
 import {
@@ -91,12 +92,13 @@ export default function PaymentPage() {
 
   const cartLines = items.map((item) => {
     const p = getProductById(item.productId)
+    const line = resolveCartLine(item, p, locale)
     return {
       productId: item.productId,
       qty: item.qty,
-      priceHuf: p ? (p.discountPriceHuf ?? p.priceHuf) : 0,
+      priceHuf: line.priceHuf,
       fulfillmentType: (p?.type === 'sourcing_deal' ? 'procurement' : 'stock') as 'stock' | 'procurement',
-      name: p?.name,
+      name: line.name,
     }
   })
 
@@ -366,9 +368,9 @@ export default function PaymentPage() {
 
   const renderLineItem = (item: (typeof items)[number]) => {
     const product = getProductById(item.productId)
-    const name = product ? getProductName(product, locale) : item.productId
+    const resolved = resolveCartLine(item, product, locale)
     const line = lockedLines.find((l) => l.productId === item.productId)
-    const unitPriceHuf = line?.priceHuf ?? 0
+    const unitPriceHuf = line?.priceHuf ?? resolved.priceHuf
     const isPromo = spinProductIds.has(item.productId)
     const showPromoPrice = isPromo && luckySpinDiscountActive
     const discountedUnitHuf = showPromoPrice && luckySpinDiscountPercent > 0
@@ -379,7 +381,7 @@ export default function PaymentPage() {
     return (
       <li key={lineKey} className="flex justify-between gap-3 text-sm">
         <div className="min-w-0">
-          <span className="text-foreground">{name} × {item.qty}</span>
+          <span className="text-foreground">{resolved.name} × {item.qty}</span>
           {item.options?.colorName && (
             <p className="text-xs text-muted mt-0.5">
               <span>{t('product.color')}: {item.options.colorName}</span>
