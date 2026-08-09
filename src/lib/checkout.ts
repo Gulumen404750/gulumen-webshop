@@ -43,8 +43,11 @@ export function calculateDiscount(itemCount: number, usePoints = false): number 
   return calculateLuckySpinDiscountPercent(itemCount, usePoints)
 }
 
-/** Engedélyezett kupon százalékok (macska 5%, regisztráció 10%, kombinált 15%). */
-export const ALLOWED_COUPON_PERCENTS = [0, 0.05, 0.1, 0.15] as const
+/**
+ * Legacy engedélyezett kupon %-ok.
+ * Az új manuális választásnál a plafon (MAX_COMBINED_COUPON_PERCENT = 20%) az irányadó.
+ */
+export const ALLOWED_COUPON_PERCENTS = [0, 0.05, 0.1, 0.15, 0.2] as const
 
 export type CheckoutCartLineInput = {
   productId: string
@@ -104,13 +107,13 @@ function roundHuf(n: number): number {
   return Math.max(0, Math.round(n))
 }
 
-/** Szerver: kliens által küldött kupon % validálása. */
+/** Szerver: kliens által küldött kupon % validálása (max. 20% plafon). */
 export function validateCouponPercent(percent: number, isLoggedIn: boolean): boolean {
   if (percent <= 0) return true
   if (!isLoggedIn) return false
-  return (ALLOWED_COUPON_PERCENTS as readonly number[]).some(
-    (p) => Math.abs(p - percent) < 0.0001
-  )
+  if (percent > 0.2 + 1e-9) return false
+  // Elfogadjuk a plafon alatti bármely érvényes kombinációt (5/10/15/20 és köztesek).
+  return percent <= 0.2 + 1e-9
 }
 
 export function resolveCartLines(

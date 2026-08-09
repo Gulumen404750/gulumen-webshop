@@ -9,7 +9,6 @@ import { useCart } from '@/context/CartContext'
 import { useProducts } from '@/context/ProductsContext'
 import { useLocale } from '@/context/LocaleContext'
 import { useAuth } from '@/context/AuthContext'
-import { useCatCoupon } from '@/context/CatCouponContext'
 import { useLuckySpin } from '@/hooks/useLuckySpin'
 import { useFocusTrap } from '@/hooks/useFocusTrap'
 import { CheckoutSourcingModal } from '@/components/CheckoutSourcingModal'
@@ -28,7 +27,6 @@ export function CartDrawer({ isOpen, onClose }: Props) {
   const { getProductById: getProductByIdFromContext } = useProducts()
   const getProductById = (id: string) => getProductByIdFromContext(id) ?? getProductByIdFromData(id)
   const { userId } = useAuth()
-  const { isDiscountActive, discountPercent } = useCatCoupon()
   const { data: luckySpinData } = useLuckySpin(!!userId)
   const drawerRef = useRef<HTMLDivElement>(null)
   const [showCheckoutModal, setShowCheckoutModal] = useState(false)
@@ -71,16 +69,16 @@ export function CartDrawer({ isOpen, onClose }: Props) {
       }
     })
     const lockedLines = applyLuckySpinLockedPrices(cartLines, luckySpinRecord)
+    // Kosár előnézet: nincs automatikus kupon – a kiválasztás a fizetésnél történik.
     return computeCheckoutTotals({
       lines: lockedLines,
-      coupon: { percent: isDiscountActive ? discountPercent : 0 },
+      coupon: { percent: 0 },
       luckySpin: luckySpinRecord,
     })
-  }, [items, getProductById, luckySpinRecord, isDiscountActive, discountPercent, locale])
+  }, [items, getProductById, luckySpinRecord, locale])
 
   const {
     subtotalHuf,
-    couponDiscountHuf,
     luckySpinDiscountHuf,
     merchandiseTotalHuf,
   } = checkoutPreview
@@ -214,12 +212,6 @@ export function CartDrawer({ isOpen, onClose }: Props) {
               <span>{t('cart.subtotal')}</span>
               <span>{subtotalHuf.toLocaleString('hu-HU')} Ft</span>
             </div>
-            {isDiscountActive && couponDiscountHuf > 0 && (
-              <div className="flex justify-between text-sm text-discount">
-                <span>{t('cart.discountLabel', { percent: Math.round(discountPercent * 100) })}</span>
-                <span>−{couponDiscountHuf.toLocaleString('hu-HU')} Ft</span>
-              </div>
-            )}
             {luckySpinDiscountHuf > 0 && (
               <div className="flex justify-between text-sm text-discount">
                 <span>{t('luckySpin.cartDiscount')}</span>

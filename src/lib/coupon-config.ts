@@ -16,6 +16,18 @@ export const BIRTHDAY_COUPON_PERCENT = 0.15
 /** Születésnapi kupon érvényesség napokban a kiküldéstől. */
 export const BIRTHDAY_COUPON_VALID_DAYS = 7
 
+/**
+ * Manuálisan kiválasztott kuponok összesített kedvezményének plafonja (0–1).
+ * Több kupon kombinálható, de az eredmény legfeljebb ennyi lehet.
+ */
+export const MAX_COMBINED_COUPON_PERCENT = 0.2
+
+/** Összesített kupon % plafonálása (pl. 0.25 → 0.20). */
+export function capCombinedCouponPercent(totalPercent: number): number {
+  if (!Number.isFinite(totalPercent) || totalPercent <= 0) return 0
+  return Math.min(totalPercent, MAX_COMBINED_COUPON_PERCENT)
+}
+
 /** Kijelzéshez: 5, 10, 15 … Ha nincs regisztrációs kupon, 0. */
 export function getRegistrationCouponPercentDisplay(): number {
   if (REGISTRATION_COUPON_PERCENT <= 0) return 0

@@ -15,6 +15,7 @@ import {
 } from '@/lib/payment-transactions'
 import { getPaymentProvider } from '@/lib/payment-provider'
 import { getLoyaltyByEmail } from '@/lib/loyalty'
+import { capCombinedCouponPercent, CAT_COUPON_PERCENT, REGISTRATION_COUPON_PERCENT } from '@/lib/coupon-config'
 import { rateLimit } from '@/lib/rate-limit'
 import {
   getIdempotencyKey,
@@ -45,10 +46,12 @@ import {
 } from '@/lib/checkout'
 import { maybeSendOrderGroupConfirmationEmail } from '@/lib/order-email'
 import { resolveCheckoutCoupon, recordCouponUsageOnPayment } from '@/lib/coupon-checkout'
-import { getActivePromoDiscountPercent } from '@/lib/promo-coupons'
+import { getUserPromoCouponState, markUserPromoCouponUsed } from '@/lib/promo-coupons'
 import { acceptWelcomeCheckoutOffer } from '@/lib/welcome-checkout-offer'
 import { WELCOME_CHECKOUT_COUPON_PERCENT } from '@/lib/coupon-config'
 import type { CouponDiscount } from '@/lib/checkout'
+
+const selectedCouponEnum = z.enum(['cat', 'registration', 'loyalty', 'welcome', 'birthday'])
 
 const checkoutBodySchema = z.object({
   items: z
@@ -74,13 +77,12 @@ const checkoutBodySchema = z.object({
   discountPercent: z.number().min(0).max(1).optional(),
   /** Szerver validálja: max. kosár 30%-a, egyenleg ellenőrzés. */
   pointsDiscountHuf: z.number().int().min(0).optional(),
-  /** DB kupon kód – nem kombinálható macska/regisztrációs kuponnal vagy loyalty-val. */
+  /** DB kupon kód (pl. születésnapi) – manuális választás részeként. */
   couponCode: z.string().min(1).optional(),
-  /**
-   * Checkout welcome 10% + hírlevél ajánlat (vendégnek is).
-   * Nem kombinálható más kliens kuponnal / kuponkóddal.
-   */
+  /** Checkout welcome 10% + hírlevél ajánlat (manuális kijelölés). */
   welcomeOfferAccepted: z.boolean().optional(),
+  /** Manuálisan kiválasztott kuponok (nincs automatikus alkalmazás). */
+  selectedCoupons: z.array(selectedCouponEnum).optional(),
 })
 
 export async function POST(request: Request) {
@@ -128,30 +130,22 @@ export async function POST(request: Request) {
     pointsDiscountHuf: requestedPointsHuf = 0,
     couponCode: bodyCouponCode,
     welcomeOfferAccepted,
+    selectedCoupons: bodySelectedCoupons,
   } = parsed.data
 
   const couponCodeTrimmed = bodyCouponCode?.trim() ?? ''
-  const hasClientCoupon = Boolean(isDiscountActive && bodyPercent != null && bodyPercent > 0)
-  const wantsWelcomeOffer = welcomeOfferAccepted === true
-
-  if (couponCodeTrimmed && hasClientCoupon) {
-    return NextResponse.json(
-      {
-        code: 'coupon_conflict',
-        error: 'A kuponkód nem kombinálható a macska vagy regisztrációs kuponnal.',
-      },
-      { status: 400 }
-    )
+  const selectedCoupons = new Set(bodySelectedCoupons ?? [])
+  // Legacy: isDiscountActive + percent → cat/registration kijelölésként kezeljük
+  const hasLegacyPromo = Boolean(isDiscountActive && bodyPercent != null && bodyPercent > 0)
+  if (hasLegacyPromo && selectedCoupons.size === 0) {
+    selectedCoupons.add('cat')
+    selectedCoupons.add('registration')
   }
-  if (wantsWelcomeOffer && (hasClientCoupon || couponCodeTrimmed)) {
-    return NextResponse.json(
-      {
-        code: 'coupon_conflict',
-        error: 'A welcome 10% hírlevél-kedvezmény nem kombinálható más kuponnal.',
-      },
-      { status: 400 }
-    )
-  }
+  if (welcomeOfferAccepted === true) selectedCoupons.add('welcome')
+  if (couponCodeTrimmed) selectedCoupons.add('birthday')
+  const wantsWelcomeOffer = selectedCoupons.has('welcome')
+  const hasClientCoupon =
+    selectedCoupons.has('cat') || selectedCoupons.has('registration') || hasLegacyPromo
 
   let checkoutUserId: string | null = null
   const session = await getSession(request)
@@ -212,6 +206,7 @@ export async function POST(request: Request) {
   let couponDiscount: CouponDiscount = { percent: 0 }
   let appliedCouponId: string | null = null
   let appliedCouponCode: string | null = null
+  const selectedPromoKinds: Array<'cat' | 'registration'> = []
 
   const luckySpin = checkoutUserId ? await getLuckySpinForCheckout(checkoutUserId, now) : null
   const lines = resolveCartLines(items, productMap)
@@ -221,6 +216,62 @@ export async function POST(request: Request) {
   }
 
   const cartSubtotalHuf = lines.reduce((s, l) => s + l.priceHuf * l.qty, 0)
+
+  // Manuális kuponválasztás: összeadás + 20% plafon. Nincs automatikus loyalty/promo.
+  let combinedPercent = 0
+  let fixedHufFromDb = 0
+
+  if (selectedCoupons.has('cat') || selectedCoupons.has('registration')) {
+    if (!checkoutUserId) {
+      return NextResponse.json({ error: 'Login required for promo coupon' }, { status: 401 })
+    }
+    const state = await getUserPromoCouponState(checkoutUserId)
+    if (selectedCoupons.has('cat')) {
+      if (state.cat !== 'claimed') {
+        return NextResponse.json(
+          { code: 'promo_coupon_inactive', error: 'Cat coupon is not active' },
+          { status: 400 }
+        )
+      }
+      combinedPercent += CAT_COUPON_PERCENT
+      selectedPromoKinds.push('cat')
+    }
+    if (selectedCoupons.has('registration')) {
+      if (state.registration !== 'claimed') {
+        return NextResponse.json(
+          { code: 'promo_coupon_inactive', error: 'Registration coupon is not active' },
+          { status: 400 }
+        )
+      }
+      combinedPercent += REGISTRATION_COUPON_PERCENT
+      selectedPromoKinds.push('registration')
+    }
+  }
+
+  if (selectedCoupons.has('loyalty')) {
+    const loyalty = getLoyaltyByEmail(customer.email)
+    if (!loyalty || loyalty.loyaltyPercent <= 0) {
+      return NextResponse.json(
+        { code: 'loyalty_inactive', error: 'No loyalty discount on this account' },
+        { status: 400 }
+      )
+    }
+    combinedPercent += loyalty.loyaltyPercent / 100
+  }
+
+  if (wantsWelcomeOffer) {
+    const welcome = await acceptWelcomeCheckoutOffer({
+      email: customer.email,
+      userId: checkoutUserId,
+    })
+    if (!welcome.ok) {
+      return NextResponse.json(
+        { code: welcome.code, error: welcome.error },
+        { status: 400 }
+      )
+    }
+    combinedPercent += welcome.percent || WELCOME_CHECKOUT_COUPON_PERCENT
+  }
 
   if (couponCodeTrimmed) {
     const resolved = await resolveCheckoutCoupon({
@@ -232,45 +283,22 @@ export async function POST(request: Request) {
     if (!resolved.ok) {
       return NextResponse.json({ code: resolved.code, error: resolved.error }, { status: 400 })
     }
-    couponDiscount = resolved.discount
     appliedCouponId = resolved.coupon.id
     appliedCouponCode = resolved.coupon.code
-  } else if (wantsWelcomeOffer) {
-    const welcome = await acceptWelcomeCheckoutOffer({
-      email: customer.email,
-      userId: checkoutUserId,
-    })
-    if (!welcome.ok) {
-      return NextResponse.json(
-        { code: welcome.code, error: welcome.error },
-        { status: 400 }
-      )
+    if (resolved.discount.fixedHuf && resolved.discount.fixedHuf > 0) {
+      fixedHufFromDb = resolved.discount.fixedHuf
+    } else if (resolved.discount.percent && resolved.discount.percent > 0) {
+      combinedPercent += resolved.discount.percent
     }
-    const percent = welcome.percent || WELCOME_CHECKOUT_COUPON_PERCENT
-    if (!validateCouponPercent(percent, true)) {
-      return NextResponse.json({ error: 'Invalid welcome coupon discount' }, { status: 400 })
-    }
-    couponDiscount = { percent }
-  } else if (hasClientCoupon) {
-    if (!checkoutUserId) {
-      return NextResponse.json({ error: 'Login required for promo coupon' }, { status: 401 })
-    }
-    const serverPercent = await getActivePromoDiscountPercent(checkoutUserId)
-    if (serverPercent <= 0) {
-      return NextResponse.json(
-        { code: 'promo_coupon_inactive', error: 'No active promo coupon on this account' },
-        { status: 400 }
-      )
-    }
-    if (!validateCouponPercent(serverPercent, true)) {
-      return NextResponse.json({ error: 'Invalid coupon discount' }, { status: 400 })
-    }
-    couponDiscount = { percent: serverPercent }
-  } else if (!isDiscountActive) {
-    const loyalty = getLoyaltyByEmail(customer.email)
-    if (loyalty && loyalty.loyaltyPercent > 0) {
-      couponDiscount = { percent: loyalty.loyaltyPercent / 100 }
-    }
+  }
+
+  const cappedPercent = capCombinedCouponPercent(combinedPercent)
+  if (!validateCouponPercent(cappedPercent, Boolean(checkoutUserId) || wantsWelcomeOffer || Boolean(couponCodeTrimmed))) {
+    return NextResponse.json({ error: 'Invalid coupon discount' }, { status: 400 })
+  }
+  couponDiscount = {
+    percent: cappedPercent,
+    ...(fixedHufFromDb > 0 ? { fixedHuf: fixedHufFromDb } : {}),
   }
 
   const prePointsTotals = computeCheckoutTotals({
@@ -399,10 +427,11 @@ export async function POST(request: Request) {
           /* non-fatal */
         }
       }
-      if (checkoutUserId) {
+      if (checkoutUserId && selectedPromoKinds.length > 0) {
         try {
-          const { markUserPromoCouponsUsed } = await import('@/lib/promo-coupons')
-          await markUserPromoCouponsUsed(checkoutUserId)
+          for (const kind of selectedPromoKinds) {
+            await markUserPromoCouponUsed(checkoutUserId, kind)
+          }
         } catch {
           /* non-fatal */
         }

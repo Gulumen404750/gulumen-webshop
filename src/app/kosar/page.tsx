@@ -8,7 +8,6 @@ import { getProductById as getProductByIdFromData, getAddToCartReason, getMaxQty
 import { useCart, type CartItem } from '@/context/CartContext'
 import { useProducts } from '@/context/ProductsContext'
 import { resolveCartLine, resolveCartLinePriceHuf } from '@/lib/cart-line'
-import { useCatCoupon } from '@/context/CatCouponContext'
 import { useAuth } from '@/context/AuthContext'
 import { useSourcingDealOrders } from '@/context/SourcingDealOrdersContext'
 import { useLocale } from '@/context/LocaleContext'
@@ -33,7 +32,6 @@ export default function CartPage() {
   const { toast } = useToast()
   const { hufToEur, formatEur } = useEuroRate()
   const { userId } = useAuth()
-  const { markUsed, discountPercent, isDiscountActive } = useCatCoupon()
   const { data: luckySpinData } = useLuckySpin(!!userId)
   const { getOrdersCount, placeOrder, cancelOrder } = useSourcingDealOrders()
   const processedAddIdRef = useRef<string | null>(null)
@@ -80,16 +78,16 @@ export default function CartPage() {
       }
     })
     const lockedLines = applyLuckySpinLockedPrices(cartLines, luckySpinRecord)
+    // Nincs automatikus kupon a kosárban – a kiválasztás a fizetésnél történik.
     return computeCheckoutTotals({
       lines: lockedLines,
-      coupon: { percent: isDiscountActive ? discountPercent : 0 },
+      coupon: { percent: 0 },
       luckySpin: luckySpinRecord,
     })
-  }, [items, getProductById, luckySpinRecord, isDiscountActive, discountPercent, locale])
+  }, [items, getProductById, luckySpinRecord, locale])
 
   const {
     subtotalHuf,
-    couponDiscountHuf,
     luckySpinDiscountHuf,
     merchandiseTotalHuf,
     freeShippingRemainingHuf,
@@ -125,17 +123,13 @@ export default function CartPage() {
 
   const hasSourcingItems = sourcingItems.length > 0
 
-  const { subtotalEur, couponDiscountEur, luckySpinDiscountEur, totalEur } = useMemo(() => {
-    const subEur = hufToEur(subtotalHuf)
-    const couponEur = hufToEur(couponDiscountHuf)
-    const spinEur = hufToEur(luckySpinDiscountHuf)
+  const { subtotalEur, luckySpinDiscountEur, totalEur } = useMemo(() => {
     return {
-      subtotalEur: subEur,
-      couponDiscountEur: couponEur,
-      luckySpinDiscountEur: spinEur,
+      subtotalEur: hufToEur(subtotalHuf),
+      luckySpinDiscountEur: hufToEur(luckySpinDiscountHuf),
       totalEur: hufToEur(displayTotalHuf),
     }
-  }, [subtotalHuf, couponDiscountHuf, luckySpinDiscountHuf, displayTotalHuf, hufToEur])
+  }, [subtotalHuf, luckySpinDiscountHuf, displayTotalHuf, hufToEur])
 
   useEffect(() => {
     const addId = searchParams.get('add')
@@ -496,12 +490,6 @@ export default function CartPage() {
           <span>{t('cart.subtotal')}</span>
           <span>{subtotalHuf.toLocaleString('hu-HU')} Ft <span className="text-muted">(€{formatEur(subtotalEur)})</span></span>
         </div>
-        {isDiscountActive && couponDiscountHuf > 0 && (
-          <div className="flex justify-between text-discount">
-            <span>{t('cart.discountLabel', { percent: Math.round(discountPercent * 100) })}</span>
-            <span>−{couponDiscountHuf.toLocaleString('hu-HU')} Ft <span className="text-muted">(€{formatEur(couponDiscountEur)})</span></span>
-          </div>
-        )}
         {luckySpinDiscountHuf > 0 && (
           <div className="flex justify-between text-discount">
             <span>

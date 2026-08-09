@@ -13,23 +13,13 @@ import { PointsGuide } from '@/components/PointsGuide'
 import { PointHistoryTimeline } from '@/components/PointHistoryTimeline'
 import { LoyaltyTierBadge } from '@/components/LoyaltyTierBadge'
 
-type BirthdayCouponInfo = {
-  code: string
-  percent: number
-  validUntil: string
-  active: boolean
-}
-
 function BirthDateProfileSection() {
   const { t } = useLocale()
   const [birthDate, setBirthDate] = useState('')
   const [birthDateLocked, setBirthDateLocked] = useState(false)
-  const [birthdayCoupon, setBirthdayCoupon] = useState<BirthdayCouponInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -43,7 +33,6 @@ function BirthDateProfileSection() {
             : ''
         setBirthDate(saved)
         setBirthDateLocked(Boolean(saved))
-        setBirthdayCoupon(data.birthdayCoupon ?? null)
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Betöltési hiba'))
       .finally(() => setLoading(false))
@@ -53,7 +42,6 @@ function BirthDateProfileSection() {
     e.preventDefault()
     if (birthDateLocked) return
     setSaving(true)
-    setMessage(null)
     setError(null)
     try {
       const res = await fetch('/api/me/profile', {
@@ -70,19 +58,7 @@ function BirthDateProfileSection() {
           : ''
       setBirthDate(saved)
       setBirthDateLocked(Boolean(saved))
-      setBirthdayCoupon(data.birthdayCoupon ?? null)
-      if (data.birthdayGrant?.created && data.birthdayCoupon?.code) {
-        setMessage(
-          t('profile.birthdayCouponGranted', {
-            percent: String(data.birthdayCoupon.percent),
-            code: data.birthdayCoupon.code,
-          })
-        )
-      } else if (data.birthdayGrant?.deferred) {
-        setMessage(t('profile.birthDateSavedDeferred'))
-      } else {
-        setMessage(t('profile.birthDateSaved'))
-      }
+      // Mentés után a mező és minden tájékoztató szöveg eltűnik a profilról.
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Mentés sikertelen')
     } finally {
@@ -90,107 +66,45 @@ function BirthDateProfileSection() {
     }
   }
 
-  const copyCode = async () => {
-    if (!birthdayCoupon?.code) return
-    try {
-      await navigator.clipboard.writeText(birthdayCoupon.code)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {
-      // ignore
-    }
-  }
+  // Mentett születési dátum után a teljes szekció eltűnik.
+  if (loading || birthDateLocked) return null
 
   return (
     <div className="mb-6 space-y-4">
-      {birthdayCoupon && (
-        <div className="rounded-xl border border-accent/40 bg-accent/5 p-4 space-y-2">
-          <p className="text-sm font-semibold text-foreground">
-            {t('profile.birthdayCouponTitle', { percent: String(birthdayCoupon.percent) })}
-          </p>
-          <p className="text-sm text-muted">
-            {t('profile.birthdayCouponValidUntil', {
-              date: new Date(birthdayCoupon.validUntil).toLocaleDateString('hu-HU'),
-            })}
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <code className="px-3 py-1.5 rounded-lg bg-background border border-[var(--border)] text-base font-semibold tracking-wide">
-              {birthdayCoupon.code}
-            </code>
-            <button
-              type="button"
-              onClick={copyCode}
-              className="text-sm px-3 py-1.5 rounded-lg border border-[var(--border)] hover:bg-[var(--border)]/30"
-            >
-              {copied ? t('profile.birthdayCouponCopied') : t('profile.birthdayCouponCopy')}
-            </button>
-            <Link
-              href="/fizetes"
-              className="text-sm px-3 py-1.5 rounded-lg bg-accent text-white font-medium hover:opacity-90"
-            >
-              {t('profile.birthdayCouponUse')}
-            </Link>
-          </div>
+      <form
+        onSubmit={save}
+        className="rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-4 space-y-3"
+      >
+        <div>
+          <label htmlFor="profile-birthDate" className="block text-sm font-medium text-foreground mb-1">
+            {t('profile.birthDateLabel')}{' '}
+            <span className="text-muted font-normal">({t('register.optionalLabel')})</span>
+          </label>
+          <input
+            id="profile-birthDate"
+            type="date"
+            value={birthDate}
+            onChange={(e) => setBirthDate(e.target.value)}
+            max={new Date().toISOString().slice(0, 10)}
+            disabled={loading || saving}
+            className="w-full max-w-xs px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground disabled:opacity-60"
+            autoComplete="bday"
+          />
+          <p className="mt-1.5 text-xs text-muted leading-relaxed">{t('profile.birthDateHint')}</p>
         </div>
-      )}
-
-      {/* Születési dátum mező csak ha még nincs rögzítve */}
-      {!birthDateLocked ? (
-        <form
-          onSubmit={save}
-          className="rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-4 space-y-3"
+        {error && (
+          <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+            {error}
+          </p>
+        )}
+        <button
+          type="submit"
+          disabled={loading || saving || !birthDate.trim()}
+          className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:opacity-90 disabled:opacity-60"
         >
-          <div>
-            <label htmlFor="profile-birthDate" className="block text-sm font-medium text-foreground mb-1">
-              {t('profile.birthDateLabel')}{' '}
-              <span className="text-muted font-normal">({t('register.optionalLabel')})</span>
-            </label>
-            <input
-              id="profile-birthDate"
-              type="date"
-              value={birthDate}
-              onChange={(e) => setBirthDate(e.target.value)}
-              max={new Date().toISOString().slice(0, 10)}
-              disabled={loading || saving}
-              className="w-full max-w-xs px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground disabled:opacity-60"
-              autoComplete="bday"
-            />
-            <p className="mt-1.5 text-xs text-muted leading-relaxed">{t('profile.birthDateHint')}</p>
-          </div>
-          {message && (
-            <p className="text-sm text-green-700 dark:text-green-400" role="status">
-              {message}
-            </p>
-          )}
-          {error && (
-            <p className="text-sm text-red-600 dark:text-red-400" role="alert">
-              {error}
-            </p>
-          )}
-          <button
-            type="submit"
-            disabled={loading || saving || !birthDate.trim()}
-            className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:opacity-90 disabled:opacity-60"
-          >
-            {saving ? t('profile.birthDateSaving') : t('profile.birthDateSave')}
-          </button>
-        </form>
-      ) : (
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-4 space-y-1">
-          <p className="text-sm font-medium text-foreground">{t('profile.birthDateLockedTitle')}</p>
-          <p className="text-sm text-muted">{t('profile.birthDateLockedHint')}</p>
-          {message && (
-            <p className="text-sm text-green-700 dark:text-green-400 pt-1" role="status">
-              {message}
-            </p>
-          )}
-          {error && (
-            <p className="text-sm text-red-600 dark:text-red-400 pt-1" role="alert">
-              {error}
-            </p>
-          )}
-        </div>
-      )}
+          {saving ? t('profile.birthDateSaving') : t('profile.birthDateSave')}
+        </button>
+      </form>
     </div>
   )
 }

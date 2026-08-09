@@ -9,7 +9,6 @@ import { z } from 'zod'
 import { getProductByIdAsync, getTimedPurchaseStatus } from '@/lib/data'
 import type { Product } from '@/lib/data'
 import { createOrder, getProductOrdersCount, type OrderItem } from '@/lib/orders'
-import { getLoyaltyByEmail } from '@/lib/loyalty'
 import { rateLimit } from '@/lib/rate-limit'
 import { resolvePublicAppUrl } from '@/lib/bootstrap-auth-env'
 
@@ -103,18 +102,12 @@ export async function POST(request: Request) {
     if (p) productMap.set(id, p)
   }
 
-  // Kupon elsőbbség; ha nincs kupon, hűségkedvezmény email alapján (nem összevonható)
+  // Csak manuálisan kért kupon (nincs automatikus loyalty / promo alkalmazás).
   let effectiveDiscountActive = false
   let effectiveDiscountPercent = 0
   if (isDiscountActive && bodyPercent != null && bodyPercent > 0) {
     effectiveDiscountActive = true
-    effectiveDiscountPercent = bodyPercent
-  } else if (customer_email) {
-    const loyalty = getLoyaltyByEmail(customer_email)
-    if (loyalty && loyalty.loyaltyPercent > 0) {
-      effectiveDiscountActive = true
-      effectiveDiscountPercent = loyalty.loyaltyPercent / 100
-    }
+    effectiveDiscountPercent = Math.min(bodyPercent, 0.2)
   }
 
   const now = new Date()

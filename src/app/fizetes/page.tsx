@@ -24,6 +24,12 @@ import {
 import { getLuckySpinNextTierRemaining } from '@/lib/gamification/lucky-spin'
 import { PaymentTrustBadges } from '@/components/PaymentTrustBadges'
 import { WELCOME_CHECKOUT_COUPON_PERCENT } from '@/lib/coupon-config'
+import { CouponSelector } from '@/components/CouponSelector'
+import {
+  buildPromoCoupons,
+  calculateSelectedCouponPercent,
+  type SelectableCouponId,
+} from '@/lib/coupon-selection'
 
 function createCheckoutIdempotencyKey(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -39,16 +45,15 @@ export default function PaymentPage() {
   const { items, clearCart } = useCart()
   const { getProductById: getProductByIdFromContext } = useProducts()
   const getProductById = (id: string) => getProductByIdFromContext(id) ?? getProductByIdFromData(id)
-  const { isDiscountActive: couponActive, discountPercent, activate, catStatus, status: couponStatusValue } = useCatCoupon()
+  const { catStatus, registrationStatus } = useCatCoupon()
   const { hufToEur, formatEur } = useEuroRate()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loyaltyPercent, setLoyaltyPercent] = useState(0)
   const [guestEmail, setGuestEmail] = useState('')
   const [usePoints, setUsePoints] = useState(false)
-  const [couponExpanded, setCouponExpanded] = useState(false)
   const [couponCodeInput, setCouponCodeInput] = useState('')
-  const [couponMessage, setCouponMessage] = useState<string | null>(null)
+  const [selectedCouponIds, setSelectedCouponIds] = useState<SelectableCouponId[]>([])
   const [birthdayCouponBanner, setBirthdayCouponBanner] = useState<{
     code: string
     percent: number
@@ -56,7 +61,6 @@ export default function PaymentPage() {
   } | null>(null)
   /** Checkout welcome 10% + hírlevél (csak ha még nem feliratkozott / nem váltotta be). */
   const [welcomeOfferEligible, setWelcomeOfferEligible] = useState(false)
-  const [welcomeOfferAccepted, setWelcomeOfferAccepted] = useState(false)
   const [welcomeOfferBusy, setWelcomeOfferBusy] = useState(false)
   const [welcomeOfferError, setWelcomeOfferError] = useState<string | null>(null)
   const [checkoutResult, setCheckoutResult] = useState<{
@@ -104,22 +108,48 @@ export default function PaymentPage() {
 
   const lockedLines = applyLuckySpinLockedPrices(cartLines, luckySpinRecord)
 
-  const birthdayCodeActive =
-    !!birthdayCouponBanner &&
-    couponCodeInput.trim().toUpperCase() === birthdayCouponBanner.code.toUpperCase()
+  const availableCoupons = useMemo(
+    () =>
+      buildPromoCoupons({
+        catClaimed: catStatus === 'claimed',
+        registrationClaimed: registrationStatus === 'claimed',
+        loyaltyPercent,
+        welcomeEligible: welcomeOfferEligible,
+        birthday: birthdayCouponBanner
+          ? {
+              code: birthdayCouponBanner.code,
+              percent: birthdayCouponBanner.percent,
+              validUntil: birthdayCouponBanner.validUntil,
+            }
+          : null,
+        labels: {
+          cat: t('payment.couponCatLabel') || 'Macska játék kupon',
+          registration: t('payment.couponRegistrationLabel') || 'Regisztrációs kupon',
+          loyalty: t('payment.loyaltyDiscountLine', { percent: loyaltyPercent }) || `Hűségkedvezmény (${loyaltyPercent}%)`,
+          welcome: t('payment.welcomeOfferDiscountLine', {
+            percent: Math.round(WELCOME_CHECKOUT_COUPON_PERCENT * 100),
+          }) || 'Hírlevél welcome kedvezmény (10%)',
+          birthday: t('payment.birthdayCouponTitle', {
+            percent: birthdayCouponBanner?.percent ?? 15,
+          }) || 'Születésnapi kupon',
+        },
+      }),
+    [
+      catStatus,
+      registrationStatus,
+      loyaltyPercent,
+      welcomeOfferEligible,
+      birthdayCouponBanner,
+      t,
+    ]
+  )
 
-  let effectiveCouponPercent = 0
-  let usingWelcomeOffer = false
-  if (birthdayCodeActive && birthdayCouponBanner) {
-    effectiveCouponPercent = birthdayCouponBanner.percent / 100
-  } else if (welcomeOfferAccepted && !couponActive) {
-    effectiveCouponPercent = WELCOME_CHECKOUT_COUPON_PERCENT
-    usingWelcomeOffer = true
-  } else if (couponActive && discountPercent > 0) {
-    effectiveCouponPercent = discountPercent
-  } else if (!couponActive && loyaltyPercent > 0) {
-    effectiveCouponPercent = loyaltyPercent / 100
-  }
+  const couponSelection = useMemo(
+    () => calculateSelectedCouponPercent(availableCoupons, selectedCouponIds),
+    [availableCoupons, selectedCouponIds]
+  )
+
+  const effectiveCouponPercent = couponSelection.finalPercent
 
   const checkoutPreview = computeCheckoutTotals({
     lines: lockedLines,
@@ -141,6 +171,7 @@ export default function PaymentPage() {
   const shippingHuf = checkoutPreview.shippingHuf
   const cardTotalHuf = checkoutPreview.finalTotalHuf
   const freeShippingRemainingHuf = checkoutPreview.freeShippingRemainingHuf
+  const effectiveCouponDiscountHuf = couponDiscountOnTotal > 0 ? couponDiscountOnTotal : 0
 
   const spinProductIds = useMemo(
     () => new Set(luckySpinRecord?.productIds ?? []),
@@ -175,11 +206,7 @@ export default function PaymentPage() {
   const luckySpinDiscountPercent = luckySpinDiscount.discountPercent
   const luckySpinNextTierRemaining = getLuckySpinNextTierRemaining(luckySpinDiscount.qualifyingItemCount)
 
-  useEffect(() => {
-    if (couponActive) setCouponExpanded(true)
-  }, [couponActive])
-
-  // Születésnapi kupon betöltése profilból → kód kitöltése + banner
+  // Születésnapi kupon betöltése – listázáshoz (NEM automatikus alkalmazás)
   useEffect(() => {
     if (!userId) {
       setBirthdayCouponBanner(null)
@@ -196,46 +223,30 @@ export default function PaymentPage() {
           percent: bc.percent,
           validUntil: bc.validUntil,
         })
-        setCouponCodeInput((prev) => prev || bc.code)
-        setCouponExpanded(true)
-        setCouponMessage(
-          t('payment.birthdayCouponReady', {
-            percent: bc.percent,
-            code: bc.code,
-          })
-        )
       })
       .catch(() => {})
     return () => {
       cancelled = true
     }
-  }, [userId, t])
+  }, [userId])
 
   useEffect(() => {
-    if (!couponActive && !welcomeOfferAccepted && userId) {
-      fetch(`/api/loyalty?email=${encodeURIComponent(userId)}`)
-        .then((r) => r.json())
-        .then((d) => setLoyaltyPercent(d.loyaltyPercent ?? 0))
-        .catch(() => setLoyaltyPercent(0))
-    } else {
+    if (!userId) {
       setLoyaltyPercent(0)
-    }
-  }, [couponActive, welcomeOfferAccepted, userId])
-
-  // Welcome ajánlat elérhetőség (bejelentkezett vagy érvényes vendég e-mail)
-  useEffect(() => {
-    const email = (userId || guestEmail).trim().toLowerCase()
-    if (couponActive) {
-      setWelcomeOfferEligible(false)
       return
     }
+    fetch(`/api/loyalty?email=${encodeURIComponent(userId)}`)
+      .then((r) => r.json())
+      .then((d) => setLoyaltyPercent(d.loyaltyPercent ?? 0))
+      .catch(() => setLoyaltyPercent(0))
+  }, [userId])
+
+  // Welcome ajánlat elérhetőség (lista elemként; nincs auto-apply)
+  useEffect(() => {
+    const email = (userId || guestEmail).trim().toLowerCase()
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      // Vendég: e-mail nélkül is mutathatjuk a dobozt, de elfogadáshoz kell e-mail
-      if (!userId) {
-        setWelcomeOfferEligible(true)
-      } else {
-        setWelcomeOfferEligible(false)
-      }
+      if (!userId) setWelcomeOfferEligible(true)
+      else setWelcomeOfferEligible(false)
       return
     }
 
@@ -247,15 +258,13 @@ export default function PaymentPage() {
       .then((data) => {
         if (cancelled) return
         if (data.claimedPending) {
-          // Előzőleg elfogadta (még nem fizetett) – tartsuk a 10%-ot
-          setWelcomeOfferAccepted(true)
-          setWelcomeOfferEligible(false)
+          setWelcomeOfferEligible(true)
+          setSelectedCouponIds((prev) =>
+            prev.includes('welcome') ? prev : [...prev, 'welcome']
+          )
           return
         }
         setWelcomeOfferEligible(Boolean(data.eligible))
-        if (!data.eligible && data.hasRedeemedWelcomeCoupon) {
-          setWelcomeOfferAccepted(false)
-        }
       })
       .catch(() => {
         if (!cancelled) setWelcomeOfferEligible(false)
@@ -263,107 +272,52 @@ export default function PaymentPage() {
     return () => {
       cancelled = true
     }
-    // welcomeOfferAccepted szándékosan nincs a deps-ben (ne loopoljon)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, guestEmail, couponActive])
+  }, [userId, guestEmail])
 
-  const loyaltyDiscountOnTotal =
-    !couponActive && !usingWelcomeOffer && loyaltyPercent > 0 ? couponDiscountOnTotal : 0
-  const effectiveCouponDiscountHuf =
-    (couponActive || usingWelcomeOffer) && couponDiscountOnTotal > 0
-      ? couponDiscountOnTotal
-      : loyaltyDiscountOnTotal > 0
-        ? loyaltyDiscountOnTotal
-        : 0
+  // Birthday kód szinkron a kijelöléssel
+  useEffect(() => {
+    if (couponSelection.birthdayCode) {
+      setCouponCodeInput(couponSelection.birthdayCode)
+    } else if (!selectedCouponIds.includes('birthday')) {
+      setCouponCodeInput('')
+    }
+  }, [couponSelection.birthdayCode, selectedCouponIds])
+
   const totalEur = hufToEur(cardTotalHuf)
 
-  const handleWelcomeOfferToggle = async (checked: boolean) => {
+  const handleCouponSelectionChange = async (next: SelectableCouponId[]) => {
     setWelcomeOfferError(null)
-    if (!checked) {
-      setWelcomeOfferAccepted(false)
-      return
-    }
-    const email = (userId || guestEmail).trim().toLowerCase()
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setWelcomeOfferError(
-        t('payment.welcomeOfferEmailRequired') ||
-          'A 10% kedvezményhez add meg az e-mail címed (vendég vásárlás).'
-      )
-      setWelcomeOfferAccepted(false)
-      return
-    }
-    if (couponActive) {
-      setWelcomeOfferError(
-        t('payment.welcomeOfferCouponConflict') ||
-          'Már van aktív kuponod – a welcome 10% nem kombinálható vele.'
-      )
-      return
-    }
-
-    setWelcomeOfferBusy(true)
-    try {
-      const res = await fetch('/api/checkout/welcome-offer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ email }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        setWelcomeOfferAccepted(false)
-        setWelcomeOfferEligible(false)
-        setWelcomeOfferError(data.error || t('payment.welcomeOfferError') || 'Az ajánlat nem elérhető.')
+    const turningWelcomeOn = next.includes('welcome') && !selectedCouponIds.includes('welcome')
+    if (turningWelcomeOn) {
+      const email = (userId || guestEmail).trim().toLowerCase()
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        setWelcomeOfferError(
+          t('payment.welcomeOfferEmailRequired') ||
+            'A 10% kedvezményhez add meg az e-mail címed (vendég vásárlás).'
+        )
         return
       }
-      setWelcomeOfferAccepted(true)
-      setWelcomeOfferEligible(false)
-    } catch {
-      setWelcomeOfferAccepted(false)
-      setWelcomeOfferError(t('payment.welcomeOfferError') || 'Az ajánlat nem elérhető.')
-    } finally {
-      setWelcomeOfferBusy(false)
-    }
-  }
-
-  const handleCouponApply = () => {
-    setCouponMessage(null)
-    const code = couponCodeInput.trim().toUpperCase()
-    if (
-      birthdayCouponBanner &&
-      code &&
-      code === birthdayCouponBanner.code.toUpperCase()
-    ) {
-      setCouponMessage(
-        t('payment.birthdayCouponReady', {
-          percent: birthdayCouponBanner.percent,
-          code: birthdayCouponBanner.code,
+      setWelcomeOfferBusy(true)
+      try {
+        const res = await fetch('/api/checkout/welcome-offer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ email }),
         })
-      )
-      return
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          setWelcomeOfferError(data.error || t('payment.welcomeOfferError') || 'Az ajánlat nem elérhető.')
+          return
+        }
+      } catch {
+        setWelcomeOfferError(t('payment.welcomeOfferError') || 'Az ajánlat nem elérhető.')
+        return
+      } finally {
+        setWelcomeOfferBusy(false)
+      }
     }
-    if (!userId) {
-      setCouponMessage(t('coupon.loggedInRequired'))
-      return
-    }
-    if (couponActive) {
-      setCouponMessage(t('payment.couponAlreadyActive'))
-      return
-    }
-    if (catStatus === 'used' && couponStatusValue === 'used') {
-      setCouponMessage(t('coupon.alreadyActivated'))
-      return
-    }
-    if (catStatus === 'not_claimed' && activate()) {
-      setCouponMessage(t('coupon.activated'))
-      setCouponCodeInput('')
-      return
-    }
-    if (code) {
-      // Egyéb DB kupon (gamification / elhagyott kosár stb.) – a szerver ellenőrzi fizetéskor
-      setCouponMessage(t('payment.couponWillApplyAtCheckout'))
-      return
-    }
-    setCouponMessage(t('payment.couponNoneAvailable'))
+    setSelectedCouponIds(next)
   }
 
   const renderLineItem = (item: (typeof items)[number]) => {
@@ -466,15 +420,14 @@ export default function PaymentPage() {
             ...(options && (options.colorName != null || options.colorHex != null || options.materialName != null) ? { options } : {}),
           })),
           customer: { email },
-          isDiscountActive:
-            couponActive && !welcomeOfferAccepted && !birthdayCodeActive,
+          isDiscountActive: couponSelection.useCat || couponSelection.useRegistration,
           discountPercent:
-            couponActive && !welcomeOfferAccepted && !birthdayCodeActive
-              ? discountPercent
+            couponSelection.useCat || couponSelection.useRegistration
+              ? effectiveCouponPercent
               : undefined,
-          couponCode: couponCodeInput.trim() || undefined,
-          welcomeOfferAccepted:
-            welcomeOfferAccepted && !birthdayCodeActive ? true : undefined,
+          couponCode: couponSelection.birthdayCode || couponCodeInput.trim() || undefined,
+          welcomeOfferAccepted: couponSelection.useWelcome ? true : undefined,
+          selectedCoupons: couponSelection.selectedIds,
           pointsDiscountHuf: pointsDiscountHuf > 0 ? pointsDiscountHuf : undefined,
         }),
       })
@@ -526,10 +479,8 @@ export default function PaymentPage() {
     t,
     cardTotalHuf,
     items,
-    couponActive,
-    discountPercent,
-    welcomeOfferAccepted,
-    birthdayCodeActive,
+    couponSelection,
+    effectiveCouponPercent,
     couponCodeInput,
     pointsDiscountHuf,
     refreshWallet,
@@ -631,29 +582,21 @@ export default function PaymentPage() {
                   <div className="flex justify-between text-discount">
                     <span className="inline-flex items-center gap-1.5">
                       <span>
-                        {usingWelcomeOffer
-                          ? t('payment.welcomeOfferDiscountLine', {
-                              percent: Math.round(WELCOME_CHECKOUT_COUPON_PERCENT * 100),
-                            }) ||
-                            `Hírlevél welcome kedvezmény (${Math.round(WELCOME_CHECKOUT_COUPON_PERCENT * 100)}%)`
-                          : couponActive
-                            ? t('payment.couponDiscountWithCode', {
-                                percent: Math.round(
-                                  (couponActive ? discountPercent : loyaltyPercent / 100) * 100
-                                ),
-                              })
-                            : t('payment.loyaltyDiscountLine', { percent: loyaltyPercent })}
+                        {t('payment.couponDiscountWithCode', {
+                          percent: Math.round(effectiveCouponPercent * 100),
+                        })}
+                        {couponSelection.capped
+                          ? ` (${t('payment.couponCappedHint') || 'max. 20%'})`
+                          : ''}
                       </span>
-                      {!usingWelcomeOffer && (
-                        <button
-                          type="button"
-                          title={t('payment.couponScopeHint')}
-                          aria-label={t('payment.couponScopeHint')}
-                          className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-current text-[10px] leading-none opacity-70 hover:opacity-100"
-                        >
-                          i
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        title={t('payment.couponScopeHint')}
+                        aria-label={t('payment.couponScopeHint')}
+                        className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-current text-[10px] leading-none opacity-70 hover:opacity-100"
+                      >
+                        i
+                      </button>
                     </span>
                     <span className="tabular-nums">−{effectiveCouponDiscountHuf.toLocaleString('hu-HU')} Ft</span>
                   </div>
@@ -718,63 +661,39 @@ export default function PaymentPage() {
         </section>
       )}
 
-      {(welcomeOfferEligible || welcomeOfferAccepted) && !couponActive && (
-        <section
-          className={`mb-8 rounded-xl border-2 p-5 transition-colors ${
-            welcomeOfferAccepted
-              ? 'border-emerald-600/50 bg-emerald-600/10'
-              : 'border-accent/50 bg-gradient-to-br from-accent/10 via-[var(--card-bg)] to-amber-500/10'
-          }`}
-        >
-          <p className="text-xs font-semibold uppercase tracking-wide text-accent mb-2">
-            {t('payment.welcomeOfferBadge') || 'Exkluzív ajánlat'}
-          </p>
-          <h2 className="font-heading text-lg font-bold text-foreground mb-2">
-            {t('payment.welcomeOfferTitle') ||
-              'Szeretnél 10% kedvezményt ebből a vásárlásból?'}
-          </h2>
-          <p className="text-sm text-muted mb-4">
-            {t('payment.welcomeOfferDesc') ||
-              'Iratkozz fel hírlevelünkre, és a kedvezményt azonnal levonjuk a végösszegből!'}
-          </p>
-          <label className="flex items-start gap-3 cursor-pointer rounded-lg border border-[var(--border)] bg-background/80 p-3">
-            <input
-              id="welcome-offer"
-              type="checkbox"
-              checked={welcomeOfferAccepted}
-              disabled={welcomeOfferBusy || (welcomeOfferAccepted && !welcomeOfferEligible)}
-              onChange={(e) => void handleWelcomeOfferToggle(e.target.checked)}
-              className="mt-1 w-4 h-4 rounded border-[var(--border)] text-accent focus:ring-accent"
-            />
-            <span className="text-sm text-foreground font-medium">
-              {t('payment.welcomeOfferCheckbox') ||
-                'Igen, kérem a 10% kedvezményt, és elfogadom a marketing megkereséseket!'}
-            </span>
-          </label>
-          {welcomeOfferBusy && (
-            <p className="text-xs text-muted mt-2 flex items-center gap-1.5">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              {t('payment.welcomeOfferSaving') || 'Kedvezmény aktiválása…'}
-            </p>
-          )}
-          {welcomeOfferAccepted && !welcomeOfferBusy && (
-            <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-2 font-medium">
-              {t('payment.welcomeOfferApplied') ||
-                '✓ 10% kedvezmény alkalmazva. Hírlevél feliratkozás rögzítve.'}
-            </p>
-          )}
-          {welcomeOfferError && (
-            <p className="text-xs text-red-600 dark:text-red-400 mt-2" role="alert">
-              {welcomeOfferError}
-            </p>
-          )}
-          {!userId && !guestEmail.trim() && (
-            <p className="text-xs text-muted mt-2">
-              {t('payment.welcomeOfferEmailHint') ||
-                'Vendégként előbb add meg az e-mail címed a fenti mezőben.'}
-            </p>
-          )}
-        </section>
+      <CouponSelector
+        coupons={availableCoupons}
+        selectedIds={selectedCouponIds}
+        onChange={(next) => void handleCouponSelectionChange(next)}
+        title={t('payment.couponSelectorTitle') || 'Elérhető kuponok'}
+        hint={
+          t('payment.couponSelectorHint') ||
+          'Válaszd ki manuálisan a kedvezmény(eke)t. Összesen legfeljebb 20%.'
+        }
+        emptyText={t('payment.couponSelectorEmpty') || 'Jelenleg nincs felhasználható kuponod.'}
+        capReachedText={
+          t('payment.couponCapReached') ||
+          'A kiválasztott kuponok összege nem haladhatja meg a 20%-ot.'
+        }
+        selectedPercentDisplay={Math.round(couponSelection.finalPercent * 100)}
+        capped={couponSelection.capped}
+      />
+      {welcomeOfferBusy && (
+        <p className="text-xs text-muted -mt-6 mb-6 flex items-center gap-1.5">
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          {t('payment.welcomeOfferSaving') || 'Kedvezmény aktiválása…'}
+        </p>
+      )}
+      {welcomeOfferError && (
+        <p className="text-xs text-red-600 dark:text-red-400 -mt-4 mb-6" role="alert">
+          {welcomeOfferError}
+        </p>
+      )}
+      {!userId && selectedCouponIds.includes('welcome') && !guestEmail.trim() && (
+        <p className="text-xs text-muted -mt-4 mb-6">
+          {t('payment.welcomeOfferEmailHint') ||
+            'Vendégként előbb add meg az e-mail címed a fenti mezőben.'}
+        </p>
       )}
 
       {userId && pointsPreview && pointsPreview.maxUsablePointsDiscountHuf > 0 && (
@@ -801,86 +720,6 @@ export default function PaymentPage() {
           )}
         </section>
       )}
-
-      {birthdayCouponBanner && (
-        <section className="mb-4 p-4 rounded-xl border border-accent/40 bg-accent/5">
-          <p className="text-sm font-semibold text-foreground">
-            {t('payment.birthdayCouponTitle', { percent: birthdayCouponBanner.percent })}
-          </p>
-          <p className="text-sm text-muted mt-1">
-            {t('payment.birthdayCouponHint', {
-              code: birthdayCouponBanner.code,
-              date: new Date(birthdayCouponBanner.validUntil).toLocaleDateString('hu-HU'),
-            })}
-          </p>
-          <button
-            type="button"
-            className="mt-2 text-sm font-medium text-accent hover:underline"
-            onClick={() => {
-              setCouponCodeInput(birthdayCouponBanner.code)
-              setCouponExpanded(true)
-              setCouponMessage(
-                t('payment.birthdayCouponReady', {
-                  percent: birthdayCouponBanner.percent,
-                  code: birthdayCouponBanner.code,
-                })
-              )
-            }}
-          >
-            {t('payment.birthdayCouponApply')}
-          </button>
-        </section>
-      )}
-
-      <section className="mb-8 p-4 rounded-xl border-2 border-dashed border-[var(--border)] bg-[var(--card-bg)]">
-        <button
-          type="button"
-          onClick={() => setCouponExpanded((v) => !v)}
-          className="w-full flex items-center justify-between text-left font-heading font-semibold text-foreground"
-        >
-          <span>{t('payment.addCouponTitle')}</span>
-          <span className="text-muted text-lg leading-none">{couponExpanded ? '−' : '+'}</span>
-        </button>
-        {couponExpanded && (
-          <div className="mt-4 space-y-3">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={couponCodeInput}
-                onChange={(e) => setCouponCodeInput(e.target.value)}
-                placeholder={t('payment.couponPlaceholder')}
-                className="flex-1 px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground text-sm"
-              />
-              <button
-                type="button"
-                onClick={handleCouponApply}
-                className="shrink-0 px-4 py-2 bg-accent text-white text-sm font-semibold rounded-lg hover:opacity-90"
-              >
-                {t('payment.couponApply')}
-              </button>
-            </div>
-            {couponActive && (
-              <p className="text-sm text-discount">
-                {t('payment.couponApplied', { percent: Math.round(discountPercent * 100) })}
-                {effectiveCouponDiscountHuf > 0 && (
-                  <span className="ml-1">(−{effectiveCouponDiscountHuf.toLocaleString('hu-HU')} Ft)</span>
-                )}
-              </p>
-            )}
-            {couponMessage && (
-              <p className="text-sm text-muted" role="status">{couponMessage}</p>
-            )}
-            {!userId && (
-              <p className="text-xs text-muted">{t('coupon.loggedInRequired')}</p>
-            )}
-          </div>
-        )}
-        {!couponExpanded && couponActive && effectiveCouponDiscountHuf > 0 && (
-          <p className="text-sm text-discount mt-2">
-            {t('payment.couponDiscountLine')}: −{effectiveCouponDiscountHuf.toLocaleString('hu-HU')} Ft
-          </p>
-        )}
-      </section>
 
       <section className="mb-8 p-4 rounded-xl border-2 border-[var(--border)] bg-[var(--card-bg)]">
         <p className="text-sm text-muted mb-3">{t('payment.cardOnly')}</p>
