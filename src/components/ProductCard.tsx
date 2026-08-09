@@ -87,9 +87,10 @@ export function ProductCard({
   const { hufToEur, formatEur } = useEuroRate()
   const { userId } = useAuth()
   const { toast } = useToast()
-  const { syncFromServer, applyOptimisticToggle } = useWishlist()
+  const { isInWishlist, syncFromServer, applyOptimisticToggle } = useWishlist()
 
-  const [liked, setLiked] = useState(false)
+  /** Szív állapot: globális wishlist – nem helyi useState (Vissza gomb / remount után is helyes). */
+  const isFavorite = isInWishlist(product.id)
   const [likesCount, setLikesCount] = useState(() => Math.max(0, product.likesCount ?? 0))
   const [likePulse, setLikePulse] = useState(false)
   const [pointLimitReached, setPointLimitReached] = useState(false)
@@ -102,17 +103,22 @@ export function ProductCard({
     availableStock > 0 &&
     availableStock < 10
 
-  // Like állapot és számláló csak API-ból (user-specifikus liked, publikus likesCount)
+  // Publikus likesCount + pontlimit API-ból; liked státusz a globális store-ból jön
   useEffect(() => {
     if (!showLikes) return
     fetch(`/api/products/${product.id}/like`, likeFetchOpts)
       .then((r) => r.ok && r.json())
       .then((data) => {
         if (data?.likesCount != null) setLikesCount(data.likesCount)
-        if (typeof data?.liked === 'boolean') setLiked(data.liked)
+        // Ha a szerver liked=true, de a store még nem tudja (hideg betöltés), szinkronizálunk
+        if (data?.liked === true && !isInWishlist(product.id)) {
+          applyOptimisticToggle(product, true)
+        }
         if (typeof data?.pointLimitReached === 'boolean') setPointLimitReached(data.pointLimitReached)
       })
       .catch(() => {})
+    // favoriteIds változásakor ne spammeljük az API-t – csak termékváltáskor
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product.id, showLikes])
 
   const onWishlistLikeClick = useCallback(
@@ -127,9 +133,8 @@ export function ProductCard({
         return
       }
 
-      const prevLiked = liked
+      const prevLiked = isFavorite
       const prevCount = likesCount
-      setLiked(!prevLiked)
       setLikesCount((c) => (prevLiked ? Math.max(0, c - 1) : c + 1))
       applyOptimisticToggle(product, !prevLiked)
 
@@ -139,8 +144,8 @@ export function ProductCard({
       })
         .then((r) => {
           if (r.status === 401) {
-            setLiked(prevLiked)
             setLikesCount(prevCount)
+            applyOptimisticToggle(product, prevLiked)
             toast(t('wishlist.loginRequired') || 'Jelentkezz be a kedveléshez.')
             return null
           }
@@ -148,18 +153,28 @@ export function ProductCard({
         })
         .then((data) => {
           if (data?.likesCount != null) setLikesCount(data.likesCount)
-          if (typeof data?.liked === 'boolean') setLiked(data.liked)
+          if (typeof data?.liked === 'boolean') {
+            applyOptimisticToggle(product, data.liked)
+          }
           if (typeof data?.pointLimitReached === 'boolean') setPointLimitReached(data.pointLimitReached)
           syncFromServer?.()
         })
         .catch(() => {
-          setLiked(prevLiked)
           setLikesCount(prevCount)
           applyOptimisticToggle(product, prevLiked)
           syncFromServer?.()
         })
     },
-    [product, userId, liked, likesCount, toast, t, syncFromServer, applyOptimisticToggle]
+    [
+      product,
+      userId,
+      isFavorite,
+      likesCount,
+      toast,
+      t,
+      syncFromServer,
+      applyOptimisticToggle,
+    ]
   )
 
   const saleActive = useSaleActive(product)
@@ -193,17 +208,17 @@ export function ProductCard({
               type="button"
               onClick={onWishlistLikeClick}
               className={`relative flex items-center gap-1 px-2 py-1.5 rounded-full bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 transition-shadow duration-200 ${likePulse ? 'product-like-pulse' : ''} ${showLikes ? likesGlow : ''}`}
-              aria-label={liked ? (t('wishlist.remove') || 'Eltávolítás a kedvencekből') : (t('wishlist.add') || 'Kedvencekhez')}
+              aria-label={isFavorite ? (t('wishlist.remove') || 'Eltávolítás a kedvencekből') : (t('wishlist.add') || 'Kedvencekhez')}
               title={
-                pointLimitReached && userId && !liked
+                pointLimitReached && userId && !isFavorite
                   ? t('gamification.likeLimitReached')
                   : showLikes
                     ? (t('product.likesCount', { count: likesCount }) || '')
                     : undefined
               }
             >
-              <HeartIcon filled={liked} className={`w-5 h-5 shrink-0 ${liked ? 'text-red-500' : 'text-muted'}`} />
-              {pointLimitReached && userId && !liked && (
+              <HeartIcon filled={isFavorite} className={`w-5 h-5 shrink-0 ${isFavorite ? 'text-red-500' : 'text-muted'}`} />
+              {pointLimitReached && userId && !isFavorite && (
                 <Lock className="w-3 h-3 absolute -top-0.5 -right-0.5 text-muted bg-white dark:bg-gray-800 rounded-full p-0.5" aria-hidden />
               )}
               {showLikes && (

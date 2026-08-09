@@ -14,12 +14,12 @@ import { getProductById as getProductByIdFromData, type Product } from '@/lib/da
 export default function WishlistPage() {
   const { t } = useLocale()
   const { isLoggedIn, authChecked } = useAuth()
-  const { products, productIds, isLoading, syncFromServer } = useWishlist()
+  const { products, productIds, isLoading, syncFavorites } = useWishlist()
   const { getProductById: getProductByIdFromContext } = useProducts()
 
   useEffect(() => {
-    syncFromServer?.()
-  }, [syncFromServer])
+    syncFavorites()
+  }, [syncFavorites])
 
   const displayProducts = useMemo(() => {
     const resolve = (id: string): Product | undefined =>

@@ -97,9 +97,9 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
   const searchParams = useSearchParams()
   const { items, addItem, itemCount } = useCart()
   const { userId } = useAuth()
-  const { syncFromServer, applyOptimisticToggle } = useWishlist()
+  const { isInWishlist, syncFromServer, applyOptimisticToggle } = useWishlist()
   const { toast } = useToast()
-  const [liked, setLiked] = useState(false)
+  const isFavorite = isInWishlist(product.id)
   const [likesCount, setLikesCount] = useState<number | null>(null)
   const [pointLimitReached, setPointLimitReached] = useState(false)
   const { hufToEur, formatEur } = useEuroRate()
@@ -226,14 +226,17 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
   const showLikes = showLikesForProduct(product.type)
   useEffect(() => {
     if (!showLikes) return
-    fetch(`/api/products/${product.id}/like`, { credentials: 'include' })
+    fetch(`/api/products/${product.id}/like`, { credentials: 'include', cache: 'no-store' })
       .then((r) => r.ok && r.json())
       .then((data) => {
         if (data?.likesCount != null) setLikesCount(data.likesCount)
-        if (typeof data?.liked === 'boolean') setLiked(data.liked)
+        if (data?.liked === true && !isInWishlist(product.id)) {
+          applyOptimisticToggle(product, true)
+        }
         if (typeof data?.pointLimitReached === 'boolean') setPointLimitReached(data.pointLimitReached)
       })
       .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product.id, showLikes, userId])
 
   const displayLikes = likesCount ?? product.likesCount ?? 0
@@ -476,16 +479,15 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                   toast(t('wishlist.loginRequired') || 'Jelentkezz be a kedveléshez.')
                   return
                 }
-                const prevLiked = liked
+                const prevLiked = isFavorite
                 const prevCount = likesCount ?? displayLikes
-                setLiked(!prevLiked)
                 setLikesCount((c) => (prevLiked ? Math.max(0, (c ?? 0) - 1) : (c ?? 0) + 1))
                 applyOptimisticToggle(product, !prevLiked)
                 fetch(`/api/products/${product.id}/like`, { method: 'POST', credentials: 'include' })
                   .then((r) => {
                     if (r.status === 401) {
-                      setLiked(prevLiked)
                       setLikesCount(prevCount)
+                      applyOptimisticToggle(product, prevLiked)
                       toast(t('wishlist.loginRequired') || 'Jelentkezz be a kedveléshez.')
                       return null
                     }
@@ -493,23 +495,24 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                   })
                   .then((d) => {
                     if (d?.likesCount != null) setLikesCount(d.likesCount)
-                    if (typeof d?.liked === 'boolean') setLiked(d.liked)
+                    if (typeof d?.liked === 'boolean') {
+                      applyOptimisticToggle(product, d.liked)
+                    }
                     if (typeof d?.pointLimitReached === 'boolean') setPointLimitReached(d.pointLimitReached)
                     syncFromServer?.()
                   })
                   .catch(() => {
-                    setLiked(prevLiked)
                     setLikesCount(prevCount)
                     applyOptimisticToggle(product, prevLiked)
                     syncFromServer?.()
                   })
               }}
               className="text-sm font-medium text-accent hover:underline"
-              aria-label={liked ? (t('wishlist.remove') || 'Eltávolítás a kedvencekből') : (t('wishlist.add') || 'Kedvencekhez')}
+              aria-label={isFavorite ? (t('wishlist.remove') || 'Eltávolítás a kedvencekből') : (t('wishlist.add') || 'Kedvencekhez')}
             >
-              {liked ? (t('wishlist.remove') || 'Eltávolítás a kedvencekből') : (t('wishlist.add') || 'Kedvencekhez')}
+              {isFavorite ? (t('wishlist.remove') || 'Eltávolítás a kedvencekből') : (t('wishlist.add') || 'Kedvencekhez')}
             </button>
-            {pointLimitReached && userId && !liked && (
+            {pointLimitReached && userId && !isFavorite && (
               <p className="text-xs text-muted w-full">{t('gamification.likeLimitReached')}</p>
             )}
           </div>
