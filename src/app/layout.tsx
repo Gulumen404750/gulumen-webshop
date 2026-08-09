@@ -24,6 +24,7 @@ import { HreflangLinks } from '@/components/HreflangLinks'
 import { NewUserConsentGate } from '@/components/NewUserConsentGate'
 import { DealPopup } from '@/components/DealPopup'
 import { getServerLocale } from '@/lib/locale-server'
+import { BASE_URL, BRAND_IMAGE, buildLocalizedMetadata } from '@/lib/site-metadata'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -36,51 +37,36 @@ const inter = Inter({
   variable: '--font-inter',
 })
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://gulumen.hu'
-const SITE_TITLE = 'Gulumen – A te otthonod, a mi szívügyünk.'
-const SITE_DESCRIPTION =
-  'Szerethető és hasznos kiegészítők a család minden tagjának, télen-nyáron. Nézz körül nálunk, és fedezd fel egyedi kínálatunkat!'
-const BRAND_IMAGE = `${BASE_URL}/og-image.png`
-
-export const metadata: Metadata = {
-  metadataBase: new URL(BASE_URL),
-  title: SITE_TITLE,
-  description: SITE_DESCRIPTION,
-  applicationName: 'Gulumen',
-  icons: {
-    icon: [
-      { url: '/favicon.ico', sizes: '32x32', type: 'image/png' },
-      { url: '/icon.png', sizes: '512x512', type: 'image/png' },
-      { url: '/favicon-32.png', sizes: '32x32', type: 'image/png' },
-    ],
-    apple: [{ url: '/apple-icon.png', sizes: '180x180', type: 'image/png' }],
-    shortcut: ['/favicon.ico'],
-  },
-  openGraph: {
-    title: SITE_TITLE,
-    description: SITE_DESCRIPTION,
-    url: BASE_URL,
-    siteName: 'Gulumen',
-    type: 'website',
-    images: [
-      {
-        url: BRAND_IMAGE,
-        width: 1200,
-        height: 1200,
-        alt: 'Gulumen logo',
-      },
-    ],
-    locale: 'hu_HU',
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: SITE_TITLE,
-    description: SITE_DESCRIPTION,
-    images: [BRAND_IMAGE],
-  },
-  verification: {
-    google: 'oOhIZ7B_uvSnR9VQyH3oqSVFyBqdUKj0TI3P2RYzoi0',
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const localized = await buildLocalizedMetadata({ pathname: '/' })
+  return {
+    metadataBase: new URL(BASE_URL),
+    applicationName: 'Gulumen',
+    icons: {
+      icon: [
+        { url: '/favicon.ico', sizes: '32x32', type: 'image/png' },
+        { url: '/icon.png', sizes: '512x512', type: 'image/png' },
+        { url: '/favicon-32.png', sizes: '32x32', type: 'image/png' },
+      ],
+      apple: [{ url: '/apple-icon.png', sizes: '180x180', type: 'image/png' }],
+      shortcut: ['/favicon.ico'],
+    },
+    verification: {
+      google: 'oOhIZ7B_uvSnR9VQyH3oqSVFyBqdUKj0TI3P2RYzoi0',
+    },
+    ...localized,
+    openGraph: {
+      ...localized.openGraph,
+      images: [
+        {
+          url: BRAND_IMAGE,
+          width: 1200,
+          height: 1200,
+          alt: 'Gulumen logo',
+        },
+      ],
+    },
+  }
 }
 
 export default async function RootLayout({

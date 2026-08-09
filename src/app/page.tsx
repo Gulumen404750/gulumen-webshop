@@ -7,26 +7,12 @@ import {
   getNewProducts,
 } from '@/lib/storefront-config'
 import HomePageClient from './HomePageClient'
+import { buildLocalizedMetadata } from '@/lib/site-metadata'
 
 export const revalidate = 10
 
-export const metadata: Metadata = {
-  title: 'Gulumen – A te otthonod, a mi szívügyünk.',
-  description:
-    'Szerethető és hasznos kiegészítők a család minden tagjának, télen-nyáron. Nézz körül nálunk, és fedezd fel egyedi kínálatunkat!',
-  openGraph: {
-    title: 'Gulumen – A te otthonod, a mi szívügyünk.',
-    description:
-      'Szerethető és hasznos kiegészítők a család minden tagjának, télen-nyáron. Nézz körül nálunk, és fedezd fel egyedi kínálatunkat!',
-    images: [{ url: '/og-image.png', width: 1200, height: 1200, alt: 'Gulumen logo' }],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Gulumen – A te otthonod, a mi szívügyünk.',
-    description:
-      'Szerethető és hasznos kiegészítők a család minden tagjának, télen-nyáron. Nézz körül nálunk, és fedezd fel egyedi kínálatunkat!',
-    images: ['/og-image.png'],
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  return buildLocalizedMetadata({ pathname: '/' })
 }
 
 export default async function HomePage() {

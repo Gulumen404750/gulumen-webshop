@@ -244,7 +244,12 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <ProductJsonLd product={product} />
-      <Breadcrumbs items={productBreadcrumbs(product.category, productName)} />
+      <Breadcrumbs
+        items={productBreadcrumbs(product.category, productName, {
+          productsLabel: t('nav.products'),
+          locale,
+        })}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
         <div className="space-y-4">
@@ -530,10 +535,10 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
               <SaleCountdown product={product} variant="inline" />
             )}
           </div>
-          <p className="mt-2 text-muted">{product.condition}</p>
+          <p className="mt-2 text-muted">{t(`condition.${product.condition}`)}</p>
           {product.variants && product.variants.length > 0 && (
             <div className="mt-4">
-              <span className="text-sm font-medium text-foreground">Méret / változat: </span>
+              <span className="text-sm font-medium text-foreground">{t('product.sizeVariant')}: </span>
               <span className="text-muted">
                 {product.variants.map((v) => v.size || v.color).filter(Boolean).join(', ')}
               </span>

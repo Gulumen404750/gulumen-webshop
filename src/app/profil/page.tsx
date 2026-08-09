@@ -28,7 +28,7 @@ function BirthDateProfileSection() {
     fetch('/api/me/profile', { credentials: 'include' })
       .then(async (r) => {
         const data = await r.json().catch(() => ({}))
-        if (!r.ok) throw new Error(data.error || 'Betöltési hiba')
+        if (!r.ok) throw new Error(data.error || t('common.loadError'))
         const saved =
           typeof data.user?.birthDate === 'string' && data.user.birthDate.trim()
             ? data.user.birthDate.trim()
@@ -36,9 +36,9 @@ function BirthDateProfileSection() {
         setBirthDate(saved)
         setBirthDateLocked(Boolean(saved))
       })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Betöltési hiba'))
+      .catch((e) => setError(e instanceof Error ? e.message : t('common.loadError')))
       .finally(() => setLoading(false))
-  }, [])
+  }, [t])
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -53,7 +53,7 @@ function BirthDateProfileSection() {
         body: JSON.stringify({ birthDate: birthDate.trim() || null }),
       })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data.error || 'Mentés sikertelen')
+      if (!res.ok) throw new Error(data.error || t('common.saveError'))
       const saved =
         typeof data.user?.birthDate === 'string' && data.user.birthDate.trim()
           ? data.user.birthDate.trim()
@@ -62,7 +62,7 @@ function BirthDateProfileSection() {
       setBirthDateLocked(Boolean(saved))
       // Mentés után a mező és minden tájékoztató szöveg eltűnik a profilról.
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Mentés sikertelen')
+      setError(err instanceof Error ? err.message : t('common.saveError'))
     } finally {
       setSaving(false)
     }
@@ -155,7 +155,7 @@ export default function ProfilePage() {
     if (!email.trim()) return
     const result = await login(email.trim(), password)
     if (result.ok) router.push('/')
-    else setLoginError(result.error ?? 'Bejelentkezés sikertelen')
+    else setLoginError(result.error ?? t('profile.loginFailed'))
   }
 
   /** Meglévő fiók: azonnali Google belépés, hozzájárulás / kupon nélkül. */

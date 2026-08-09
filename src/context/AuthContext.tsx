@@ -70,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsNewUser(false)
       return { ok: true }
     }
-    return { ok: false, error: data.error || 'Bejelentkezés sikertelen' }
+    return { ok: false, error: data.error || 'Login failed' }
   }, [])
 
   const register = useCallback(async (
@@ -106,10 +106,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         error:
           typeof data.error === 'string' && data.error
             ? data.error
-            : 'Ezzel az e-mail címmel már regisztráltak. Jelentkezz be.',
+            : 'An account with this email already exists. Please log in.',
       }
     }
-    return { ok: false, error: data.error || 'Regisztráció sikertelen' }
+    return { ok: false, error: data.error || 'Registration failed' }
   }, [])
 
   const loginWithGoogle = useCallback(async (options?: GoogleAuthOptions) => {

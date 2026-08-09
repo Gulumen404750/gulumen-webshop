@@ -138,7 +138,7 @@ export function ShopContent({ initialProducts }: ShopContentProps = {}) {
       <h1 className="font-heading text-2xl font-bold text-foreground mb-2">{pageTitle}</h1>
       {is3DPage && (
         <p className="text-muted text-sm mb-2 flex items-center gap-2">
-          <HungarianFlagIcon />
+          <HungarianFlagIcon title={t('common.hungarianFlag')} />
           {t('pages.products3DSubtitle')}
         </p>
       )}
@@ -332,7 +332,7 @@ function ShopFilterFields({
           <option value="">{t('common.allConditions')}</option>
           {conditions.map((c) => (
             <option key={c} value={c}>
-              {c}
+              {t(`condition.${c}`)}
             </option>
           ))}
         </select>

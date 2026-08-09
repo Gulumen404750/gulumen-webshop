@@ -2,10 +2,13 @@
 
 import { useCallback, useEffect, useRef } from 'react'
 import styles from './CatHuntGame.module.css'
+import { useLocale } from '@/context/LocaleContext'
 
 export function CatHuntGame() {
+  const { t } = useLocale()
   const cursorRef = useRef<HTMLDivElement>(null)
   const catRef = useRef<HTMLDivElement>(null)
+  const successMessage = t('catHunt.catchSuccess')
 
   const moveCat = useCallback(() => {
     const cat = catRef.current
@@ -38,7 +41,7 @@ export function CatHuntGame() {
     }
 
     const onCatClick = () => {
-      alert('Szép munka! Elkaptad a macskát! 🎯🐈')
+      alert(successMessage)
     }
 
     document.addEventListener('mousemove', onMouseMove)
@@ -50,12 +53,12 @@ export function CatHuntGame() {
       cat.removeEventListener('mouseover', moveCat)
       cat.removeEventListener('click', onCatClick)
     }
-  }, [moveCat])
+  }, [moveCat, successMessage])
 
   return (
     <div className={styles.gameContainer}>
       <div ref={cursorRef} className={styles.customCursor} aria-hidden />
-      <div ref={catRef} className={styles.catTarget} role="button" tabIndex={0} aria-label="Macska">
+      <div ref={catRef} className={styles.catTarget} role="button" tabIndex={0} aria-label={t('catHunt.catAria')}>
         🐈
       </div>
     </div>

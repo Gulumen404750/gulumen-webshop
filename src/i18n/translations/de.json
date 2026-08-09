@@ -47,7 +47,8 @@
     "available": "Verfügbar",
     "notAvailable": "Nicht verfügbar",
     "deal": "Angebot",
-    "new": "Neu"
+    "new": "Neu",
+    "countdownDays": "{days} T. {time}"
   },
   "home": {
     "heroTitle": "Dein Zuhause liegt uns am Herzen.",
@@ -268,7 +269,9 @@
     "successProcessingTitle": "Zahlung wird bearbeitet",
     "successProcessingMessage": "Ihre Bestellung wurde erfasst. Die Zahlungsbestätigung kann einige Sekunden dauern.",
     "statusProcessing": "In Bearbeitung",
-    "successPendingTimeout": "Falls der Betrag abgebucht wurde, der Status aber nicht aktualisiert ist, kontaktieren Sie uns bitte mit Ihrer Bestellnummer."
+    "successPendingTimeout": "Falls der Betrag abgebucht wurde, der Status aber nicht aktualisiert ist, kontaktieren Sie uns bitte mit Ihrer Bestellnummer.",
+    "couponSelectedLabel": "Ausgewählter Rabatt:",
+    "couponCappedLabel": "(Maximum: {percent}%)"
   },
   "checkout": {
     "statusStock": "Lagerware: Zahlung wird verarbeitet…",
@@ -328,7 +331,12 @@
     "materialInfoTitle": "PLA und PETG – Eigenschaften",
     "materialPla": "Biobasiert. Ideal für Innen- und Gartenbereich. Weniger hitze- und schlagfest.",
     "materialPetg": "Fester, flexibler, beständiger gegen Hitze und Schlag. Küche, dauerhafte Nutzung.",
-    "selectMaterialAndColorToAdd": "Wähle Farbe und Material (PLA/PETG) vor dem Hinzufügen zum Warenkorb."
+    "selectMaterialAndColorToAdd": "Wähle Farbe und Material (PLA/PETG) vor dem Hinzufügen zum Warenkorb.",
+    "tabDescription": "Beschreibung",
+    "tabShipping": "Versand",
+    "tabReturns": "Rückgabe",
+    "sizeVariant": "Größe / Variante",
+    "baseVariant": "Basis"
   },
   "newsletter": {
     "title": "Newsletter",
@@ -347,7 +355,8 @@
     "remove": "Aus Wunschliste entfernen",
     "loginRequired": "Melde dich an, um zu liken.",
     "emptyStateHint": "Tippe auf die Herzen bei Produkten!",
-    "emptyStateCta": "Produkte entdecken"
+    "emptyStateCta": "Produkte entdecken",
+    "partialLoad": "{count} weitere Favoriten werden geladen…"
   },
   "search": {
     "noResultsTitle": "Keine Ergebnisse",
@@ -379,7 +388,10 @@
     "availableFromLabel": "Erhältlich ab: {when}",
     "expiredShort": "Abgelaufen",
     "archivingSoon": "Wird bald archiviert",
-    "legal": "Nach Auftragserteilung erfolgt die Beschaffung über einen eigenen Beschaffungskanal.\n\nBei erfolgreicher Beschaffung erfolgt die Lieferung des Produkts innerhalb von 7–14 Werktagen.\n\nKann das Produkt innerhalb des angegebenen Preisrahmens nicht beschafft werden, wird die Bestellung storniert und der volle Betrag innerhalb von 1–3 Werktagen erstattet."
+    "legal": "Nach Auftragserteilung erfolgt die Beschaffung über einen eigenen Beschaffungskanal.\n\nBei erfolgreicher Beschaffung erfolgt die Lieferung des Produkts innerhalb von 7–14 Werktagen.\n\nKann das Produkt innerhalb des angegebenen Preisrahmens nicht beschafft werden, wird die Bestellung storniert und der volle Betrag innerhalb von 1–3 Werktagen erstattet.",
+    "availableInDays": "In {days} Tagen kaufbar",
+    "orderableForDays": "{days} Tage lang bestellbar",
+    "soonLabel": "Demnächst"
   },
   "register": {
     "firstPurchasePromo": "Registriere dich und erhalte {percent} % Rabatt auf deinen ersten Einkauf!",
@@ -471,7 +483,8 @@
     "loyaltyQualifiedOrders": "{count} qualifizierte Bestellungen",
     "birthDateSavedDeferred": "Geburtsdatum gespeichert. Den 15%-Gutschein erhältst du an deinem Geburtstag.",
     "birthDateLockedTitle": "Dein Geburtsdatum ist gespeichert",
-    "birthDateLockedHint": "Das Datum kann nicht geändert werden. Den 15%-Geburtstagsgutschein aktivieren wir an deinem Geburtstag."
+    "birthDateLockedHint": "Das Datum kann nicht geändert werden. Den 15%-Geburtstagsgutschein aktivieren wir an deinem Geburtstag.",
+    "loginFailed": "Anmeldung fehlgeschlagen"
   },
   "gamification": {
     "pointsTitle": "Deine Punkte",
@@ -552,7 +565,15 @@
     "filterCondition": "Zustand",
     "allSizes": "Alle",
     "allConditions": "Alle",
-    "loadMore": "Mehr laden"
+    "loadMore": "Mehr laden",
+    "breadcrumbs": "Brotkrümel-Navigation",
+    "home": "Startseite",
+    "hungarianFlag": "Ungarische Flagge",
+    "loadingRefresh": "Aktualisierung…",
+    "wishlistLoadingMore": "{count} weitere Favoriten werden geladen…",
+    "loadError": "Laden fehlgeschlagen",
+    "saveError": "Speichern fehlgeschlagen",
+    "loading": "Laden…"
   },
   "addToCartReason": {
     "previewStarts": "Vorschau – Verkauf startet am {when}",
@@ -604,7 +625,11 @@
       "sourcingFullRefund": "Kann die Beschaffung zu den ausgeschriebenen Bedingungen nicht erfüllt werden, wird der volle Betrag erstattet.",
       "legalIntro": "Dieser Onlineshop entspricht den EU-Verbraucherschutzregeln.",
       "legalLinkLabel": "Die ausführlichen rechtlichen Bedingungen finden Sie hier:"
-    }
+    },
+    "newEmpty": "Derzeit gibt es keine Neuheiten. Schau später wieder vorbei – neue Produkte kommen bald.",
+    "expiredTitle": "Abgelaufene Produkte",
+    "expiredEmpty": "Keine abgelaufenen Angebote aus den letzten 5 Tagen.",
+    "expiredBack": "Zurück zu den Bestellungen auf Beschaffung"
   },
   "callUs": {
     "title": "Ruf uns an",
@@ -665,5 +690,43 @@
     "voiceStop": "Aufnahme stoppen",
     "voiceListening": "Ich höre zu…",
     "voiceUnsupported": "Spracheingabe wird in diesem Browser nicht unterstützt. Bitte tippen."
+  },
+  "seo": {
+    "title": "Gulumen – Dein Zuhause liegt uns am Herzen.",
+    "description": "Liebevolle und nützliche Accessoires für jedes Familienmitglied – das ganze Jahr. Stöbere bei uns und entdecke unser einzigartiges Sortiment!",
+    "organizationDescription": "Liebevolle und nützliche Accessoires für jedes Familienmitglied – das ganze Jahr. Dein Zuhause liegt uns am Herzen.",
+    "productNotFound": "Produkt nicht gefunden – Gulumen",
+    "catHuntTitle": "Moderne Katzenjagd"
+  },
+  "condition": {
+    "Új": "Neu",
+    "Új, címkés": "Neu, mit Etikett",
+    "Új kinézetű": "Neuwertig",
+    "Kiváló": "Ausgezeichnet",
+    "Jó": "Gut"
+  },
+  "errors": {
+    "title": "Etwas ist schiefgelaufen",
+    "message": "Leider ist etwas schiefgelaufen. Bitte versuche es erneut oder gehe zur Startseite.",
+    "retry": "Erneut versuchen",
+    "backHome": "Zurück zur Startseite"
+  },
+  "notFound": {
+    "message": "Die angeforderte Seite wurde nicht gefunden. Sie wurde möglicherweise entfernt oder die Adresse hat sich geändert."
+  },
+  "dealPopup": {
+    "titleFallback": "Aktuelle Angebote",
+    "descriptionFallback": "Eine Auswahl unserer aktuellen Angebote – immer zu überraschend guten Preisen.",
+    "viewAllDeals": "Alle Angebote ansehen"
+  },
+  "catHunt": {
+    "catchSuccess": "Gut gemacht! Du hast die Katze gefangen! 🎯🐈",
+    "catAria": "Katze",
+    "heroCatAria": "Katze – klicken für Mäuseregen"
+  },
+  "contactScene": {
+    "monitorOff": "Monitor ausschalten",
+    "monitorOn": "Monitor (der Roboter schaltet ihn wieder ein)",
+    "coffeeAria": "Kaffee in der Hand des Roboters – klicken zum Ablegen; der Roboter hebt ihn später auf"
   }
 }

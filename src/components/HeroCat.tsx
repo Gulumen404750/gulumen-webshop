@@ -220,7 +220,7 @@ export function HeroCat() {
         onKeyDown={(e) => e.key === 'Enter' && handleCatClick()}
         role="button"
         tabIndex={0}
-        aria-label="Macska – kattints az egér esőért"
+        aria-label={t('catHunt.heroCatAria')}
       >
         <div className="relative w-full h-full">
           <span

@@ -1,6 +1,9 @@
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://gulumen.hu'
+import { getServerLocale } from '@/lib/locale-server'
+import { getSiteCopy, BASE_URL } from '@/lib/site-metadata'
 
-export function OrganizationJsonLd() {
+export async function OrganizationJsonLd() {
+  const locale = await getServerLocale()
+  const { organizationDescription } = getSiteCopy(locale)
   const schema = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
@@ -8,8 +11,8 @@ export function OrganizationJsonLd() {
     url: BASE_URL,
     logo: `${BASE_URL}/og-image.png`,
     image: `${BASE_URL}/og-image.png`,
-    description:
-      'Szerethető és hasznos kiegészítők a család minden tagjának, télen-nyáron. A te otthonod, a mi szívügyünk.',
+    description: organizationDescription,
+    inLanguage: locale,
   }
   return (
     <script

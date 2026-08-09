@@ -5,15 +5,17 @@ import type { Product } from '@/lib/data'
 import { useLocale } from '@/context/LocaleContext'
 import { getProductDescription } from '@/lib/data'
 
-const tabs = [
-  { id: 'leiras', label: 'Leírás' },
-  { id: 'szallitas', label: 'Szállítás' },
-  { id: 'visszakuldes', label: 'Visszaküldés' },
-] as const
+const tabIds = ['leiras', 'szallitas', 'visszakuldes'] as const
 
 export function ProductTabs({ product }: { product: Product }) {
   const { t, locale } = useLocale()
-  const [active, setActive] = useState<(typeof tabs)[number]['id']>('leiras')
+  const [active, setActive] = useState<(typeof tabIds)[number]>('leiras')
+
+  const tabs = [
+    { id: 'leiras' as const, label: t('product.tabDescription') },
+    { id: 'szallitas' as const, label: t('product.tabShipping') },
+    { id: 'visszakuldes' as const, label: t('product.tabReturns') },
+  ]
 
   return (
     <div>

@@ -47,7 +47,8 @@
     "available": "Elérhető",
     "notAvailable": "Nem vásárolható",
     "deal": "Akció",
-    "new": "Új"
+    "new": "Új",
+    "countdownDays": "{days} nap {time}"
   },
   "home": {
     "heroBadge": "Minden részletben otthon",
@@ -268,7 +269,9 @@
     "successProcessingTitle": "Fizetés feldolgozás alatt",
     "successProcessingMessage": "A rendelésedet rögzítettük. A fizetés visszaigazolása néhány másodpercig tarthat.",
     "statusProcessing": "Feldolgozás alatt",
-    "successPendingTimeout": "Ha a kártyáról levonták az összeget, de még nem frissült a státusz, kérlek írj nekünk a rendelés azonosítóval."
+    "successPendingTimeout": "Ha a kártyáról levonták az összeget, de még nem frissült a státusz, kérlek írj nekünk a rendelés azonosítóval.",
+    "couponSelectedLabel": "Kiválasztott kedvezmény:",
+    "couponCappedLabel": "(plafon: {percent}%)"
   },
   "checkout": {
     "statusStock": "Raktári termékek: fizetés feldolgozása…",
@@ -328,7 +331,12 @@
     "materialInfoTitle": "PLA és PETG – tulajdonságok",
     "materialPla": "Biobázisú. Belső és kerti használatra ideális. Kevésbé hőálló, kevésbé ütésálló.",
     "materialPetg": "Erősebb, rugalmasabb, jobban ellenáll a hőnek és az ütésnek. Konyha, tartós használat.",
-    "selectMaterialAndColorToAdd": "Válaszd ki a színt és az anyagot (PLA/PETG) a kosárba tétel előtt."
+    "selectMaterialAndColorToAdd": "Válaszd ki a színt és az anyagot (PLA/PETG) a kosárba tétel előtt.",
+    "tabDescription": "Leírás",
+    "tabShipping": "Szállítás",
+    "tabReturns": "Visszaküldés",
+    "sizeVariant": "Méret / változat",
+    "baseVariant": "Alap"
   },
   "coupon": {
     "title": "🎁 5% kedvezmény ajándékba",
@@ -354,7 +362,10 @@
     "availableFromLabel": "Ekkortól elérhető: {when}",
     "expiredShort": "Lejárt",
     "archivingSoon": "Hamarosan archiválásra kerül",
-    "legal": "A rendelés leadását követően a beszerzés egyedi beszerzési csatornán keresztül történik.\n\nSikeres beszerzés esetén a termék kiszállítása 7–14 munkanapon belül történik.\n\nAmennyiben a termék a megadott árkereten belül nem biztosítható, a rendelés törlésre kerül, és a teljes összeg 1–3 munkanapon belül visszatérítésre kerül."
+    "legal": "A rendelés leadását követően a beszerzés egyedi beszerzési csatornán keresztül történik.\n\nSikeres beszerzés esetén a termék kiszállítása 7–14 munkanapon belül történik.\n\nAmennyiben a termék a megadott árkereten belül nem biztosítható, a rendelés törlésre kerül, és a teljes összeg 1–3 munkanapon belül visszatérítésre kerül.",
+    "availableInDays": "{days} nap múlva vásárolható",
+    "orderableForDays": "{days} napig rendelhető",
+    "soonLabel": "Hamarosan"
   },
   "register": {
     "firstPurchasePromo": "Regisztrálj és kapj {percent}% kedvezményt az első vásárlásra!",
@@ -446,7 +457,8 @@
     "loyaltyQualifiedOrders": "{count} minősített rendelés",
     "birthDateSavedDeferred": "Születési dátum elmentve. A 15%-os kupont a születésnapodon kapod meg.",
     "birthDateLockedTitle": "Születési dátumod rögzítve",
-    "birthDateLockedHint": "A dátum nem módosítható. A 15%-os születésnapi kupont a születésnapodon aktiváljuk."
+    "birthDateLockedHint": "A dátum nem módosítható. A 15%-os születésnapi kupont a születésnapodon aktiváljuk.",
+    "loginFailed": "Bejelentkezés sikertelen"
   },
   "gamification": {
     "pointsTitle": "Pontjaid",
@@ -521,7 +533,8 @@
     "remove": "Eltávolítás a kedvencekből",
     "loginRequired": "Jelentkezz be a kedveléshez.",
     "emptyStateHint": "Kattints a szívekre a termékeknél!",
-    "emptyStateCta": "Termékek böngészése"
+    "emptyStateCta": "Termékek böngészése",
+    "partialLoad": "{count} kedvenc termék betöltése folyamatban…"
   },
   "search": {
     "noResultsTitle": "Nincs találat",
@@ -552,7 +565,15 @@
     "filterCondition": "Állapot",
     "allSizes": "Összes",
     "allConditions": "Összes",
-    "loadMore": "Több betöltése"
+    "loadMore": "Több betöltése",
+    "breadcrumbs": "Morzsamenü",
+    "home": "Főoldal",
+    "hungarianFlag": "Magyar zászló",
+    "loadingRefresh": "Frissítés…",
+    "wishlistLoadingMore": "{count} kedvenc termék betöltése folyamatban…",
+    "loadError": "Betöltési hiba",
+    "saveError": "Mentés sikertelen",
+    "loading": "Betöltés…"
   },
   "addToCartReason": {
     "previewStarts": "Előnézet – vásárlás ekkor indul: {when}",
@@ -604,7 +625,11 @@
       "sourcingFullRefund": "Amennyiben a beszerzés a meghirdetett feltételekkel nem valósítható meg, a teljes összeg visszatérítésre kerül.",
       "legalIntro": "Jelen webáruház az Európai Unió fogyasztóvédelmi szabályainak megfelelően működik.",
       "legalLinkLabel": "A részletes jogi feltételek itt olvashatók:"
-    }
+    },
+    "newEmpty": "Jelenleg nincs újdonság. Nézz vissza később – hamarosan érkeznek az új termékek.",
+    "expiredTitle": "Lejárt termékek",
+    "expiredEmpty": "Nincs lejárt ajánlat az elmúlt 5 napból.",
+    "expiredBack": "Vissza a beszerzésre rendelhető termékekhez"
   },
   "callUs": {
     "title": "Hívj minket",
@@ -665,5 +690,43 @@
     "voiceStop": "Felismerés leállítása",
     "voiceListening": "Hallgatlak…",
     "voiceUnsupported": "A hangbevitel nem támogatott ebben a böngészőben. Írd be a kérdésed."
+  },
+  "seo": {
+    "title": "Gulumen – A te otthonod, a mi szívügyünk.",
+    "description": "Szerethető és hasznos kiegészítők a család minden tagjának, télen-nyáron. Nézz körül nálunk, és fedezd fel egyedi kínálatunkat!",
+    "organizationDescription": "Szerethető és hasznos kiegészítők a család minden tagjának, télen-nyáron. A te otthonod, a mi szívügyünk.",
+    "productNotFound": "Termék nem található – Gulumen",
+    "catHuntTitle": "Modern Macskavadászat"
+  },
+  "condition": {
+    "Új": "Új",
+    "Új, címkés": "Új, címkés",
+    "Új kinézetű": "Új kinézetű",
+    "Kiváló": "Kiváló",
+    "Jó": "Jó"
+  },
+  "errors": {
+    "title": "Valami hiba történt",
+    "message": "Sajnáljuk, valami nem sikerült. Próbáld újra, vagy navigálj vissza a főoldalra.",
+    "retry": "Próbáld újra",
+    "backHome": "Vissza a főoldalra"
+  },
+  "notFound": {
+    "message": "A kért oldal nem található. Lehet, hogy eltávolították vagy megváltozott a címe."
+  },
+  "dealPopup": {
+    "titleFallback": "Akciók most",
+    "descriptionFallback": "Válogatás az aktuális akcióinkból – mindig meglepően jó áron.",
+    "viewAllDeals": "Összes akció megtekintése"
+  },
+  "catHunt": {
+    "catchSuccess": "Szép munka! Elkaptad a macskát! 🎯🐈",
+    "catAria": "Macska",
+    "heroCatAria": "Macska – kattints az egér esőért"
+  },
+  "contactScene": {
+    "monitorOff": "Monitor kikapcsolása",
+    "monitorOn": "Monitor (a robot visszakapcsolja)",
+    "coffeeAria": "Kávé a robot kezében – kattints, kiköpöd, a robot később felveszi"
   }
 }

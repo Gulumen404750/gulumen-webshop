@@ -171,24 +171,41 @@ export function getTimedPurchaseStatus(
   return 'NOT_STARTED'
 }
 
-/** Beszerzésre rendelhető listán megjelenítendő rövid név: csak az időzítés (pl. "8 nap múlva vásárolható", "3 napig rendelhető"). */
-export function getSourcingDealListName(product: Product, now: Date = new Date()): string {
+/**
+ * Beszerzésre rendelhető listán megjelenítendő rövid név: csak az időzítés.
+ * Visszaad fordítási kulcsot + paramétereket (UI-ban t()-tel jelenítendő).
+ */
+export function getSourcingDealListNameKey(
+  product: Product,
+  now: Date = new Date()
+): { key: string; params?: Record<string, string | number> } {
   const status = getSourcingDealStatus(product, now)
-  if (!status) return 'Hamarosan'
-  if (status === 'soldout') return 'Elkelt'
-  if (status === 'closed') return 'Lejárt'
+  if (!status) return { key: 'sourcing.soonLabel' }
+  if (status === 'soldout') return { key: 'status.badgeSoldout' }
+  if (status === 'closed') return { key: 'status.expired' }
   const msPerDay = 24 * 60 * 60 * 1000
   if (status === 'preview' && product.saleFrom) {
     const saleFrom = new Date(product.saleFrom).getTime()
     const days = Math.max(0, Math.ceil((saleFrom - now.getTime()) / msPerDay))
-    return `${days} nap múlva vásárolható`
+    return { key: 'sourcing.availableInDays', params: { days } }
   }
   if (status === 'sale' && product.saleTo) {
     const saleTo = new Date(product.saleTo).getTime()
     const days = Math.max(0, Math.ceil((saleTo - now.getTime()) / msPerDay))
-    return `${days} napig rendelhető`
+    return { key: 'sourcing.orderableForDays', params: { days } }
   }
-  return product.name
+  return { key: 'sourcing.soonLabel' }
+}
+
+/** @deprecated Prefer getSourcingDealListNameKey + t(); HU fallback for legacy callers. */
+export function getSourcingDealListName(product: Product, now: Date = new Date()): string {
+  const { key, params } = getSourcingDealListNameKey(product, now)
+  const days = params?.days
+  if (key === 'sourcing.availableInDays') return `${days} nap múlva vásárolható`
+  if (key === 'sourcing.orderableForDays') return `${days} napig rendelhető`
+  if (key === 'status.badgeSoldout') return 'Elkelt'
+  if (key === 'status.expired') return 'Lejárt'
+  return 'Hamarosan'
 }
 
 export type AddToCartResult = {
@@ -201,14 +218,17 @@ export type AddToCartResult = {
 export function getAddToCartReason(
   product: Product,
   now: Date = new Date(),
-  ordersCountOverride?: number
+  ordersCountOverride?: number,
+  locale: string = 'hu'
 ): AddToCartResult {
+  const dateLocale =
+    locale === 'en' ? 'en-GB' : locale === 'de' ? 'de-DE' : locale === 'ro' ? 'ro-RO' : 'hu-HU'
   if (product.type === 'sourcing_deal') {
     const status = getSourcingDealStatus(product, now, ordersCountOverride)
     if (status === 'sale') return { canAdd: true }
     if (status === 'preview' && product.saleFrom) {
       const saleFrom = new Date(product.saleFrom)
-      const when = saleFrom.toLocaleString('hu-HU', {
+      const when = saleFrom.toLocaleString(dateLocale, {
         dateStyle: 'short',
         timeStyle: 'short',
       })

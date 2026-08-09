@@ -52,7 +52,7 @@ export default function WishlistPage() {
           ) : (
             <>
               {isLoading && displayProducts.length > 0 && (
-                <p className="text-xs text-muted mb-3">{t('common.loading') || 'Frissítés…'}</p>
+                <p className="text-xs text-muted mb-3">{t('common.loadingRefresh')}</p>
               )}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {displayProducts.map((p) => (
@@ -61,8 +61,9 @@ export default function WishlistPage() {
               </div>
               {productIds.length > displayProducts.length && (
                 <p className="text-sm text-muted mt-4">
-                  {t('wishlist.partialLoad') ||
-                    `${productIds.length - displayProducts.length} kedvenc termék betöltése folyamatban…`}
+                  {t('wishlist.partialLoad', {
+                    count: productIds.length - displayProducts.length,
+                  })}
                 </p>
               )}
             </>

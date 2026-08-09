@@ -47,7 +47,8 @@
     "available": "Disponibil",
     "notAvailable": "Indisponibil",
     "deal": "Oferta",
-    "new": "Nou"
+    "new": "Nou",
+    "countdownDays": "{days} zile {time}"
   },
   "home": {
     "heroTitle": "Casa ta e aproape de inima noastră.",
@@ -253,7 +254,9 @@
     "welcomeOfferEmailRequired": "Pentru 10% reducere introdu e-mailul (checkout oaspete).",
     "welcomeOfferEmailHint": "Ca oaspete, introdu mai întâi e-mailul în câmpul de mai sus.",
     "welcomeOfferCouponConflict": "Ai deja un cupon activ – reducerea welcome de 10% nu se combină.",
-    "welcomeOfferDiscountLine": "Reducere welcome newsletter ({percent}%)"
+    "welcomeOfferDiscountLine": "Reducere welcome newsletter ({percent}%)",
+    "couponSelectedLabel": "Reducere selectată:",
+    "couponCappedLabel": "(plafon: {percent}%)"
   },
   "checkout": {
     "statusStock": "Produse în stoc: procesare plată…",
@@ -313,7 +316,12 @@
     "materialInfoTitle": "PLA și PETG – proprietăți",
     "materialPla": "Bază bio. Ideal interior și grădină. Mai puțin rezistent la căldură și șoc.",
     "materialPetg": "Mai rezistent, mai flexibil, rezistență mai bună la căldură și șoc. Bucătărie, utilizare durabilă.",
-    "selectMaterialAndColorToAdd": "Selectează culoarea și materialul (PLA/PETG) înainte de adăugare în coș."
+    "selectMaterialAndColorToAdd": "Selectează culoarea și materialul (PLA/PETG) înainte de adăugare în coș.",
+    "tabDescription": "Descriere",
+    "tabShipping": "Livrare",
+    "tabReturns": "Returnare",
+    "sizeVariant": "Mărime / variantă",
+    "baseVariant": "Bază"
   },
   "newsletter": {
     "title": "Newsletter",
@@ -332,7 +340,8 @@
     "remove": "Elimină din favorite",
     "loginRequired": "Autentifică-te pentru a adăuga la favorite.",
     "emptyStateHint": "Apasă pe inimioare la produse!",
-    "emptyStateCta": "Vezi produsele"
+    "emptyStateCta": "Vezi produsele",
+    "partialLoad": "Se încarcă încă {count} produse favorite…"
   },
   "search": {
     "noResultsTitle": "Niciun rezultat",
@@ -364,7 +373,10 @@
     "availableFromLabel": "Disponibil din: {when}",
     "expiredShort": "Expirat",
     "archivingSoon": "Va fi arhivat în curând",
-    "legal": "După plasarea comenzii, aprovizionarea se face printr-un canal dedicat de aprovizionare.\n\nÎn caz de aprovizionare reușită, livrarea produsului se face în 7–14 zile lucrătoare.\n\nDacă produsul nu poate fi asigurat în cadrul gamei de preț indicate, comanda se anulează și suma integrală se rambursează în 1–3 zile lucrătoare."
+    "legal": "După plasarea comenzii, aprovizionarea se face printr-un canal dedicat de aprovizionare.\n\nÎn caz de aprovizionare reușită, livrarea produsului se face în 7–14 zile lucrătoare.\n\nDacă produsul nu poate fi asigurat în cadrul gamei de preț indicate, comanda se anulează și suma integrală se rambursează în 1–3 zile lucrătoare.",
+    "availableInDays": "Disponibil pentru cumpărare în {days} zile",
+    "orderableForDays": "Comandabil timp de {days} zile",
+    "soonLabel": "În curând"
   },
   "register": {
     "firstPurchasePromo": "Înregistrează-te și primește {percent}% reducere la prima achiziție!",
@@ -456,7 +468,8 @@
     "loyaltyQualifiedOrders": "{count} comenzi calificate",
     "birthDateSavedDeferred": "Data nașterii a fost salvată. Cuponul de 15% îl primești de ziua ta.",
     "birthDateLockedTitle": "Data nașterii este salvată",
-    "birthDateLockedHint": "Data nu poate fi modificată. Activăm cuponul de 15% de ziua ta."
+    "birthDateLockedHint": "Data nu poate fi modificată. Activăm cuponul de 15% de ziua ta.",
+    "loginFailed": "Autentificare eșuată"
   },
   "gamification": {
     "pointsTitle": "Punctele tale",
@@ -537,7 +550,15 @@
     "filterCondition": "Stare",
     "allSizes": "Toate",
     "allConditions": "Toate",
-    "loadMore": "Încarcă mai multe"
+    "loadMore": "Încarcă mai multe",
+    "breadcrumbs": "Navigare firimituri",
+    "home": "Acasă",
+    "hungarianFlag": "Steagul Ungariei",
+    "loadingRefresh": "Se actualizează…",
+    "wishlistLoadingMore": "Se încarcă încă {count} produse favorite…",
+    "loadError": "Încărcare eșuată",
+    "saveError": "Salvare eșuată",
+    "loading": "Se încarcă…"
   },
   "addToCartReason": {
     "previewStarts": "Previzualizare – vânzarea începe la {when}",
@@ -589,7 +610,11 @@
       "sourcingFullRefund": "Dacă aprovizionarea nu poate fi realizată în condițiile afișate, întreaga sumă va fi rambursată.",
       "legalIntro": "Magazinul respectă regulile UE de protecție a consumatorilor.",
       "legalLinkLabel": "Termenii legali detaliați se pot citi aici:"
-    }
+    },
+    "newEmpty": "Momentan nu există noutăți. Revino mai târziu – produsele noi urmează să apară.",
+    "expiredTitle": "Produse expirate",
+    "expiredEmpty": "Nu există oferte expirate din ultimele 5 zile.",
+    "expiredBack": "Înapoi la produsele pe comandă (aprovizionare)"
   },
   "callUs": {
     "title": "Sună-ne",
@@ -665,5 +690,43 @@
     "qPayment": "Metode de plată?",
     "aPayment": "Plată securizată cu cardul (Stripe).",
     "stillQuestions": "Nu găsești răspunsul?"
+  },
+  "seo": {
+    "title": "Gulumen – Casa ta ne este aproape de suflet.",
+    "description": "Accesorii drăguțe și utile pentru fiecare membru al familiei, tot anul. Explorează magazinul nostru și descoperă selecția unică!",
+    "organizationDescription": "Accesorii drăguțe și utile pentru fiecare membru al familiei, tot anul. Casa ta ne este aproape de suflet.",
+    "productNotFound": "Produs negăsit – Gulumen",
+    "catHuntTitle": "Vânătoare modernă de pisici"
+  },
+  "condition": {
+    "Új": "Nou",
+    "Új, címkés": "Nou, cu etichetă",
+    "Új kinézetű": "Ca nou",
+    "Kiváló": "Excelent",
+    "Jó": "Bun"
+  },
+  "errors": {
+    "title": "A apărut o eroare",
+    "message": "Ne pare rău, ceva nu a mers. Încearcă din nou sau revino la pagina principală.",
+    "retry": "Încearcă din nou",
+    "backHome": "Înapoi la pagina principală"
+  },
+  "notFound": {
+    "message": "Pagina solicitată nu a fost găsită. Este posibil să fi fost eliminată sau adresa să se fi schimbat."
+  },
+  "dealPopup": {
+    "titleFallback": "Oferte acum",
+    "descriptionFallback": "O selecție din ofertele noastre actuale – mereu la prețuri surprinzător de bune.",
+    "viewAllDeals": "Vezi toate ofertele"
+  },
+  "catHunt": {
+    "catchSuccess": "Bravo! Ai prins pisica! 🎯🐈",
+    "catAria": "Pisică",
+    "heroCatAria": "Pisică – click pentru ploaie de șoareci"
+  },
+  "contactScene": {
+    "monitorOff": "Oprește monitorul",
+    "monitorOn": "Monitor (robotul îl va reporni)",
+    "coffeeAria": "Cafea în mâna robotului – click ca să o scapi; robotul o va ridica mai târziu"
   }
 }

@@ -277,7 +277,7 @@ export function ProductCard({
               (€{formatEur(priceEur)})
             </span>
           </div>
-          <p className="mt-1 text-sm text-muted">{product.condition}</p>
+          <p className="mt-1 text-sm text-muted">{t(`condition.${product.condition}`)}</p>
           {product.type === 'sourcing_deal' && !sourcingListMode ? (
             <p className="mt-0.5 text-xs text-muted">{t('product.sourcingCardLabel')}</p>
           ) : product.type !== 'sourcing_deal' ? (

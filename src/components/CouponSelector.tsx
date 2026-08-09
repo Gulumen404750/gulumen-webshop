@@ -6,6 +6,7 @@ import {
   type SelectableCoupon,
   type SelectableCouponId,
 } from '@/lib/coupon-selection'
+import { useLocale } from '@/context/LocaleContext'
 
 type Props = {
   coupons: SelectableCoupon[]
@@ -24,13 +25,18 @@ export function CouponSelector({
   coupons,
   selectedIds,
   onChange,
-  title = 'Elérhető kuponok',
-  hint = 'Válaszd ki, melyik kedvezmény(eke)t szeretnéd érvényesíteni. Összesen legfeljebb 20%.',
-  emptyText = 'Jelenleg nincs felhasználható kuponod.',
-  capReachedText = 'A kiválasztott kuponok összege nem haladhatja meg a 20%-ot.',
+  title,
+  hint,
+  emptyText,
+  capReachedText,
   selectedPercentDisplay = 0,
   capped = false,
 }: Props) {
+  const { t } = useLocale()
+  const resolvedTitle = title ?? t('payment.couponSelectorTitle')
+  const resolvedHint = hint ?? t('payment.couponSelectorHint')
+  const resolvedEmpty = emptyText ?? t('payment.couponSelectorEmpty')
+  const resolvedCap = capReachedText ?? t('payment.couponCapReached')
   const selected = new Set(selectedIds)
 
   const toggle = (id: SelectableCouponId) => {
@@ -47,8 +53,8 @@ export function CouponSelector({
   if (coupons.length === 0) {
     return (
       <section className="mb-8 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
-        <h2 className="font-heading text-lg font-semibold text-foreground mb-1">{title}</h2>
-        <p className="text-sm text-muted">{emptyText}</p>
+        <h2 className="font-heading text-lg font-semibold text-foreground mb-1">{resolvedTitle}</h2>
+        <p className="text-sm text-muted">{resolvedEmpty}</p>
       </section>
     )
   }
@@ -56,8 +62,8 @@ export function CouponSelector({
   return (
     <section className="mb-8 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] space-y-3">
       <div>
-        <h2 className="font-heading text-lg font-semibold text-foreground">{title}</h2>
-        <p className="text-sm text-muted mt-1">{hint}</p>
+        <h2 className="font-heading text-lg font-semibold text-foreground">{resolvedTitle}</h2>
+        <p className="text-sm text-muted mt-1">{resolvedHint}</p>
       </div>
 
       <ul className="space-y-2">
@@ -95,7 +101,7 @@ export function CouponSelector({
                   )}
                   {wouldExceed && (
                     <span className="block text-xs text-amber-600 dark:text-amber-400 mt-1">
-                      {capReachedText}
+                      {resolvedCap}
                     </span>
                   )}
                 </span>
@@ -107,12 +113,17 @@ export function CouponSelector({
 
       {selectedIds.length > 0 && (
         <p className="text-sm text-foreground">
-          Kiválasztott kedvezmény:{' '}
+          {t('payment.couponSelectedLabel')}{' '}
           <strong className="text-discount">
             {Math.min(selectedPercentDisplay, Math.round(MAX_COMBINED_COUPON_PERCENT * 100))}%
           </strong>
           {capped && (
-            <span className="text-muted"> (plafon: {Math.round(MAX_COMBINED_COUPON_PERCENT * 100)}%)</span>
+            <span className="text-muted">
+              {' '}
+              {t('payment.couponCappedLabel', {
+                percent: Math.round(MAX_COMBINED_COUPON_PERCENT * 100),
+              })}
+            </span>
           )}
         </p>
       )}

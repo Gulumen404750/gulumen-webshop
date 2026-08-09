@@ -27,6 +27,7 @@ type PopupConfig = {
  */
 export function DealPopup() {
   const pathname = usePathname()
+  const { t } = useLocale()
   const [visible, setVisible] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [config, setConfig] = useState<PopupConfig | null>(null)
@@ -85,7 +86,7 @@ export function DealPopup() {
           type="button"
           onClick={close}
           className="absolute top-4 right-4 z-10 p-2 rounded-full text-muted hover:text-foreground hover:bg-[var(--border)] transition-colors"
-          aria-label="Bezárás"
+          aria-label={t('buttons.close')}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -93,10 +94,10 @@ export function DealPopup() {
         </button>
         <div className="p-6 pt-12">
           <h2 className="font-heading text-xl font-bold text-foreground mb-4 text-center">
-            {config?.title || 'Akciók most'}
+            {config?.title?.trim() || t('dealPopup.titleFallback')}
           </h2>
           <p className="text-muted text-sm text-center mb-6">
-            {config?.description || 'Válogatás az aktuális akcióinkból – mindig meglepően jó áron.'}
+            {config?.description?.trim() || t('dealPopup.descriptionFallback')}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {products.map((product) => (
@@ -109,7 +110,7 @@ export function DealPopup() {
               onClick={close}
               className="inline-block px-6 py-2 bg-accent text-white font-heading font-semibold rounded-lg hover:opacity-90 transition-opacity text-sm"
             >
-              Összes akció megtekintése
+              {t('dealPopup.viewAllDeals')}
             </Link>
           </div>
         </div>

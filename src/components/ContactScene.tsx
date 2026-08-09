@@ -2,8 +2,10 @@
 
 import Image from 'next/image'
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { useLocale } from '@/context/LocaleContext'
 
 export function ContactScene() {
+  const { t } = useLocale()
   const [monitorOn, setMonitorOn] = useState(true)
   const [mugInHands, setMugInHands] = useState(true)
   const [mugOnTable, setMugOnTable] = useState(false)
@@ -56,7 +58,7 @@ export function ContactScene() {
         type="button"
         onClick={handleMonitorClick}
         className="absolute left-[10%] top-[22%] w-[28%] h-[32%] z-10 focus:outline-none focus:ring-2 focus:ring-white/50 rounded cursor-pointer"
-        aria-label={monitorOn ? 'Monitor kikapcsolása' : 'Monitor (a robot visszakapcsolja)'}
+        aria-label={monitorOn ? t('contactScene.monitorOff') : t('contactScene.monitorOn')}
       />
       {!monitorOn && (
         <div
@@ -71,7 +73,7 @@ export function ContactScene() {
           type="button"
           onClick={handleMugClick}
           className="absolute right-[18%] top-[48%] w-[8%] h-[12%] z-10 focus:outline-none focus:ring-2 focus:ring-white/50 rounded-full cursor-pointer"
-          aria-label="Kávé a robot kezében – kattints, kiköpöd, a robot később felveszi"
+          aria-label={t('contactScene.coffeeAria')}
         />
       )}
 

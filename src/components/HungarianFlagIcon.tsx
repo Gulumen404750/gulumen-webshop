@@ -3,7 +3,7 @@ export function HungarianFlagIcon({
   width = 20,
   height = 14,
   className = '',
-  title = 'Magyar zászló',
+  title = 'Hungarian flag',
 }: {
   width?: number
   height?: number

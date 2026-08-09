@@ -15,13 +15,14 @@ import { useLocale } from '@/context/LocaleContext'
 import { useToast } from '@/context/ToastContext'
 import { useEuroRate } from '@/context/EuroRateContext'
 
-function formatCountdown(ms: number): string {
-  if (ms <= 0) return '0 nap 00:00:00'
-  const d = Math.floor(ms / 86400000)
-  const h = Math.floor((ms % 86400000) / 3600000)
-  const m = Math.floor((ms % 3600000) / 60000)
-  const s = Math.floor((ms % 60000) / 1000)
-  return `${d} nap ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+function formatCountdown(ms: number, format: (days: number, time: string) => string): string {
+  const total = Math.max(0, ms)
+  const d = Math.floor(total / 86400000)
+  const h = Math.floor((total % 86400000) / 3600000)
+  const m = Math.floor((total % 3600000) / 60000)
+  const s = Math.floor((total % 60000) / 1000)
+  const time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  return format(d, time)
 }
 
 /** SSR és első kliens render: stabil placeholder, hogy ne legyen hydration mismatch. */
@@ -37,7 +38,7 @@ export function SourcingDealBox({
   serverNow?: number
   onExpired?: () => void
 }) {
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   const router = useRouter()
   const { toast } = useToast()
   const { placeOrder } = useSourcingDealOrders()
@@ -70,7 +71,12 @@ export function SourcingDealBox({
   const nowOrEpoch = now ?? new Date(0)
   const status = getSourcingDealStatus(product, nowOrEpoch, effectiveCount)
   const timedStatus = getTimedPurchaseStatus(product, nowOrEpoch, effectiveCount)
-  const { canAdd, reasonKey, reasonParams } = getAddToCartReason(product, nowOrEpoch, effectiveCount)
+  const { canAdd, reasonKey, reasonParams } = getAddToCartReason(
+    product,
+    nowOrEpoch,
+    effectiveCount,
+    locale
+  )
   const reason = reasonKey ? t(reasonKey, reasonParams) : ''
   const maxOrders = product.maxOrders ?? 0
   /** Rendelhető még (szerver alapján); kosár mennyisége külön jelzés. */
@@ -102,7 +108,8 @@ export function SourcingDealBox({
             ? countdownToSale
             : status === 'sale' && countdownToEnd > 0
               ? countdownToEnd
-              : 0
+              : 0,
+        (days, time) => t('status.countdownDays', { days, time })
       )
 
   if (timedStatus === 'EXPIRED' && onExpired && !onExpiredFiredRef.current) {
