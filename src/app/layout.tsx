@@ -78,6 +78,9 @@ export const metadata: Metadata = {
     description: SITE_DESCRIPTION,
     images: [BRAND_IMAGE],
   },
+  verification: {
+    google: 'oOhIZ7B_uvSnR9VQyH3oqSVFyBqdUKj0TI3P2RYzoi0',
+  },
 }
 
 export default async function RootLayout({
