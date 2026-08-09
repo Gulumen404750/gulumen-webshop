@@ -1,10 +1,14 @@
 /**
  * Checkout idempotencia: ugyanazzal az Idempotency-Key headerrel
- * érkező kérésnél a korábbi választ adjuk vissza (új rendelés nélkül).
- * Egyelőre in-memory Map; később Redis/DB.
+ * érkező kérésnél a korábbi választ adjuk vissza.
+ * Upstash Redis (multi-instance); fallback in-memory Map.
  */
 
+import { getRedis, isRedisConfigured } from '@/lib/redis'
+
 const TTL_MS = 24 * 60 * 60 * 1000 // 24 óra
+const TTL_SEC = 24 * 60 * 60
+const REDIS_PREFIX = 'idem:'
 
 type CachedResponse = {
   body: unknown
@@ -23,7 +27,18 @@ function pruneExpired(): void {
 }
 
 /** Visszaadja a kulcshoz tartozó cache-elt választ, vagy null. */
-export function getIdempotentResponse(key: string): { body: unknown; status: number; headers: Record<string, string> } | null {
+export async function getIdempotentResponse(
+  key: string
+): Promise<{ body: unknown; status: number; headers: Record<string, string> } | null> {
+  if (isRedisConfigured()) {
+    const redis = getRedis()
+    if (redis) {
+      const raw = await redis.get<CachedResponse>(REDIS_PREFIX + key)
+      if (!raw) return null
+      return { body: raw.body, status: raw.status, headers: raw.headers ?? {} }
+    }
+  }
+
   pruneExpired()
   const entry = store.get(key)
   if (!entry) return null
@@ -35,19 +50,29 @@ export function getIdempotentResponse(key: string): { body: unknown; status: num
 }
 
 /** Eltárolja a választ az idempotency key alatt. */
-export function setIdempotentResponse(
+export async function setIdempotentResponse(
   key: string,
   body: unknown,
   status: number,
   headers: Record<string, string> = {}
-): void {
-  pruneExpired()
-  store.set(key, {
+): Promise<void> {
+  const entry: CachedResponse = {
     body,
     status,
     headers,
     createdAt: Date.now(),
-  })
+  }
+
+  if (isRedisConfigured()) {
+    const redis = getRedis()
+    if (redis) {
+      await redis.set(REDIS_PREFIX + key, entry, { ex: TTL_SEC })
+      return
+    }
+  }
+
+  pruneExpired()
+  store.set(key, entry)
 }
 
 /** Idempotency-Key header kiolvasása (max 128 karakter). */

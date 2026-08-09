@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { ADMIN_COOKIE_NAME, getAdminCookieOptions } from '@/lib/admin-session'
 
 function logoutResponse(request: NextRequest) {
   const url = request.nextUrl.clone()
   url.pathname = '/admin/login'
   const res = NextResponse.redirect(url)
-  res.cookies.set('admin_authorized', '', { path: '/', maxAge: 0 })
+  res.cookies.set(ADMIN_COOKIE_NAME, '', { ...getAdminCookieOptions(0), maxAge: 0 })
   return res
 }
 

@@ -4,6 +4,9 @@
 
 import { logger } from '@/lib/logger'
 import { prisma, isDbConfigured } from '@/lib/prisma'
+import { decrementStockAtomic, OutOfStockException } from '@/lib/inventory'
+
+export { OutOfStockException }
 
 export type OrderStatus =
   | 'pending'
@@ -346,78 +349,85 @@ export async function createCheckoutOrders(params: {
   const result: Order[] = []
 
   if (isDbConfigured()) {
-    if (params.inStock && params.inStock.items.length > 0) {
-      const id = generateOrderId()
-      await prisma.order.create({
-        data: {
+    // Atomi tranzakció: in_stock rendelés + stock decrement (oversell védelem).
+    await prisma.$transaction(async (tx) => {
+      if (params.inStock && params.inStock.items.length > 0) {
+        await decrementStockAtomic(
+          params.inStock.items.map((i) => ({ productId: i.productId, qty: i.qty })),
+          tx
+        )
+        const id = generateOrderId()
+        await tx.order.create({
+          data: {
+            id,
+            status: 'payment_pending',
+            orderGroupId: params.orderGroupId,
+            orderType: 'in_stock',
+            subtotalHuf: params.inStock.subtotalHuf,
+            discountHuf: params.inStock.discountHuf,
+            totalHuf: params.inStock.totalHuf,
+            currency,
+            items: {
+              create: params.inStock.items.map((i) => ({
+                productId: i.productId,
+                qty: i.qty,
+                fulfillmentType: i.fulfillmentType,
+                priceHuf: i.priceHuf,
+                name: i.name ?? null,
+              })),
+            },
+          },
+        })
+        result.push({
           id,
           status: 'payment_pending',
           orderGroupId: params.orderGroupId,
           orderType: 'in_stock',
+          items: params.inStock.items,
           subtotalHuf: params.inStock.subtotalHuf,
           discountHuf: params.inStock.discountHuf,
           totalHuf: params.inStock.totalHuf,
           currency,
-          items: {
-            create: params.inStock.items.map((i) => ({
-              productId: i.productId,
-              qty: i.qty,
-              fulfillmentType: i.fulfillmentType,
-              priceHuf: i.priceHuf,
-              name: i.name ?? null,
-            })),
+          createdAt: new Date().toISOString(),
+        })
+      }
+      if (params.sourcing && params.sourcing.items.length > 0) {
+        const id = generateOrderId()
+        await tx.order.create({
+          data: {
+            id,
+            status: 'payment_pending',
+            orderGroupId: params.orderGroupId,
+            orderType: 'sourcing',
+            subtotalHuf: params.sourcing.subtotalHuf,
+            discountHuf: params.sourcing.discountHuf,
+            totalHuf: params.sourcing.totalHuf,
+            currency,
+            items: {
+              create: params.sourcing.items.map((i) => ({
+                productId: i.productId,
+                qty: i.qty,
+                fulfillmentType: i.fulfillmentType,
+                priceHuf: i.priceHuf,
+                name: i.name ?? null,
+              })),
+            },
           },
-        },
-      })
-      result.push({
-        id,
-        status: 'payment_pending',
-        orderGroupId: params.orderGroupId,
-        orderType: 'in_stock',
-        items: params.inStock.items,
-        subtotalHuf: params.inStock.subtotalHuf,
-        discountHuf: params.inStock.discountHuf,
-        totalHuf: params.inStock.totalHuf,
-        currency,
-        createdAt: new Date().toISOString(),
-      })
-    }
-    if (params.sourcing && params.sourcing.items.length > 0) {
-      const id = generateOrderId()
-      await prisma.order.create({
-        data: {
+        })
+        result.push({
           id,
           status: 'payment_pending',
           orderGroupId: params.orderGroupId,
           orderType: 'sourcing',
+          items: params.sourcing.items,
           subtotalHuf: params.sourcing.subtotalHuf,
           discountHuf: params.sourcing.discountHuf,
           totalHuf: params.sourcing.totalHuf,
           currency,
-          items: {
-            create: params.sourcing.items.map((i) => ({
-              productId: i.productId,
-              qty: i.qty,
-              fulfillmentType: i.fulfillmentType,
-              priceHuf: i.priceHuf,
-              name: i.name ?? null,
-            })),
-          },
-        },
-      })
-      result.push({
-        id,
-        status: 'payment_pending',
-        orderGroupId: params.orderGroupId,
-        orderType: 'sourcing',
-        items: params.sourcing.items,
-        subtotalHuf: params.sourcing.subtotalHuf,
-        discountHuf: params.sourcing.discountHuf,
-        totalHuf: params.sourcing.totalHuf,
-        currency,
-        createdAt: new Date().toISOString(),
-      })
-    }
+          createdAt: new Date().toISOString(),
+        })
+      }
+    })
     return result
   }
 

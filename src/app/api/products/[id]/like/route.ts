@@ -23,7 +23,7 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const limit = rateLimit(request)
+  const limit = await rateLimit(request)
   if (!limit.ok) {
     return NextResponse.json(
       { error: 'Túl sok kérés. Próbáld újra később.' },
@@ -74,7 +74,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const limit = rateLimit(request)
+    const limit = await rateLimit(request)
     if (!limit.ok) {
       return NextResponse.json(
         { error: 'Túl sok kérés. Próbáld újra később.' },

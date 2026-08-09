@@ -1,12 +1,27 @@
 /**
- * In-memory IP-based rate limit. For production consider Redis.
- * 60 requests per minute per IP; returns 429 when exceeded.
+ * IP-based rate limit – Upstash Redis sliding window (multi-instance safe).
+ * Fallback: in-memory Map ha nincs UPSTASH_REDIS_* env.
  */
 
-const windowMs = 60 * 1000
-const maxPerWindow = 60
+import { Ratelimit } from '@upstash/ratelimit'
+import { getRedis, isRedisConfigured } from '@/lib/redis'
 
-const store = new Map<string, { count: number; resetAt: number }>()
+export type RateLimitResult = { ok: true } | { ok: false; status: 429 }
+
+export type RateLimitPreset = 'default' | 'auth' | 'adminLogin' | 'heartbeat'
+
+const PRESETS: Record<
+  RateLimitPreset,
+  { windowMs: number; max: number; windowLabel: `${number} ${'s' | 'm' | 'h' | 'd'}` }
+> = {
+  default: { windowMs: 60_000, max: 60, windowLabel: '1 m' },
+  auth: { windowMs: 60_000, max: 20, windowLabel: '1 m' },
+  adminLogin: { windowMs: 10 * 60_000, max: 5, windowLabel: '10 m' },
+  heartbeat: { windowMs: 60_000, max: 30, windowLabel: '1 m' },
+}
+
+const memoryStores = new Map<string, Map<string, { count: number; resetAt: number }>>()
+const redisLimiters = new Map<string, Ratelimit>()
 
 function getClientId(request: Request): string {
   const forwarded = request.headers.get('x-forwarded-for')
@@ -16,9 +31,20 @@ function getClientId(request: Request): string {
   return 'unknown'
 }
 
-export function rateLimit(request: Request): { ok: true } | { ok: false; status: 429 } {
+function getMemoryStore(preset: RateLimitPreset): Map<string, { count: number; resetAt: number }> {
+  let store = memoryStores.get(preset)
+  if (!store) {
+    store = new Map()
+    memoryStores.set(preset, store)
+  }
+  return store
+}
+
+function memoryLimit(request: Request, preset: RateLimitPreset): RateLimitResult {
+  const { windowMs, max } = PRESETS[preset]
   const now = Date.now()
   const id = getClientId(request)
+  const store = getMemoryStore(preset)
   let entry = store.get(id)
   if (!entry || now >= entry.resetAt) {
     entry = { count: 1, resetAt: now + windowMs }
@@ -26,8 +52,44 @@ export function rateLimit(request: Request): { ok: true } | { ok: false; status:
     return { ok: true }
   }
   entry.count += 1
-  if (entry.count > maxPerWindow) {
+  if (entry.count > max) {
     return { ok: false, status: 429 }
   }
   return { ok: true }
+}
+
+function getRedisLimiter(preset: RateLimitPreset): Ratelimit | null {
+  const redis = getRedis()
+  if (!redis) return null
+  let limiter = redisLimiters.get(preset)
+  if (!limiter) {
+    const cfg = PRESETS[preset]
+    limiter = new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(cfg.max, cfg.windowLabel),
+      prefix: `rl:${preset}`,
+      analytics: false,
+    })
+    redisLimiters.set(preset, limiter)
+  }
+  return limiter
+}
+
+/**
+ * Rate limit check. Preferáld a Redis sliding window-t multi-instance környezetben.
+ */
+export async function rateLimit(
+  request: Request,
+  preset: RateLimitPreset = 'default'
+): Promise<RateLimitResult> {
+  if (isRedisConfigured()) {
+    const limiter = getRedisLimiter(preset)
+    if (limiter) {
+      const id = getClientId(request)
+      const { success } = await limiter.limit(id)
+      if (!success) return { ok: false, status: 429 }
+      return { ok: true }
+    }
+  }
+  return memoryLimit(request, preset)
 }

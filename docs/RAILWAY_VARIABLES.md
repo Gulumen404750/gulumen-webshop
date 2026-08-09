@@ -43,8 +43,21 @@ Ezeket a változókat állítsd be a **Railway → Project → Variables** felü
 | TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID | Telegram értesítések |
 | SENTRY_DSN, SENTRY_ORG, SENTRY_PROJECT | Sentry (build-time is: next.config.js) |
 | NEXT_PUBLIC_SENTRY_DSN | Sentry kliens oldal |
-| CRON_SECRET | Cron route védelméhez |
+| CRON_SECRET | Cron route védelméhez (`/api/cron/*`) |
+| NEXTAUTH_SECRET | Production fail-fast – min. 16 karakter (Google/NextAuth) |
+| UPSTASH_REDIS_REST_URL | Upstash Redis REST URL (elosztott rate limit + idempotency) |
+| UPSTASH_REDIS_REST_TOKEN | Upstash Redis REST token |
 | LOG_LEVEL | Pl. `info` vagy `debug` |
+
+### Railway Cron (külső / platform cron)
+
+A `vercel.json` cron Railway-en nem fut. Állíts be külső cron-t (vagy Railway Cron Job-ot), amely `Authorization: Bearer $CRON_SECRET` headerrel hívja:
+
+| Endpoint | Javasolt ütemezés |
+|----------|-------------------|
+| `GET /api/cron/process-outbox` | minden 5 perc |
+| `GET /api/cron/cleanup-stuck-payments` | minden 10 perc |
+| `GET /api/cron/data-retention` | naponta 03:00 |
 
 ---
 
