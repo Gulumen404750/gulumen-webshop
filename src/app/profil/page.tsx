@@ -15,6 +15,105 @@ import { LoyaltyTierBadge } from '@/components/LoyaltyTierBadge'
 import { usePointWallet } from '@/hooks/usePointWallet'
 import { applyStashedPointsRedeemOnce } from '@/lib/point-wallet-client'
 
+function NameProfileSection() {
+  const { t } = useLocale()
+  const [name, setName] = useState('')
+  const [savedName, setSavedName] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [savedMsg, setSavedMsg] = useState(false)
+
+  useEffect(() => {
+    setLoading(true)
+    fetch('/api/me/profile', { credentials: 'include' })
+      .then(async (r) => {
+        const data = await r.json().catch(() => ({}))
+        if (!r.ok) throw new Error(data.error || t('common.loadError'))
+        const n = typeof data.user?.name === 'string' ? data.user.name.trim() : ''
+        setName(n)
+        setSavedName(n)
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : t('common.loadError')))
+      .finally(() => setLoading(false))
+  }, [t])
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+    setError(null)
+    setSavedMsg(false)
+    try {
+      const res = await fetch('/api/me/profile', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim() || '' }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || t('common.saveError'))
+      const n = typeof data.user?.name === 'string' ? data.user.name.trim() : ''
+      setName(n)
+      setSavedName(n)
+      setSavedMsg(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('common.saveError'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) return null
+
+  return (
+    <div className="mb-6">
+      <form
+        onSubmit={save}
+        className="rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-4 space-y-3"
+      >
+        <div>
+          <label htmlFor="profile-name" className="block text-sm font-medium text-foreground mb-1">
+            {t('profile.nameLabel')}{' '}
+            <span className="text-muted font-normal">({t('register.optionalLabel')})</span>
+          </label>
+          <input
+            id="profile-name"
+            type="text"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value)
+              setSavedMsg(false)
+            }}
+            placeholder={t('profile.namePlaceholder')}
+            maxLength={80}
+            disabled={saving}
+            className="w-full max-w-xs px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground disabled:opacity-60"
+            autoComplete="given-name"
+          />
+          <p className="mt-1.5 text-xs text-muted leading-relaxed">{t('profile.nameHint')}</p>
+        </div>
+        {error && (
+          <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+            {error}
+          </p>
+        )}
+        {savedMsg && (
+          <p className="text-sm text-green-700 dark:text-green-400" role="status">
+            {t('profile.nameSaved')}
+          </p>
+        )}
+        <button
+          type="submit"
+          disabled={saving || name.trim() === savedName}
+          className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:opacity-90 disabled:opacity-60"
+        >
+          {saving ? t('profile.nameSaving') : t('profile.nameSave')}
+        </button>
+      </form>
+    </div>
+  )
+}
+
 function BirthDateProfileSection() {
   const { t } = useLocale()
   const [birthDate, setBirthDate] = useState('')
@@ -172,6 +271,7 @@ export default function ProfilePage() {
         <h1 className="font-heading text-2xl font-bold text-foreground mb-6">{t('profile.title')}</h1>
         <p className="text-muted mb-4">{t('profile.loggedInAs')} {userId}</p>
         {userId && <LoyaltyTierBadge email={userId} className="mb-6" />}
+        <NameProfileSection />
         <BirthDateProfileSection />
         <div className="mb-6">
           <Link

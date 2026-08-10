@@ -16,6 +16,7 @@ export default function RegistrationPage() {
   const { claimRegistrationCoupon } = useCatCoupon()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
   const [acceptPrivacy, setAcceptPrivacy] = useState(false)
   const [acceptOffers, setAcceptOffers] = useState(false)
   const [birthDate, setBirthDate] = useState('')
@@ -59,7 +60,7 @@ export default function RegistrationPage() {
     const result = await register(
       trimmedEmail,
       password,
-      undefined,
+      name.trim() || undefined,
       acceptOffers,
       birthDate.trim() || null
     )
@@ -131,6 +132,23 @@ export default function RegistrationPage() {
             className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
             autoComplete="new-password"
           />
+        </div>
+        <div>
+          <label htmlFor="reg-name" className="block text-sm font-medium text-foreground mb-1">
+            {t('register.nameLabel')}{' '}
+            <span className="text-muted font-normal">({t('register.optionalLabel')})</span>
+          </label>
+          <input
+            id="reg-name"
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t('register.namePlaceholder')}
+            maxLength={80}
+            className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
+            autoComplete="given-name"
+          />
+          <p className="mt-1.5 text-xs text-muted leading-relaxed">{t('register.nameHint')}</p>
         </div>
         <div>
           <label htmlFor="reg-birthDate" className="block text-sm font-medium text-foreground mb-1">

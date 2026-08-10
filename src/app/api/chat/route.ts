@@ -27,6 +27,10 @@ import {
   type ChatRecommendedProduct,
 } from '@/lib/chat-product-search'
 import { formatChatAssistantText } from '@/lib/chat-message-format'
+import {
+  buildChatVisitorNameBlock,
+  resolveChatVisitorDisplayName,
+} from '@/lib/chat-visitor-name'
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'
 
@@ -90,6 +94,8 @@ export async function POST(request: Request) {
       })
       const productContext = product ? buildProductChatContextBlock(product) : ''
       const recommendationsContext = buildRecommendedProductsChatBlock(recommendedProducts)
+      const visitorDisplayName = await resolveChatVisitorDisplayName(request)
+      const visitorNameContext = buildChatVisitorNameBlock(visitorDisplayName)
 
       const openAiMessages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
         {
@@ -97,6 +103,7 @@ export async function POST(request: Request) {
           content: [
             settings.systemPrompt,
             nowContext,
+            visitorNameContext,
             productContext,
             recommendationsContext,
             `Válaszolj ${lang}.`,
