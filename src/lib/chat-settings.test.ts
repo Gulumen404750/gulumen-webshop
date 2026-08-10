@@ -24,6 +24,13 @@ describe('Gulumen CX handbook / chat settings', () => {
     expect(p).toContain('24 órán belül')
   })
 
+  it('instructs the model about interactive product cards', () => {
+    const p = DEFAULT_SYSTEM_PROMPT
+    expect(p).toMatch(/termékkárty/i)
+    expect(p).toMatch(/nem tudok közvetlenül termékeket mutatni/i)
+    expect(p).toMatch(/AJÁNLOTT TERMÉKEK/i)
+  })
+
   it('forbids customer-facing tech jargon guidance', () => {
     expect(DEFAULT_SYSTEM_PROMPT).toContain('3D nyomtatás')
     expect(DEFAULT_SYSTEM_PROMPT).toContain('design stúdió')
