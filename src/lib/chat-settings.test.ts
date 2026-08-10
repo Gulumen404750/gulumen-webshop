@@ -38,6 +38,12 @@ describe('Gulumen CX handbook / chat settings', () => {
     expect(p).toMatch(/emoji/i)
   })
 
+  it('covers optional visitor-name greeting with graceful fallback', () => {
+    const p = DEFAULT_SYSTEM_PROMPT
+    expect(p).toMatch(/Megszólítás név szerint/i)
+    expect(p).toMatch(/NE jelezd, hogy hiányzik a név/)
+  })
+
   it('forbids customer-facing tech jargon guidance', () => {
     expect(DEFAULT_SYSTEM_PROMPT).toContain('3D nyomtatás')
     expect(DEFAULT_SYSTEM_PROMPT).toContain('design stúdió')
