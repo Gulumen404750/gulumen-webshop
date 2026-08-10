@@ -60,6 +60,20 @@ const STOP_WORDS = new Set(
     'néznék',
     'mutass',
     'mutasd',
+    'mutatnal',
+    'mutatnál',
+    'ajanl',
+    'ajánl',
+    'ajanlj',
+    'ajánlj',
+    'ajanlok',
+    'ajánlok',
+    'ajanlanek',
+    'ajánlanék',
+    'javasol',
+    'javasolj',
+    'javasolnek',
+    'javasolnék',
     'kérlek',
     'kérek',
     'valami',
@@ -82,6 +96,12 @@ const STOP_WORDS = new Set(
     'webshop',
     'bolt',
     'gulumen',
+    'termekeket',
+    'termékeket',
+    'termekek',
+    'termékek',
+    'termek',
+    'termék',
     // EN
     'the',
     'an',
@@ -112,6 +132,8 @@ const STOP_WORDS = new Set(
     'show',
     'please',
     'some',
+    'something',
+    'anything',
     'any',
     'can',
     'could',
@@ -124,6 +146,10 @@ const STOP_WORDS = new Set(
     'about',
     'with',
     'from',
+    'recommend',
+    'recommendation',
+    'product',
+    'products',
     // DE
     'der',
     'die',
@@ -146,6 +172,11 @@ const STOP_WORDS = new Set(
     'etwas',
     'welche',
     'welches',
+    'empfehl',
+    'empfehle',
+    'empfehlen',
+    'produkt',
+    'produkte',
     // RO
     'un',
     'o',
@@ -161,15 +192,90 @@ const STOP_WORDS = new Set(
     'aveți',
     'aveti',
     'pentru',
+    'recomand',
+    'recomanzi',
+    'produs',
+    'produse',
   ].map((w) => w.toLowerCase())
 )
+
+function stripDiacritics(value: string): string {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
+
+/**
+ * Magyar (és hasonló) ragok levágása, hogy „lámpákat” → „lampa” egyezzen a katalógussal.
+ * Leghosszabb illeszkedő végződés először; a tő legalább 3 karakter maradjon.
+ */
+export function stemSearchToken(token: string): string[] {
+  const raw = token.toLowerCase().trim()
+  if (raw.length < 3) return raw ? [raw] : []
+
+  const ascii = stripDiacritics(raw)
+  const out = new Set<string>([raw, ascii])
+
+  const suffixes = [
+    'knak',
+    'knek',
+    'kat',
+    'ket',
+    'kot',
+    'köt',
+    'kat',
+    'val',
+    'vel',
+    'nak',
+    'nek',
+    'ban',
+    'ben',
+    'hoz',
+    'hez',
+    'höz',
+    'tol',
+    'től',
+    'rol',
+    'ről',
+    'ra',
+    're',
+    'ba',
+    'be',
+    'ul',
+    'ül',
+    'ig',
+    'ok',
+    'ak',
+    'ek',
+    'ök',
+    'uk',
+    'ük',
+    'at',
+    'et',
+    'ot',
+    'öt',
+    'ut',
+    'üt',
+    't',
+  ]
+
+  for (const base of [ascii, raw]) {
+    for (const suffix of suffixes) {
+      if (base.endsWith(suffix) && base.length - suffix.length >= 3) {
+        const stem = base.slice(0, -suffix.length)
+        out.add(stem)
+        out.add(stripDiacritics(stem))
+      }
+    }
+  }
+
+  return [...out].filter((t) => t.length >= 3)
+}
 
 /** Nem termékkeresés: szállítás / fizetés / panasz stb. */
 const NON_PRODUCT_PATTERNS =
   /\b(szállítás|feladás|mikor érkezik|csomag|tracking|shipping|delivery|versand|lieferung|fizetés|fizetni|payment|zahlung|visszaküld|visszatérít|refund|return|rückgabe|panasz|reklamáció|complaint|beschwerde|kártyaszám|cvv|jelszó|password|ügyvéd|lawyer|chargeback|hányadika|hány óra|what time|what date)\b/i
 
 const PRODUCT_INTENT_PATTERNS =
-  /\b(ajánl|javasol|recommend|empfehl|mit vegyek|what to buy|keresek|keresünk|nézek|looking for|suche|caut|lámpa|lámpát|taska|táska|táskát|bag|lampe|lamp|produk|termék|product|ajándék|gift|geschenk|otthon|home|konyha|kitchen|küche|nappali|íróasztal|gyerek|dekor|deco|állvány|tartó|szervező|organiz|virág|növény|macska|kutya|óra|óraállvány|telefon|töltő|cable|kábel)\b/i
+  /\b(ajánl|javasol|recommend|empfehl|mit vegyek|what to buy|keresek|keresünk|nézek|looking for|suche|caut|lámpa|lámpát|lámpák|lámpákat|taska|táska|táskát|bag|lampe|lamp|produk|termék|product|ajándék|gift|geschenk|otthon|home|konyha|kitchen|küche|nappali|íróasztal|gyerek|dekor|deco|állvány|tartó|szervező|organiz|virág|növény|macska|kutya|óra|óraállvány|telefon|töltő|cable|kábel)\b/i
 
 export function isProductSearchQuery(message: string): boolean {
   const msg = message.trim()
@@ -190,18 +296,20 @@ export function isProductSearchQuery(message: string): boolean {
   return extractSearchKeywords(msg).length > 0
 }
 
-/** Kulcsszavak kinyerése a felhasználói üzenetből. */
+function isStopWord(token: string): boolean {
+  const lower = token.toLowerCase()
+  if (STOP_WORDS.has(lower)) return true
+  return STOP_WORDS.has(stripDiacritics(lower))
+}
+
+/** Kulcsszavak kinyerése a felhasználói üzenetből (ragozott alakok töveivel együtt). */
 export function extractSearchKeywords(message: string): string[] {
-  const normalized = message
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9\s-]/gi, ' ')
+  const normalized = stripDiacritics(message.toLowerCase()).replace(/[^a-z0-9\s-]/gi, ' ')
 
   const tokens = normalized
     .split(/\s+/)
     .map((t) => t.trim())
-    .filter((t) => t.length >= 3 && !STOP_WORDS.has(t))
+    .filter((t) => t.length >= 3 && !isStopWord(t))
 
   // Eredeti (ékezetes) tokenek is – DB-ben gyakran ékezetes név van
   const originalTokens = message
@@ -209,10 +317,19 @@ export function extractSearchKeywords(message: string): string[] {
     .replace(/[^a-záéíóöőúüűäößșțăâî0-9\s-]/gi, ' ')
     .split(/\s+/)
     .map((t) => t.trim())
-    .filter((t) => t.length >= 3 && !STOP_WORDS.has(t))
+    .filter((t) => t.length >= 3 && !isStopWord(t))
 
-  const merged = [...new Set([...originalTokens, ...tokens])]
-  return merged.slice(0, 8)
+  const expanded: string[] = []
+  for (const token of [...originalTokens, ...tokens]) {
+    for (const stem of stemSearchToken(token)) {
+      if (!isStopWord(stem)) expanded.push(stem)
+    }
+  }
+
+  const merged = [...new Set(expanded)]
+  // Prefer shorter stems first for DB contains matching (lampa before lampakat)
+  merged.sort((a, b) => a.length - b.length || a.localeCompare(b))
+  return merged.slice(0, 12)
 }
 
 function scoreProductAgainstKeywords(
@@ -223,13 +340,28 @@ function scoreProductAgainstKeywords(
 ): number {
   if (keywords.length === 0) return 0
   const hay = `${product.name} ${product.slug} ${product.category} ${product.description ?? ''}`.toLowerCase()
+  const asciiHay = stripDiacritics(hay)
   let score = 0
   for (const kw of keywords) {
-    if (hay.includes(kw)) score += kw.length >= 5 ? 3 : 2
-    // részleges egyezés (pl. "lamp" → "lámpa" slug: lampa)
-    const asciiKw = kw.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    const asciiHay = hay.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    if (asciiKw !== kw && asciiHay.includes(asciiKw)) score += 2
+    const variants = stemSearchToken(kw)
+    let best = 0
+    for (const variant of variants) {
+      const asciiKw = stripDiacritics(variant)
+      if (hay.includes(variant) || asciiHay.includes(asciiKw)) {
+        best = Math.max(best, variant.length >= 5 ? 3 : 2)
+        continue
+      }
+      // Részleges: „lamp” ↔ „lampa”, „asztal” ↔ „asztali”
+      if (asciiKw.length >= 4) {
+        const hayWords = asciiHay.split(/[^a-z0-9]+/).filter(Boolean)
+        for (const word of hayWords) {
+          if (word.startsWith(asciiKw) || asciiKw.startsWith(word)) {
+            best = Math.max(best, 2)
+          }
+        }
+      }
+    }
+    score += best
   }
   return score
 }
@@ -294,7 +426,19 @@ async function searchProductsInDb(
 ): Promise<ChatRecommendedProduct[]> {
   if (!isDbConfigured()) return []
 
-  const orFilters = keywords.flatMap((kw) => [
+  if (keywords.length === 0) {
+    const rows = await prisma.product.findMany({
+      where: { active: true, archived: false },
+      orderBy: [{ likesCount: 'desc' }, { updatedAt: 'desc' }],
+      take: limit,
+      select: productSelect,
+    })
+    return rows.map(mapDbRowToRecommended)
+  }
+
+  const dbKeywords = [...new Set(keywords.flatMap((kw) => stemSearchToken(kw)))].slice(0, 24)
+
+  const orFilters = dbKeywords.flatMap((kw) => [
     { name: { contains: kw, mode: 'insensitive' as const } },
     { nameEn: { contains: kw, mode: 'insensitive' as const } },
     { nameDe: { contains: kw, mode: 'insensitive' as const } },
@@ -304,16 +448,6 @@ async function searchProductsInDb(
     { description_hu: { contains: kw, mode: 'insensitive' as const } },
     { description_en: { contains: kw, mode: 'insensitive' as const } },
   ])
-
-  if (orFilters.length === 0) {
-    const rows = await prisma.product.findMany({
-      where: { active: true, archived: false },
-      orderBy: [{ likesCount: 'desc' }, { updatedAt: 'desc' }],
-      take: limit,
-      select: productSelect,
-    })
-    return rows.map(mapDbRowToRecommended)
-  }
 
   const rows = await prisma.product.findMany({
     where: {
@@ -329,7 +463,7 @@ async function searchProductsInDb(
     },
   })
 
-  const scored = rows
+  let scored = rows
     .map((row) => ({
       product: mapDbRowToRecommended(row),
       score: scoreProductAgainstKeywords(
@@ -339,6 +473,30 @@ async function searchProductsInDb(
     }))
     .filter((x) => x.score > 0)
     .sort((a, b) => b.score - a.score)
+
+  // Ékezet / ragozás miatt a SQL contains gyakran 0 sort ad (lámpa vs lampa).
+  // Ilyenkor népszerű poolon JS-ben pontozunk ascii-tűrően.
+  if (scored.length === 0) {
+    const pool = await prisma.product.findMany({
+      where: { active: true, archived: false },
+      orderBy: [{ likesCount: 'desc' }, { updatedAt: 'desc' }],
+      take: 120,
+      select: {
+        ...productSelect,
+        description_hu: true,
+      },
+    })
+    scored = pool
+      .map((row) => ({
+        product: mapDbRowToRecommended(row),
+        score: scoreProductAgainstKeywords(
+          { ...row, description: row.description_hu },
+          keywords
+        ),
+      }))
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score)
+  }
 
   return scored.slice(0, limit).map((x) => x.product)
 }
@@ -389,20 +547,28 @@ export async function searchProductsForChat(
   if (!isProductSearchQuery(message)) return []
 
   const keywords = extractSearchKeywords(message)
-  const recommendOnly =
-    keywords.length === 0 &&
-    /\b(ajánl|javasol|recommend|empfehl|mit vegyek|what to buy)\b/i.test(message)
+  const vagueRecommendIntent =
+    /\b(ajánl|javasol|recommend|empfehl|mit vegyek|what to buy)\b/i.test(message) &&
+    keywords.every((k) =>
+      /^(ajanl|javasol|recommend|empfehl|gift|ajandek|home|otthon)$/i.test(stripDiacritics(k))
+    )
+  const recommendOnly = keywords.length === 0 || vagueRecommendIntent
 
   try {
     if (isDbConfigured()) {
       const dbHits = await searchProductsInDb(recommendOnly ? [] : keywords, take)
       if (dbHits.length > 0) return dbHits
+      // Termékintent + üres találat: ne hagyjuk kártyák nélkül – népszerű darabok
+      const popular = await searchProductsInDb([], take)
+      if (popular.length > 0) return popular
     }
   } catch {
     // fallback memóriára
   }
 
-  return searchProductsInMemory(recommendOnly ? [] : keywords, take)
+  const memoryHits = await searchProductsInMemory(recommendOnly ? [] : keywords, take)
+  if (memoryHits.length > 0) return memoryHits
+  return searchProductsInMemory([], take)
 }
 
 /** OpenAI system prompt blokk a találatokhoz – az AI szövegesen is hivatkozhasson rájuk. */
@@ -431,8 +597,9 @@ export function buildRecommendedProductsChatBlock(
 
   return `
 [AJÁNLOTT TERMÉKEK A VÁSÁRLÓ KERESÉSÉHEZ]
-A rendszer a katalógusból ezeket a releváns termékeket találta. A válaszod mellett a felületen interaktív termékkártyák jelennek meg.
-Említsd meg röviden ezeket (vagy a legjobban illőket), NE találj ki más terméket vagy árat.
+A katalógusból ezek a releváns termékek jöttek ki. A válaszod ALATT a chat felületen AUTOMATIKUSAN megjelennek az interaktív termékkártyák (kép, név, ár, kattintható link).
+SOHA ne mondd, hogy „nem tudok termékeket mutatni”, „itt nem tudok listázni”, vagy hogy csak szövegesen tudsz segíteni – a kártyák a te válaszod mellett megjelennek.
+Említsd meg röviden ezeket (vagy a legjobban illőket) név szerint, NE találj ki más terméket vagy árat.
 Ha egyik sem illik pontosan, mondd el őszintén, és kérdezz rá finoman, mire keres pontosan.
 
 ${lines.join('\n')}

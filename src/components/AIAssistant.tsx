@@ -268,17 +268,19 @@ export function AIAssistant() {
                   key={i}
                   className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
-                  <div
-                    className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm ${
-                      m.role === 'user'
-                        ? 'bg-accent text-white'
-                        : 'bg-[var(--border)] text-foreground'
-                    } ${m.escalate ? 'ring-2 ring-discount' : ''}`}
-                  >
-                    {m.text}
-                    {m.escalate && (
-                      <p className="mt-2 text-xs opacity-90">{t('ai.escalateNote')}</p>
-                    )}
+                  <div className={`max-w-[85%] space-y-2 ${m.role === 'user' ? '' : 'w-full'}`}>
+                    <div
+                      className={`rounded-2xl px-4 py-2 text-sm ${
+                        m.role === 'user'
+                          ? 'bg-accent text-white'
+                          : 'bg-[var(--border)] text-foreground'
+                      } ${m.escalate ? 'ring-2 ring-discount' : ''}`}
+                    >
+                      {m.text}
+                      {m.escalate && (
+                        <p className="mt-2 text-xs opacity-90">{t('ai.escalateNote')}</p>
+                      )}
+                    </div>
                     {m.role === 'assistant' && m.productIds && m.productIds.length > 0 && (
                       <ChatProductRecommendations
                         productIds={m.productIds}

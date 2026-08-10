@@ -31,6 +31,32 @@ describe('extractSearchKeywords', () => {
     expect(kws).not.toContain('szeretnék')
     expect(kws).not.toContain('egy')
   })
+
+  it('stems Hungarian plural/accusative so lámpákat matches lámpa', () => {
+    const kws = extractSearchKeywords('Mutass lámpákat')
+    expect(kws.some((k) => stripMatch(k))).toBe(true)
+    expect(kws).not.toContain('mutass')
+  })
+
+  it('treats recommend-only phrases as having no product noun keywords', () => {
+    expect(extractSearchKeywords('Ajánlj valamit')).toEqual([])
+    expect(extractSearchKeywords('Recommend something please')).toEqual([])
+  })
+})
+
+function stripMatch(k: string): boolean {
+  const ascii = k.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  return ascii.includes('lamp') || k.includes('lámp')
+}
+
+describe('stemSearchToken', () => {
+  it('reduces lámpákat to lampa stem', async () => {
+    const { stemSearchToken } = await import('./chat-product-search')
+    const stems = stemSearchToken('lámpákat')
+    expect(stems.some((s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '') === 'lampa')).toBe(
+      true
+    )
+  })
 })
 
 describe('buildRecommendedProductsChatBlock', () => {
@@ -54,5 +80,7 @@ describe('buildRecommendedProductsChatBlock', () => {
     expect(block).toContain('Asztali lámpa')
     expect(block).toContain('/termek/asztali-lampa')
     expect(block).toMatch(/8[\u00a0 ]?990 Ft/)
+    expect(block).toMatch(/SOHA ne mondd/i)
+    expect(block).toMatch(/termékkárty/i)
   })
 })
