@@ -31,6 +31,13 @@ describe('Gulumen CX handbook / chat settings', () => {
     expect(p).toMatch(/AJÁNLOTT TERMÉKEK/i)
   })
 
+  it('requires readable numbered lists with light emojis', () => {
+    const p = DEFAULT_SYSTEM_PROMPT
+    expect(p).toMatch(/FORMÁZÁS/i)
+    expect(p).toMatch(/ÚJ SORON/)
+    expect(p).toMatch(/emoji/i)
+  })
+
   it('forbids customer-facing tech jargon guidance', () => {
     expect(DEFAULT_SYSTEM_PROMPT).toContain('3D nyomtatás')
     expect(DEFAULT_SYSTEM_PROMPT).toContain('design stúdió')
