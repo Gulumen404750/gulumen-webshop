@@ -537,7 +537,8 @@ async function searchProductsInMemory(
 
 /**
  * Releváns termékek keresése a chat üzenet alapján (max 2–3).
- * Üres lista, ha nem termékkeresés / nincs találat.
+ * Mindig igyekszik feltölteni a limitet (találat + népszerű pótlás),
+ * hogy a chatben minden felsorolt tételhez legyen termékkártya.
  */
 export async function searchProductsForChat(
   message: string,
@@ -558,21 +559,37 @@ export async function searchProductsForChat(
     )
   const recommendOnly = keywords.length === 0 || vagueRecommendIntent || giftIntent
 
+  const mergeUnique = (
+    primary: ChatRecommendedProduct[],
+    extra: ChatRecommendedProduct[]
+  ): ChatRecommendedProduct[] => {
+    const seen = new Set<string>()
+    const out: ChatRecommendedProduct[] = []
+    for (const p of [...primary, ...extra]) {
+      if (!p?.id || seen.has(p.id)) continue
+      seen.add(p.id)
+      out.push(p)
+      if (out.length >= take) break
+    }
+    return out
+  }
+
   try {
     if (isDbConfigured()) {
       const dbHits = await searchProductsInDb(recommendOnly ? [] : keywords, take)
-      if (dbHits.length > 0) return dbHits
-      // Termékintent + üres találat: ne hagyjuk kártyák nélkül – népszerű darabok
-      const popular = await searchProductsInDb([], take)
-      if (popular.length > 0) return popular
+      if (dbHits.length >= take) return dbHits.slice(0, take)
+      const popular = await searchProductsInDb([], Math.max(take * 3, 9))
+      const merged = mergeUnique(dbHits, popular)
+      if (merged.length > 0) return merged
     }
   } catch {
     // fallback memóriára
   }
 
   const memoryHits = await searchProductsInMemory(recommendOnly ? [] : keywords, take)
-  if (memoryHits.length > 0) return memoryHits
-  return searchProductsInMemory([], take)
+  if (memoryHits.length >= take) return memoryHits.slice(0, take)
+  const popularMemory = await searchProductsInMemory([], Math.max(take * 3, 9))
+  return mergeUnique(memoryHits, popularMemory)
 }
 
 /** OpenAI system prompt blokk a találatokhoz – az AI szövegesen is hivatkozhasson rájuk. */
@@ -601,22 +618,23 @@ export function buildRecommendedProductsChatBlock(
 
   return `
 [AJÁNLOTT TERMÉKEK A VÁSÁRLÓ KERESÉSÉHEZ]
-A katalógusból ezek a releváns termékek jöttek ki. A válaszod ALATT a chat felületen AUTOMATIKUSAN megjelennek az interaktív termékkártyák (kép, név, ár, kattintható link).
-SOHA ne mondd, hogy „nem tudok termékeket mutatni”, „itt nem tudok listázni”, vagy hogy csak szövegesen tudsz segíteni – a kártyák a te válaszod mellett megjelennek.
-Említsd meg röviden ezeket (vagy a legjobban illőket) név szerint, NE találj ki más terméket vagy árat.
-KÖTELEZŐ FORMÁTUM: minden tétel ÚJ SORON, üres sorral elválasztva, 2–4 barátságos emojival (🎁 ✨ 🏠 💚). Példa:
+A katalógusból ezek a releváns termékek jöttek ki (${products.length} db). A válaszod ALATT a chat felületen AUTOMATIKUSAN megjelennek az interaktív termékkártyák MINDEN lentebb listázott termékhez.
+SOHA ne mondd, hogy „nem tudok termékeket mutatni”.
+KÖTELEZŐ:
+- Pontosan ezt a ${products.length} terméket említsd meg, a KATALÓGUSBELI PONTOS NÉVVEL (ahogy alább szerepel).
+- Ne találj ki más nevet (pl. „kényelmes párna”, „otthoni dekoráció” tilos, ha nincs ilyen a listában).
+- A számozott listád hossza = ${products.length} (minden ajánlott termékhez egy tétel és egy kártya).
+- Minden tétel ÚJ SORON, üres sorral elválasztva, 2–4 barátságos emojival (🎁 ✨ 🏠 💚).
 
-Szia! 🎁 Íme három ötlet:
+Példa:
 
-1. ✨ Terméknév – egy rövid indok.
+Szia! 🎁 Íme ${products.length} szuper ötlet:
 
-2. 🏠 Terméknév – egy rövid indok.
+1. ✨ [1. termék pontos neve a listából] – rövid indok.
 
-3. 💚 Terméknév – egy rövid indok.
-
+2. 🏠 [2. termék pontos neve a listából] – rövid indok.
+${products.length >= 3 ? '\n3. 💚 [3. termék pontos neve a listából] – rövid indok.\n' : ''}
 Melyik tetszik?
-
-Ha egyik sem illik pontosan, mondd el őszintén, és kérdezz rá finoman, mire keres pontosan.
 
 ${lines.join('\n')}
 `.trim()
