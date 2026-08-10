@@ -7,8 +7,8 @@ import {
   ensureUnsubToken,
   marketingUnsubscribeUrl,
 } from '@/lib/marketing-consent'
+import { sendMailRequired } from '@/lib/mail'
 
-const RESEND_API = 'https://api.resend.com/emails'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://gulumen.hu'
 
 async function marketingFooter(email: string): Promise<{ html: string; text: string }> {
@@ -51,48 +51,16 @@ async function sendViaResend(params: {
   html: string
   text: string
 }): Promise<SendAbandonedCartOfferEmailResult> {
-  const apiKey = process.env.RESEND_API_KEY?.trim()
-  if (!apiKey) {
-    console.error(
-      '[abandoned-cart-email] RESEND_API_KEY nincs – e-mail nem küldve:',
-      params.to,
-      params.subject
-    )
-    console.info('[abandoned-cart-email] Plain text preview:\n', params.text)
+  const result = await sendMailRequired(params)
+  if (!result.ok) {
     return {
       ok: false,
-      error:
-        'RESEND_API_KEY nincs beállítva a Railway-en – az e-mail nem ment ki (a kupon létrejött).',
+      error: result.error.includes('RESEND_API_KEY')
+        ? 'RESEND_API_KEY nincs beállítva a Railway-en – az e-mail nem ment ki (a kupon létrejött).'
+        : result.error,
     }
   }
-
-  try {
-    const res = await fetch(RESEND_API, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        from: process.env.EMAIL_FROM || process.env.RESEND_FROM || 'Gulumen <onboarding@resend.dev>',
-        to: [params.to],
-        subject: params.subject,
-        html: params.html,
-        text: params.text,
-      }),
-    })
-    if (!res.ok) {
-      const err = await res.text()
-      console.error('[abandoned-cart-email] Resend error:', err)
-      return { ok: false, error: err }
-    }
-    console.info('[abandoned-cart-email] Sent offer to', params.to)
-    return { ok: true }
-  } catch (e) {
-    const err = e instanceof Error ? e.message : String(e)
-    console.error('[abandoned-cart-email] Send failed:', err)
-    return { ok: false, error: err }
-  }
+  return { ok: true }
 }
 
 export type SendAbandonedCartReminderEmailParams = {

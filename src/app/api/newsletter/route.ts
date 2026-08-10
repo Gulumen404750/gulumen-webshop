@@ -2,12 +2,11 @@ import { NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rate-limit'
 import { setMarketingOptIn } from '@/lib/marketing-consent'
 import { isDbConfigured } from '@/lib/prisma'
+import { isResendConfigured, sendMailRequired } from '@/lib/mail'
 
 /**
  * Hírlevél feliratkozás – MarketingConsent (pending) + double opt-in e-mail.
  */
-
-const RESEND_API = 'https://api.resend.com/emails'
 
 export async function POST(request: Request) {
   const limit = await rateLimit(request)
@@ -35,39 +34,30 @@ export async function POST(request: Request) {
       console.info('[newsletter] signup (no DB):', email)
     }
 
-    const apiKey = process.env.RESEND_API_KEY
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://gulumen.hu'
     const confirmUrl = `${appUrl}/api/newsletter/confirm?email=${encodeURIComponent(email.toLowerCase())}`
 
-    if (!apiKey) {
+    if (!isResendConfigured()) {
       if (isDbConfigured() && process.env.NODE_ENV !== 'production') {
         const { confirmMarketingOptIn } = await import('@/lib/marketing-consent')
         await confirmMarketingOptIn(email)
       }
       return NextResponse.json({
         ok: true,
-        message: 'Feliratkozás rögzítve. Ellenőrizd az e-mail fiókod a megerősítéshez (ha e-mail küldés be van állítva).',
+        message:
+          'Feliratkozás rögzítve. Ellenőrizd az e-mail fiókod a megerősítéshez (ha e-mail küldés be van állítva).',
       })
     }
 
-    const res = await fetch(RESEND_API, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        from: process.env.RESEND_FROM || process.env.EMAIL_FROM || 'Gulumen <onboarding@resend.dev>',
-        to: [email],
-        subject: 'Gulumen – Erősítsd meg a hírlevél feliratkozásod',
-        html: `<p>Köszönjük a feliratkozást! Kattints a linkre a megerősítéshez (dupla opt-in):</p><p><a href="${confirmUrl}">Megerősítem</a></p><p style="color:#666;font-size:12px;">Ez a megerősítő e-mail nem marketing levél. Ha nem te kérted, hagyd figyelmen kívül.</p>`,
-      }),
+    const result = await sendMailRequired({
+      to: email,
+      subject: 'Gulumen – Erősítsd meg a hírlevél feliratkozásod',
+      html: `<p>Köszönjük a feliratkozást! Kattints a linkre a megerősítéshez (dupla opt-in):</p><p><a href="${confirmUrl}">Megerősítem</a></p><p style="color:#666;font-size:12px;">Ez a megerősítő e-mail nem marketing levél. Ha nem te kérted, hagyd figyelmen kívül.</p>`,
     })
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
+    if (!result.ok) {
       return NextResponse.json(
-        { error: (err as { message?: string })?.message || 'A feliratkozás sikertelen.' },
+        { error: result.error || 'A feliratkozás sikertelen.' },
         { status: 500 }
       )
     }

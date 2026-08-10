@@ -5,8 +5,8 @@ import {
   ensureUnsubToken,
   marketingUnsubscribeUrl,
 } from '@/lib/marketing-consent'
+import { sendMailRequired } from '@/lib/mail'
 
-const RESEND_API = 'https://api.resend.com/emails'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.gulumen.com'
 
 async function marketingFooter(email: string): Promise<{ html: string; text: string }> {
@@ -74,41 +74,20 @@ export async function sendBirthdayCouponEmail(
     footer.text,
   ].join('\n')
 
-  const apiKey = process.env.RESEND_API_KEY?.trim()
-  if (!apiKey) {
-    console.error('[birthday-email] RESEND_API_KEY hiányzik – e-mail nem küldve:', params.to)
-    console.info('[birthday-email] Plain text preview:\n', text)
+  const result = await sendMailRequired({
+    to: params.to,
+    subject,
+    html,
+    text,
+  })
+  if (!result.ok) {
     return {
       ok: false,
-      error: 'RESEND_API_KEY nincs beállítva – az e-mail nem ment ki (a kupon létrejött).',
+      error:
+        result.error.includes('RESEND_API_KEY')
+          ? 'RESEND_API_KEY nincs beállítva – az e-mail nem ment ki (a kupon létrejött).'
+          : result.error,
     }
   }
-
-  try {
-    const res = await fetch(RESEND_API, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        from: process.env.EMAIL_FROM || process.env.RESEND_FROM || 'Gulumen <onboarding@resend.dev>',
-        to: [params.to],
-        subject,
-        html,
-        text,
-      }),
-    })
-    if (!res.ok) {
-      const err = await res.text()
-      console.error('[birthday-email] Resend error:', err)
-      return { ok: false, error: err }
-    }
-    console.info('[birthday-email] Sent to', params.to)
-    return { ok: true }
-  } catch (e) {
-    const err = e instanceof Error ? e.message : String(e)
-    console.error('[birthday-email] Send failed:', err)
-    return { ok: false, error: err }
-  }
+  return { ok: true }
 }

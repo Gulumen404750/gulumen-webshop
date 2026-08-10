@@ -7,8 +7,8 @@ import type { Order } from './orders'
 import { getOrderById, getOrdersByGroupId } from './orders'
 import { prisma, isDbConfigured } from './prisma'
 import { FREE_SHIPPING_THRESHOLD } from './checkout'
+import { sendMail } from './mail'
 
-const RESEND_API = 'https://api.resend.com/emails'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://gulumen.hu'
 const CONTACT_URL = `${APP_URL}/kapcsolat`
 const RETURNS_URL = `${APP_URL}/visszakuldes`
@@ -251,44 +251,9 @@ async function sendViaResend(params: {
   html: string
   text: string
 }): Promise<SendOrderConfirmationResult> {
-  const apiKey = process.env.RESEND_API_KEY?.trim()
-  if (!apiKey) {
-    console.info(
-      '[order-email] RESEND_API_KEY nincs – e-mail nem küldve, csak log:',
-      params.to,
-      params.subject
-    )
-    console.info('[order-email] Plain text preview:\n', params.text)
-    return { ok: true }
-  }
-
-  try {
-    const res = await fetch(RESEND_API, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        from: process.env.EMAIL_FROM || process.env.RESEND_FROM || 'Gulumen <onboarding@resend.dev>',
-        to: [params.to],
-        subject: params.subject,
-        html: params.html,
-        text: params.text,
-      }),
-    })
-    if (!res.ok) {
-      const err = await res.text()
-      console.error('[order-email] Resend error:', err)
-      return { ok: false, error: err }
-    }
-    console.info('[order-email] Sent confirmation to', params.to, params.subject)
-    return { ok: true }
-  } catch (e) {
-    const err = e instanceof Error ? e.message : String(e)
-    console.error('[order-email] Send failed:', err)
-    return { ok: false, error: err }
-  }
+  const result = await sendMail(params)
+  if (!result.ok) return { ok: false, error: result.error }
+  return { ok: true }
 }
 
 export type SendOrderConfirmationResult = { ok: true } | { ok: false; error: string }

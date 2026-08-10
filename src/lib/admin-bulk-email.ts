@@ -7,8 +7,7 @@ import {
   ensureUnsubToken,
   marketingUnsubscribeUrl,
 } from '@/lib/marketing-consent'
-
-const RESEND_API = 'https://api.resend.com/emails'
+import { sendMail } from '@/lib/mail'
 
 export type BulkEmailRecipient = {
   email: string
@@ -45,39 +44,9 @@ async function sendOne(params: {
   html: string
   text: string
 }): Promise<{ ok: true } | { ok: false; error: string }> {
-  const apiKey = process.env.RESEND_API_KEY?.trim()
-  if (!apiKey) {
-    console.info('[admin-bulk-email] RESEND_API_KEY nincs – log only:', params.to, params.subject)
-    console.info('[admin-bulk-email] Preview:\n', params.text)
-    return { ok: true }
-  }
-
-  try {
-    const res = await fetch(RESEND_API, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        from: process.env.EMAIL_FROM || process.env.RESEND_FROM || 'Gulumen <onboarding@resend.dev>',
-        to: [params.to],
-        subject: params.subject,
-        html: params.html,
-        text: params.text,
-      }),
-    })
-    if (!res.ok) {
-      const err = await res.text()
-      console.error('[admin-bulk-email] Resend error:', err)
-      return { ok: false, error: err }
-    }
-    return { ok: true }
-  } catch (e) {
-    const err = e instanceof Error ? e.message : String(e)
-    console.error('[admin-bulk-email] Send failed:', err)
-    return { ok: false, error: err }
-  }
+  const result = await sendMail(params)
+  if (!result.ok) return { ok: false, error: result.error }
+  return { ok: true }
 }
 
 export async function sendAdminBulkEmail(params: {
