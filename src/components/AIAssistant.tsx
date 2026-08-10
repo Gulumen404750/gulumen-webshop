@@ -389,11 +389,15 @@ function ChatProductRecommendations({
     return map
   }, [snippets])
 
-  const cards = productIds
+  const orderedIds = (
+    snippets && snippets.length > 0 ? snippets.map((s) => s.id) : productIds
+  ).filter((id, idx, arr) => id && arr.indexOf(id) === idx)
+
+  const cards = orderedIds
     .map((id) => {
+      const snip = snippetById.get(id)
       const full = getProductById(id)
       if (full) return { kind: 'full' as const, product: full }
-      const snip = snippetById.get(id)
       if (snip) return { kind: 'snip' as const, product: snip }
       return null
     })
@@ -438,7 +442,7 @@ function ChatProductCard({
   const priceHuf =
     saleActive && product.discountPriceHuf != null ? product.discountPriceHuf : product.priceHuf
   const hasDiscount = saleActive && product.discountPriceHuf != null
-  const productHref = `/products/${product.slug}`
+  const productHref = `/termek/${product.slug}`
   const canAdd = product.stock !== 0
 
   const handleAddToCart = (e: MouseEvent) => {
@@ -514,7 +518,7 @@ function ChatProductSnippetCard({
   const { addItem } = useCart()
   const { toast } = useToast()
   const { getProductById: getProductByIdFromContext } = useProducts()
-  const productHref = `/products/${product.slug}`
+  const productHref = `/termek/${product.slug}`
   const priceHuf =
     product.discountPriceHuf != null && product.discountPriceHuf < product.priceHuf
       ? product.discountPriceHuf

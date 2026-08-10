@@ -85,4 +85,52 @@ describe('buildRecommendedProductsChatBlock', () => {
     expect(block).toMatch(/ÚJ SORON/)
     expect(block).toMatch(/emoji/i)
   })
+
+  it('requires the model to list every recommended product by exact name', () => {
+    const products: ChatRecommendedProduct[] = [
+      {
+        id: 'p1',
+        slug: 'a',
+        name: 'Alpha',
+        priceHuf: 1000,
+        discountPriceHuf: null,
+        onSale: false,
+        saleStartAt: null,
+        saleEndAt: null,
+        image: '/a.jpg',
+        category: 'Otthon',
+      },
+      {
+        id: 'p2',
+        slug: 'b',
+        name: 'Beta',
+        priceHuf: 2000,
+        discountPriceHuf: null,
+        onSale: false,
+        saleStartAt: null,
+        saleEndAt: null,
+        image: '/b.jpg',
+        category: 'Otthon',
+      },
+      {
+        id: 'p3',
+        slug: 'c',
+        name: 'Gamma',
+        priceHuf: 3000,
+        discountPriceHuf: null,
+        onSale: false,
+        saleStartAt: null,
+        saleEndAt: null,
+        image: '/c.jpg',
+        category: 'Otthon',
+      },
+    ]
+    const block = buildRecommendedProductsChatBlock(products)
+    expect(block).toContain('3 db')
+    expect(block).toContain('listád hossza = 3')
+    expect(block).toContain('Alpha')
+    expect(block).toContain('Beta')
+    expect(block).toContain('Gamma')
+    expect(block).toMatch(/kényelmes párna/)
+  })
 })
