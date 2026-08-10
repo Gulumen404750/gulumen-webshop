@@ -19,6 +19,7 @@ import { useToast } from '@/context/ToastContext'
 import { getProductById as getProductByIdFromData, getProductName, type Product } from '@/lib/data'
 import { useSaleActive } from '@/hooks/useSaleActive'
 import type { Locale } from '@/i18n/locales'
+import { parseChatTextParts } from '@/lib/chat-message-format'
 
 type ChatProductSnippet = {
   id: string
@@ -276,7 +277,7 @@ export function AIAssistant() {
                           : 'bg-[var(--border)] text-foreground'
                       } ${m.escalate ? 'ring-2 ring-discount' : ''}`}
                     >
-                      {m.text}
+                      <ChatMessageBody text={m.text} />
                       {m.escalate && (
                         <p className="mt-2 text-xs opacity-90">{t('ai.escalateNote')}</p>
                       )}
@@ -346,6 +347,25 @@ export function AIAssistant() {
         </div>
       )}
     </>
+  )
+}
+
+function ChatMessageBody({ text }: { text: string }) {
+  const parts = parseChatTextParts(text)
+  return (
+    <div className="whitespace-pre-wrap break-words leading-relaxed">
+      {parts.map((part, idx) => {
+        if (part.type === 'break') return <br key={`br-${idx}`} />
+        if (part.type === 'bold') {
+          return (
+            <strong key={`b-${idx}`} className="font-semibold">
+              {part.value}
+            </strong>
+          )
+        }
+        return <span key={`t-${idx}`}>{part.value}</span>
+      })}
+    </div>
   )
 }
 

@@ -26,6 +26,7 @@ import {
   searchProductsForChat,
   type ChatRecommendedProduct,
 } from '@/lib/chat-product-search'
+import { formatChatAssistantText } from '@/lib/chat-message-format'
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'
 
@@ -128,7 +129,12 @@ export async function POST(request: Request) {
 
           if (res.ok && text) {
             const escalate = /emberi ügyintéző|továbbítom|chargeback|jogi ügy/i.test(text)
-            return chatJsonResponse({ text, escalate, productIds, products: recommendedProducts })
+            return chatJsonResponse({
+              text: formatChatAssistantText(text),
+              escalate,
+              productIds,
+              products: recommendedProducts,
+            })
           }
 
           if (!res.ok && res.status === 401) break
@@ -169,7 +175,7 @@ function chatJsonResponse(payload: {
     ? payload.productIds.filter((id) => typeof id === 'string' && id.length > 0).slice(0, 3)
     : []
   return NextResponse.json({
-    text: payload.text,
+    text: formatChatAssistantText(payload.text),
     escalate: !!payload.escalate,
     ...(productIds.length > 0
       ? {

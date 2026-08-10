@@ -82,5 +82,7 @@ describe('buildRecommendedProductsChatBlock', () => {
     expect(block).toMatch(/8[\u00a0 ]?990 Ft/)
     expect(block).toMatch(/SOHA ne mondd/i)
     expect(block).toMatch(/termékkárty/i)
+    expect(block).toMatch(/ÚJ SORON/)
+    expect(block).toMatch(/emoji/i)
   })
 })

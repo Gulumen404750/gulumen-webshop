@@ -547,12 +547,16 @@ export async function searchProductsForChat(
   if (!isProductSearchQuery(message)) return []
 
   const keywords = extractSearchKeywords(message)
+  const giftIntent =
+    /\b(ajándék|ajandek|gift|geschenk|születésnap|szuletesnap|ünnep|unnep|névnap|nevnap)\b/i.test(
+      message
+    )
   const vagueRecommendIntent =
     /\b(ajánl|javasol|recommend|empfehl|mit vegyek|what to buy)\b/i.test(message) &&
     keywords.every((k) =>
       /^(ajanl|javasol|recommend|empfehl|gift|ajandek|home|otthon)$/i.test(stripDiacritics(k))
     )
-  const recommendOnly = keywords.length === 0 || vagueRecommendIntent
+  const recommendOnly = keywords.length === 0 || vagueRecommendIntent || giftIntent
 
   try {
     if (isDbConfigured()) {
@@ -600,6 +604,18 @@ export function buildRecommendedProductsChatBlock(
 A katalógusból ezek a releváns termékek jöttek ki. A válaszod ALATT a chat felületen AUTOMATIKUSAN megjelennek az interaktív termékkártyák (kép, név, ár, kattintható link).
 SOHA ne mondd, hogy „nem tudok termékeket mutatni”, „itt nem tudok listázni”, vagy hogy csak szövegesen tudsz segíteni – a kártyák a te válaszod mellett megjelennek.
 Említsd meg röviden ezeket (vagy a legjobban illőket) név szerint, NE találj ki más terméket vagy árat.
+KÖTELEZŐ FORMÁTUM: minden tétel ÚJ SORON, üres sorral elválasztva, 2–4 barátságos emojival (🎁 ✨ 🏠 💚). Példa:
+
+Szia! 🎁 Íme három ötlet:
+
+1. ✨ Terméknév – egy rövid indok.
+
+2. 🏠 Terméknév – egy rövid indok.
+
+3. 💚 Terméknév – egy rövid indok.
+
+Melyik tetszik?
+
 Ha egyik sem illik pontosan, mondd el őszintén, és kérdezz rá finoman, mire keres pontosan.
 
 ${lines.join('\n')}
