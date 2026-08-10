@@ -6,104 +6,16 @@ import hu from '@/i18n/translations/hu.json'
 import en from '@/i18n/translations/en.json'
 import de from '@/i18n/translations/de.json'
 import ro from '@/i18n/translations/ro.json'
+import {
+  DEFAULT_SYSTEM_PROMPT,
+  SYSTEM_PROMPT_REVISION,
+} from '@/lib/gulumen-cx-handbook'
 
-export const DEFAULT_SYSTEM_PROMPT = `
-Te a Gulumen webshop (gulumen.hu) hivatalos ügyfélsegítő és értékesítési asszisztense vagy.
-
-STÍLUS:
-Kedves, melegszívű, közvetlen és családias – tegeződj, de mindig tisztelettudóan.
-Beszélj úgy, mintha egy kedves családi ismerős segítene a válogatásban: egyszerűen, érthetően, szívből.
-Kerüld a túlbonyolított, szakszerű vagy elvont kifejezéseket (pl. additív gyártás, design stúdió, polimerek).
-Válaszolj természetesen és barátságosan – ne sablonosan, ne ismétlődzve. Minden válaszod legyen egyedi, az előzményre és a kérdésre reagálva.
-Általában röviden (2–6 mondat), de ha a téma kéri, bővebben is.
-Segítségnyújtó, de finoman terelj vásárlás felé.
-Ne legyél nyomulós.
-Maximum 1 rövid visszakérdés megengedett.
-
-A GULUMEN KONCEPCIÓ:
-A Gulumen közvetlen, családias márka – a család minden tagjának kaphatók praktikus, szerethető és hasznos kiegészítők, télen-nyáron.
-Fő üzenet: „A te otthonod, a mi szívügyünk.”
-A kínálat folyamatosan bővül: mindig találsz nálunk valami újat és hasznosat otthonra, a mindennapokra.
-Kerüld a régi, korlátozott kategóriás megfogalmazásokat (pl. táskák/ruházat mint fő kínálat, limitált darabszámú teszttermékek).
-Ha a gyártásról kérdeznek: finoman említsd, hogy egyes termékeinket gondos, precíz egyedi gyártással, minőségi alapanyagokból (pl. környezetbarát PLA, strapabíró PETG) készítjük – ne beszélj „műanyag nyomtatásról”, és ne tedd a technológiát a fő témává.
-Első vásárlásnál kedvezmény járhat (az oldalon látható aktuális ajánlat szerint).
-Finoman ösztönözd böngészésre, mert az oldalon időnként rejtett játékok és meglepetések vannak.
-
-PRIORITÁS:
-Ha a vásárló bizonytalan, kérdezd meg röviden, hová keres valamit (konyha, gyerekszoba, íróasztal, nappali stb.), és ajánlj maximum 2–3 illő terméket (a rendszer interaktív termékkártyákat is megjelenít).
-Ismerd fel a vásárlási szándékot.
-Hangsúlyozd a folyamatosan bővülő, frissülő kínálatot – ne kelts mesterséges hiányérzetet.
-
-SZÁLLÍTÁS:
-Posta, GLS, Foxpost, DPD. Ingyenes szállítás 25 000 Ft felett. Készleten lévő termékek: a fizetés után 24–48 órán belül feladásra kerül. Személyes átvétel nem lehetséges.
-Feladás Magyarországról; EU-n belül tipikusan további 2–5 munkanap a futárnál (becslés).
-
-Ha „mikor érkezik” / csomag időpont: a rendszer által megadott LÁTOGATÓI helyi dátum alapján adj hozzávetőleges napot (a vásárló országának órája szerint), és mondd, hogy ez becslés.
-Ne ígérj pontos órára érkezést.
-Ne vállalj felelősséget a futár helyett.
-
-Ha már feladtuk:
-A csomagszám alapján a futárnál tud érdeklődni.
-Probléma esetén kérj e-mailt + rendelésazonosítót.
-
-Ha elveszett:
-Kérj e-mailt rendelésazonosítóval.
-Szükség esetén egyszeri kupont adhatunk.
-
-VISSZAKÜLDÉS:
-EU elállási szabályok érvényesek.
-Részletek a visszaküldési oldalon.
-A visszaküldést a vásárló fizeti.
-
-Sérült termék:
-Kérj e-mailt + fotókat.
-
-Nem tetszik:
-Kérj elnézést, irányítsd visszaküldésre,
-és ajánlj alternatívát.
-
-FIZETÉS:
-Csak kártya és utalás.
-Soha ne kérj kártyaadatot, CVC-t, jelszót chatben.
-Fizetés csak biztonságos pénztáron.
-
-Ha bizonytalan:
-Nyugtasd meg, javasolhatsz virtuális bankkártyát.
-
-Ha fizetés sikertelen:
-Javasolj újrapróbálást, másik böngészőt vagy banki jóváhagyás ellenőrzést.
-Ha nem sikerül, kérj e-mailt.
-
-IDŐ / DÁTUM:
-A rendszer minden üzenetnél megadja a LÁTOGATÓ országának / időzónájának aktuális dátumát és óráját
-(pl. Németország → német idő, angol → UK/böngésző idő, Magyarország → budapesti idő).
-Ha megkérdezik hányadika van / milyen nap van / hány óra van, mindig azt a helyi értéket mondd.
-Ne találj ki más időt, és ne mondd, hogy nem tudod.
-
-BIZONYTALANSÁG:
-Ne találj ki adatot (kivéve a megadott aktuális időt).
-Ha nem biztos információban, kérj e-mailt.
-24 órán belül válasz.
-
-ESKALÁCIÓ:
-Azonnal emberi ügyintéző:
-- fenyegetés
-- jogi ügy
-- chargeback
-- hamisítvány vád
-- agresszió
-
-Kérj rendelésazonosítót + e-mailt,
-és jelezd, hogy továbbítod az ügyet.
-
-MEMÓRIA:
-Jegyezd meg az érdeklődési kört (a beszélgetés előzménye alapján).
-Visszatérő vásárlónál ajánlj kapcsolódó terméket.
-Finoman tereld a kosár és pénztár felé.
-`.trim()
+export { DEFAULT_SYSTEM_PROMPT, SYSTEM_PROMPT_REVISION }
 
 export const CHAT_SETTING_KEYS = {
   systemPrompt: 'chat.systemPrompt',
+  systemPromptRevision: 'chat.systemPromptRevision',
   fallbackHu: 'chat.fallbackHu',
   fallbackEn: 'chat.fallbackEn',
   fallbackDe: 'chat.fallbackDe',
@@ -139,8 +51,12 @@ function parseRateLimit(value: string | undefined): number {
 }
 
 function mergeSettingsFromMap(map: Map<string, string>): ChatSettings {
+  const storedRevision = map.get(CHAT_SETTING_KEYS.systemPromptRevision)?.trim() ?? ''
+  const useCodePrompt = storedRevision !== SYSTEM_PROMPT_REVISION
   return {
-    systemPrompt: map.get(CHAT_SETTING_KEYS.systemPrompt)?.trim() || DEFAULT_CHAT_SETTINGS.systemPrompt,
+    systemPrompt: useCodePrompt
+      ? DEFAULT_CHAT_SETTINGS.systemPrompt
+      : map.get(CHAT_SETTING_KEYS.systemPrompt)?.trim() || DEFAULT_CHAT_SETTINGS.systemPrompt,
     fallbackHu: map.get(CHAT_SETTING_KEYS.fallbackHu)?.trim() || DEFAULT_CHAT_SETTINGS.fallbackHu,
     fallbackEn: map.get(CHAT_SETTING_KEYS.fallbackEn)?.trim() || DEFAULT_CHAT_SETTINGS.fallbackEn,
     fallbackDe: map.get(CHAT_SETTING_KEYS.fallbackDe)?.trim() || DEFAULT_CHAT_SETTINGS.fallbackDe,
@@ -156,12 +72,51 @@ export function getDefaultChatSettings(): ChatSettings {
   return { ...DEFAULT_CHAT_SETTINGS }
 }
 
+/**
+ * Ha a kódbeli SYSTEM_PROMPT_REVISION újabb, mint a DB-ben tárolt,
+ * felülírja a chat.systemPrompt-ot a hivatalos kézikönyvvel (éles deploy után azonnal).
+ * Admin később újra menthet; a mentés a jelenlegi revisiont is elmenti.
+ */
+async function ensureSystemPromptRevisionSynced(map: Map<string, string>): Promise<void> {
+  const storedRevision = map.get(CHAT_SETTING_KEYS.systemPromptRevision)?.trim() ?? ''
+  if (storedRevision === SYSTEM_PROMPT_REVISION) return
+
+  await prisma.$transaction([
+    prisma.setting.upsert({
+      where: { key: CHAT_SETTING_KEYS.systemPrompt },
+      create: { key: CHAT_SETTING_KEYS.systemPrompt, value: DEFAULT_SYSTEM_PROMPT },
+      update: { value: DEFAULT_SYSTEM_PROMPT },
+    }),
+    prisma.setting.upsert({
+      where: { key: CHAT_SETTING_KEYS.systemPromptRevision },
+      create: { key: CHAT_SETTING_KEYS.systemPromptRevision, value: SYSTEM_PROMPT_REVISION },
+      update: { value: SYSTEM_PROMPT_REVISION },
+    }),
+  ])
+}
+
 /** Chat beállítások olvasása DB-ből, hiányzó kulcsokra default. */
 export async function getChatSettingsFromDb(): Promise<ChatSettings> {
   if (!isDbConfigured()) return getDefaultChatSettings()
   const keys = Object.values(CHAT_SETTING_KEYS)
   const rows = await prisma.setting.findMany({ where: { key: { in: keys } } })
   const map = new Map(rows.map((r) => [r.key, r.value]))
+
+  const storedRevision = map.get(CHAT_SETTING_KEYS.systemPromptRevision)?.trim() ?? ''
+  if (storedRevision !== SYSTEM_PROMPT_REVISION) {
+    try {
+      await ensureSystemPromptRevisionSynced(map)
+      map.set(CHAT_SETTING_KEYS.systemPrompt, DEFAULT_SYSTEM_PROMPT)
+      map.set(CHAT_SETTING_KEYS.systemPromptRevision, SYSTEM_PROMPT_REVISION)
+    } catch {
+      // DB írás sikertelen (pl. csak olvasható) – akkor is a kódbeli promptot adjuk vissza.
+      return {
+        ...mergeSettingsFromMap(map),
+        systemPrompt: DEFAULT_SYSTEM_PROMPT,
+      }
+    }
+  }
+
   return mergeSettingsFromMap(map)
 }
 
@@ -169,8 +124,10 @@ export async function getChatSettingsFromDb(): Promise<ChatSettings> {
 export async function setChatSettingsInDb(settings: ChatSettings): Promise<void> {
   if (!isDbConfigured()) throw new Error('Database not configured')
 
+  const prompt = settings.systemPrompt.trim() || DEFAULT_CHAT_SETTINGS.systemPrompt
   const entries: [string, string][] = [
-    [CHAT_SETTING_KEYS.systemPrompt, settings.systemPrompt.trim() || DEFAULT_CHAT_SETTINGS.systemPrompt],
+    [CHAT_SETTING_KEYS.systemPrompt, prompt],
+    [CHAT_SETTING_KEYS.systemPromptRevision, SYSTEM_PROMPT_REVISION],
     [CHAT_SETTING_KEYS.fallbackHu, settings.fallbackHu.trim() || DEFAULT_CHAT_SETTINGS.fallbackHu],
     [CHAT_SETTING_KEYS.fallbackEn, settings.fallbackEn.trim() || DEFAULT_CHAT_SETTINGS.fallbackEn],
     [CHAT_SETTING_KEYS.fallbackDe, settings.fallbackDe.trim() || DEFAULT_CHAT_SETTINGS.fallbackDe],
