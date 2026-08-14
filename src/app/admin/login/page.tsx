@@ -3,7 +3,10 @@
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import '@/lib/admin-fetch'
+import { RecaptchaNotice } from '@/components/RecaptchaNotice'
 import { readAdminPublicBase } from '@/lib/admin-public-base'
+import { getRecaptchaToken } from '@/lib/recaptcha-browser'
+import { RECAPTCHA_ACTIONS } from '@/lib/recaptcha-constants'
 import { safeAdminReturnPath, slugFromPublicBase } from '@/lib/admin-url'
 
 type LoginStep = 'key' | 'totp' | 'setup'
@@ -40,10 +43,11 @@ export default function AdminLoginPage() {
     setError('')
     setLoading(true)
     try {
+      const captchaToken = await getRecaptchaToken(RECAPTCHA_ACTIONS.adminLogin)
       const res = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key }),
+        body: JSON.stringify({ key, captchaToken }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -150,6 +154,7 @@ export default function AdminLoginPage() {
           >
             {loading ? 'Belépés…' : 'Tovább'}
           </button>
+          <RecaptchaNotice />
         </form>
       ) : step === 'setup' ? (
         <form onSubmit={handleSetupSubmit} className="w-full max-w-sm space-y-4">
@@ -211,6 +216,7 @@ export default function AdminLoginPage() {
           >
             ← Vissza a kulcshoz
           </button>
+          <RecaptchaNotice />
         </form>
       ) : (
         <form onSubmit={handleTotpSubmit} className="w-full max-w-sm space-y-4">

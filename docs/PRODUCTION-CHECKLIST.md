@@ -28,6 +28,7 @@ Biztonsági audit alapján a következők kötelezőek éles környezetben.
 - [ ] `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` – kártyás fizetés
 - [ ] `RESEND_API_KEY` – hírlevél / e-mail küldés
 - [ ] `ADMIN_EMAIL` – gyanús belépés / fiókzárolás riasztás (+ callback e-mail)
+- [ ] `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` + `RECAPTCHA_SECRET_KEY` – reCAPTCHA v3 a belépésnél
 
 ## .env.example
 

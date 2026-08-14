@@ -4,9 +4,10 @@
 
 export function buildContentSecurityPolicy(isDev = process.env.NODE_ENV !== 'production'): string {
   // Next.js webpack HMR / source maps developmentben eval-t használhat.
+  const recaptchaHosts = 'https://www.google.com https://www.gstatic.com https://www.recaptcha.net'
   const scriptSrc = isDev
-    ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://ajax.googleapis.com"
-    : "script-src 'self' 'unsafe-inline' https://ajax.googleapis.com"
+    ? `script-src 'self' 'unsafe-inline' 'unsafe-eval' https://ajax.googleapis.com ${recaptchaHosts}`
+    : `script-src 'self' 'unsafe-inline' https://ajax.googleapis.com ${recaptchaHosts}`
 
   return [
     "default-src 'self'",
@@ -15,6 +16,7 @@ export function buildContentSecurityPolicy(isDev = process.env.NODE_ENV !== 'pro
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
     "connect-src 'self' https:",
+    "frame-src 'self' https://www.google.com https://www.recaptcha.net",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",

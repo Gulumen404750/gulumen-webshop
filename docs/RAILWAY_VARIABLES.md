@@ -52,6 +52,8 @@ Ezeket a változókat állítsd be a **Railway → Project → Variables** felü
 | LOG_LEVEL | Pl. `info` vagy `debug` |
 | ADMIN_ALLOWED_IPS | Admin IP allowlist (vesszővel). Üresen: nincs IP-szűrés |
 | ADMIN_URL_SLUG | Rejtett admin útvonal (pl. `openssl rand -hex 8`). Belépés: `/{slug}/login`. Üresen: `/admin` |
+| NEXT_PUBLIC_RECAPTCHA_SITE_KEY | reCAPTCHA v3 site key (belépés). Üresen: captcha ki |
+| RECAPTCHA_SECRET_KEY | reCAPTCHA v3 secret. A site key-jel együtt kell |
 
 ### Railway Cron (külső / platform cron)
 
