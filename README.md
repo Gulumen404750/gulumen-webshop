@@ -16,13 +16,15 @@ Open [http://localhost:3000](http://localhost:3000).
 
 - **Vulnerability reports:** [SECURITY.md](SECURITY.md) (private GitHub advisory or `info@gulumen.hu` — not public issues).
 - **Admin operator rules:** [docs/ADMIN-BIZTONSAGI-SZABALYZAT.md](docs/ADMIN-BIZTONSAGI-SZABALYZAT.md) (API key, 2FA, IP allowlist, secret rotation).
+- **Staging gate:** [docs/STAGING.md](docs/STAGING.md) (admin/auth ne egyből a www-re; éles `master` → gulumen-webshop változatlan).
 
 ## Git & deploy branch
 
-- **Fejlesztési branch:** `master` (ez az alapértelmezett; nincs külön `main` deploy ág).
-- **Deploy forrás:** push a `master`-re → Railway deploy a **gulumen-webshop** service-re.
-- **GitHub Actions:** `.github/workflows/railway-deploy.yml` – csak `master` push-ra fut.
-- **Railway:** Settings → Source → branch **`master`**.
+- **Fejlesztési / éles Source:** `master` (Railway **gulumen-webshop** → `www.gulumen.com`).
+- **Deploy forrás:** push a `master`-re → Railway deploy a **gulumen-webshop** service-re. Ez **változatlan**.
+- **GitHub Actions (éles, opcionális CLI):** `.github/workflows/railway-deploy.yml` – `master` és `main` push; token nélkül kihagyja a CLI-t, a Railway Source akkor is deployol.
+- **Railway:** Settings → Source → branch **`master`**. Ne állítsd `staging`-re.
+- **Staging (opcionális kapu):** admin/auth először a `staging` ágra / **`gulumen-webshop-staging`** service-re, saját DB-vel és titkokkal. Lépések: [docs/STAGING.md](docs/STAGING.md).
 
 ## Railway deploy (www.gulumen.com)
 

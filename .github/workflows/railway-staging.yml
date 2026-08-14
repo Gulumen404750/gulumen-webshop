@@ -1,0 +1,47 @@
+# Opcionális CLI deploy: gulumen-webshop-staging, csak a `staging` ágra.
+#
+# NEM érinti a gulumen-webshop service-t és a www.gulumen.com-ot.
+# Elsődleges út: Railway Dashboard → gulumen-webshop-staging → Source → branch staging.
+# Lépések: docs/STAGING.md
+#
+# Token: RAILWAY_TOKEN_STAGING, vagy fallback a repo RAILWAY_TOKEN (project token).
+# Token nélkül a job nem bukik — a Railway Source akkor is deployol, ha be van kötve.
+name: Deploy gulumen-webshop-staging
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check Railway token
+        id: token
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING || secrets.RAILWAY_TOKEN }}
+        run: |
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "has_token=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Nincs RAILWAY_TOKEN_STAGING / RAILWAY_TOKEN – CLI kihagyva."
+            echo "A gulumen-webshop-staging service GitHub Source-ja (branch: staging)"
+            echo "akkor is automatikusan deployol, ha a Dashboardon be van kötve."
+            echo "Ez a workflow soha nem deployol a gulumen-webshop (www) service-re."
+            exit 0
+          fi
+          echo "has_token=true" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy staging via Railway CLI
+        if: steps.token.outputs.has_token == 'true'
+        uses: docker://ghcr.io/railwayapp/cli:latest
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING || secrets.RAILWAY_TOKEN }}
+        with:
+          args: >-
+            up --service gulumen-webshop-staging --ci -y
+            -m "GitHub Actions staging ${{ github.sha }}"

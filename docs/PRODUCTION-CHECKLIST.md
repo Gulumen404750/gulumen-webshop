@@ -33,6 +33,7 @@ Irányelvek: [SECURITY.md](../SECURITY.md) (sebezhetőség-bejelentés) · [Admi
 - [ ] `RESEND_API_KEY` – hírlevél / e-mail küldés
 - [ ] `ADMIN_EMAIL` – gyanús belépés / fiókzárolás riasztás (+ callback e-mail)
 - [ ] `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` + `RECAPTCHA_SECRET_KEY` – reCAPTCHA v3 a belépésnél
+- [ ] Admin / auth kód: először **staging** (`gulumen-webshop-staging`, saját `ADMIN_API_KEY` / `JWT_SECRET` / DB), utána `master` → www — [docs/STAGING.md](STAGING.md)
 
 ## .env.example
 
