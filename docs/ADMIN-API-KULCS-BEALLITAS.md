@@ -72,4 +72,6 @@ Másold ki a generált értéket – ezt írod be az **=` után** (helyi) vagy a
 
 A `.env` és `.env.local` ne kerüljön gitbe. Railway-n a Value csak a dashboardon látszik, ne írd be a kódba.
 
+Elfelejtett belépés: állíts be admin jelszót a Beállításokban, majd a login „Elfelejtett jelszó” kétlépcsős folyamatát használd (e-mail token + TOTP). A nyers `ADMIN_API_KEY` **nem** megy e-mailben, és nem kell Railway Variables-t cserélni a helyreállításhoz.
+
 Üzemeltetési szabályok (2FA, IP-lista, kulcscsere, incidens): [Admin biztonsági szabályzat](ADMIN-BIZTONSAGI-SZABALYZAT.md). Sebezhetőség-bejelentés: [SECURITY.md](../SECURITY.md).

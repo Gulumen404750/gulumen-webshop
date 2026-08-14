@@ -74,7 +74,9 @@ describe('isAdminIpRestrictedPath', () => {
   it('covers admin UI and admin API', () => {
     expect(isAdminIpRestrictedPath('/admin')).toBe(true)
     expect(isAdminIpRestrictedPath('/admin/login')).toBe(true)
+    expect(isAdminIpRestrictedPath('/admin/reset')).toBe(true)
     expect(isAdminIpRestrictedPath('/api/admin/login')).toBe(true)
+    expect(isAdminIpRestrictedPath('/api/admin/reset/request')).toBe(true)
     expect(isAdminIpRestrictedPath('/api/admin/products')).toBe(true)
     expect(isAdminIpRestrictedPath('/api/products')).toBe(false)
     expect(isAdminIpRestrictedPath('/')).toBe(false)

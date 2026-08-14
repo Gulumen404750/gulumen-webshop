@@ -61,7 +61,7 @@ function withAdminHeaders(response: NextResponse): NextResponse {
 /**
  * Security middleware – minden route-on fut.
  * Rejtett admin: ADMIN_URL_SLUG → /{slug} és /api/{slug}/* ; /admin session nélkül 404.
- * /{slug}/* (kivéve login) védve: aláírt admin JWT cookie.
+ * /{slug}/* (kivéve login / reset) védve: aláírt admin JWT cookie.
  * Admin UI/API: IP whitelist + (mutáló API) CSRF.
  */
 export async function middleware(request: NextRequest) {

@@ -15,6 +15,7 @@ export const ADMIN_URL_RESERVED_SLUGS = new Set([
   'api',
   'auth',
   'login',
+  'reset',
   'logout',
   'dashboard',
   'akciok',
@@ -148,13 +149,19 @@ function restAfterPrefix(pathname: string, prefix: string): string | null {
 }
 
 function isUiLogin(internalPath: string): boolean {
-  return internalPath === `${CANONICAL_ADMIN_UI_PREFIX}/login`
+  return (
+    internalPath === `${CANONICAL_ADMIN_UI_PREFIX}/login` ||
+    internalPath === `${CANONICAL_ADMIN_UI_PREFIX}/reset` ||
+    internalPath.startsWith(`${CANONICAL_ADMIN_UI_PREFIX}/reset/`)
+  )
 }
 
 function isApiLogin(internalPath: string): boolean {
   return (
     internalPath === `${CANONICAL_ADMIN_API_PREFIX}/login` ||
-    internalPath === `${CANONICAL_ADMIN_API_PREFIX}/2fa/verify-login`
+    internalPath === `${CANONICAL_ADMIN_API_PREFIX}/2fa/verify-login` ||
+    internalPath === `${CANONICAL_ADMIN_API_PREFIX}/reset/request` ||
+    internalPath === `${CANONICAL_ADMIN_API_PREFIX}/reset/confirm`
   )
 }
 
@@ -221,7 +228,11 @@ export function isAdminLoginPathname(pathname: string, slug: string | null = get
   const match = classifyAdminPath(pathname, slug)
   if (match.kind === 'ui' && match.isLogin) return true
   const parts = pathname.split('/').filter(Boolean)
-  return parts.length === 2 && parts[1] === 'login' && Boolean(parseAdminUrlSlug(parts[0]))
+  return (
+    parts.length === 2 &&
+    (parts[1] === 'login' || parts[1] === 'reset') &&
+    Boolean(parseAdminUrlSlug(parts[0]))
+  )
 }
 
 export type CanonicalAdminDecision = 'allow' | 'redirect-public' | 'hide' | 'not-admin'

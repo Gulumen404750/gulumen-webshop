@@ -1,5 +1,6 @@
 import AdminSecurityPolicy from './AdminSecurityPolicy'
 import DealPopupSettings from './DealPopupSettings'
+import PasswordSettings from './PasswordSettings'
 import TwoFactorSettings from './TwoFactorSettings'
 
 export default function AdminSettingsPage() {
@@ -26,6 +27,7 @@ export default function AdminSettingsPage() {
         </ul>
       </section>
       <AdminSecurityPolicy />
+      <PasswordSettings />
       <TwoFactorSettings />
       <DealPopupSettings />
       <p className="text-sm text-muted">

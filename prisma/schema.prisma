@@ -315,13 +315,21 @@ model LoyaltyRecord {
 
 /// Singleton admin fiók (közös ADMIN_API_KEY) – Google Authenticator TOTP 2FA.
 model Admin {
-  id                 String   @id @default("admin")
-  totpSecret         String?
+  id                     String    @id @default("admin")
+  totpSecret             String?
   /// Újrapárosítás: az új secret addig itt van, amíg a verify-setup meg nem erősíti.
-  pendingTotpSecret  String?
-  isTwoFactorEnabled Boolean  @default(false)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  pendingTotpSecret      String?
+  isTwoFactorEnabled     Boolean   @default(false)
+  /// Bcrypt hash – resetelhető belépési jelszó. A nyers ADMIN_API_KEY nem kerül ide.
+  passwordHash           String?
+  passwordSetAt          DateTime?
+  /// SHA-256 a nyers reset tokenről; a nyers érték csak az e-mailben van.
+  passwordResetTokenHash String?
+  passwordResetExpiresAt DateTime?
+  /// Jelszócsere / reset után a JWT `ep` claimnek ezzel kell egyeznie.
+  sessionEpoch           Int       @default(0)
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 }
 
 model AdminAction {

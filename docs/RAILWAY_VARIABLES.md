@@ -33,7 +33,7 @@ Ezeket a változókat állítsd be a **Railway → Project → Variables** felü
 | Változó | Használat |
 |--------|-----------|
 | RESEND_API_KEY | Email küldés (rendelés, newsletter, callback, voice summary) |
-| ADMIN_EMAIL | Címzett a callback/voice emailnek **és** a gyanús belépés / fiókzárolás riasztásnak |
+| ADMIN_EMAIL | Címzett a callback/voice emailnek, a gyanús belépés / fiókzárolás riasztásnak, **és az admin jelszó-reset linknek** (a nyers `ADMIN_API_KEY` soha nem megy e-mailben) |
 | EMAIL_FROM / RESEND_FROM | Feladó cím (alap: `Gulumen <noreply@gulumen.com>`) |
 | OPENAI_API_KEY | AI chat / voice asszisztens |
 | VOICE_AGENT_WEBHOOK_SECRET | Voice agent webhook biztonság |

@@ -12,7 +12,8 @@ Ez a dokumentum **kötelező** mindenki számára, aki admin kulcsot, Railway Va
 ## 1. Ki léphet be
 
 - Csak a webshop üzemeltetői. Nincs külön „vendég admin”, demo kulcs vagy megosztott jelszó chatben.
-- Egyetlen belépési titok van: a Railway / env **`ADMIN_API_KEY`**. Ezt **ne** tedd gitbe, screenshotba, ticketbe, Slack/Discord üzenetbe, ügyfélszolgálati válaszba.
+- Belépési titok: a Railway / env **`ADMIN_API_KEY`** (vészhelyzeti) **és** opcionális DB-jelszó (Beállítások). A nyers kulcsot **ne** tedd gitbe, screenshotba, ticketbe, Slack/Discord üzenetbe, ügyfélszolgálati válaszba, és **ne küldd e-mailben**.
+- Elfelejtett jelszó: kétlépcsős visszaállítás (15 perces e-mail token + TOTP). Ehhez **`ADMIN_EMAIL`** + **`RESEND_API_KEY`** és bekapcsolt 2FA kell — nem kell Railway env-csere.
 - Élesben a kulcs legalább **32 véletlen karakter** (`openssl rand -hex 32`). Ugyanaz a kulcs ne legyen a fejlesztői `.env.local`-ban és a production Variables-ben, ha a gép nem megbízható.
 - A nyers kulcs soha nem jelenhet meg a dashboardon. A Beállítások oldal csak annyit jelezhet: be van-e állítva.
 
@@ -43,6 +44,9 @@ Az admin süti **aláírt JWT**. HMAC: **`JWT_SECRET`** (vagy `NEXTAUTH_SECRET`)
 |-------------|--------|
 | `JWT_SECRET` | Minden admin session érvénytelen (aláírás nem stimmel). |
 | `ADMIN_API_KEY` | A már kiadott sütik `sv` claimje nem stimmel → **kiléptetés**. Nem kell a JWT_SECRET-et is cserélni, de szivárgásnál **mindkettőt** cseréld. |
+| Admin jelszó csere / reset | A JWT `ep` (session epoch) nő → a régi sütik érvénytelenek (Node mindig; Edge Redis mellett). |
+
+**Kulcscsere menete (szivárgás vagy rutin):**
 
 **Kulcscsere menete (szivárgás vagy rutin):**
 

@@ -31,7 +31,8 @@ Irányelvek: [SECURITY.md](../SECURITY.md) (sebezhetőség-bejelentés) · [Admi
 - [ ] `OPENAI_API_KEY` – ha az AI chat asszisztens valódi válaszokat ad
 - [ ] `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` – kártyás fizetés
 - [ ] `RESEND_API_KEY` – hírlevél / e-mail küldés
-- [ ] `ADMIN_EMAIL` – gyanús belépés / fiókzárolás riasztás (+ callback e-mail)
+- [ ] `ADMIN_EMAIL` – gyanús belépés / fiókzárolás riasztás, callback, **és admin jelszó-visszaállítás**
+- [ ] Admin jelszó beállítva a Beállításokban (reset e-mail token + TOTP; nem csak Railway env-csere)
 - [ ] `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` + `RECAPTCHA_SECRET_KEY` – reCAPTCHA v3 a belépésnél
 
 ## .env.example

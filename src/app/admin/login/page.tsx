@@ -7,7 +7,7 @@ import { RecaptchaNotice } from '@/components/RecaptchaNotice'
 import { readAdminPublicBase } from '@/lib/admin-public-base'
 import { getRecaptchaToken } from '@/lib/recaptcha-browser'
 import { RECAPTCHA_ACTIONS } from '@/lib/recaptcha-constants'
-import { safeAdminReturnPath, slugFromPublicBase } from '@/lib/admin-url'
+import { publicAdminUiPathFromBase, safeAdminReturnPath, slugFromPublicBase } from '@/lib/admin-url'
 
 type LoginStep = 'key' | 'totp' | 'setup'
 
@@ -22,6 +22,7 @@ export default function AdminLoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const from = safeAdminReturnPath(searchParams.get('from'), slugFromPublicBase(readAdminPublicBase()))
+  const resetHref = publicAdminUiPathFromBase('/admin/reset', readAdminPublicBase())
 
   async function startEnrollment() {
     const res = await fetch('/api/admin/2fa/setup', {
@@ -130,11 +131,12 @@ export default function AdminLoginPage() {
         <form onSubmit={handleKeySubmit} className="w-full max-w-sm space-y-4">
           <h1 className="text-xl font-semibold text-foreground">Admin belépés</h1>
           <p className="text-sm text-muted">
-            Az API kulcs után Google Authenticator (TOTP) kód kell. A kulcs önmagában nem elég.
+            API kulcs vagy admin jelszó után Google Authenticator (TOTP) kód kell. A kulcs önmagában
+            nem elég.
           </p>
           <div>
             <label htmlFor="admin-key" className="block text-sm font-medium text-foreground mb-1">
-              API kulcs
+              API kulcs vagy jelszó
             </label>
             <input
               id="admin-key"
@@ -142,7 +144,7 @@ export default function AdminLoginPage() {
               value={key}
               onChange={(e) => setKey(e.target.value)}
               className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
-              placeholder="ADMIN_API_KEY"
+              placeholder="ADMIN_API_KEY vagy jelszó"
               autoComplete="off"
             />
           </div>
@@ -154,6 +156,11 @@ export default function AdminLoginPage() {
           >
             {loading ? 'Belépés…' : 'Tovább'}
           </button>
+          <p className="text-center text-sm">
+            <a href={resetHref} className="text-muted hover:text-foreground underline">
+              Elfelejtett jelszó
+            </a>
+          </p>
           <RecaptchaNotice />
         </form>
       ) : step === 'setup' ? (

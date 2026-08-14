@@ -24,11 +24,12 @@ import {
 } from '@/lib/admin-login-lockout'
 import { getClientIp } from '@/lib/request-ip'
 import { RECAPTCHA_ACTIONS, verifyRecaptchaToken } from '@/lib/recaptcha'
+import { getAdminPasswordState, verifyAdminPassword } from '@/lib/admin-password'
 
 /**
  * POST /api/admin/login
- * Body: { key: string }.
- * A kulcs önmagában soha nem ad teljes admin sessiont: csak ideiglenes 2FA pending tokent.
+ * Body: { key?: string, password?: string, captchaToken? }.
+ * A kulcs vagy a DB-jelszó önmagában soha nem ad teljes admin sessiont: csak ideiglenes 2FA pending tokent.
  * Ha a 2FA már be van kapcsolva → TOTP kód. Ha még nincs → első Authenticator párosítás.
  */
 export async function POST(request: Request) {
@@ -61,8 +62,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
   }
 
-  const body = (await request.json().catch(() => ({}))) as { key?: unknown; captchaToken?: unknown }
+  const body = (await request.json().catch(() => ({}))) as {
+    key?: unknown
+    password?: unknown
+    captchaToken?: unknown
+  }
   const key = typeof body.key === 'string' ? body.key : ''
+  const password = typeof body.password === 'string' ? body.password : ''
+  const secret = key || password
   const captcha = await verifyRecaptchaToken({
     token: body.captchaToken,
     action: RECAPTCHA_ACTIONS.adminLogin,
@@ -96,7 +103,23 @@ export async function POST(request: Request) {
     )
   }
 
-  if (!secureCompare(key, adminKey)) {
+  if (!secret) {
+    return NextResponse.json({ error: 'Jelszó vagy API kulcs szükséges.' }, { status: 400 })
+  }
+
+  let authenticated = secureCompare(secret, adminKey)
+  if (!authenticated) {
+    try {
+      const passwordState = await getAdminPasswordState()
+      if (passwordState.passwordHash) {
+        authenticated = await verifyAdminPassword(secret, passwordState.passwordHash)
+      }
+    } catch (err) {
+      logger.error({ err }, 'admin login password lookup failed')
+    }
+  }
+
+  if (!authenticated) {
     const lock = await recordAdminLoginFailure(request)
     if (lock.locked) {
       await logAdminAction({
@@ -131,9 +154,9 @@ export async function POST(request: Request) {
       action: 'login',
       success: false,
       request,
-      details: { reason: 'invalid_key' },
+      details: { reason: 'invalid_credentials' },
     })
-    return NextResponse.json({ error: 'Hibás API kulcs.' }, { status: 401 })
+    return NextResponse.json({ error: 'Hibás belépési adat.' }, { status: 401 })
   }
 
   await clearAdminLoginLockout(request)

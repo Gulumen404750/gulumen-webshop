@@ -85,7 +85,8 @@ DATABASE_URL="postgresql://user:password@host:5432/dbname?sslmode=require"
 - **Telegram:** Hívás összefoglaló értesítés a `/api/call-summary` után. Bot token + chat ID (ahova küldjük az üzenetet).
 
 ### ADMIN_EMAIL
-- **Értesítések:** Visszahívás kérés, hívás összefoglaló, **és gyanús belépés / fiókzárolás** e-mail címzettje. Ha nincs, e-mail nem kerül kiküldésre.
+- **Értesítések:** Visszahívás kérés, hívás összefoglaló, **gyanús belépés / fiókzárolás**, **és admin jelszó-visszaállítás** e-mail címzettje. Ha nincs, a reset kérés általános OK-t ad, de levél nem megy ki.
+- A reset levél **15 perces linket** tartalmaz, **soha nem a nyers `ADMIN_API_KEY`-t**. A 2. lépés a TOTP.
 
 ### CRON_SECRET (napi adatmegőrzési job)
 - **Cron:** A `GET /api/cron/data-retention` (Vercel Cron, napi 1×) ezt várja: `Authorization: Bearer <CRON_SECRET>`. Ha nincs vagy nem egyezik, 401.
@@ -108,6 +109,6 @@ DATABASE_URL="postgresql://user:password@host:5432/dbname?sslmode=require"
 | VOICE_AGENT_WEBHOOK_SECRET  | Voice-hoz| call-summary + ai-voice hitelesítés. |
 | OPENAI_API_KEY              | Nem      | ai-voice rövid válaszok (ha nincs: fallback szöveg). |
 | TELEGRAM_BOT_TOKEN / CHAT_ID| Nem      | Hívás összefoglaló Telegramra. |
-| ADMIN_EMAIL                 | Nem      | Callback + call-summary e-mail címzett. |
+| ADMIN_EMAIL                 | Nem      | Callback + riasztás + admin jelszó-reset címzett. |
 | CRON_SECRET                 | Cron-hoz | Napi data-retention job (Vercel Cron). |
 | RESEND_API_KEY              | E-mailhez| Callback + call-summary értesítés (Resend). |
