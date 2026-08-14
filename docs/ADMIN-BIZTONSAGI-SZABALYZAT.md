@@ -34,10 +34,19 @@ Ez a dokumentum **kötelező** mindenki számára, aki admin kulcsot, Railway Va
 
 ## 3. IP-allowlist
 
-- Élesben add meg az **`ADMIN_ALLOWED_IPS`** változót (vesszővel elválasztott IPv4 / CIDR, pl. iroda + VPN).
-- Ha a változó **üres**, a kód **minden IP-t átenged** (logban figyelmeztetés). Ez fejlesztéshez való, productionben **tilos** üresen hagyni.
+- Élesben add meg az **`ADMIN_ALLOWED_IPS`** változót (vesszővel elválasztott IPv4 / CIDR, pl. iroda + VPN). A lista a `/admin`, `/api/admin` **és** a rejtett `/{ADMIN_URL_SLUG}` felületre is vonatkozik.
+- **Productionben üres lista = 403 minden admin IP-re** (fail-closed). Merge / deploy előtt töltsd ki Railway-en, különben kizárod magad.
+- Fejlesztésben üresen maradhat (nincs szűrés). Explicit `*` = minden IP; élesben ne használd.
 - Új hálózat / home office: előbb bővítsd a listát, utána próbálj belépni. A login oldal is a listához van kötve.
 - Origin előtti szűrés (Cloudflare path / rate limit / bot, shop kimarad): [WAF.md](WAF.md). Az IP-listát a WAF **nem** helyettesíti.
+
+Railway példa (Variables → Name / Value):
+
+```env
+ADMIN_ALLOWED_IPS=203.0.113.10,10.8.0.0/24
+```
+
+A kimenő címed: `curl -4 ifconfig.me`. VPN-nél a VPN egress IP-t add hozzá, ne a LAN-t.
 
 ---
 
@@ -110,7 +119,7 @@ Nagy CSV-export (≥100 sor), tömeges árváltoztatás (≥10 termék) és burs
 |--|------------|----------------|
 | `ADMIN_API_KEY` | saját `.env.local`, nem a prod kulcs | erős, egyedi |
 | 2FA | ajánlott | **kötelező** |
-| `ADMIN_ALLOWED_IPS` | lehet üres | **kötelező kitölteni** |
+| `ADMIN_ALLOWED_IPS` | lehet üres (fail-open) | **kötelező** – üresen 403 / lockout |
 | Titkok a gitben | soha | soha |
 | Admin URL | `/admin/login` | ne publikáld |
 | Deploy | feature / `staging` | `master` → **gulumen-webshop** (`www`) |

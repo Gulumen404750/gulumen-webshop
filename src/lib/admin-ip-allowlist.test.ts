@@ -45,12 +45,28 @@ describe('evaluateAdminIpAccess', () => {
     expect(decision).toEqual({ ok: true, reason: 'unconfigured' })
   })
 
-  it('allows when the allowlist is unset in production (feature off until configured)', () => {
+  it('blocks all admin IPs when the allowlist is unset in production', () => {
     const decision = evaluateAdminIpAccess('203.0.113.10', {
       NODE_ENV: 'production',
       ADMIN_ALLOWED_IPS: '',
     })
+    expect(decision).toEqual({ ok: false, reason: 'unconfigured' })
+  })
+
+  it('still allows an unset list in test', () => {
+    const decision = evaluateAdminIpAccess('203.0.113.10', {
+      NODE_ENV: 'test',
+      ADMIN_ALLOWED_IPS: '',
+    })
     expect(decision).toEqual({ ok: true, reason: 'unconfigured' })
+  })
+
+  it('denies unknown client IPs when an allowlist is set', () => {
+    const decision = evaluateAdminIpAccess('unknown', {
+      NODE_ENV: 'production',
+      ADMIN_ALLOWED_IPS: '203.0.113.10',
+    })
+    expect(decision).toEqual({ ok: false, reason: 'denied' })
   })
 
   it('denies IPs outside the allowlist', () => {
@@ -67,6 +83,15 @@ describe('evaluateAdminIpAccess', () => {
       ADMIN_ALLOWED_IPS: '203.0.113.10,10.0.0.0/8',
     })
     expect(decision).toEqual({ ok: true, reason: 'allowed' })
+  })
+
+  it('allows * in production as an explicit opt-out', () => {
+    expect(
+      evaluateAdminIpAccess('198.51.100.1', {
+        NODE_ENV: 'production',
+        ADMIN_ALLOWED_IPS: '*',
+      })
+    ).toEqual({ ok: true, reason: 'allowed' })
   })
 })
 

@@ -28,7 +28,7 @@ export default function AdminSecurityPolicy() {
         </li>
         <li>Élesben a Google Authenticator 2FA kötelező (lentebb párosítható).</li>
         <li>
-          Élesben az <code>ADMIN_ALLOWED_IPS</code> ki van töltve. Üres lista = minden IP (csak fejlesztés).
+          Élesben az <code>ADMIN_ALLOWED_IPS</code> ki van töltve (iroda/VPN). Üres lista productionben = 403 (lockout); dev-ben nyitva marad.
         </li>
         <li>
           Kulcs- vagy <code>JWT_SECRET</code>-csere kilépteti a sessionöket. Szivárgásnál mindkettőt cseréld.

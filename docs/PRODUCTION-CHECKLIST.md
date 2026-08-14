@@ -13,6 +13,9 @@ Irányelvek: [SECURITY.md](../SECURITY.md) (sebezhetőség-bejelentés) · [Admi
   Belépés: `https://<domain>/<slug>/login`. A nyilvános `/admin` és `/api/admin` session nélkül 404.  
   Sourcing capture: `/api/<slug>/sourcing/...` (a régi `/api/admin/sourcing/...` csak `x-admin-key`-vel marad elérhető).
 
+- **ADMIN_ALLOWED_IPS** – Irodai / VPN kimenő IPv4 vagy CIDR, vesszővel. **Productionben üresen 403** a `/admin`, `/api/admin/*` és a rejtett `/{ADMIN_URL_SLUG}` felületen (lockout).  
+  Railway: Name `ADMIN_ALLOWED_IPS`, Value pl. `203.0.113.10,10.8.0.0/24`. A kimenő címed: `curl -4 ifconfig.me`.
+
 - **PAYMENTS_WEBHOOK_SECRET** – Erős titok a payment webhook hitelesítéshez.  
   A külső rendszer a `X-Webhook-Secret` headerben küldi. Ha nincs beállítva → 503.
 
@@ -20,7 +23,7 @@ Irányelvek: [SECURITY.md](../SECURITY.md) (sebezhetőség-bejelentés) · [Admi
 
 - [ ] `ADMIN_API_KEY` generálva és a deploy környezetben beállítva (pl. Vercel / .env)
 - [ ] Admin 2FA (Google Authenticator) bekapcsolva élesben — [szabályzat](ADMIN-BIZTONSAGI-SZABALYZAT.md)
-- [ ] `ADMIN_ALLOWED_IPS` ki van töltve élesben (üres = minden IP)
+- [ ] `ADMIN_ALLOWED_IPS` ki van töltve élesben (üres productionben = 403 / lockout; példa: `203.0.113.10,10.8.0.0/24`)
 - [ ] `ADMIN_URL_SLUG` beállítva (rejtett belépési URL; `/admin` session nélkül 404)
 - [ ] `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` élesben (admin rate limit + JWT denylist több példányon)
 - [ ] `PAYMENTS_WEBHOOK_SECRET` beállítva a deploy környezetben
