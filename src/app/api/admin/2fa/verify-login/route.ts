@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       details: { reason: 'rate_limited' },
     })
     return NextResponse.json(
-      { error: 'Too many attempts. Try again later.' },
+      { error: 'Túl sok hibás kód. Próbáld újra 10 perc múlva.' },
       { status: 429 }
     )
   }
@@ -72,7 +72,10 @@ export async function POST(request: Request) {
       request,
       details: { reason: 'invalid_pending' },
     })
-    const res = NextResponse.json({ error: '2FA session expired. Log in again.' }, { status: 401 })
+    const res = NextResponse.json(
+      { error: 'A 2FA munkamenet lejárt. Add meg újra az API kulcsot.' },
+      { status: 401 }
+    )
     clearPendingCookie(res)
     return res
   }
@@ -96,7 +99,7 @@ export async function POST(request: Request) {
       request,
       details: { reason: 'invalid_code' },
     })
-    return NextResponse.json({ error: 'Invalid code' }, { status: 401 })
+    return NextResponse.json({ error: 'Érvénytelen hitelesítő kód.' }, { status: 401 })
   }
 
   const token = await createAdminSessionToken()

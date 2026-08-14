@@ -26,20 +26,6 @@ import { logger } from '@/lib/logger'
  * egyébként beállítja az aláírt admin JWT cookie-t.
  */
 export async function POST(request: Request) {
-  const limit = await rateLimit(request, { preset: 'adminLogin' })
-  if (!limit.ok) {
-    await logAdminAction({
-      action: 'login',
-      success: false,
-      request,
-      details: { reason: 'rate_limited' },
-    })
-    return NextResponse.json(
-      { error: 'Too many login attempts. Try again later.' },
-      { status: 429 }
-    )
-  }
-
   const adminKey = process.env.ADMIN_API_KEY
   if (!adminKey) {
     await logAdminAction({
@@ -63,13 +49,26 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}))
   const key = typeof body?.key === 'string' ? body.key : ''
   if (!secureCompare(key, adminKey)) {
+    const limit = await rateLimit(request, { preset: 'adminLogin' })
+    if (!limit.ok) {
+      await logAdminAction({
+        action: 'login',
+        success: false,
+        request,
+        details: { reason: 'rate_limited' },
+      })
+      return NextResponse.json(
+        { error: 'Túl sok hibás belépés. Próbáld újra 10 perc múlva.' },
+        { status: 429 }
+      )
+    }
     await logAdminAction({
       action: 'login',
       success: false,
       request,
       details: { reason: 'invalid_key' },
     })
-    return NextResponse.json({ error: 'Invalid key' }, { status: 401 })
+    return NextResponse.json({ error: 'Hibás API kulcs.' }, { status: 401 })
   }
 
   let twoFactor: { isTwoFactorEnabled: boolean }

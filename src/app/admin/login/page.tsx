@@ -56,7 +56,7 @@ export default function AdminLoginPage() {
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
         setError(data?.error || 'A kód érvénytelen.')
-        if (res.status === 401 && data?.error?.includes('expired')) {
+        if (res.status === 401 && String(data?.error || '').includes('lejárt')) {
           setStep('key')
         }
         return
@@ -75,6 +75,9 @@ export default function AdminLoginPage() {
       {step === 'key' ? (
         <form onSubmit={handleKeySubmit} className="w-full max-w-sm space-y-4">
           <h1 className="text-xl font-semibold text-foreground">Admin belépés</h1>
+          <p className="text-sm text-muted">
+            Először az API kulcsot add meg. A 2FA bekapcsolása után a következő képernyőn jön a Google Authenticator 6 jegyű kódja.
+          </p>
           <div>
             <label htmlFor="admin-key" className="block text-sm font-medium text-foreground mb-1">
               API kulcs
