@@ -60,22 +60,35 @@ describe('admin operators fallback', () => {
 
   it('API-key bootstrap still works when only non-owner operators exist', async () => {
     mockCounts(0, 2)
-    const { resolveAdminLoginActor } = await import('./admin-operators')
-    const result = await resolveAdminLoginActor({})
+    const { resolveOwnerLoginActor } = await import('./admin-operators')
+    const result = await resolveOwnerLoginActor({})
     expect(result).toEqual({
       ok: true,
       actor: expect.objectContaining({ id: 'admin', role: 'owner', bootstrap: true }),
     })
   })
 
-  it('requires named operator once an active owner exists', async () => {
+  it('owner path allows API-key bootstrap even with active owners (unbreakable)', async () => {
+    mockCounts(2, 3)
+    const { resolveOwnerLoginActor } = await import('./admin-operators')
+    const result = await resolveOwnerLoginActor({})
+    expect(result).toEqual({
+      ok: true,
+      actor: expect.objectContaining({ id: 'admin', role: 'owner', bootstrap: true }),
+    })
+  })
+
+  it('legacy resolveAdminLoginActor also allows key-only when owners exist', async () => {
     mockCounts(1, 1)
     const { resolveAdminLoginActor } = await import('./admin-operators')
     const result = await resolveAdminLoginActor({})
-    expect(result).toEqual({ ok: false, code: 'requiresOperator' })
+    expect(result).toEqual({
+      ok: true,
+      actor: expect.objectContaining({ id: 'admin', bootstrap: true }),
+    })
   })
 
-  it('emergency env allows API-key bootstrap even with owners', async () => {
+  it('emergency env still allows API-key bootstrap even with owners', async () => {
     mockCounts(2, 3)
     vi.stubEnv('ADMIN_EMERGENCY_API_KEY_LOGIN', '1')
     const { resolveAdminLoginActor } = await import('./admin-operators')
@@ -84,6 +97,13 @@ describe('admin operators fallback', () => {
       ok: true,
       actor: expect.objectContaining({ id: 'admin', role: 'owner', bootstrap: true }),
     })
+  })
+
+  it('operator path requires username+password', async () => {
+    mockCounts(1, 1)
+    const { resolveOperatorLoginActor } = await import('./admin-operators')
+    const bad = await resolveOperatorLoginActor({})
+    expect(bad).toEqual({ ok: false, code: 'invalid_input' })
   })
 
   it('first operator create must be owner', async () => {

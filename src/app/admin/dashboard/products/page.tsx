@@ -178,6 +178,7 @@ export default function AdminProductsPage() {
   const [percentChange, setPercentChange] = useState('')
   const [bulkSaving, setBulkSaving] = useState(false)
   const [bulkFormError, setBulkFormError] = useState<string | null>(null)
+  const [bulkDeleteMsg, setBulkDeleteMsg] = useState<string | null>(null)
 
   const loadProducts = useCallback(() => {
     setError(null)
@@ -308,6 +309,47 @@ export default function AdminProductsPage() {
       loadProducts()
     } catch {
       setBulkFormError('Hálózati hiba.')
+    } finally {
+      setBulkSaving(false)
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    const count = selectedIds.size
+    if (count === 0) return
+    const ok = window.confirm(
+      count > 10
+        ? `${count} termék törlése. Ha nem owner vagy, owner jóváhagyás kell (5 perc). Folytatod?`
+        : `${count} termék végleges törlése. Biztosan?`
+    )
+    if (!ok) return
+    setBulkDeleteMsg(null)
+    setBulkSaving(true)
+    try {
+      const res = await fetch('/api/admin/products/bulk-delete', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productIds: Array.from(selectedIds) }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.status === 202 && data.status === 'PENDING_APPROVAL') {
+        setBulkDeleteMsg(
+          data.message ||
+            `Jóváhagyásra vár (${data.secondsRemaining ?? 300} mp). Az owner dashboardon jelenik meg.`
+        )
+        setSelectedIds(new Set())
+        return
+      }
+      if (!res.ok) {
+        setBulkDeleteMsg(data.error ?? 'Törlés sikertelen.')
+        return
+      }
+      setBulkDeleteMsg(`Törölve: ${data.deleted ?? count} termék.`)
+      setSelectedIds(new Set())
+      loadProducts()
+    } catch {
+      setBulkDeleteMsg('Hálózati hiba.')
     } finally {
       setBulkSaving(false)
     }
@@ -448,12 +490,26 @@ export default function AdminProductsPage() {
           </button>
           <button
             type="button"
+            disabled={bulkSaving}
+            onClick={() => void handleBulkDelete()}
+            className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-sm font-medium text-red-700 dark:text-red-300 hover:bg-red-500/20 disabled:opacity-60"
+          >
+            Törlés
+          </button>
+          <button
+            type="button"
             onClick={() => setSelectedIds(new Set())}
             className="text-sm text-muted hover:text-foreground"
           >
             Kijelölés törlése
           </button>
         </div>
+      )}
+
+      {bulkDeleteMsg && (
+        <p className="text-sm text-muted rounded-lg border border-[var(--border)] px-3 py-2">
+          {bulkDeleteMsg}
+        </p>
       )}
 
       {loading ? (

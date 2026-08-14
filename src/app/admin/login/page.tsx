@@ -9,14 +9,15 @@ import { getRecaptchaToken } from '@/lib/recaptcha-browser'
 import { RECAPTCHA_ACTIONS } from '@/lib/recaptcha-constants'
 import { publicAdminUiPathFromBase, safeAdminReturnPath, slugFromPublicBase } from '@/lib/admin-url'
 
-type LoginStep = 'key' | 'totp' | 'setup'
-
+/**
+ * Owner belépés: ADMIN_API_KEY + 2FA.
+ * Az operátor session külön sütiben él (`/operator/login`) — nem írja felül ezt.
+ */
 export default function AdminLoginPage() {
   const [key, setKey] = useState('')
-  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [totpCode, setTotpCode] = useState('')
-  const [step, setStep] = useState<LoginStep>('key')
+  const [step, setStep] = useState<'key' | 'totp' | 'setup'>('key')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
@@ -52,7 +53,6 @@ export default function AdminLoginPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           key,
-          username: username.trim() || undefined,
           password: password || undefined,
           captchaToken,
         }),
@@ -139,13 +139,18 @@ export default function AdminLoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-[var(--card-bg)] p-4">
       {step === 'key' ? (
         <form onSubmit={handleKeySubmit} className="w-full max-w-sm space-y-4">
-          <h1 className="text-xl font-semibold text-foreground">Admin belépés</h1>
+          <h1 className="text-xl font-semibold text-foreground">Owner belépés</h1>
           <p className="text-sm text-muted">
-            API kulcs (mindig kötelező) + Google Authenticator. Amíg nincs aktív owner operátor, a
-            kulcs elég a 2FA-hoz – kivéve ha a <a href={resetHref} className="underline">/admin/reset</a>{' '}
-            oldalon már beállítottál admin jelszót, mert az a kulcs mellett is kötelező. Owner
-            megléte után kell a felhasználónév és jelszó is. Operátor teszteléséhez használd
-            inkognitó ablakot, vagy ugyanitt a belépés parkolja az owner sessiont (visszaállítható).
+            API kulcs + Google Authenticator. Ez a főadmin (owner) útvonal — a session soha nem
+            záródik ki operátorok miatt. Másodlagos fiók:{' '}
+            <a href="/operator/login" className="underline">
+              /operator/login
+            </a>
+            . Elfelejtett admin jelszó:{' '}
+            <a href={resetHref} className="underline">
+              /admin/reset
+            </a>
+            .
           </p>
           <div>
             <label htmlFor="admin-key" className="block text-sm font-medium text-foreground mb-1">
@@ -159,25 +164,12 @@ export default function AdminLoginPage() {
               className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
               placeholder="ADMIN_API_KEY"
               autoComplete="off"
-            />
-          </div>
-          <div>
-            <label htmlFor="admin-username" className="block text-sm font-medium text-foreground mb-1">
-              Felhasználónév (operátor)
-            </label>
-            <input
-              id="admin-username"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
-              placeholder="opcionális, amíg nincs operátor"
-              autoComplete="username"
+              required
             />
           </div>
           <div>
             <label htmlFor="admin-password" className="block text-sm font-medium text-foreground mb-1">
-              Jelszó (operátor, vagy admin jelszó ha beállítottad a resetnél)
+              Admin jelszó (ha beállítottad a resetnél)
             </label>
             <input
               id="admin-password"
@@ -185,7 +177,7 @@ export default function AdminLoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
-              placeholder="opcionális, ha nincs operátor és nincs admin jelszó"
+              placeholder="opcionális"
               autoComplete="current-password"
             />
           </div>
@@ -197,18 +189,13 @@ export default function AdminLoginPage() {
           >
             {loading ? 'Belépés…' : 'Tovább'}
           </button>
-          <p className="text-center text-sm">
-            <a href={resetHref} className="text-muted hover:text-foreground underline">
-              Elfelejtett jelszó
-            </a>
-          </p>
           <RecaptchaNotice />
         </form>
       ) : step === 'setup' ? (
         <form onSubmit={handleSetupSubmit} className="w-full max-w-sm space-y-4">
           <h1 className="text-xl font-semibold text-foreground">Authenticator párosítása</h1>
           <p className="text-sm text-muted">
-            Olvasd be a QR-kódot Google Authenticatorrel, majd add meg a 6 jegyű kódot. Addig nincs admin belépés.
+            Olvasd be a QR-kódot Google Authenticatorrel, majd add meg a 6 jegyű kódot.
           </p>
           {qrDataUrl && (
             <div className="flex flex-col items-center gap-2">
@@ -269,9 +256,7 @@ export default function AdminLoginPage() {
       ) : (
         <form onSubmit={handleTotpSubmit} className="w-full max-w-sm space-y-4">
           <h1 className="text-xl font-semibold text-foreground">Kétlépcsős azonosítás</h1>
-          <p className="text-sm text-muted">
-            Add meg a Google Authenticator 6 jegyű kódját.
-          </p>
+          <p className="text-sm text-muted">Add meg a Google Authenticator 6 jegyű kódját.</p>
           <div>
             <label htmlFor="admin-totp" className="block text-sm font-medium text-foreground mb-1">
               Hitelesítő kód

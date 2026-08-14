@@ -5,7 +5,12 @@
 
 import { ADMIN_SESSION_MAX_AGE_SEC } from '@/lib/admin-session-constants'
 import { ADMIN_CSRF_COOKIE, ADMIN_CSRF_HEADER } from '@/lib/admin-csrf-constants'
-import { classifyAdminPath, getAdminUrlSlug } from '@/lib/admin-url'
+import {
+  classifyAdminPath,
+  getAdminUrlSlug,
+  isOperatorSurfacePath,
+  CANONICAL_OPERATOR_API_PREFIX,
+} from '@/lib/admin-url'
 
 export {
   ADMIN_CSRF_COOKIE,
@@ -47,12 +52,21 @@ export function isMutatingMethod(method: string): boolean {
 }
 
 export function isAdminApiPath(pathname: string, slug: string | null = getAdminUrlSlug()): boolean {
-  return classifyAdminPath(pathname, slug).kind === 'api'
+  if (classifyAdminPath(pathname, slug).kind === 'api') return true
+  return (
+    pathname === CANONICAL_OPERATOR_API_PREFIX ||
+    pathname.startsWith(`${CANONICAL_OPERATOR_API_PREFIX}/`)
+  )
 }
 
 export function isAdminLoginApiPath(pathname: string, slug: string | null = getAdminUrlSlug()): boolean {
   const match = classifyAdminPath(pathname, slug)
-  return match.kind === 'api' && match.isLogin
+  if (match.kind === 'api' && match.isLogin) return true
+  return pathname === `${CANONICAL_OPERATOR_API_PREFIX}/login`
+}
+
+export function isOperatorApiPath(pathname: string): boolean {
+  return isOperatorSurfacePath(pathname) && pathname.startsWith('/api/')
 }
 
 function hostFromUrl(value: string | null): string | null {

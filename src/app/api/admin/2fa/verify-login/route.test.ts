@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const rateLimit = vi.fn()
 const isAdminSessionConfigured = vi.fn()
 const isDbConfigured = vi.fn()
-const parseAdminPendingTwoFactorToken = vi.fn()
+const parseAdminPendingTwoFactorSession = vi.fn()
 const createAdminSessionToken = vi.fn()
 const getAdminCookieOptions = vi.fn((..._args: unknown[]) => ({
   path: '/',
@@ -29,12 +29,16 @@ vi.mock('@/lib/rate-limit', () => ({
 
 vi.mock('@/lib/admin-session', () => ({
   ADMIN_COOKIE_NAME: 'admin_authorized',
+  OPERATOR_COOKIE_NAME: 'operator_authorized',
   ADMIN_2FA_PENDING_COOKIE: 'admin_2fa_pending',
   isAdminSessionConfigured: () => isAdminSessionConfigured(),
-  parseAdminPendingTwoFactorToken: (...args: unknown[]) => parseAdminPendingTwoFactorToken(...args),
+  parseAdminPendingTwoFactorSession: (...args: unknown[]) =>
+    parseAdminPendingTwoFactorSession(...args),
   parseAdminSessionToken: async () => null,
   createAdminSessionToken: () => createAdminSessionToken(),
   getAdminCookieOptions: (maxAge?: number) => getAdminCookieOptions(maxAge),
+  sessionCookieNameForScope: (scope: string) =>
+    scope === 'operator' ? 'operator_authorized' : 'admin_authorized',
 }))
 
 vi.mock('@/lib/admin-csrf', () => ({
@@ -87,11 +91,14 @@ describe('POST /api/admin/2fa/verify-login', () => {
     isAdminSessionConfigured.mockReturnValue(true)
     isDbConfigured.mockReturnValue(true)
     cookieGet.mockReturnValue({ value: 'pending-jwt' })
-    parseAdminPendingTwoFactorToken.mockResolvedValue({
-      id: 'admin',
-      username: 'admin',
-      role: 'owner',
-      bootstrap: true,
+    parseAdminPendingTwoFactorSession.mockResolvedValue({
+      actor: {
+        id: 'admin',
+        username: 'admin',
+        role: 'owner',
+        bootstrap: true,
+      },
+      scope: 'owner',
     })
     getAdminTwoFactorState.mockResolvedValue({
       isTwoFactorEnabled: true,
@@ -120,6 +127,24 @@ describe('POST /api/admin/2fa/verify-login', () => {
     expect(recordAdminKeyAccepted).toHaveBeenCalled()
     expect(res.headers.get('set-cookie') || '').toContain('admin_authorized=')
     expect(recordAdminLoginFingerprintSafe).toHaveBeenCalled()
+  })
+
+  it('issues operator cookie for operator scope without touching owner cookie name alone', async () => {
+    parseAdminPendingTwoFactorSession.mockResolvedValue({
+      actor: { id: 'op-1', username: 'kata', role: 'support' },
+      scope: 'operator',
+    })
+    const { POST } = await import('@/app/api/admin/2fa/verify-login/route')
+    const res = await POST(
+      new Request('http://localhost/api/admin/2fa/verify-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: '123456' }),
+      })
+    )
+    expect(res.status).toBe(200)
+    const setCookie = res.headers.get('set-cookie') || ''
+    expect(setCookie).toContain('operator_authorized=')
   })
 
   it('rejects 2FA completion when mustChangeKey is set for the current key', async () => {

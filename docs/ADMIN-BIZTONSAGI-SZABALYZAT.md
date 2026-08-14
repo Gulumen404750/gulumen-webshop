@@ -12,16 +12,13 @@ Ez a dokumentum **kötelező** mindenki számára, aki admin kulcsot, Railway Va
 ## 1. Ki léphet be
 
 - Csak a webshop üzemeltetői. Nincs külön „vendég admin”, demo kulcs vagy megosztott jelszó chatben.
-- Belépési titok: a Railway / env **`ADMIN_API_KEY`** — ez **mindig kötelező**, minden belépésnél. Ezt **ne** tedd gitbe, screenshotba, ticketbe, Slack/Discord üzenetbe, ügyfélszolgálati válaszba, és **ne küldd e-mailben**.
-- **Név szerinti operátorok (RBAC):** owner / support / catalog / viewer. A megosztott API kulcs **nem** a teljes jogosultság: a kulcs csak a belépés első tényezője. Szerep dönti el a PII-t, törlést, árat, exportot.
-- **Fallback (kritikus):** amíg nincs **aktív owner** az `AdminOperator` táblában (üres tábla, hiányzó migráció, vagy csak support/catalog), a kulcsos belépés **marad** (owner bootstrap, 2FA továbbra is kell). Az első operátor **kötelezően owner**. Owner megléte után a belépéshez kulcs + felhasználónév + jelszó kell. Ne zárd ki az egykulcsos üzemet env/migráció nélkül.
-- **Session parkolás:** owner sessionből másik operátorként belépve (teszt) az owner JWT parkolva marad — „Vissza az owner sessionhöz”. Inkognitó ablak is ajánlott.
-- **Opcionális admin jelszó (extra faktor, `/admin/reset`):** amíg nincs operátor, a Beállítások → Admin jelszó oldalon beállítható egy DB-s jelszó (bcrypt hash). Ha be van állítva, a kulcs **mellett** ez is kötelező a bootstrap belépéshez. Elfelejtve: kétlépcsős visszaállítás (15 perces e-mail token + TOTP, `ADMIN_EMAIL` + `RESEND_API_KEY` kell) — nem kell hozzá Railway env-csere. **Ez nem old fel egy elfelejtett operátor jelszót** — ahhoz lásd a lockout mentést alább.
-- **Operátor lockout mentés (ha elfelejtetted az operátor jelszót):**
-  1. **Gyors (SQL):** Railway → Postgres → Query → `DELETE FROM "AdminOperator";` → utána újra elég az API-kulcs (+ esetleges admin jelszó extra faktor, + 2FA). Újra hozz létre **owner** operátort ismert jelszóval.
-  2. **Env:** `ADMIN_EMERGENCY_API_KEY_LOGIN=1` (Variables) → redeploy → belépés csak kulccsal (+ admin jelszó, ha be van állítva) + 2FA → Operátorok javítása → **töröld** az env változót. Ne hagyd bekapcsolva élesben.
-- Élesben a kulcs legalább **32 véletlen karakter** (`openssl rand -hex 32`). Ugyanaz a kulcs ne legyen a fejlesztői `.env.local`-ban és a production Variables-ben, ha a gép nem megbízható.
-- A nyers kulcs soha nem jelenhet meg a dashboardon. A Beállítások oldal csak annyit jelezhet: be van-e állítva.
+- **Owner belépés:** `/admin/login` — **`ADMIN_API_KEY` + 2FA**. Ez a főadmin útvonal **mindig** elérhető (unbreakable fallback), akkor is, ha van aktív owner az `AdminOperator` táblában. Nincs szükség `DELETE FROM "AdminOperator"`-ra vagy emergency env-re a lockout ellen.
+- **Operátor belépés:** `/operator/login` — felhasználónév + jelszó. Session az `operator_authorized` sütibe kerül; **nem írja felül** az owner `admin_authorized` sessiont.
+- Belépési titok (owner): a Railway / env **`ADMIN_API_KEY`** — ezt **ne** tedd gitbe, screenshotba, ticketbe.
+- **Név szerinti operátorok (RBAC):** owner / support / catalog / viewer. Catalog törölhet terméket; **>10 bulk törlés** non-owner esetén `PENDING_APPROVAL` (owner 5 perc ablak).
+- **Opcionális admin jelszó** (`/admin/reset`): a kulcs mellett extra faktor a bootstrap/owner belépésnél.
+- Legacy: `ADMIN_EMERGENCY_API_KEY_LOGIN=1` továbbra is támogatott, de a `/admin/login` path env nélkül is bootstrapol.
+- Élesben a kulcs legalább **32 véletlen karakter** (`openssl rand -hex 32`). A nyers kulcs soha nem jelenhet meg a dashboardon.
 
 ---
 
@@ -36,7 +33,7 @@ Ez a dokumentum **kötelező** mindenki számára, aki admin kulcsot, Railway Va
 
 ## 3. IP-allowlist
 
-- Élesben add meg az **`ADMIN_ALLOWED_IPS`** változót (vesszővel elválasztott IPv4 / CIDR, pl. iroda + VPN). A lista a `/admin`, `/api/admin` **és** a rejtett `/{ADMIN_URL_SLUG}` felületre is vonatkozik.
+- Élesben add meg az **`ADMIN_ALLOWED_IPS`** változót (vesszővel elválasztott IPv4 / CIDR, pl. iroda + VPN). A lista a `/admin`, `/api/admin`, `/operator`, `/api/operator` **és** a rejtett `/{ADMIN_URL_SLUG}` felületre is vonatkozik.
 - **Productionben üres lista = 403 minden admin IP-re** (fail-closed). Merge / deploy előtt töltsd ki Railway-en, különben kizárod magad.
 - Fejlesztésben üresen maradhat (nincs szűrés). Explicit `*` = minden IP; élesben ne használd.
 - Új hálózat / home office: előbb bővítsd a listát, utána próbálj belépni. A login oldal is a listához van kötve.

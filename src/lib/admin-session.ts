@@ -5,12 +5,14 @@
  * ep: Admin.sessionEpoch – jelszócsere / reset után is azonnal érvénytelen a régi süti.
  * Logout: jti denylist. Inaktivitás: act (30 perc).
  * Bootstrap (nincs operátor): sub=admin, role=owner. Név szerinti: sub=operatorId.
+ * Session izoláció: owner → admin_authorized; operátor → operator_authorized.
  */
 
 import { SignJWT, jwtVerify } from 'jose'
 import {
   ADMIN_COOKIE_NAME,
   ADMIN_2FA_PENDING_COOKIE,
+  OPERATOR_COOKIE_NAME,
   JWT_ISSUER,
   JWT_AUDIENCE_2FA,
   ADMIN_SESSION_MAX_AGE_SEC,
@@ -21,6 +23,8 @@ import {
   ADMIN_2FA_PENDING_ROLE,
   ADMIN_USERNAME_CLAIM,
   ADMIN_ACTOR_ROLE_CLAIM,
+  ADMIN_LOGIN_SCOPE_CLAIM,
+  type AdminLoginScope,
 } from '@/lib/admin-session-constants'
 import { getAdminApiKeyClaim, getAdminSessionVersion } from '@/lib/admin-session-version'
 import { getAdminSessionEpoch } from '@/lib/admin-session-epoch'
@@ -38,6 +42,7 @@ import { type AdminActor, BOOTSTRAP_ADMIN_ACTOR } from '@/lib/admin-rbac'
 export {
   ADMIN_COOKIE_NAME,
   ADMIN_2FA_PENDING_COOKIE,
+  OPERATOR_COOKIE_NAME,
   ADMIN_SESSION_MAX_AGE_SEC,
   ADMIN_2FA_PENDING_MAX_AGE_SEC,
   ADMIN_SESSION_VERSION_CLAIM,
@@ -89,8 +94,25 @@ export function getAdminCookieOptions(maxAge = ADMIN_SESSION_MAX_AGE_SEC) {
   }
 }
 
+/** Owner session → admin_authorized; operátor → operator_authorized (izoláció). */
+export function sessionCookieNameForActor(
+  actor: AdminActor
+): typeof ADMIN_COOKIE_NAME | typeof OPERATOR_COOKIE_NAME {
+  if (actor.bootstrap || actor.id === 'admin' || actor.role === 'owner') {
+    return ADMIN_COOKIE_NAME
+  }
+  return OPERATOR_COOKIE_NAME
+}
+
+export function sessionCookieNameForScope(
+  scope: AdminLoginScope
+): typeof ADMIN_COOKIE_NAME | typeof OPERATOR_COOKIE_NAME {
+  return scope === 'owner' ? ADMIN_COOKIE_NAME : OPERATOR_COOKIE_NAME
+}
+
 export async function createAdminPendingTwoFactorToken(
-  actor: AdminActor = BOOTSTRAP_ADMIN_ACTOR
+  actor: AdminActor = BOOTSTRAP_ADMIN_ACTOR,
+  scope: AdminLoginScope = actor.bootstrap || actor.role === 'owner' ? 'owner' : 'operator'
 ): Promise<string> {
   const secret = getAdminJwtSecret()
   if (!secret) throw new Error('JWT_SECRET / NEXTAUTH_SECRET not configured')
@@ -107,6 +129,7 @@ export async function createAdminPendingTwoFactorToken(
     [ADMIN_SESSION_EPOCH_CLAIM]: ep,
     [ADMIN_USERNAME_CLAIM]: actor.username,
     [ADMIN_ACTOR_ROLE_CLAIM]: actor.role,
+    [ADMIN_LOGIN_SCOPE_CLAIM]: scope,
   })
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(actor.id)
@@ -117,9 +140,14 @@ export async function createAdminPendingTwoFactorToken(
     .sign(secret)
 }
 
-export async function parseAdminPendingTwoFactorToken(
+export type PendingTwoFactorSession = {
+  actor: AdminActor
+  scope: AdminLoginScope
+}
+
+export async function parseAdminPendingTwoFactorSession(
   token: string | undefined | null
-): Promise<AdminActor | null> {
+): Promise<PendingTwoFactorSession | null> {
   if (!token) return null
   const secret = getAdminJwtSecret()
   if (!secret) return null
@@ -136,10 +164,28 @@ export async function parseAdminPendingTwoFactorToken(
     if (payload[ADMIN_SESSION_VERSION_CLAIM] !== expectedSv) return null
     if (payload[ADMIN_SESSION_API_KEY_CLAIM] !== expectedAk) return null
     if (payload[ADMIN_SESSION_EPOCH_CLAIM] !== expectedEp) return null
-    return actorFromPendingPayload(payload)
+    const actor = actorFromPendingPayload(payload)
+    if (!actor) return null
+    const rawScope = payload[ADMIN_LOGIN_SCOPE_CLAIM]
+    const scope: AdminLoginScope =
+      rawScope === 'operator'
+        ? 'operator'
+        : rawScope === 'owner'
+          ? 'owner'
+          : actor.bootstrap || actor.role === 'owner'
+            ? 'owner'
+            : 'operator'
+    return { actor, scope }
   } catch {
     return null
   }
+}
+
+export async function parseAdminPendingTwoFactorToken(
+  token: string | undefined | null
+): Promise<AdminActor | null> {
+  const session = await parseAdminPendingTwoFactorSession(token)
+  return session?.actor ?? null
 }
 
 export async function verifyAdminPendingTwoFactorToken(

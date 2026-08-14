@@ -6,11 +6,16 @@ import { countActiveOwners, countAdminOperators } from '@/lib/admin-operators'
 import {
   ADMIN_PARKED_COOKIE_NAME,
 } from '@/lib/admin-session-park'
-import { parseAdminSessionToken } from '@/lib/admin-session'
+import {
+  ADMIN_COOKIE_NAME,
+  OPERATOR_COOKIE_NAME,
+  parseAdminSessionToken,
+} from '@/lib/admin-session'
 
 /**
  * GET /api/admin/me
- * Bejelentkezett operátor (vagy bootstrap owner, amíg nincs aktív owner).
+ * Bejelentkezett operátor (vagy bootstrap / owner).
+ * Ha operátor süti aktív és owner süti is megvan → hasParkedOwnerSession (izoláció).
  */
 export async function GET() {
   const actor = await requireAdmin()
@@ -22,9 +27,27 @@ export async function GET() {
   const cookieStore = await cookies()
   const parkedRaw = cookieStore.get(ADMIN_PARKED_COOKIE_NAME)?.value
   const parkedActor = parkedRaw ? await parseAdminSessionToken(parkedRaw) : null
-  const hasParkedOwnerSession = Boolean(
-    parkedActor && (parkedActor.role === 'owner' || parkedActor.bootstrap)
+
+  const ownerCookie = await parseAdminSessionToken(cookieStore.get(ADMIN_COOKIE_NAME)?.value)
+  const operatorCookie = await parseAdminSessionToken(
+    cookieStore.get(OPERATOR_COOKIE_NAME)?.value
   )
+  const dormantOwner =
+    operatorCookie &&
+    ownerCookie &&
+    (ownerCookie.bootstrap || ownerCookie.role === 'owner') &&
+    actor.id !== ownerCookie.id
+      ? ownerCookie
+      : null
+
+  const hasParkedOwnerSession = Boolean(
+    (parkedActor && (parkedActor.role === 'owner' || parkedActor.bootstrap)) || dormantOwner
+  )
+  const parkedUsername = dormantOwner
+    ? dormantOwner.username
+    : hasParkedOwnerSession
+      ? parkedActor?.username ?? null
+      : null
 
   return NextResponse.json({
     id: actor.id,
@@ -34,9 +57,10 @@ export async function GET() {
     permissions: permissionsForRole(actor.role),
     operatorCount,
     ownerCount,
-    /** Új belépéshez kell-e név szerinti operátor (van legalább egy aktív owner). */
-    operatorsRequired: ownerCount > 0,
+    /** Legacy jelzés; owner belépés (/admin/login) mindig elérhető. */
+    operatorsRequired: false,
     hasParkedOwnerSession,
-    parkedUsername: hasParkedOwnerSession ? parkedActor?.username ?? null : null,
+    parkedUsername,
+    scope: actor.bootstrap || actor.role === 'owner' ? 'owner' : 'operator',
   })
 }
