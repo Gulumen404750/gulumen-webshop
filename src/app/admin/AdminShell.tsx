@@ -42,6 +42,8 @@ export function AdminShell({
   const dashboardHref = publicAdminUiPathFromBase('/admin/dashboard', publicBase)
   const [role, setRole] = useState<AdminRole | null>(null)
   const [username, setUsername] = useState<string | null>(null)
+  const [parkedUsername, setParkedUsername] = useState<string | null>(null)
+  const [restoring, setRestoring] = useState(false)
 
   useEffect(() => {
     if (isLogin) return
@@ -55,12 +57,37 @@ export function AdminShell({
         if (data.role === 'owner' || data.role === 'support' || data.role === 'catalog' || data.role === 'viewer') {
           setRole(data.role)
         }
+        if (data.hasParkedOwnerSession && typeof data.parkedUsername === 'string') {
+          setParkedUsername(data.parkedUsername)
+        } else {
+          setParkedUsername(null)
+        }
       })
       .catch(() => {})
     return () => {
       cancelled = true
     }
   }, [isLogin])
+
+  async function restoreOwnerSession() {
+    setRestoring(true)
+    try {
+      const res = await fetch('/api/admin/session/restore', {
+        method: 'POST',
+        credentials: 'include',
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        alert(data.error || 'Visszaállítás sikertelen')
+        return
+      }
+      window.location.href = dashboardHref
+    } catch {
+      alert('Visszaállítás sikertelen')
+    } finally {
+      setRestoring(false)
+    }
+  }
 
   const visibleNav = useMemo(() => {
     if (!role) return nav
@@ -124,6 +151,22 @@ export function AdminShell({
         </div>
       </aside>
       <main className="flex-1 min-w-0 p-6 text-foreground overflow-auto">
+        {parkedUsername && (
+          <div className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-foreground flex flex-wrap items-center justify-between gap-3">
+            <p>
+              Teszt mód: most <strong>{username || 'operátor'}</strong> sessionje aktív.
+              Az owner session (<strong>{parkedUsername}</strong>) parkolva van — nem veszett el.
+            </p>
+            <button
+              type="button"
+              disabled={restoring}
+              onClick={() => void restoreOwnerSession()}
+              className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
+            >
+              {restoring ? 'Visszaállítás…' : 'Vissza az owner sessionhöz'}
+            </button>
+          </div>
+        )}
         {internalPath !== '/admin/dashboard' && pathname !== dashboardHref && (
           <div className="mb-4">
             <Link

@@ -136,17 +136,28 @@ export async function POST(request: Request) {
   const token = await createAdminSessionToken(pendingActor)
   await recordAdminKeyAccepted(adminKey)
   await recordAdminLoginFingerprintSafe(request)
+
+  const existingToken = cookieStore.get(ADMIN_COOKIE_NAME)?.value
+  const { parkExistingOwnerSessionIfNeeded } = await import('@/lib/admin-session-park')
+  const probe = NextResponse.json({})
+  const parked = await parkExistingOwnerSessionIfNeeded(probe, existingToken, pendingActor)
+
   await logAdminAction({
     action: 'login_2fa',
     success: true,
     request,
     actor: pendingActor,
-    details: { username: pendingActor.username, role: pendingActor.role },
+    details: {
+      username: pendingActor.username,
+      role: pendingActor.role,
+      parkedPreviousSession: parked,
+    },
   })
 
-  const res = NextResponse.json({ ok: true })
-  res.cookies.set(ADMIN_COOKIE_NAME, token, getAdminCookieOptions())
-  res.cookies.set(ADMIN_CSRF_COOKIE, generateCsrfToken(), getAdminCsrfCookieOptions())
-  clearPendingCookie(res)
-  return res
+  const finalRes = NextResponse.json({ ok: true, parkedPreviousSession: parked })
+  await parkExistingOwnerSessionIfNeeded(finalRes, existingToken, pendingActor)
+  finalRes.cookies.set(ADMIN_COOKIE_NAME, token, getAdminCookieOptions())
+  finalRes.cookies.set(ADMIN_CSRF_COOKIE, generateCsrfToken(), getAdminCsrfCookieOptions())
+  clearPendingCookie(finalRes)
+  return finalRes
 }

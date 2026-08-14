@@ -11,11 +11,22 @@ import {
   type AdminRole,
 } from '@/lib/admin-rbac'
 import {
+  countActiveOwners,
   createAdminOperator,
   deleteAdminOperator,
   listAdminOperators,
   updateAdminOperator,
 } from '@/lib/admin-operators'
+import {
+  ADMIN_COOKIE_NAME,
+  createAdminSessionToken,
+  getAdminCookieOptions,
+} from '@/lib/admin-session'
+import {
+  ADMIN_CSRF_COOKIE,
+  generateCsrfToken,
+  getAdminCsrfCookieOptions,
+} from '@/lib/admin-csrf'
 
 function parseRole(raw: unknown): AdminRole | null {
   return isAdminRole(raw) ? raw : null
@@ -32,15 +43,19 @@ export async function GET() {
     return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
   }
   const operators = await listAdminOperators()
+  const ownerCount = await countActiveOwners()
   return NextResponse.json({
     operators,
     roles: ADMIN_ROLES,
+    requireFirstOwner: ownerCount === 0,
   })
 }
 
 /**
  * POST /api/admin/staff
  * Body: { username, password, role }
+ * Első operátor kötelezően owner. Bootstrap sessionből owner létrehozásakor
+ * új JWT-t adunk (különben a következő kérés kizárna).
  */
 export async function POST(request: Request) {
   const gate = await requireAdminPermission('staff:write')
@@ -72,8 +87,30 @@ export async function POST(request: Request) {
       actor: gate.actor,
       details: { username: actor.username, role: actor.role, id: actor.id },
     })
-    return NextResponse.json({ ok: true, operator: actor })
+
+    const res = NextResponse.json({
+      ok: true,
+      operator: actor,
+      sessionUpgraded: Boolean(gate.actor.bootstrap && actor.role === 'owner'),
+    })
+
+    // Bootstrap → első owner: session átírása erre az ownerre (ne zárjon ki).
+    if (gate.actor.bootstrap && actor.role === 'owner') {
+      const token = await createAdminSessionToken(actor)
+      res.cookies.set(ADMIN_COOKIE_NAME, token, getAdminCookieOptions())
+      res.cookies.set(ADMIN_CSRF_COOKIE, generateCsrfToken(), getAdminCsrfCookieOptions())
+    }
+    return res
   } catch (err) {
+    if (err instanceof Error && err.name === 'FIRST_MUST_BE_OWNER') {
+      return NextResponse.json(
+        {
+          error:
+            'Az első operátor legyen owner (a te fiókod). Support/catalog csak utána hozható létre — különben kizárod magad az API-kulcsos belépésből.',
+        },
+        { status: 400 }
+      )
+    }
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
       return NextResponse.json({ error: 'Ez a felhasználónév már foglalt.' }, { status: 409 })
     }

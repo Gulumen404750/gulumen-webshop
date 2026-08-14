@@ -20,10 +20,18 @@ vi.mock('@/lib/logger', () => ({
   logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() },
 }))
 
+function mockCounts(owners: number, total: number) {
+  count.mockImplementation((args?: { where?: { role?: string } }) => {
+    if (args?.where?.role === 'owner') return Promise.resolve(owners)
+    return Promise.resolve(total)
+  })
+}
+
 describe('admin operators fallback', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     isDbConfigured.mockReturnValue(true)
+    vi.unstubAllEnvs()
   })
 
   it('countAdminOperators fails open to 0 when the table is missing', async () => {
@@ -40,7 +48,7 @@ describe('admin operators fallback', () => {
   })
 
   it('API-key-only login stays bootstrap while the table is empty', async () => {
-    count.mockResolvedValue(0)
+    mockCounts(0, 0)
     const { resolveAdminLoginActor } = await import('./admin-operators')
     const result = await resolveAdminLoginActor({})
     expect(result).toEqual({
@@ -50,15 +58,25 @@ describe('admin operators fallback', () => {
     expect(create).not.toHaveBeenCalled()
   })
 
-  it('requires named operator once any row exists', async () => {
-    count.mockResolvedValue(1)
+  it('API-key bootstrap still works when only non-owner operators exist', async () => {
+    mockCounts(0, 2)
+    const { resolveAdminLoginActor } = await import('./admin-operators')
+    const result = await resolveAdminLoginActor({})
+    expect(result).toEqual({
+      ok: true,
+      actor: expect.objectContaining({ id: 'admin', role: 'owner', bootstrap: true }),
+    })
+  })
+
+  it('requires named operator once an active owner exists', async () => {
+    mockCounts(1, 1)
     const { resolveAdminLoginActor } = await import('./admin-operators')
     const result = await resolveAdminLoginActor({})
     expect(result).toEqual({ ok: false, code: 'requiresOperator' })
   })
 
-  it('emergency env allows API-key bootstrap even with operators', async () => {
-    count.mockResolvedValue(2)
+  it('emergency env allows API-key bootstrap even with owners', async () => {
+    mockCounts(2, 3)
     vi.stubEnv('ADMIN_EMERGENCY_API_KEY_LOGIN', '1')
     const { resolveAdminLoginActor } = await import('./admin-operators')
     const result = await resolveAdminLoginActor({})
@@ -66,6 +84,14 @@ describe('admin operators fallback', () => {
       ok: true,
       actor: expect.objectContaining({ id: 'admin', role: 'owner', bootstrap: true }),
     })
-    vi.unstubAllEnvs()
+  })
+
+  it('first operator create must be owner', async () => {
+    mockCounts(0, 0)
+    const { createAdminOperator } = await import('./admin-operators')
+    await expect(
+      createAdminOperator({ username: 'bela', password: 'password12', role: 'support' })
+    ).rejects.toMatchObject({ name: 'FIRST_MUST_BE_OWNER' })
+    expect(create).not.toHaveBeenCalled()
   })
 })

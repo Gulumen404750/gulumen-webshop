@@ -20,6 +20,19 @@ vi.mock('@/lib/admin-operators', () => ({
   createAdminOperator: (...args: unknown[]) => createAdminOperator(...args),
   updateAdminOperator: vi.fn(),
   deleteAdminOperator: vi.fn(),
+  countActiveOwners: () => Promise.resolve(1),
+}))
+
+vi.mock('@/lib/admin-session', () => ({
+  ADMIN_COOKIE_NAME: 'admin_authorized',
+  createAdminSessionToken: vi.fn(async () => 'jwt'),
+  getAdminCookieOptions: () => ({ path: '/', maxAge: 60, httpOnly: true, sameSite: 'strict' }),
+}))
+
+vi.mock('@/lib/admin-csrf', () => ({
+  ADMIN_CSRF_COOKIE: 'admin_csrf',
+  generateCsrfToken: () => 'csrf',
+  getAdminCsrfCookieOptions: () => ({ path: '/', maxAge: 60 }),
 }))
 
 vi.mock('@/lib/admin-audit', () => ({

@@ -26,7 +26,8 @@ export default function StaffSettings() {
   const [operators, setOperators] = useState<OperatorRow[]>([])
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState<AdminRole>('support')
+  const [role, setRole] = useState<AdminRole>('owner')
+  const [requireFirstOwner, setRequireFirstOwner] = useState(true)
   const [busy, setBusy] = useState(false)
   const [forbidden, setForbidden] = useState(false)
 
@@ -46,6 +47,8 @@ export default function StaffSettings() {
       }
       setForbidden(false)
       setOperators(Array.isArray(data.operators) ? data.operators : [])
+      setRequireFirstOwner(Boolean(data.requireFirstOwner))
+      if (data.requireFirstOwner) setRole('owner')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Ismeretlen hiba')
     } finally {
@@ -73,9 +76,15 @@ export default function StaffSettings() {
       if (!res.ok) throw new Error(data.error || 'Létrehozás sikertelen')
       setUsername('')
       setPassword('')
-      setMessage(
-        'Operátor létrehozva. A következő belépéshez már kell felhasználónév és jelszó (az API kulcs mellett).'
-      )
+      if (data.sessionUpgraded) {
+        setMessage(
+          'Owner operátor létrehozva — a sessionod erre a fiókra váltott (nem záródtál ki). Írd fel a jelszót. További (support/catalog) operátorokhoz: inkognitó ablakban tesztelj, vagy a belépés parkolja az owner sessiont.'
+        )
+      } else {
+        setMessage(
+          'Operátor létrehozva. Teszteléshez használd inkognitó ablakot — ugyanebben a böngészőben a belépés parkolja az owner sessiont (visszaállítható).'
+        )
+      }
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Hiba')
@@ -131,9 +140,17 @@ export default function StaffSettings() {
       <div>
         <h2 className="text-lg font-semibold">Operátorok (RBAC)</h2>
         <p className="text-sm text-muted mt-1">
-          Amíg a lista üres, az API kulcsos belépés owner jogosultsággal megy (2FA továbbra is kell).
-          Az első operátor után a belépéshez kulcs + felhasználónév + jelszó kell.
+          Amíg nincs aktív <strong>owner</strong> operátor, az API kulcs + 2FA elég (bootstrap).
+          Az első létrehozott operátor kötelezően owner (a te fiókod). Utána a belépéshez kulcs +
+          felhasználónév + jelszó kell. Másik operátor tesztelése ugyanebben a böngészőben
+          <strong> parkolja</strong> az owner sessiont (nem törli) — vagy használj inkognitó ablakot.
         </p>
+        {requireFirstOwner && (
+          <p className="text-sm text-amber-700 dark:text-amber-300 mt-2">
+            Most hozz létre egy <strong>owner</strong> fiókot magadnak ismert jelszóval — ezután
+            adhatsz support/catalog jogosultságot másoknak.
+          </p>
+        )}
       </div>
 
       {loading ? (
@@ -241,7 +258,7 @@ export default function StaffSettings() {
             onChange={(e) => setRole(e.target.value as AdminRole)}
             className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-background"
           >
-            {ADMIN_ROLES.map((r) => (
+            {ADMIN_ROLES.filter((r) => !requireFirstOwner || r === 'owner').map((r) => (
               <option key={r} value={r}>
                 {ROLE_LABEL[r]}
               </option>

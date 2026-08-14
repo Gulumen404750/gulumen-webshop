@@ -4,7 +4,7 @@ import { BOOTSTRAP_ADMIN_ACTOR } from './admin-rbac'
 const cookieGet = vi.fn()
 const parseAdminSessionToken = vi.fn()
 const parseAdminPendingTwoFactorToken = vi.fn()
-const countAdminOperators = vi.fn()
+const countActiveOwners = vi.fn()
 const getAdminOperatorById = vi.fn()
 
 vi.mock('next/headers', () => ({
@@ -21,7 +21,7 @@ vi.mock('@/lib/admin-session', () => ({
 }))
 
 vi.mock('@/lib/admin-operators', () => ({
-  countAdminOperators: () => countAdminOperators(),
+  countActiveOwners: () => countActiveOwners(),
   getAdminOperatorById: (...args: unknown[]) => getAdminOperatorById(...args),
   isAdminEmergencyApiKeyLoginEnabled: () => false,
 }))
@@ -32,11 +32,11 @@ describe('requireAdmin / requireAdminOrPendingTwoFactor', () => {
     cookieGet.mockReturnValue(undefined)
     parseAdminSessionToken.mockResolvedValue(null)
     parseAdminPendingTwoFactorToken.mockResolvedValue(null)
-    countAdminOperators.mockResolvedValue(0)
+    countActiveOwners.mockResolvedValue(0)
     getAdminOperatorById.mockResolvedValue(null)
   })
 
-  it('requireAdmin accepts a full 2FA bootstrap session while no operators exist', async () => {
+  it('requireAdmin accepts a full 2FA bootstrap session while no owners exist', async () => {
     cookieGet.mockImplementation((name: string) =>
       name === 'admin_authorized' ? { value: 'full-jwt' } : undefined
     )
@@ -56,23 +56,35 @@ describe('requireAdmin / requireAdminOrPendingTwoFactor', () => {
     expect(await requireAdminOrPendingTwoFactor()).toBe('pending')
   })
 
-  it('rejects bootstrap session once named operators exist', async () => {
+  it('keeps bootstrap session when only non-owner operators exist', async () => {
     cookieGet.mockImplementation((name: string) =>
       name === 'admin_authorized' ? { value: 'full-jwt' } : undefined
     )
     parseAdminSessionToken.mockResolvedValue(BOOTSTRAP_ADMIN_ACTOR)
-    countAdminOperators.mockResolvedValue(1)
+    countActiveOwners.mockResolvedValue(0)
+    const { requireAdmin } = await import('./admin-auth')
+    expect(await requireAdmin()).toEqual(
+      expect.objectContaining({ id: 'admin', bootstrap: true })
+    )
+  })
+
+  it('rejects bootstrap session once an active owner exists', async () => {
+    cookieGet.mockImplementation((name: string) =>
+      name === 'admin_authorized' ? { value: 'full-jwt' } : undefined
+    )
+    parseAdminSessionToken.mockResolvedValue(BOOTSTRAP_ADMIN_ACTOR)
+    countActiveOwners.mockResolvedValue(1)
     const { requireAdmin } = await import('./admin-auth')
     expect(await requireAdmin()).toBeNull()
   })
 
-  it('looks up the named operator when operators exist', async () => {
+  it('looks up the named operator when owners exist', async () => {
     const support = { id: 'op-1', username: 'kata', role: 'support' as const }
     cookieGet.mockImplementation((name: string) =>
       name === 'admin_authorized' ? { value: 'full-jwt' } : undefined
     )
     parseAdminSessionToken.mockResolvedValue(support)
-    countAdminOperators.mockResolvedValue(2)
+    countActiveOwners.mockResolvedValue(1)
     getAdminOperatorById.mockResolvedValue(support)
     const { requireAdmin, requireAdminPermission } = await import('./admin-auth')
     expect(await requireAdmin()).toEqual(support)

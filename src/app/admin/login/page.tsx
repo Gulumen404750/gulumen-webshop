@@ -141,10 +141,11 @@ export default function AdminLoginPage() {
         <form onSubmit={handleKeySubmit} className="w-full max-w-sm space-y-4">
           <h1 className="text-xl font-semibold text-foreground">Admin belépés</h1>
           <p className="text-sm text-muted">
-            API kulcs (mindig kötelező) + Google Authenticator. Amíg nincs operátor, a kulcs elég a
-            2FA-hoz – kivéve ha a <a href={resetHref} className="underline">/admin/reset</a> oldalon
-            már beállítottál admin jelszót, mert az a kulcs mellett is kötelező. Ha már van operátor,
-            kötelező a felhasználónév és a jelszó is (amit az Operátoroknál megadtál).
+            API kulcs (mindig kötelező) + Google Authenticator. Amíg nincs aktív owner operátor, a
+            kulcs elég a 2FA-hoz – kivéve ha a <a href={resetHref} className="underline">/admin/reset</a>{' '}
+            oldalon már beállítottál admin jelszót, mert az a kulcs mellett is kötelező. Owner
+            megléte után kell a felhasználónév és jelszó is. Operátor teszteléséhez használd
+            inkognitó ablakot, vagy ugyanitt a belépés parkolja az owner sessiont (visszaállítható).
           </p>
           <div>
             <label htmlFor="admin-key" className="block text-sm font-medium text-foreground mb-1">

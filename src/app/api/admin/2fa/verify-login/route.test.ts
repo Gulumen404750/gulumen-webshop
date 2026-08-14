@@ -32,6 +32,7 @@ vi.mock('@/lib/admin-session', () => ({
   ADMIN_2FA_PENDING_COOKIE: 'admin_2fa_pending',
   isAdminSessionConfigured: () => isAdminSessionConfigured(),
   parseAdminPendingTwoFactorToken: (...args: unknown[]) => parseAdminPendingTwoFactorToken(...args),
+  parseAdminSessionToken: async () => null,
   createAdminSessionToken: () => createAdminSessionToken(),
   getAdminCookieOptions: (maxAge?: number) => getAdminCookieOptions(maxAge),
 }))
