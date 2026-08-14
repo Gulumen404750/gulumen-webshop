@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/admin-auth'
+import { logAdminAction } from '@/lib/admin-audit'
 import { z } from 'zod'
 
 const discountTypeSchema = z.enum(['percent', 'fixed'])
@@ -104,6 +105,12 @@ export async function POST(request: Request) {
   const d = parsed.data
   const codeExists = await prisma.coupon.findUnique({ where: { code: d.code } })
   if (codeExists) {
+    await logAdminAction({
+      action: 'coupon_create',
+      success: false,
+      request,
+      details: { code: d.code, reason: 'duplicate_code' },
+    })
     return NextResponse.json({ error: 'Coupon code already exists' }, { status: 409 })
   }
 
@@ -121,5 +128,11 @@ export async function POST(request: Request) {
     },
   })
 
+  await logAdminAction({
+    action: 'coupon_create',
+    success: true,
+    request,
+    details: { id: coupon.id, code: coupon.code },
+  })
   return NextResponse.json({ coupon })
 }

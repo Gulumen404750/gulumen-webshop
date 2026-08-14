@@ -56,7 +56,8 @@ export async function POST(request: Request) {
     action: 'order_label_print_bulk',
     orderId: ids[0],
     success: true,
-    details: `ids=${ids.length}; newlyPrinted=${result.count}`,
+    request,
+    details: { ids: ids.length, newlyPrinted: result.count },
   })
   logger.debug({ count: ids.length, newlyPrinted: result.count }, 'admin/orders/print bulk')
 

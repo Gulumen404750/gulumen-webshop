@@ -1,19 +1,20 @@
 import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
 import { ADMIN_COOKIE_NAME, getAdminCookieOptions } from '@/lib/admin-session'
+import { ADMIN_CSRF_COOKIE, getAdminCsrfCookieOptions } from '@/lib/admin-csrf'
+import { logAdminAction } from '@/lib/admin-audit'
 
-function logoutResponse(request: NextRequest) {
-  const url = request.nextUrl.clone()
-  url.pathname = '/admin/login'
-  const res = NextResponse.redirect(url)
+/**
+ * POST /api/admin/logout
+ * Törli az admin session és CSRF sütiket. GET szándékosan nincs (CSRF / logout-fixálás).
+ */
+export async function POST(request: Request) {
+  await logAdminAction({
+    action: 'logout',
+    success: true,
+    request,
+  })
+  const res = NextResponse.json({ ok: true })
   res.cookies.set(ADMIN_COOKIE_NAME, '', { ...getAdminCookieOptions(0), maxAge: 0 })
+  res.cookies.set(ADMIN_CSRF_COOKIE, '', { ...getAdminCsrfCookieOptions(0), maxAge: 0 })
   return res
-}
-
-export async function POST(request: NextRequest) {
-  return logoutResponse(request)
-}
-
-export async function GET(request: NextRequest) {
-  return logoutResponse(request)
 }

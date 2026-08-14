@@ -9,7 +9,7 @@ import { logger } from '@/lib/logger'
  * Jelzi, hogy a szállítási címke kinyomtatásra került → printedAt = now (idempotens).
  */
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const ok = await requireAdmin()
@@ -42,7 +42,7 @@ export async function POST(
     select: { printedAt: true },
   })
 
-  await logAdminAction({ action: 'order_label_print', orderId: id, success: true })
+  await logAdminAction({ action: 'order_label_print', orderId: id, success: true, request })
   logger.debug({ orderId: id }, 'admin/orders/print marked printed')
 
   return NextResponse.json({

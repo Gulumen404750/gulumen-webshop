@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { requireAdmin } from '@/lib/admin-auth'
 import { prisma, isDbConfigured } from '@/lib/prisma'
+import { logAdminAction } from '@/lib/admin-audit'
 
 const bulkPriceSchema = z
   .object({
@@ -101,6 +102,12 @@ export async function PATCH(request: Request) {
     })
   )
 
+  await logAdminAction({
+    action: 'product_bulk_price',
+    success: true,
+    request,
+    details: { updated: products.length, missingIds, mode },
+  })
   return NextResponse.json({
     updated: products.length,
     missingIds,

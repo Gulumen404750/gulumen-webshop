@@ -311,7 +311,12 @@ model AdminAction {
   orderId    String?
   success    Boolean
   details    String?
+  ipAddress  String?
+  userAgent  String?
   createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([action])
 }
 
 /// Sourcing slot foglalás: atomi maxOrders védelem. RESERVED = checkout indítva, 15 min; PAID = fizetve; EXPIRED/CANCELED = felszabadult.

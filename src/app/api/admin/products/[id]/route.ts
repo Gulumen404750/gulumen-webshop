@@ -8,6 +8,7 @@ import {
   sanitizeProductImagePatch,
 } from '@/lib/product-images'
 import { revalidateShopProducts } from '@/lib/revalidate-shop'
+import { logAdminAction } from '@/lib/admin-audit'
 import { z } from 'zod'
 
 async function uniqueProductSlug(base: string, excludeId: string): Promise<string> {
@@ -184,11 +185,17 @@ export async function PATCH(
   })
 
   revalidateShopProducts(product.slug)
+  await logAdminAction({
+    action: 'product_update',
+    success: true,
+    request,
+    details: { id: product.id, slug: product.slug, fields: Object.keys(d) },
+  })
   return NextResponse.json({ product })
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const ok = await requireAdmin()
@@ -197,7 +204,22 @@ export async function DELETE(
 
   const { id } = await params
   const existing = await prisma.product.findUnique({ where: { id }, select: { slug: true } })
+  if (!existing) {
+    await logAdminAction({
+      action: 'product_delete',
+      success: false,
+      request,
+      details: { id, reason: 'not_found' },
+    })
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
   await prisma.product.delete({ where: { id } })
-  revalidateShopProducts(existing?.slug)
+  revalidateShopProducts(existing.slug)
+  await logAdminAction({
+    action: 'product_delete',
+    success: true,
+    request,
+    details: { id, slug: existing.slug },
+  })
   return NextResponse.json({ ok: true })
 }

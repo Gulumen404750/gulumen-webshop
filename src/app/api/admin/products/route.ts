@@ -8,6 +8,7 @@ import {
   sanitizeProductImageFields,
 } from '@/lib/product-images'
 import { revalidateShopProducts } from '@/lib/revalidate-shop'
+import { logAdminAction } from '@/lib/admin-audit'
 import { z } from 'zod'
 
 async function uniqueProductSlug(base: string): Promise<string> {
@@ -217,5 +218,11 @@ export async function POST(request: Request) {
   })
 
   revalidateShopProducts(product.slug)
+  await logAdminAction({
+    action: 'product_create',
+    success: true,
+    request,
+    details: { id: product.id, slug: product.slug, name: product.name },
+  })
   return NextResponse.json({ product })
 }

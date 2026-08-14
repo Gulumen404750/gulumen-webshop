@@ -1,13 +1,23 @@
 /**
- * Aláírt admin session cookie (JWT/HMAC): sub, iat, exp.
+ * Aláírt admin session cookie (JWT/HMAC): sub, iat, exp, sv (session version).
+ * Az sv claim JWT_SECRET + ADMIN_API_KEY hash-e: kulcsváltáskor a régi sütik azonnal érvénytelenek.
  */
 
 import { SignJWT, jwtVerify } from 'jose'
+import {
+  ADMIN_COOKIE_NAME,
+  JWT_ISSUER,
+  JWT_AUDIENCE,
+  ADMIN_SESSION_MAX_AGE_SEC,
+  ADMIN_SESSION_VERSION_CLAIM,
+} from '@/lib/admin-session-constants'
+import { getAdminSessionVersion } from '@/lib/admin-session-version'
 
-export const ADMIN_COOKIE_NAME = 'admin_authorized'
-const JWT_ISSUER = 'gulumen-admin'
-const JWT_AUDIENCE = 'gulumen-admin'
-const MAX_AGE_SEC = 60 * 60 * 24
+export {
+  ADMIN_COOKIE_NAME,
+  ADMIN_SESSION_MAX_AGE_SEC,
+  ADMIN_SESSION_VERSION_CLAIM,
+}
 
 function getSecret(): Uint8Array | null {
   const secret = process.env.JWT_SECRET?.trim() || process.env.NEXTAUTH_SECRET?.trim()
@@ -23,13 +33,14 @@ export async function createAdminSessionToken(): Promise<string> {
   const secret = getSecret()
   if (!secret) throw new Error('JWT_SECRET / NEXTAUTH_SECRET not configured')
   const now = Math.floor(Date.now() / 1000)
-  return new SignJWT({ role: 'admin' })
+  const sv = await getAdminSessionVersion()
+  return new SignJWT({ role: 'admin', [ADMIN_SESSION_VERSION_CLAIM]: sv })
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject('admin')
     .setIssuer(JWT_ISSUER)
     .setAudience(JWT_AUDIENCE)
     .setIssuedAt(now)
-    .setExpirationTime(now + MAX_AGE_SEC)
+    .setExpirationTime(now + ADMIN_SESSION_MAX_AGE_SEC)
     .sign(secret)
 }
 
@@ -42,13 +53,15 @@ export async function verifyAdminSessionToken(token: string | undefined | null):
       issuer: JWT_ISSUER,
       audience: JWT_AUDIENCE,
     })
-    return payload.sub === 'admin'
+    if (payload.sub !== 'admin') return false
+    const expected = await getAdminSessionVersion()
+    return payload[ADMIN_SESSION_VERSION_CLAIM] === expected
   } catch {
     return false
   }
 }
 
-export function getAdminCookieOptions(maxAge = MAX_AGE_SEC) {
+export function getAdminCookieOptions(maxAge = ADMIN_SESSION_MAX_AGE_SEC) {
   return {
     path: '/',
     maxAge,
@@ -57,5 +70,3 @@ export function getAdminCookieOptions(maxAge = MAX_AGE_SEC) {
     secure: process.env.NODE_ENV === 'production',
   }
 }
-
-export { MAX_AGE_SEC as ADMIN_SESSION_MAX_AGE_SEC }

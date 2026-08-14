@@ -2,6 +2,8 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import '@/lib/admin-fetch'
+import { AdminLogoutButton } from '@/components/admin/AdminLogoutButton'
 
 const nav = [
   { href: '/admin/dashboard', label: 'Áttekintés' },
@@ -56,12 +58,7 @@ export default function AdminLayout({
           })}
         </nav>
         <div className="p-2 border-t border-[var(--border)]">
-          <Link
-            href="/api/admin/logout"
-            className="block px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-white/10 hover:text-white"
-          >
-            Kijelentkezés
-          </Link>
+          <AdminLogoutButton className="block w-full text-left px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-white/10 hover:text-white" />
           <Link
             href="/"
             className="block px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-white/10 hover:text-white"

@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
+import { logAdminAction } from '@/lib/admin-audit'
 
 const MODELS_DIR = 'public/models'
 const MAX_SIZE = 50 * 1024 * 1024 // 50 MB
@@ -69,6 +70,12 @@ export async function POST(request: Request) {
     await writeFile(filepath, Buffer.from(bytes))
   } catch (err) {
     console.error('Upload model error:', err)
+    await logAdminAction({
+      action: 'file_upload',
+      success: false,
+      request,
+      details: { kind: 'model', reason: 'error', originalName: name },
+    })
     return NextResponse.json(
       {
         error: err instanceof Error ? err.message : 'A modell mentése sikertelen.',
@@ -77,5 +84,11 @@ export async function POST(request: Request) {
     )
   }
 
+  await logAdminAction({
+    action: 'file_upload',
+    success: true,
+    request,
+    details: { kind: 'model', filename, originalName: name, size: file.size },
+  })
   return NextResponse.json({ success: true, url: `/models/${filename}` })
 }

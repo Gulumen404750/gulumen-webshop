@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
 import { isDbConfigured } from '@/lib/prisma'
 import { CallbackPendingList } from './CallbackPendingList'
+import { AdminLogoutButton } from '@/components/admin/AdminLogoutButton'
 
 function startOfToday(): Date {
   const d = new Date()
@@ -62,12 +63,7 @@ export default async function AdminCallsDashboardPage() {
       <div className="max-w-4xl mx-auto space-y-8">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-heading font-bold">Hívások dashboard</h1>
-          <Link
-            href="/api/admin/logout"
-            className="text-sm text-muted hover:text-foreground"
-          >
-            Kijelentkezés
-          </Link>
+          <AdminLogoutButton className="text-sm text-muted hover:text-foreground" />
         </div>
 
         <section className="grid gap-4 sm:grid-cols-3">

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { prisma, isDbConfigured } from '@/lib/prisma'
+import { logAdminAction } from '@/lib/admin-audit'
 
 function escapeCsvField(value: string): string {
   if (/[",\n\r]/.test(value)) {
@@ -72,6 +73,13 @@ export async function GET(request: Request) {
 
   const csv = buildOrdersCsv(orders)
   const filename = `rendelesek-${new Date().toISOString().slice(0, 10)}.csv`
+
+  await logAdminAction({
+    action: 'orders_csv_export',
+    success: true,
+    request,
+    details: { count: orders.length, status: status || null, filename },
+  })
 
   return new NextResponse(csv, {
     headers: {

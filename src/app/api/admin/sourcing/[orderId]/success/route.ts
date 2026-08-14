@@ -66,7 +66,13 @@ export async function POST(
 
   if (!result.success) {
     logger.error({ orderId, error: result.error }, 'admin/sourcing/success capture failed')
-    await logAdminAction({ action: 'sourcing_success', orderId, success: false, details: result.error })
+    await logAdminAction({
+      action: 'sourcing_success',
+      orderId,
+      success: false,
+      request,
+      details: { error: result.error },
+    })
     return NextResponse.json(
       { error: result.error || 'Capture failed' },
       { status: 500 }
@@ -75,7 +81,7 @@ export async function POST(
 
   await updatePaymentTransactionStatus(authTx.id, 'succeeded')
   await setOrderStatus(orderId, 'fulfilled')
-  await logAdminAction({ action: 'sourcing_success', orderId, success: true })
+  await logAdminAction({ action: 'sourcing_success', orderId, success: true, request })
 
   logger.debug({ orderId }, 'admin/sourcing/success order fulfilled')
   return NextResponse.json({ success: true, orderId, status: 'fulfilled' })

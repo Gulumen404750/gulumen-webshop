@@ -14,6 +14,7 @@ import {
   getCdnBaseUrl,
   isBunnyUploadConfigured,
 } from '@/lib/cdn'
+import { logAdminAction } from '@/lib/admin-audit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -136,6 +137,12 @@ export async function POST(request: Request) {
       optimized = await optimizeToWebp(buffer)
     } catch (decodeErr) {
       console.error('Image decode/optimize error:', decodeErr)
+      await logAdminAction({
+        action: 'file_upload',
+        success: false,
+        request,
+        details: { reason: 'decode_error', originalName: file.name, size: file.size },
+      })
       return NextResponse.json(
         {
           error:
@@ -147,6 +154,12 @@ export async function POST(request: Request) {
 
     if (isBunnyUploadConfigured()) {
       const url = await uploadToBunny(filename, optimized)
+      await logAdminAction({
+        action: 'file_upload',
+        success: true,
+        request,
+        details: { filename, storage: 'bunny', originalName: file.name, size: file.size },
+      })
       return NextResponse.json({ success: true, url, storage: 'bunny' })
     }
 
@@ -155,9 +168,21 @@ export async function POST(request: Request) {
     const filepath = path.join(dir, filename)
     await mkdir(dir, { recursive: true })
     await writeFile(filepath, optimized)
+    await logAdminAction({
+      action: 'file_upload',
+      success: true,
+      request,
+      details: { filename, storage: 'local', originalName: file.name, size: file.size },
+    })
     return NextResponse.json({ success: true, url: cleanCdnUrl(`/uploads/${filename}`), storage: 'local' })
   } catch (err) {
     console.error('Upload/optimize error:', err)
+    await logAdminAction({
+      action: 'file_upload',
+      success: false,
+      request,
+      details: { reason: 'error', originalName: file instanceof File ? file.name : undefined },
+    })
     return NextResponse.json(
       {
         error:

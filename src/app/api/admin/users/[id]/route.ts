@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { ageFromBirthDate, formatBirthDateForInput } from '@/lib/birthday-coupon'
+import { logAdminAction } from '@/lib/admin-audit'
 
 /**
  * GET /api/admin/users/[id]
@@ -86,7 +87,7 @@ export async function GET(
  * Lezárt / meglévő rendelések megmaradnak (userId → null).
  */
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const ok = await requireAdmin()
@@ -101,6 +102,12 @@ export async function DELETE(
     select: { id: true, email: true, _count: { select: { orders: true } } },
   })
   if (!user) {
+    await logAdminAction({
+      action: 'user_delete',
+      success: false,
+      request,
+      details: { id, reason: 'not_found' },
+    })
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
@@ -125,6 +132,12 @@ export async function DELETE(
       await tx.user.delete({ where: { id } })
     })
 
+    await logAdminAction({
+      action: 'user_delete',
+      success: true,
+      request,
+      details: { id, email: user.email, ordersDetached: user._count.orders },
+    })
     return NextResponse.json({
       ok: true,
       deletedUserId: id,
@@ -133,6 +146,12 @@ export async function DELETE(
     })
   } catch (e) {
     console.error('[api/admin/users/[id]] DELETE', e)
+    await logAdminAction({
+      action: 'user_delete',
+      success: false,
+      request,
+      details: { id, reason: 'error' },
+    })
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Törlés sikertelen' },
       { status: 500 }

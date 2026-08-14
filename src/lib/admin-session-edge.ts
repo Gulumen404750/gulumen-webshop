@@ -3,10 +3,15 @@
  */
 
 import { jwtVerify } from 'jose'
+import {
+  ADMIN_COOKIE_NAME,
+  JWT_ISSUER,
+  JWT_AUDIENCE,
+  ADMIN_SESSION_VERSION_CLAIM,
+} from '@/lib/admin-session-constants'
+import { getAdminSessionVersion } from '@/lib/admin-session-version'
 
-export const ADMIN_COOKIE_NAME = 'admin_authorized'
-const JWT_ISSUER = 'gulumen-admin'
-const JWT_AUDIENCE = 'gulumen-admin'
+export { ADMIN_COOKIE_NAME }
 
 function getSecret(): Uint8Array | null {
   const secret = process.env.JWT_SECRET?.trim() || process.env.NEXTAUTH_SECRET?.trim()
@@ -23,7 +28,9 @@ export async function verifyAdminSessionToken(token: string | undefined | null):
       issuer: JWT_ISSUER,
       audience: JWT_AUDIENCE,
     })
-    return payload.sub === 'admin'
+    if (payload.sub !== 'admin') return false
+    const expected = await getAdminSessionVersion()
+    return payload[ADMIN_SESSION_VERSION_CLAIM] === expected
   } catch {
     return false
   }

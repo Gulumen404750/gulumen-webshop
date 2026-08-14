@@ -66,7 +66,13 @@ export async function POST(
 
   if (!result.success) {
     logger.error({ orderId, error: result.error }, 'admin/sourcing/fail cancel failed')
-    await logAdminAction({ action: 'sourcing_fail', orderId, success: false, details: result.error })
+    await logAdminAction({
+      action: 'sourcing_fail',
+      orderId,
+      success: false,
+      request,
+      details: { error: result.error },
+    })
     return NextResponse.json(
       { error: result.error || 'Cancel failed' },
       { status: 500 }
@@ -76,7 +82,7 @@ export async function POST(
   await updatePaymentTransactionStatus(authTx.id, 'cancelled')
   await markReservationsCanceledByOrderId(orderId)
   await setOrderStatus(orderId, 'sourcing_failed')
-  await logAdminAction({ action: 'sourcing_fail', orderId, success: true })
+  await logAdminAction({ action: 'sourcing_fail', orderId, success: true, request })
 
   logger.debug({ orderId }, 'admin/sourcing/fail order sourcing_failed')
   return NextResponse.json({ success: true, orderId, status: 'sourcing_failed' })

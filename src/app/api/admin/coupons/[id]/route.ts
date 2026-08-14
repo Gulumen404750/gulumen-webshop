@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/admin-auth'
+import { logAdminAction } from '@/lib/admin-audit'
 import { z } from 'zod'
 
 const discountTypeSchema = z.enum(['percent', 'fixed'])
@@ -84,7 +85,15 @@ export async function PATCH(
   const d = parsed.data
   if (d.code) {
     const existing = await prisma.coupon.findFirst({ where: { code: d.code, NOT: { id } } })
-    if (existing) return NextResponse.json({ error: 'Coupon code already in use' }, { status: 409 })
+    if (existing) {
+      await logAdminAction({
+        action: 'coupon_update',
+        success: false,
+        request,
+        details: { id, reason: 'duplicate_code' },
+      })
+      return NextResponse.json({ error: 'Coupon code already in use' }, { status: 409 })
+    }
   }
 
   try {
@@ -101,8 +110,20 @@ export async function PATCH(
         ...(d.active !== undefined && { active: d.active }),
       },
     })
+    await logAdminAction({
+      action: 'coupon_update',
+      success: true,
+      request,
+      details: { id: coupon.id, code: coupon.code, fields: Object.keys(d) },
+    })
     return NextResponse.json({ coupon })
   } catch {
+    await logAdminAction({
+      action: 'coupon_update',
+      success: false,
+      request,
+      details: { id, reason: 'not_found' },
+    })
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 }
@@ -111,7 +132,7 @@ export async function PATCH(
  * DELETE /api/admin/coupons/[id] – soft delete (active=false)
  */
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const ok = await requireAdmin()
@@ -125,8 +146,20 @@ export async function DELETE(
       where: { id },
       data: { active: false },
     })
+    await logAdminAction({
+      action: 'coupon_delete',
+      success: true,
+      request,
+      details: { id: coupon.id, code: coupon.code },
+    })
     return NextResponse.json({ coupon })
   } catch {
+    await logAdminAction({
+      action: 'coupon_delete',
+      success: false,
+      request,
+      details: { id, reason: 'not_found' },
+    })
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 }
