@@ -52,6 +52,7 @@ jobs:
 
       - name: Scan WARNING and INFO
         run: |
+          set +e
           semgrep scan \
             --config auto \
             --severity WARNING \
@@ -59,4 +60,6 @@ jobs:
             --error \
             --metrics=off \
             --text
+          status=$?
           echo "::notice::WARNING/INFO is non-blocking (job continue-on-error). ERROR findings fail the high/critical job."
+          exit "$status"
