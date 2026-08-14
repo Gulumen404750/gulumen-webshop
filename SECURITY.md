@@ -3,7 +3,7 @@
 This document is the public vulnerability-reporting policy for the Gulumen webshop (`gulumen-webshop`).  
 Ez a fájl a Gulumen webshop nyilvános sebezhetőség-bejelentési irányelve.
 
-Internal operator rules (admin login, keys, 2FA, IP allowlist) live in **[docs/ADMIN-BIZTONSAGI-SZABALYZAT.md](docs/ADMIN-BIZTONSAGI-SZABALYZAT.md)** — that file is for operators, not a substitute for this disclosure process.
+Internal operator rules (admin login, keys, 2FA, IP allowlist) live in **[docs/ADMIN-BIZTONSAGI-SZABALYZAT.md](docs/ADMIN-BIZTONSAGI-SZABALYZAT.md)**. Related: [docs/BACKUP.md](docs/BACKUP.md), [docs/WAF.md](docs/WAF.md), [docs/STAGING.md](docs/STAGING.md).
 
 ---
 

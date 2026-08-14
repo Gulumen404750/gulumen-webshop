@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { prisma, isDbConfigured } from '@/lib/prisma'
-import { ageFromBirthDate, formatBirthDateForInput } from '@/lib/birthday-coupon'
+import { ageFromBirthDate } from '@/lib/birthday-coupon'
+import { maskEmail } from '@/lib/admin-pii'
 
 /**
  * GET /api/admin/users?marketing=all|subscribed|unsubscribed
@@ -42,10 +43,10 @@ export async function GET(request: Request) {
   return NextResponse.json({
     users: users.map((u) => ({
       id: u.id,
-      email: u.email,
+      email: maskEmail(u.email),
       name: u.name,
       createdAt: u.createdAt.toISOString(),
-      birthDate: formatBirthDateForInput(u.birthDate) || null,
+      birthDate: u.birthDate ? String(u.birthDate.getUTCFullYear()) : null,
       age: u.birthDate ? ageFromBirthDate(u.birthDate) : null,
       marketingOptIn: u.marketingOptIn,
       marketingOptInAt: u.marketingOptInAt?.toISOString() ?? null,

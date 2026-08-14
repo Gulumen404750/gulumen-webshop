@@ -1,39 +1,43 @@
 /**
- * Edge-safe admin session verify (middleware).
+ * Edge-safe admin session verify + sliding idle refresh (middleware).
  */
 
-import { jwtVerify } from 'jose'
 import {
   ADMIN_COOKIE_NAME,
-  JWT_ISSUER,
-  JWT_AUDIENCE,
-  ADMIN_SESSION_VERSION_CLAIM,
-  ADMIN_TFA_CLAIM,
+  ADMIN_SESSION_MAX_AGE_SEC,
 } from '@/lib/admin-session-constants'
-import { getAdminSessionVersion } from '@/lib/admin-session-version'
+import {
+  readAdminSessionPayload,
+  shouldRefreshAdminSession,
+  signAdminSessionToken,
+} from '@/lib/admin-session-jwt'
+import { isAdminSessionRevoked } from '@/lib/admin-session-revoke'
 
-export { ADMIN_COOKIE_NAME }
+export { ADMIN_COOKIE_NAME, signAdminSessionToken }
 
-function getSecret(): Uint8Array | null {
-  const secret = process.env.JWT_SECRET?.trim() || process.env.NEXTAUTH_SECRET?.trim()
-  if (!secret || secret.length < 16) return null
-  return new TextEncoder().encode(secret)
+export function getAdminCookieOptions(maxAge = ADMIN_SESSION_MAX_AGE_SEC) {
+  return {
+    path: '/',
+    maxAge,
+    httpOnly: true,
+    sameSite: 'strict' as const,
+    secure: process.env.NODE_ENV === 'production',
+  }
 }
 
 export async function verifyAdminSessionToken(token: string | undefined | null): Promise<boolean> {
-  if (!token || token === '1') return false
-  const secret = getSecret()
-  if (!secret) return false
-  try {
-    const { payload } = await jwtVerify(token, secret, {
-      issuer: JWT_ISSUER,
-      audience: JWT_AUDIENCE,
-    })
-    if (payload.sub !== 'admin') return false
-    if (payload[ADMIN_TFA_CLAIM] !== true) return false
-    const expected = await getAdminSessionVersion()
-    return payload[ADMIN_SESSION_VERSION_CLAIM] === expected
-  } catch {
-    return false
-  }
+  const payload = await readAdminSessionPayload(token)
+  if (!payload) return false
+  if (await isAdminSessionRevoked(payload.jti)) return false
+  return true
+}
+
+export async function refreshAdminSessionCookieIfNeeded(
+  token: string | undefined | null
+): Promise<string | null> {
+  const payload = await readAdminSessionPayload(token)
+  if (!payload) return null
+  if (await isAdminSessionRevoked(payload.jti)) return null
+  if (!shouldRefreshAdminSession(payload.act)) return null
+  return signAdminSessionToken({ jti: payload.jti })
 }

@@ -61,6 +61,7 @@ export async function GET(request: Request) {
   const orders = await prisma.order.findMany({
     where,
     orderBy: { createdAt: 'desc' },
+    take: 5000,
     select: {
       id: true,
       createdAt: true,
@@ -78,7 +79,7 @@ export async function GET(request: Request) {
     action: 'orders_csv_export',
     success: true,
     request,
-    details: { count: orders.length, status: status || null, filename },
+    details: { count: orders.length, status: status || null, filename, capped: orders.length >= 5000 },
   })
 
   return new NextResponse(csv, {

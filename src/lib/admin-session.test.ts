@@ -96,4 +96,42 @@ describe('admin session version', () => {
     const withTfa = await createAdminSessionToken()
     expect(await verifyAdminSessionToken(withTfa)).toBe(true)
   })
+
+  it('rejects a session after idle timeout and after logout revoke', async () => {
+    process.env.JWT_SECRET = 'jwt-secret-at-least-16-chars'
+    process.env.ADMIN_API_KEY = 'admin-key'
+    const { SignJWT } = await import('jose')
+    const { getAdminSessionVersion } = await import('./admin-session-version')
+    const {
+      JWT_ISSUER,
+      JWT_AUDIENCE,
+      ADMIN_SESSION_VERSION_CLAIM,
+      ADMIN_TFA_CLAIM,
+      ADMIN_SESSION_JTI_CLAIM,
+      ADMIN_SESSION_ACTIVITY_CLAIM,
+    } = await import('./admin-session-constants')
+    const now = Math.floor(Date.now() / 1000)
+    const sv = await getAdminSessionVersion()
+    const idleToken = await new SignJWT({
+      role: 'admin',
+      [ADMIN_SESSION_VERSION_CLAIM]: sv,
+      [ADMIN_TFA_CLAIM]: true,
+      [ADMIN_SESSION_JTI_CLAIM]: 'a'.repeat(32),
+      [ADMIN_SESSION_ACTIVITY_CLAIM]: now - 31 * 60,
+    })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setSubject('admin')
+      .setIssuer(JWT_ISSUER)
+      .setAudience(JWT_AUDIENCE)
+      .setIssuedAt(now - 31 * 60)
+      .setExpirationTime(now + 3600)
+      .sign(new TextEncoder().encode(process.env.JWT_SECRET))
+    expect(await verifyAdminSessionToken(idleToken)).toBe(false)
+
+    const { revokeAdminSessionToken } = await import('./admin-session')
+    const live = await createAdminSessionToken()
+    expect(await verifyAdminSessionToken(live)).toBe(true)
+    await revokeAdminSessionToken(live)
+    expect(await verifyAdminSessionToken(live)).toBe(false)
+  })
 })

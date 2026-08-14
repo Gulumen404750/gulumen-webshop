@@ -338,6 +338,15 @@ model AdminAction {
   @@index([action])
 }
 
+/// Logout után a JWT jti denylistája a lejáratig.
+model AdminRevokedSession {
+  jti       String   @id
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
 /// Sourcing slot foglalás: atomi maxOrders védelem. RESERVED = checkout indítva, 15 min; PAID = fizetve; EXPIRED/CANCELED = felszabadult.
 model ProductReservation {
   id        String   @id @default(cuid())

@@ -36,6 +36,10 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: npm audit (production deps, high+)
+        run: npm audit --omit=dev --audit-level=high
+        continue-on-error: true
+
   e2e:
     name: E2E (Playwright)
     runs-on: ubuntu-latest

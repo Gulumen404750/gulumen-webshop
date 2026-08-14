@@ -21,6 +21,7 @@ export function buildContentSecurityPolicy(isDev = process.env.NODE_ENV !== 'pro
     "base-uri 'self'",
     "form-action 'self'",
     "object-src 'none'",
+    ...(!isDev ? ['upgrade-insecure-requests'] : []),
   ].join('; ')
 }
 

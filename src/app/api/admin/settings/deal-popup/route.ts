@@ -13,6 +13,7 @@ import {
   DEFAULT_CONFIG,
   type DealPopupConfig,
 } from '@/lib/deal-popup'
+import { logAdminAction } from '@/lib/admin-audit'
 
 export const dynamic = 'force-dynamic'
 
@@ -84,6 +85,12 @@ export async function PATCH(request: Request) {
 
   try {
     await setDealPopupConfigInDb(config)
+    await logAdminAction({
+      action: 'settings_deal_popup_update',
+      success: true,
+      request,
+      details: { enabled: config.enabled, productCount: config.productIds.length },
+    })
     return NextResponse.json({ ok: true, config })
   } catch (e) {
     console.error('[api/admin/settings/deal-popup] PATCH', e)

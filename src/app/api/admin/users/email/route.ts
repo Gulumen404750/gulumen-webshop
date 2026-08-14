@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { requireAdmin } from '@/lib/admin-auth'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { sendAdminBulkEmail } from '@/lib/admin-bulk-email'
+import { logAdminAction } from '@/lib/admin-audit'
 
 const MAX_RECIPIENTS = 100
 
@@ -90,6 +91,19 @@ export async function POST(request: Request) {
     subject: parsed.data.subject,
     body: parsed.data.body,
     purpose,
+  })
+
+  await logAdminAction({
+    action: 'users_bulk_email',
+    success: result.failed === 0,
+    request,
+    details: {
+      purpose,
+      requested: uniqueIds.length,
+      sent: result.sent,
+      failed: result.failed,
+      skipped,
+    },
   })
 
   return NextResponse.json({

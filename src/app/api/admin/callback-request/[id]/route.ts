@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { isDbConfigured } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/admin-auth'
+import { logAdminAction } from '@/lib/admin-audit'
 
 /**
  * PATCH /api/admin/callback-request/:id
@@ -48,6 +49,12 @@ export async function PATCH(
     await prisma.callbackRequest.update({
       where: { id },
       data: { status, ...(note !== undefined && { note }) },
+    })
+    await logAdminAction({
+      action: 'callback_request_update',
+      success: true,
+      request,
+      details: { id, status },
     })
     return NextResponse.json({ ok: true, status, note: note ?? null })
   } catch (e) {

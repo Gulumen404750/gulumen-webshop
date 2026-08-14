@@ -10,6 +10,7 @@ describe('buildContentSecurityPolicy', () => {
     expect(csp).toContain('https://www.gstatic.com')
     expect(csp).toContain("frame-src 'self' https://www.google.com https://www.recaptcha.net")
     expect(csp).toContain("object-src 'none'")
+    expect(csp).toContain('upgrade-insecure-requests')
   })
 
   it('keeps unsafe-eval in development for Next.js HMR', () => {

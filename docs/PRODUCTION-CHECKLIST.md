@@ -22,6 +22,7 @@ Irányelvek: [SECURITY.md](../SECURITY.md) (sebezhetőség-bejelentés) · [Admi
 - [ ] Admin 2FA (Google Authenticator) bekapcsolva élesben — [szabályzat](ADMIN-BIZTONSAGI-SZABALYZAT.md)
 - [ ] `ADMIN_ALLOWED_IPS` ki van töltve élesben (üres = minden IP)
 - [ ] `ADMIN_URL_SLUG` beállítva (rejtett belépési URL; `/admin` session nélkül 404)
+- [ ] `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` élesben (admin rate limit + JWT denylist több példányon)
 - [ ] `PAYMENTS_WEBHOOK_SECRET` beállítva a deploy környezetben
 - [ ] Nincs hardcode-olt titok a kódban (csak `process.env.*`)
 - [ ] Build ne bukjon env hiány miatt (a kritikus végpontok 503-at adnak, az alkalmazás elindul)
@@ -33,6 +34,9 @@ Irányelvek: [SECURITY.md](../SECURITY.md) (sebezhetőség-bejelentés) · [Admi
 - [ ] `RESEND_API_KEY` – hírlevél / e-mail küldés
 - [ ] `ADMIN_EMAIL` – gyanús belépés / fiókzárolás riasztás (+ callback e-mail)
 - [ ] `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` + `RECAPTCHA_SECRET_KEY` – reCAPTCHA v3 a belépésnél
+- [ ] Railway Postgres backup / [BACKUP.md](BACKUP.md)
+- [ ] Cloudflare / [WAF.md](WAF.md) a `/admin` előtt
+- [ ] Staging service / [STAGING.md](STAGING.md)
 
 ## .env.example
 

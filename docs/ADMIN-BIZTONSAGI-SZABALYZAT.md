@@ -37,7 +37,7 @@ Ez a dokumentum **kötelező** mindenki számára, aki admin kulcsot, Railway Va
 
 ## 4. Session, titkok, csere
 
-Az admin süti **aláírt JWT**. HMAC: **`JWT_SECRET`** (vagy `NEXTAUTH_SECRET`). A token `sv` claimje a `JWT_SECRET` + `ADMIN_API_KEY` hash-e.
+Az admin süti **aláírt JWT** (max **8 óra**, **30 perc idle**). HMAC: **`JWT_SECRET`**. Logout a `jti`-t denylistára teszi (Redis + DB). `SameSite=Strict`, `httpOnly`.
 
 | Titok csere | Hatás |
 |-------------|--------|
@@ -114,7 +114,8 @@ A belépések és a releváns műveletek az **`AdminAction`** audit táblába me
 
 | Téma | Hol |
 |------|-----|
-| Session verify | `src/lib/admin-session.ts`, `src/lib/admin-session-edge.ts` |
+| Session / idle / denylist | `src/lib/admin-session.ts`, `src/lib/admin-session-jwt.ts` |
+| Backup / WAF / staging | `docs/BACKUP.md`, `docs/WAF.md`, `docs/STAGING.md` |
 | Session verzió (`sv`) | `src/lib/admin-session-version.ts` |
 | IP-lista | `src/lib/admin-ip-allowlist.ts`, `src/middleware.ts` |
 | CSRF | `src/lib/admin-csrf.ts` |

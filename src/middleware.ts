@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { verifyAdminSessionToken, ADMIN_COOKIE_NAME } from '@/lib/admin-session-edge'
+import {
+  verifyAdminSessionToken,
+  ADMIN_COOKIE_NAME,
+  refreshAdminSessionCookieIfNeeded,
+  getAdminCookieOptions,
+} from '@/lib/admin-session-edge'
 import { evaluateAdminIpAccess, isAdminIpRestrictedPath } from '@/lib/admin-ip-allowlist'
 import { getClientIp } from '@/lib/request-ip'
 import {
@@ -70,6 +75,15 @@ export async function middleware(request: NextRequest) {
     const wwwUrl = request.nextUrl.clone()
     wwwUrl.hostname = 'www.gulumen.com'
     return NextResponse.redirect(wwwUrl, 308)
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    const proto = (request.headers.get('x-forwarded-proto') || request.nextUrl.protocol.replace(':', '')).split(',')[0].trim()
+    if (proto === 'http') {
+      const httpsUrl = request.nextUrl.clone()
+      httpsUrl.protocol = 'https:'
+      return NextResponse.redirect(httpsUrl, 308)
+    }
   }
 
   const pathname = request.nextUrl.pathname
@@ -150,6 +164,11 @@ export async function middleware(request: NextRequest) {
     if (isAdminIpRestrictedPath(pathname)) {
       ensureCsrfCookie(request, response)
     }
+    const token = request.cookies.get(ADMIN_COOKIE_NAME)?.value
+    const refreshed = await refreshAdminSessionCookieIfNeeded(token)
+    if (refreshed) {
+      response.cookies.set(ADMIN_COOKIE_NAME, refreshed, getAdminCookieOptions())
+    }
     return withAdminHeaders(response)
   }
 
@@ -160,6 +179,11 @@ export async function middleware(request: NextRequest) {
 
   if (adminPath.kind !== 'none') {
     response.headers.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate')
+    const token = request.cookies.get(ADMIN_COOKIE_NAME)?.value
+    const refreshed = await refreshAdminSessionCookieIfNeeded(token)
+    if (refreshed) {
+      response.cookies.set(ADMIN_COOKIE_NAME, refreshed, getAdminCookieOptions())
+    }
   }
 
   if (isAdminIpRestrictedPath(pathname)) {
@@ -170,5 +194,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|models/).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 }

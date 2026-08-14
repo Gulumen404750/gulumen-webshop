@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { prisma, isDbConfigured } from '@/lib/prisma'
+import { maskEmail } from '@/lib/admin-pii'
 
 /**
  * GET /api/admin/gamification
@@ -48,7 +49,7 @@ export async function GET() {
       },
       topUsers: topWallets.map((w) => ({
         userId: w.userId,
-        email: w.user.email,
+        email: maskEmail(w.user.email),
         name: w.user.name,
         balance: w.balance,
         lifetimeEarned: w.lifetimeEarned,
@@ -58,7 +59,7 @@ export async function GET() {
       transactions: transactions.map((tx) => ({
         id: tx.id,
         userId: tx.userId,
-        email: tx.user.email,
+        email: maskEmail(tx.user.email),
         type: tx.type,
         delta: tx.delta,
         balanceAfter: tx.balanceAfter,

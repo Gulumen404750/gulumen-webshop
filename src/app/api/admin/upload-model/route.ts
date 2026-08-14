@@ -52,11 +52,17 @@ export async function POST(request: Request) {
   const validMime = mime === MIME_GLB || mime === MIME_GLTF || mime === 'application/octet-stream' || !mime
   const validExt = ALLOWED_EXT.test(name)
 
-  if (!ext || (!validMime && !validExt)) {
+  if (!ext || !validExt || !validMime) {
     return NextResponse.json(
       { error: 'Csak .glb vagy .gltf formátum tölthető fel.' },
       { status: 400 }
     )
+  }
+
+  const bytes = await file.arrayBuffer()
+  const buf = Buffer.from(bytes)
+  if (ext === 'glb' && buf.subarray(0, 4).toString('ascii') !== 'glTF') {
+    return NextResponse.json({ error: 'Érvénytelen GLB fájl.' }, { status: 400 })
   }
 
   const baseName = `model-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
@@ -66,8 +72,7 @@ export async function POST(request: Request) {
 
   try {
     await mkdir(dir, { recursive: true })
-    const bytes = await file.arrayBuffer()
-    await writeFile(filepath, Buffer.from(bytes))
+    await writeFile(filepath, buf)
   } catch (err) {
     console.error('Upload model error:', err)
     await logAdminAction({
@@ -78,7 +83,7 @@ export async function POST(request: Request) {
     })
     return NextResponse.json(
       {
-        error: err instanceof Error ? err.message : 'A modell mentése sikertelen.',
+        error: 'A modell mentése sikertelen.',
       },
       { status: 500 }
     )

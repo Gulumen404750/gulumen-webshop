@@ -131,7 +131,7 @@ ${nameHu}`
   } catch (err) {
     console.error('[translate-names]', err)
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Fordítási hiba' },
+      { error: 'Fordítási hiba' },
       { status: 500 }
     )
   }

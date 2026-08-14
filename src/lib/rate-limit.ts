@@ -97,11 +97,25 @@ function getRedisLimiter(storeKey: string, max: number, windowMs: number): Ratel
   return limiter
 }
 
+let warnedMissingRedisForAdmin = false
+
 export async function rateLimit(
   request: Request,
   options?: RateLimitOptions
 ): Promise<RateLimitResult> {
   const { windowMs, max, key } = resolveLimits(options)
+
+  if (
+    process.env.NODE_ENV === 'production' &&
+    (options?.preset === 'adminLogin' || options?.preset === 'adminTotp') &&
+    !isRedisConfigured() &&
+    !warnedMissingRedisForAdmin
+  ) {
+    warnedMissingRedisForAdmin = true
+    console.error(
+      '[rate-limit] UPSTASH Redis unset; admin login limits are per-instance. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.'
+    )
+  }
 
   if (isRedisConfigured()) {
     try {

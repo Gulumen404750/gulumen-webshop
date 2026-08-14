@@ -50,7 +50,7 @@ async function optimizeToWebp(buffer: Buffer): Promise<Buffer> {
 
 function isAllowedImage(file: File): boolean {
   const mime = (file.type || '').toLowerCase()
-  if (ALLOWED_TYPES.includes(mime) || mime.startsWith('image/')) return true
+  if (ALLOWED_TYPES.includes(mime)) return true
   if (!mime || mime === 'application/octet-stream') {
     return IMAGE_EXT_RE.test(file.name || '')
   }
@@ -185,10 +185,7 @@ export async function POST(request: Request) {
     })
     return NextResponse.json(
       {
-        error:
-          err instanceof Error
-            ? err.message
-            : 'A kép feldolgozása sikertelen. Ellenőrizd a formátumot (JPEG, PNG, WebP, GIF).',
+        error: 'A kép feldolgozása sikertelen. Ellenőrizd a formátumot (JPEG, PNG, WebP, GIF).',
       },
       { status: 500 }
     )

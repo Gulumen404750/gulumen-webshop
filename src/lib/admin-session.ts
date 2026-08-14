@@ -1,6 +1,6 @@
 /**
- * Aláírt admin session cookie (JWT/HMAC): sub, iat, exp, sv (session version).
- * Az sv claim JWT_SECRET + ADMIN_API_KEY hash-e: kulcsváltáskor a régi sütik azonnal érvénytelenek.
+ * Aláírt admin session cookie (JWT/HMAC): sub, iat, exp, sv, jti, act, tfa.
+ * Logout: jti denylist. Inaktivitás: act claim (30 perc).
  */
 
 import { SignJWT, jwtVerify } from 'jose'
@@ -17,6 +17,13 @@ import {
   ADMIN_2FA_PENDING_ROLE,
 } from '@/lib/admin-session-constants'
 import { getAdminSessionVersion } from '@/lib/admin-session-version'
+import {
+  isAdminSessionConfigured,
+  readAdminSessionPayload,
+  signAdminSessionToken,
+} from '@/lib/admin-session-jwt'
+import { isAdminSessionRevoked, revokeAdminSessionJti } from '@/lib/admin-session-revoke'
+import { dbIsAdminSessionRevoked, persistRevokedAdminJti } from '@/lib/admin-session-revoke-db'
 
 export {
   ADMIN_COOKIE_NAME,
@@ -26,51 +33,23 @@ export {
   ADMIN_SESSION_VERSION_CLAIM,
 }
 
-function getSecret(): Uint8Array | null {
-  const secret = process.env.JWT_SECRET?.trim() || process.env.NEXTAUTH_SECRET?.trim()
-  if (!secret || secret.length < 16) return null
-  return new TextEncoder().encode(secret)
-}
-
-export function isAdminSessionConfigured(): boolean {
-  return getSecret() !== null
-}
-
-export async function createAdminSessionToken(): Promise<string> {
-  const secret = getSecret()
-  if (!secret) throw new Error('JWT_SECRET / NEXTAUTH_SECRET not configured')
-  const now = Math.floor(Date.now() / 1000)
-  const sv = await getAdminSessionVersion()
-  return new SignJWT({
-    role: 'admin',
-    [ADMIN_SESSION_VERSION_CLAIM]: sv,
-    [ADMIN_TFA_CLAIM]: true,
-  })
-    .setProtectedHeader({ alg: 'HS256' })
-    .setSubject('admin')
-    .setIssuer(JWT_ISSUER)
-    .setAudience(JWT_AUDIENCE)
-    .setIssuedAt(now)
-    .setExpirationTime(now + ADMIN_SESSION_MAX_AGE_SEC)
-    .sign(secret)
-}
+export { isAdminSessionConfigured, signAdminSessionToken as createAdminSessionToken }
 
 export async function verifyAdminSessionToken(token: string | undefined | null): Promise<boolean> {
-  if (!token || token === '1') return false
-  const secret = getSecret()
-  if (!secret) return false
-  try {
-    const { payload } = await jwtVerify(token, secret, {
-      issuer: JWT_ISSUER,
-      audience: JWT_AUDIENCE,
-    })
-    if (payload.sub !== 'admin') return false
-    if (payload[ADMIN_TFA_CLAIM] !== true) return false
-    const expected = await getAdminSessionVersion()
-    return payload[ADMIN_SESSION_VERSION_CLAIM] === expected
-  } catch {
-    return false
-  }
+  const payload = await readAdminSessionPayload(token)
+  if (!payload) return false
+  if (await isAdminSessionRevoked(payload.jti)) return false
+  if (await dbIsAdminSessionRevoked(payload.jti)) return false
+  return true
+}
+
+export async function revokeAdminSessionToken(token: string | undefined | null): Promise<void> {
+  const payload = await readAdminSessionPayload(token)
+  if (!payload) return
+  await Promise.all([
+    revokeAdminSessionJti(payload.jti),
+    persistRevokedAdminJti(payload.jti),
+  ])
 }
 
 export function getAdminCookieOptions(maxAge = ADMIN_SESSION_MAX_AGE_SEC) {
@@ -78,14 +57,14 @@ export function getAdminCookieOptions(maxAge = ADMIN_SESSION_MAX_AGE_SEC) {
     path: '/',
     maxAge,
     httpOnly: true,
-    sameSite: 'lax' as const,
+    sameSite: 'strict' as const,
     secure: process.env.NODE_ENV === 'production',
   }
 }
 
 export async function createAdminPendingTwoFactorToken(): Promise<string> {
-  const secret = getSecret()
-  if (!secret) throw new Error('JWT_SECRET / NEXTAUTH_SECRET not configured')
+  const secret = process.env.JWT_SECRET?.trim() || process.env.NEXTAUTH_SECRET?.trim()
+  if (!secret || secret.length < 16) throw new Error('JWT_SECRET / NEXTAUTH_SECRET not configured')
   const now = Math.floor(Date.now() / 1000)
   const sv = await getAdminSessionVersion()
   return new SignJWT({
@@ -98,17 +77,17 @@ export async function createAdminPendingTwoFactorToken(): Promise<string> {
     .setAudience(JWT_AUDIENCE_2FA)
     .setIssuedAt(now)
     .setExpirationTime(now + ADMIN_2FA_PENDING_MAX_AGE_SEC)
-    .sign(secret)
+    .sign(new TextEncoder().encode(secret))
 }
 
 export async function verifyAdminPendingTwoFactorToken(
   token: string | undefined | null
 ): Promise<boolean> {
   if (!token) return false
-  const secret = getSecret()
-  if (!secret) return false
+  const secret = process.env.JWT_SECRET?.trim() || process.env.NEXTAUTH_SECRET?.trim()
+  if (!secret || secret.length < 16) return false
   try {
-    const { payload } = await jwtVerify(token, secret, {
+    const { payload } = await jwtVerify(token, new TextEncoder().encode(secret), {
       issuer: JWT_ISSUER,
       audience: JWT_AUDIENCE_2FA,
     })

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { requireAdmin } from '@/lib/admin-auth'
 import { isDbConfigured } from '@/lib/prisma'
+import { logAdminAction } from '@/lib/admin-audit'
 import {
   getChatSettingsFromDb,
   getDefaultChatSettings,
@@ -70,6 +71,11 @@ export async function PATCH(request: Request) {
   try {
     await setChatSettingsInDb(config)
     const saved = await getChatSettingsFromDb()
+    await logAdminAction({
+      action: 'settings_chat_update',
+      success: true,
+      request,
+    })
     return NextResponse.json({ ok: true, config: saved })
   } catch (e) {
     console.error('[api/admin/settings/chat] PATCH', e)

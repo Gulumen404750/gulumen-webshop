@@ -47,4 +47,15 @@ describe('admin middleware IP + CSRF', () => {
     const res = await middleware(req)
     expect(res.status).toBe(403)
   })
+
+  it('redirects HTTP to HTTPS in production', async () => {
+    setEnv('NODE_ENV', 'production')
+    const { middleware } = await import('@/middleware')
+    const req = new NextRequest('http://www.gulumen.com/termekek', {
+      headers: { 'x-forwarded-proto': 'http', host: 'www.gulumen.com' },
+    })
+    const res = await middleware(req)
+    expect(res.status).toBe(308)
+    expect(res.headers.get('location') || '').toContain('https://')
+  })
 })

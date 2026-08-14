@@ -7,6 +7,7 @@ import {
   type AbandonedCartOfferPercent,
 } from '@/lib/cart-snapshot'
 import { isDbConfigured } from '@/lib/prisma'
+import { logAdminAction } from '@/lib/admin-audit'
 
 const offerSchema = z.object({
   percent: z.number().int(),
@@ -53,8 +54,21 @@ export async function POST(request: Request, context: RouteContext) {
 
   const result = await sendAbandonedCartOffer(userId, percent)
   if (!result.ok) {
+    await logAdminAction({
+      action: 'abandoned_cart_offer',
+      success: false,
+      request,
+      details: { userId, percent, error: result.error },
+    })
     return NextResponse.json({ error: result.error }, { status: 400 })
   }
+
+  await logAdminAction({
+    action: 'abandoned_cart_offer',
+    success: true,
+    request,
+    details: { userId, percent, emailSent: result.emailSent },
+  })
 
   return NextResponse.json({
     ok: true,
