@@ -17,6 +17,7 @@ describe('ambient atmosphere wiring', () => {
     expect(src).toMatch(/pointer: fine/)
     expect(src).toMatch(/hover: hover/)
     expect(src).toMatch(/startsWith\('\/admin'\)/)
+    expect(src).toMatch(/\/termekek/)
     expect(src).toMatch(/requestAnimationFrame/)
     expect(src).toMatch(/translate3d/)
     expect(src).toMatch(/ambient-orb/)

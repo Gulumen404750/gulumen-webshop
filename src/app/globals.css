@@ -770,112 +770,52 @@
   outline-offset: 3px;
 }
 
-/* Kapu / féreglyuk átvezetés */
-.products-portal-overlay {
-  position: fixed;
+@media (prefers-reduced-motion: reduce) {
+  .products-gold-cta,
+  .products-gold-cta::after {
+    animation: none !important;
+  }
+}
+
+/* Termékek oldal: űr-videó háttér */
+.shop-space-page {
+  min-height: 70vh;
+}
+
+.shop-space-bg {
+  position: absolute;
   inset: 0;
-  z-index: 200;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  z-index: 0;
   overflow: hidden;
-  background: #020617;
-  animation: portal-fade-in 0.28s ease-out;
+  pointer-events: none;
 }
 
-.products-portal-space {
+.shop-space-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  filter: saturate(1.15) contrast(1.05);
+}
+
+.shop-space-scrim {
   position: absolute;
-  inset: -20%;
+  inset: 0;
   background:
-    radial-gradient(circle at 50% 50%, rgba(251, 191, 36, 0.18), transparent 42%),
-    radial-gradient(circle at 30% 20%, rgba(56, 189, 248, 0.12), transparent 35%),
-    radial-gradient(circle at 70% 80%, rgba(168, 85, 247, 0.14), transparent 40%);
-  animation: portal-space-spin 8s linear infinite;
+    linear-gradient(180deg, rgba(2, 6, 23, 0.28) 0%, rgba(2, 6, 23, 0.42) 55%, rgba(2, 6, 23, 0.62) 100%);
 }
 
-.products-portal-tunnel {
-  position: relative;
-  width: min(78vw, 520px);
-  height: min(78vw, 520px);
-  display: grid;
-  place-items: center;
-  transform: perspective(720px) rotateX(8deg);
-  animation: portal-suck 1.45s cubic-bezier(0.55, 0, 0.9, 0.45) forwards;
-}
-
-.products-portal-ring {
-  position: absolute;
-  width: calc(18% + var(--ring-i) * 10%);
-  height: calc(18% + var(--ring-i) * 10%);
-  border-radius: 50%;
-  border: 2px solid rgba(251, 191, 36, 0.55);
-  box-shadow:
-    0 0 16px rgba(251, 191, 36, 0.35),
-    inset 0 0 18px rgba(56, 189, 248, 0.2);
-  animation: portal-ring-spin 2.4s linear infinite;
-  animation-delay: calc(var(--ring-i) * -0.12s);
-}
-
-.products-portal-ring:nth-child(odd) {
-  border-color: rgba(125, 211, 252, 0.45);
-}
-
-.products-portal-core {
-  width: 18%;
-  height: 18%;
-  border-radius: 50%;
-  background: radial-gradient(circle, #fff7d6 0%, #fbbf24 28%, #0f172a 70%, #020617 100%);
-  box-shadow: 0 0 40px 12px rgba(251, 191, 36, 0.55);
-  animation: portal-core-pulse 0.9s ease-in-out infinite;
-}
-
-.products-portal-caption {
-  position: absolute;
-  bottom: 12%;
-  left: 50%;
-  transform: translateX(-50%);
-  color: #fde68a;
-  font-family: var(--font-poppins), sans-serif;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-shadow: 0 0 12px rgba(251, 191, 36, 0.7);
-}
-
-@keyframes portal-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes portal-space-spin {
-  from { transform: rotate(0deg) scale(1.05); }
-  to { transform: rotate(360deg) scale(1.05); }
-}
-
-@keyframes portal-ring-spin {
-  from { transform: rotate(0deg) scale(1); }
-  to { transform: rotate(360deg) scale(1.08); }
-}
-
-@keyframes portal-core-pulse {
-  0%, 100% { transform: scale(0.92); opacity: 0.85; }
-  50% { transform: scale(1.12); opacity: 1; }
-}
-
-@keyframes portal-suck {
-  0% { transform: perspective(720px) rotateX(8deg) scale(0.35); opacity: 0.4; }
-  55% { transform: perspective(720px) rotateX(12deg) scale(1.15); opacity: 1; }
-  100% { transform: perspective(720px) rotateX(18deg) scale(8); opacity: 0; }
+.dark .shop-space-scrim {
+  background:
+    linear-gradient(180deg, rgba(2, 6, 23, 0.35) 0%, rgba(2, 6, 23, 0.5) 50%, rgba(2, 6, 23, 0.7) 100%);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .products-gold-cta,
-  .products-gold-cta::after,
-  .products-portal-overlay,
-  .products-portal-space,
-  .products-portal-tunnel,
-  .products-portal-ring,
-  .products-portal-core {
-    animation: none !important;
+  .shop-space-video {
+    display: none;
+  }
+  .shop-space-scrim {
+    background: transparent;
   }
 }
 

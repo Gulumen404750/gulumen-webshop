@@ -14,7 +14,7 @@ const PARTICLES = Array.from({ length: 16 }, (_, i) => ({
 /**
  * Storefront-only ambient layer: slow gradient orbs, faint sparkles,
  * and (on fine pointers) a cursor-following navy/gold glow.
- * GPU-only transforms; skipped on reduced motion and /admin.
+ * GPU-only transforms; skipped on reduced motion, /admin, and /termekek (video bg).
  */
 export function AmbientAtmosphere() {
   const pathname = usePathname()
@@ -25,9 +25,10 @@ export function AmbientAtmosphere() {
   const [cursorOn, setCursorOn] = useState(false)
 
   const isAdmin = pathname?.startsWith('/admin') ?? false
+  const isProducts = pathname === '/termekek' || (pathname?.startsWith('/termekek?') ?? false)
 
   useEffect(() => {
-    if (isAdmin) {
+    if (isAdmin || isProducts) {
       setMotionOk(false)
       setCursorOn(false)
       return
@@ -60,7 +61,7 @@ export function AmbientAtmosphere() {
       document.removeEventListener('visibilitychange', onVisibility)
       document.documentElement.classList.remove('ambient-paused')
     }
-  }, [isAdmin])
+  }, [isAdmin, isProducts])
 
   useEffect(() => {
     if (!cursorOn) return
@@ -92,7 +93,7 @@ export function AmbientAtmosphere() {
     }
   }, [cursorOn])
 
-  if (isAdmin || !motionOk) return null
+  if (isAdmin || isProducts || !motionOk) return null
 
   return (
     <>

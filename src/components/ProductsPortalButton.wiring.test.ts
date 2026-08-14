@@ -9,11 +9,10 @@ describe('ProductsPortalButton wiring', () => {
     expect(page).toMatch(/<ProductsPortalButton\s*\/>/)
   })
 
-  it('opens a portal overlay then navigates to /termekek', () => {
+  it('navigates to /termekek without a portal overlay', () => {
     const src = readFileSync(join(process.cwd(), 'src/components/ProductsPortalButton.tsx'), 'utf-8')
-    expect(src).toMatch(/\/termekek/)
-    expect(src).toMatch(/products-portal-overlay/)
-    expect(src).toMatch(/prefers-reduced-motion/)
-    expect(src).toMatch(/createPortal/)
+    expect(src).toMatch(/href=["']\/termekek["']/)
+    expect(src).not.toMatch(/products-portal-overlay/)
+    expect(src).not.toMatch(/createPortal/)
   })
 })
