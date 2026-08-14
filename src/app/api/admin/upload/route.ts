@@ -15,18 +15,45 @@ import {
   isBunnyUploadConfigured,
 } from '@/lib/cdn'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 const UPLOAD_DIR = 'public/uploads'
 const MAX_INPUT_SIZE = 25 * 1024 * 1024
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+const ALLOWED_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/pjpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/avif',
+  'image/heic',
+  'image/heif',
+  'image/heic-sequence',
+  'image/heif-sequence',
+]
+const IMAGE_EXT_RE = /\.(jpe?g|png|webp|gif|avif|heic|heif)$/i
 const MAX_WIDTH = 2000
 const MAX_HEIGHT = 2000
 const WEBP_QUALITY = 85
 
 async function optimizeToWebp(buffer: Buffer): Promise<Buffer> {
+  // rotate() alkalmazza az EXIF orientációt (iPhone fotók ne legyenek fektetve)
   return sharp(buffer)
+    .rotate()
     .resize(MAX_WIDTH, MAX_HEIGHT, { fit: 'inside', withoutEnlargement: true })
     .webp({ quality: WEBP_QUALITY })
     .toBuffer()
+}
+
+function isAllowedImage(file: File): boolean {
+  const mime = (file.type || '').toLowerCase()
+  if (ALLOWED_TYPES.includes(mime) || mime.startsWith('image/')) return true
+  if (!mime || mime === 'application/octet-stream') {
+    return IMAGE_EXT_RE.test(file.name || '')
+  }
+  return false
 }
 
 async function uploadToBunny(filename: string, body: Buffer): Promise<string> {
@@ -88,15 +115,12 @@ export async function POST(request: Request) {
       { status: 400 }
     )
   }
-  const mime = (file.type || '').toLowerCase()
-  const allowByMime = ALLOWED_TYPES.includes(mime)
-  const allowByExtension =
-    !mime || mime === 'application/octet-stream'
-      ? /\.(jpe?g|png|webp|gif)$/i.test(file.name || '')
-      : false
-  if (!allowByMime && !allowByExtension) {
+  if (!isAllowedImage(file)) {
     return NextResponse.json(
-      { error: 'Csak JPEG, PNG, WebP vagy GIF formátum tölthető fel. (ChatGPT/Gemini képeknél mentsd PNG-ként.)' },
+      {
+        error:
+          'Ez a fájl nem képként ismerhető fel. Próbálj JPG, PNG, WebP, GIF, AVIF vagy HEIC fájlt, vagy mentsd PNG-ként.',
+      },
       { status: 400 }
     )
   }
@@ -107,7 +131,19 @@ export async function POST(request: Request) {
   try {
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    const optimized = await optimizeToWebp(buffer)
+    let optimized: Buffer
+    try {
+      optimized = await optimizeToWebp(buffer)
+    } catch (decodeErr) {
+      console.error('Image decode/optimize error:', decodeErr)
+      return NextResponse.json(
+        {
+          error:
+            'A kép nem olvasható (HEIC/iPhone fotó a szerveren nem dekódolható, vagy a fájl sérült). Nyisd meg a Fotók appban, és mentsd JPG/PNG-ként, majd csatold újra.',
+        },
+        { status: 400 }
+      )
+    }
 
     if (isBunnyUploadConfigured()) {
       const url = await uploadToBunny(filename, optimized)
