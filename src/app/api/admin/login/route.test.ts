@@ -87,6 +87,27 @@ describe('POST /api/admin/login 2FA gate', () => {
     expect(createAdminSessionToken).not.toHaveBeenCalled()
   })
 
+  it('still requires TOTP when a pending re-enroll secret exists', async () => {
+    getAdminTwoFactorState.mockResolvedValue({
+      isTwoFactorEnabled: true,
+      totpSecret: 'ACTIVESECRET',
+      pendingTotpSecret: 'PENDINGSECRET',
+    })
+    const { POST } = await import('@/app/api/admin/login/route')
+    const res = await POST(
+      new Request('http://localhost/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'test-admin-key' }),
+      })
+    )
+    expect(res.status).toBe(200)
+    const data = await res.json()
+    expect(data.requiresTwoFactor).toBe(true)
+    expect(createAdminSessionToken).not.toHaveBeenCalled()
+    expect(res.headers.get('set-cookie') || '').not.toContain('admin_authorized=')
+  })
+
   it('issues a full admin cookie when 2FA is off', async () => {
     getAdminTwoFactorState.mockResolvedValue({ isTwoFactorEnabled: false, totpSecret: null })
     const { POST } = await import('@/app/api/admin/login/route')

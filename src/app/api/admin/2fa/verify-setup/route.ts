@@ -3,12 +3,14 @@ import { requireAdmin } from '@/lib/admin-auth'
 import { isDbConfigured } from '@/lib/prisma'
 import { rateLimit } from '@/lib/rate-limit'
 import { logAdminAction } from '@/lib/admin-audit'
-import { enableAdminTwoFactor, getAdminTwoFactorState } from '@/lib/admin-2fa'
+import { confirmAdminTotpSetup, getAdminTwoFactorState } from '@/lib/admin-2fa'
 import { normalizeTotpCode, verifyTotpCode } from '@/lib/admin-totp'
 
 /**
  * POST /api/admin/2fa/verify-setup
- * Body: { code: string } – Google Authenticator 6 jegyű kód. Sikeresen élesíti a 2FA-t.
+ * Body: { code: string } – Google Authenticator 6 jegyű kód.
+ * Első bekapcsolás: az aktív totpSecret kódja. Újrapárosítás: a pending secret kódja
+ * (pending → aktív, pending törlése, 2FA bekapcsolva marad).
  */
 export async function POST(request: Request) {
   const ok = await requireAdmin()
@@ -32,7 +34,8 @@ export async function POST(request: Request) {
   }
 
   const state = await getAdminTwoFactorState()
-  if (!state.totpSecret) {
+  const secretToVerify = state.pendingTotpSecret || state.totpSecret
+  if (!secretToVerify) {
     await logAdminAction({
       action: '2fa_verify_setup',
       success: false,
@@ -42,7 +45,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: '2FA setup not started' }, { status: 400 })
   }
 
-  const valid = await verifyTotpCode(state.totpSecret, code)
+  const valid = await verifyTotpCode(secretToVerify, code)
   if (!valid) {
     await logAdminAction({
       action: '2fa_verify_setup',
@@ -53,11 +56,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid code' }, { status: 401 })
   }
 
-  await enableAdminTwoFactor()
+  await confirmAdminTotpSetup()
   await logAdminAction({
     action: '2fa_verify_setup',
     success: true,
     request,
+    details: { reenroll: Boolean(state.pendingTotpSecret) },
   })
   return NextResponse.json({ ok: true, isTwoFactorEnabled: true })
 }

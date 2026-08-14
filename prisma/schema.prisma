@@ -309,6 +309,8 @@ model LoyaltyRecord {
 model Admin {
   id                 String   @id @default("admin")
   totpSecret         String?
+  /// Újrapárosítás: az új secret addig itt van, amíg a verify-setup meg nem erősíti.
+  pendingTotpSecret  String?
   isTwoFactorEnabled Boolean  @default(false)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt

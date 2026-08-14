@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react'
 type StatusResponse = {
   isTwoFactorEnabled?: boolean
   hasSecret?: boolean
+  hasPendingSecret?: boolean
   error?: string
 }
 
@@ -13,6 +14,7 @@ type SetupResponse = {
   qrDataUrl?: string
   otpauthUrl?: string
   secret?: string
+  isTwoFactorEnabled?: boolean
   error?: string
 }
 
@@ -26,6 +28,7 @@ export default function TwoFactorSettings() {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const [secret, setSecret] = useState<string | null>(null)
   const [code, setCode] = useState('')
+  const [currentCode, setCurrentCode] = useState('')
 
   const loadStatus = useCallback(async () => {
     setLoading(true)
@@ -49,7 +52,8 @@ export default function TwoFactorSettings() {
     void loadStatus()
   }, [loadStatus])
 
-  async function startSetup() {
+  async function startSetup(e?: React.FormEvent) {
+    e?.preventDefault()
     setBusy(true)
     setError(null)
     setMessage(null)
@@ -58,16 +62,24 @@ export default function TwoFactorSettings() {
       const res = await fetch('/api/admin/2fa/setup', {
         method: 'POST',
         credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(enabled ? { code: currentCode } : {}),
       })
       const data: SetupResponse = await res.json().catch(() => ({}))
       if (!res.ok) {
         throw new Error(data.error || 'A QR-kód generálása sikertelen.')
       }
+      const stillEnabled = Boolean(data.isTwoFactorEnabled ?? enabled)
       setQrDataUrl(data.qrDataUrl || null)
       setSecret(data.secret || null)
-      setEnabled(false)
+      setEnabled(stillEnabled)
       setHasSecret(true)
-      setMessage('Olvasd be a QR-kódot, majd erősítsd meg a 6 jegyű kóddal. Addig a 2FA nem aktív.')
+      setCurrentCode('')
+      setMessage(
+        stillEnabled
+          ? 'Olvasd be az új QR-kódot, majd erősítsd meg a 6 jegyű kóddal. Addig a 2FA a régi kóddal aktív marad.'
+          : 'Olvasd be a QR-kódot, majd erősítsd meg a 6 jegyű kóddal. Addig a 2FA nem aktív.'
+      )
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Beállítás sikertelen')
     } finally {
@@ -111,6 +123,14 @@ export default function TwoFactorSettings() {
     )
   }
 
+  const statusLabel = enabled
+    ? qrDataUrl
+      ? '2FA aktív — új eszköz megerősítésre vár'
+      : '2FA aktív'
+    : hasSecret && qrDataUrl
+      ? 'Megerősítésre vár'
+      : '2FA ki van kapcsolva'
+
   return (
     <section className="rounded-xl border border-[var(--border)] bg-background p-4 space-y-4">
       <div>
@@ -121,7 +141,7 @@ export default function TwoFactorSettings() {
       </div>
 
       <p className={`text-sm font-medium ${enabled ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-400'}`}>
-        {enabled ? '2FA aktív' : hasSecret && qrDataUrl ? 'Megerősítésre vár' : '2FA ki van kapcsolva'}
+        {statusLabel}
       </p>
 
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
@@ -170,6 +190,32 @@ export default function TwoFactorSettings() {
             {busy ? 'Ellenőrzés…' : '2FA élesítése'}
           </button>
         </form>
+      ) : enabled ? (
+        <form onSubmit={startSetup} className="flex flex-wrap items-end gap-3">
+          <div>
+            <label htmlFor="current-totp" className="block text-sm font-medium mb-1">
+              Jelenlegi 6 jegyű kód
+            </label>
+            <input
+              id="current-totp"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              value={currentCode}
+              onChange={(e) => setCurrentCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              className="w-36 px-3 py-2 rounded-lg border border-[var(--border)] bg-background tracking-[0.3em] text-center"
+              placeholder="000000"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={busy || currentCode.length !== 6}
+            className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-medium hover:bg-[var(--border)]/30 disabled:opacity-60"
+          >
+            {busy ? 'Generálás…' : 'Újra párosítás (QR)'}
+          </button>
+        </form>
       ) : (
         <button
           type="button"
@@ -177,7 +223,7 @@ export default function TwoFactorSettings() {
           disabled={busy}
           className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-medium hover:bg-[var(--border)]/30 disabled:opacity-60"
         >
-          {busy ? 'Generálás…' : enabled ? 'Újra párosítás (QR)' : 'Google Authenticator párosítása'}
+          {busy ? 'Generálás…' : 'Google Authenticator párosítása'}
         </button>
       )}
     </section>

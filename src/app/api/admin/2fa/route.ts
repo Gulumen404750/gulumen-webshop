@@ -18,5 +18,6 @@ export async function GET() {
   return NextResponse.json({
     isTwoFactorEnabled: state.isTwoFactorEnabled,
     hasSecret: Boolean(state.totpSecret),
+    hasPendingSecret: Boolean(state.pendingTotpSecret),
   })
 }
