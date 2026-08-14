@@ -17,6 +17,7 @@ import {
   generateCsrfToken,
   getAdminCsrfCookieOptions,
 } from '@/lib/admin-csrf'
+import { recordAdminLoginFingerprintSafe } from '@/lib/admin-login-alert'
 
 function clearPendingCookie(res: NextResponse) {
   res.cookies.set(ADMIN_2FA_PENDING_COOKIE, '', {
@@ -89,6 +90,7 @@ export async function POST(request: Request) {
   const res = NextResponse.json({ ok: true, isTwoFactorEnabled: true })
   if (auth === 'pending') {
     const token = await createAdminSessionToken()
+    await recordAdminLoginFingerprintSafe(request)
     res.cookies.set(ADMIN_COOKIE_NAME, token, getAdminCookieOptions())
     res.cookies.set(ADMIN_CSRF_COOKIE, generateCsrfToken(), getAdminCsrfCookieOptions())
     clearPendingCookie(res)

@@ -28,6 +28,10 @@ export default function AdminSecurityPolicy() {
           Kulcs- vagy <code>JWT_SECRET</code>-csere kilépteti a sessionöket. Szivárgásnál mindkettőt cseréld.
         </li>
         <li>
+          Új eszköz vagy szokatlan ország riasztást küld az <code>ADMIN_EMAIL</code>-re (első belépés
+          a baseline, nem blokkol).
+        </li>
+        <li>
           Rendelés-export és vásárlói adatok csak admin gépen maradnak. Tömeges ár / törlés ellenőrzés után.
         </li>
       </ul>

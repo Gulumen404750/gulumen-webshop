@@ -1,6 +1,7 @@
 import AdminSecurityPolicy from './AdminSecurityPolicy'
 import DealPopupSettings from './DealPopupSettings'
 import TwoFactorSettings from './TwoFactorSettings'
+import LoginFingerprintSettings from './LoginFingerprintSettings'
 
 export default function AdminSettingsPage() {
   const envStatus = [
@@ -27,6 +28,7 @@ export default function AdminSettingsPage() {
       </section>
       <AdminSecurityPolicy />
       <TwoFactorSettings />
+      <LoginFingerprintSettings />
       <DealPopupSettings />
       <p className="text-sm text-muted">
         Webshop alapadatok, email, support, szállítási infó és feature flag-ek a <code className="rounded bg-[var(--border)] px-1">Setting</code> táblából
