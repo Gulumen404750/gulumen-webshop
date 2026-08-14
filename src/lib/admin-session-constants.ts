@@ -1,5 +1,10 @@
 export const ADMIN_COOKIE_NAME = 'admin_authorized'
+export const ADMIN_2FA_PENDING_COOKIE = 'admin_2fa_pending'
 export const JWT_ISSUER = 'gulumen-admin'
 export const JWT_AUDIENCE = 'gulumen-admin'
+export const JWT_AUDIENCE_2FA = 'gulumen-admin-2fa'
 export const ADMIN_SESSION_MAX_AGE_SEC = 60 * 60 * 24
+export const ADMIN_2FA_PENDING_MAX_AGE_SEC = 5 * 60
 export const ADMIN_SESSION_VERSION_CLAIM = 'sv'
+export const ADMIN_2FA_PENDING_ROLE = 'admin-2fa-pending'
+export const ADMIN_RECORD_ID = 'admin'

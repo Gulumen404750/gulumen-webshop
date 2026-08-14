@@ -44,6 +44,14 @@ describe('evaluateAdminCsrf', () => {
     expect(evaluateAdminCsrf(req)).toEqual({ ok: true, reason: 'login' })
   })
 
+  it('skips 2FA verify-login POST after origin check', () => {
+    const req = adminRequest({
+      path: '/api/admin/2fa/verify-login',
+      origin: 'https://www.gulumen.com',
+    })
+    expect(evaluateAdminCsrf(req)).toEqual({ ok: true, reason: 'login' })
+  })
+
   it('rejects cross-origin mutating requests', () => {
     const req = adminRequest({ origin: 'https://evil.example' })
     expect(evaluateAdminCsrf(req)).toEqual({ ok: false, reason: 'bad_origin' })

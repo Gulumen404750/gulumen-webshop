@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { getAdminSessionVersion } from './admin-session-version'
 import {
   createAdminSessionToken,
+  createAdminPendingTwoFactorToken,
   verifyAdminSessionToken,
+  verifyAdminPendingTwoFactorToken,
 } from './admin-session'
 
 const ORIGINAL_ENV = {
@@ -60,5 +62,13 @@ describe('admin session version', () => {
 
     process.env.JWT_SECRET = 'rotated-jwt-secret-16+'
     expect(await verifyAdminSessionToken(token)).toBe(false)
+  })
+
+  it('does not treat a pending 2FA token as a full admin session', async () => {
+    process.env.JWT_SECRET = 'jwt-secret-at-least-16-chars'
+    process.env.ADMIN_API_KEY = 'admin-key'
+    const pending = await createAdminPendingTwoFactorToken()
+    expect(await verifyAdminPendingTwoFactorToken(pending)).toBe(true)
+    expect(await verifyAdminSessionToken(pending)).toBe(false)
   })
 })

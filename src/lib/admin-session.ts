@@ -6,16 +6,22 @@
 import { SignJWT, jwtVerify } from 'jose'
 import {
   ADMIN_COOKIE_NAME,
+  ADMIN_2FA_PENDING_COOKIE,
   JWT_ISSUER,
   JWT_AUDIENCE,
+  JWT_AUDIENCE_2FA,
   ADMIN_SESSION_MAX_AGE_SEC,
+  ADMIN_2FA_PENDING_MAX_AGE_SEC,
   ADMIN_SESSION_VERSION_CLAIM,
+  ADMIN_2FA_PENDING_ROLE,
 } from '@/lib/admin-session-constants'
 import { getAdminSessionVersion } from '@/lib/admin-session-version'
 
 export {
   ADMIN_COOKIE_NAME,
+  ADMIN_2FA_PENDING_COOKIE,
   ADMIN_SESSION_MAX_AGE_SEC,
+  ADMIN_2FA_PENDING_MAX_AGE_SEC,
   ADMIN_SESSION_VERSION_CLAIM,
 }
 
@@ -68,5 +74,43 @@ export function getAdminCookieOptions(maxAge = ADMIN_SESSION_MAX_AGE_SEC) {
     httpOnly: true,
     sameSite: 'lax' as const,
     secure: process.env.NODE_ENV === 'production',
+  }
+}
+
+export async function createAdminPendingTwoFactorToken(): Promise<string> {
+  const secret = getSecret()
+  if (!secret) throw new Error('JWT_SECRET / NEXTAUTH_SECRET not configured')
+  const now = Math.floor(Date.now() / 1000)
+  const sv = await getAdminSessionVersion()
+  return new SignJWT({
+    role: ADMIN_2FA_PENDING_ROLE,
+    [ADMIN_SESSION_VERSION_CLAIM]: sv,
+  })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setSubject('admin')
+    .setIssuer(JWT_ISSUER)
+    .setAudience(JWT_AUDIENCE_2FA)
+    .setIssuedAt(now)
+    .setExpirationTime(now + ADMIN_2FA_PENDING_MAX_AGE_SEC)
+    .sign(secret)
+}
+
+export async function verifyAdminPendingTwoFactorToken(
+  token: string | undefined | null
+): Promise<boolean> {
+  if (!token) return false
+  const secret = getSecret()
+  if (!secret) return false
+  try {
+    const { payload } = await jwtVerify(token, secret, {
+      issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE_2FA,
+    })
+    if (payload.sub !== 'admin') return false
+    if (payload.role !== ADMIN_2FA_PENDING_ROLE) return false
+    const expected = await getAdminSessionVersion()
+    return payload[ADMIN_SESSION_VERSION_CLAIM] === expected
+  } catch {
+    return false
   }
 }

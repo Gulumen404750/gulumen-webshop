@@ -13,7 +13,7 @@ import { getRedis, isRedisConfigured } from '@/lib/redis'
 
 export type RateLimitResult = { ok: true } | { ok: false; status: 429 }
 
-export type RateLimitPreset = 'default' | 'auth' | 'adminLogin' | 'heartbeat'
+export type RateLimitPreset = 'default' | 'auth' | 'adminLogin' | 'adminTotp' | 'heartbeat'
 
 export type RateLimitOptions = {
   maxPerWindow?: number
@@ -25,6 +25,7 @@ const PRESETS: Record<RateLimitPreset, { windowMs: number; max: number }> = {
   default: { windowMs: 60_000, max: 60 },
   auth: { windowMs: 60_000, max: 20 },
   adminLogin: { windowMs: 10 * 60_000, max: 5 },
+  adminTotp: { windowMs: 10 * 60_000, max: 10 },
   heartbeat: { windowMs: 60_000, max: 30 },
 }
 

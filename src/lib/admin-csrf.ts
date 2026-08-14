@@ -50,7 +50,7 @@ export function isAdminApiPath(pathname: string): boolean {
 }
 
 export function isAdminLoginApiPath(pathname: string): boolean {
-  return pathname === '/api/admin/login'
+  return pathname === '/api/admin/login' || pathname === '/api/admin/2fa/verify-login'
 }
 
 function hostFromUrl(value: string | null): string | null {
