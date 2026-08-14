@@ -105,16 +105,17 @@ export function BeszerzesreRendelhetoClient({ products, serverNow }: Props) {
         </div>
       </div>
       <p className="text-muted mb-8">{t('sourcing.intro')}</p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {displayProducts.map((p) => (
-          <ProductCard
-            key={p.id}
-            product={p}
-            sourcingListMode
-            serverNow={serverNow}
-            showSoldImpact={expiredAnimatingIds.has(p.id)}
-            onExpired={onExpired}
-          />
+          <div key={p.id} className="min-w-0 w-full">
+            <ProductCard
+              product={p}
+              sourcingListMode
+              serverNow={serverNow}
+              showSoldImpact={expiredAnimatingIds.has(p.id)}
+              onExpired={onExpired}
+            />
+          </div>
         ))}
       </div>
       {displayProducts.length === 0 && (

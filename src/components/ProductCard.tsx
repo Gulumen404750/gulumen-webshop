@@ -5,7 +5,8 @@ import { useCallback, useEffect, useState } from 'react'
 import type { Product } from '@/lib/data'
 import { getSourcingDealStatus, getProductName, getDisplayStock, is3DProduct, isUnlimitedStock } from '@/lib/data'
 import { SafeProductImage } from '@/components/SafeProductImage'
-import { resolveImageUrl } from '@/lib/cdn'
+import { cdnCardUrl } from '@/lib/cdn'
+import { getGalleryImagesForColor } from '@/lib/filamentColors'
 import { SourcingDealCardCountdown } from '@/components/SourcingDealCardCountdown'
 import { SaleCountdown } from '@/components/SaleCountdown'
 import { SoldImpactOverlay } from '@/components/SoldImpactOverlay'
@@ -72,6 +73,7 @@ export function ProductCard({
   expiredListMode,
   showSoldImpact,
   onExpired,
+  priority,
 }: {
   product: Product
   sourcingListMode?: boolean
@@ -82,6 +84,8 @@ export function ProductCard({
   showSoldImpact?: boolean
   /** Ha a visszaszámláló lejár (closed/soldout), egyszer meghívódik – lista elrejtheti a kártyát. */
   onExpired?: (productId: string) => void
+  /** Első viewport képek: eager load (iOS lazy+absolute bug elkerülése). */
+  priority?: boolean
 }) {
   const { t, locale } = useLocale()
   const { hufToEur, formatEur } = useEuroRate()
@@ -182,26 +186,28 @@ export function ProductCard({
   const priceEur = hufToEur(priceHuf)
   const hasDiscount = saleActive && !!product.discountPriceHuf
   const salePercent = saleActive ? getSaleDiscountPercent(product) : null
-  const imageSrc = resolveImageUrl(product.image)
+  const imageSrc = cdnCardUrl(product.image || getGalleryImagesForColor(product)[0] || '')
   const displayName = getProductName(product, locale)
   const likesGlow = likesCount > 25 ? 'product-likes-glow-strong' : likesCount > 10 ? 'product-likes-glow' : ''
 
   return (
     <Link
       href={`/termek/${product.slug}`}
-      className={`group block ${showSoldImpact ? 'pointer-events-none sold-impact-card-wrapper' : ''}`}
+      className={`group block min-w-0 w-full ${showSoldImpact ? 'pointer-events-none sold-impact-card-wrapper' : ''}`}
       aria-disabled={showSoldImpact}
     >
       <article
-        className={`bg-[var(--card-bg)] rounded-xl border border-[var(--border)] overflow-hidden transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-lg hover:border-accent/25 ${showSoldImpact ? 'sold-impact-card-vanish' : ''}`}
+        className={`bg-[var(--card-bg)] rounded-xl border border-[var(--border)] overflow-hidden w-full min-w-0 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-lg hover:border-accent/25 ${showSoldImpact ? 'sold-impact-card-vanish' : ''}`}
       >
-        <div className="aspect-square bg-[var(--border)] relative overflow-hidden">
+        <div className="relative w-full aspect-square bg-[var(--border)] overflow-hidden">
           <SafeProductImage
             src={imageSrc}
             alt={displayName}
             fit="cover"
             fill
-            sizes="(max-width: 768px) 100vw, 33vw"
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            priority={priority}
+            optimize
           />
           <div className="absolute top-3 right-3 z-10 flex items-center gap-1">
             <button

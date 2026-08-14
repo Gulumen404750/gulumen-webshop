@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-// deploy: welcome 10% checkout offer (master → Railway) 2026-08-08
+// deploy: mobile product grid overflow fix (main → Railway) 2026-08-14
 import { Suspense } from 'react'
 import { Poppins, Inter } from 'next/font/google'
 import './globals.css'
@@ -107,7 +107,7 @@ export default async function RootLayout({
                     </Suspense>
                     <MobileCartStickyBanner />
                     <BrowseHeartbeatTracker />
-                    <main className="flex-1 min-w-0 overflow-x-hidden">{children}</main>
+                    <main className="flex-1 min-w-0">{children}</main>
                     <Footer />
                     <AIAssistant />
                     {/* Admin: /admin/dashboard/deal-popup – csak ha enabled + van termék */}

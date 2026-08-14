@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cdnGalleryMainUrl, cdnSizedUrl, cdnThumbnailUrl } from './cdn'
+import { cdnCardUrl, cdnGalleryMainUrl, cdnSizedUrl, cdnThumbnailUrl } from './cdn'
 
 describe('cdnSizedUrl', () => {
   it('appends Bunny Optimizer params for pull-zone URLs', () => {
@@ -19,10 +19,18 @@ describe('cdnSizedUrl', () => {
     expect(cdnThumbnailUrl('/img/placeholder-product.svg')).toContain('placeholder')
   })
 
-  it('builds thumbnail and main presets', () => {
+  it('builds thumbnail, card and main presets', () => {
     const thumb = cdnThumbnailUrl('https://gulumen.b-cdn.net/x.jpg')
+    const card = cdnCardUrl('https://gulumen.b-cdn.net/x.jpg')
     const main = cdnGalleryMainUrl('https://gulumen.b-cdn.net/x.jpg')
     expect(thumb).toContain('width=160')
+    expect(card).toContain('width=800')
+    expect(card).toContain('quality=75')
     expect(main).toContain('width=1200')
+  })
+
+  it('cdnCardUrl falls back to placeholder when empty', () => {
+    expect(cdnCardUrl('')).toBe('/img/placeholder-product.svg')
+    expect(cdnCardUrl(null)).toBe('/img/placeholder-product.svg')
   })
 })

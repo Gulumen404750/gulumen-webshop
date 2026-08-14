@@ -54,9 +54,11 @@ export default function WishlistPage() {
               {isLoading && displayProducts.length > 0 && (
                 <p className="text-xs text-muted mb-3">{t('common.loadingRefresh')}</p>
               )}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {displayProducts.map((p) => (
-                  <ProductCard key={p.id} product={p} />
+              <div className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {displayProducts.map((p, i) => (
+                  <div key={p.id} className="min-w-0 w-full">
+                    <ProductCard product={p} priority={i < 4} />
+                  </div>
                 ))}
               </div>
               {productIds.length > displayProducts.length && (

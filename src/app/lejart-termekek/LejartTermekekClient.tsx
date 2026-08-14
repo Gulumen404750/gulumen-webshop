@@ -28,15 +28,16 @@ export function LejartTermekekClient({ products, serverNow }: Props) {
         <span>{t('pages.expiredBack')}</span>
       </Link>
       <h1 className="font-heading text-2xl font-bold text-foreground mb-8">{t('pages.expiredTitle')}</h1>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {products.map((p) => (
-          <ProductCard
-            key={p.id}
-            product={p}
-            sourcingListMode
-            serverNow={serverNow}
-            expiredListMode
-          />
+          <div key={p.id} className="min-w-0 w-full">
+            <ProductCard
+              product={p}
+              sourcingListMode
+              serverNow={serverNow}
+              expiredListMode
+            />
+          </div>
         ))}
       </div>
       {products.length === 0 && (

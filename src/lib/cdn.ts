@@ -233,6 +233,16 @@ export function cdnThumbnailUrl(input: string | null | undefined): string {
   return cdnSizedUrl(input, { width: 160, height: 160, quality: 70 })
 }
 
+/**
+ * Termékkártya / lista kép (1 oszlop mobilon ~100vw, retina).
+ * Feltöltött, több MB-os eredetik helyett méretezett CDN URL – iOS memóriában is megjelenik.
+ */
+export function cdnCardUrl(input: string | null | undefined): string {
+  const cleaned = cleanCdnUrl(input)
+  if (!cleaned) return PLACEHOLDER_IMAGE
+  return cdnSizedUrl(cleaned, { width: 800, quality: 75 })
+}
+
 /** Termékoldal fő kép (viewport, nem teljes eredeti MB). */
 export function cdnGalleryMainUrl(input: string | null | undefined): string {
   return cdnSizedUrl(input, { width: 1200, quality: 82 })

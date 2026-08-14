@@ -13,7 +13,7 @@ export function ProductListSkeleton() {
             <div className="h-5 w-24 bg-[var(--border)] rounded animate-pulse" />
             <div className="h-10 w-32 bg-[var(--border)] rounded-lg animate-pulse" />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="bg-[var(--card-bg)] rounded-xl border border-[var(--border)] overflow-hidden">
                 <div className="aspect-square bg-[var(--border)] animate-pulse" />

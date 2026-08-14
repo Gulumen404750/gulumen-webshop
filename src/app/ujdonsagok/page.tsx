@@ -26,9 +26,11 @@ export default async function NewPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <PageHeading titleKey="pages.newTitle" />
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {newProducts.map((p) => (
-          <ProductCard key={p.id} product={p} />
+      <div className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {newProducts.map((p, i) => (
+          <div key={p.id} className="min-w-0 w-full">
+            <ProductCard product={p} priority={i < 4} />
+          </div>
         ))}
       </div>
       {newProducts.length === 0 && <PageEmptyMessage messageKey="pages.newEmpty" />}

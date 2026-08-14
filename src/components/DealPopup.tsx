@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { getProductName } from '@/lib/data'
 import { SafeProductImage } from '@/components/SafeProductImage'
+import { cdnCardUrl } from '@/lib/cdn'
 import { useLocale } from '@/context/LocaleContext'
 import { useTheme } from '@/context/ThemeContext'
 import { SaleCountdown } from '@/components/SaleCountdown'
@@ -107,9 +108,11 @@ export function DealPopup() {
           <p className="text-muted text-sm text-center mb-6">
             {config?.description?.trim() || t('dealPopup.descriptionFallback')}
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid w-full grid-cols-1 sm:grid-cols-3 gap-4">
             {products.map((product) => (
-              <DealPopupProduct key={product.id} product={product} onNavigate={close} />
+              <div key={product.id} className="min-w-0 w-full">
+                <DealPopupProduct product={product} onNavigate={close} />
+              </div>
             ))}
           </div>
           <div className="mt-6 text-center">
@@ -139,15 +142,16 @@ function DealPopupProduct({ product, onNavigate }: { product: Product; onNavigat
     <Link
       href={`/termek/${product.slug}`}
       onClick={onNavigate}
-      className="block rounded-xl border border-[var(--border)] overflow-hidden hover:border-accent hover:shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-[var(--card-bg)]"
+      className="block min-w-0 w-full rounded-xl border border-[var(--border)] overflow-hidden hover:border-accent hover:shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-[var(--card-bg)]"
     >
-      <div className="aspect-square bg-[var(--border)] relative">
+      <div className="relative w-full aspect-square bg-[var(--border)]">
         <SafeProductImage
-          src={product.image}
+          src={cdnCardUrl(product.image)}
           alt={productName}
           fit="cover"
           fill
           sizes="(max-width: 640px) 100vw, 33vw"
+          optimize
         />
         {saleActive && (
           <span className="absolute top-2 left-2 rounded bg-discount text-white text-xs font-bold px-2 py-0.5 shadow-sm">

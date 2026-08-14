@@ -25,10 +25,14 @@
 }
 
 @layer base {
-  html, body {
-    /* clip: nem vágja le a sticky header dropdownját úgy, mint overflow-x: hidden */
-    overflow-x: clip;
-  }
+  /*
+    Ne tegyünk overflow-x: clip/hidden-t a html/body-ra.
+    A CSS spec szerint ha overflow-x nem visible, az overflow-y: visible → auto,
+    így a html viewport-magasságú görgetőkonténer lesz. iOS Safari-n a nested
+    scroll miatt a hero alatti termékgrid láthatatlan / nem görgethető marad,
+    miközben desktopon a kerék a belső konténert is mozgatja.
+    A vízszintes túlcsordulást a hero / marquee overflow-hidden fogja.
+  */
   body {
     @apply bg-background text-foreground font-body antialiased;
   }

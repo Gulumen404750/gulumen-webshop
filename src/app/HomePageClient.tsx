@@ -106,7 +106,7 @@ export default function HomePageClient({
 
       {/* Kiemelt termékek */}
       <section className="py-16 bg-[var(--card-bg)] border-y border-[var(--border)]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full min-w-0">
           <div className="flex items-center justify-between mb-10">
             <div>
               <h2 className="font-heading text-2xl sm:text-3xl font-bold text-foreground">{t('home.featuredTitle')}</h2>

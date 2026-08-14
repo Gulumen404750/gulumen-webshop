@@ -219,9 +219,11 @@ export function ShopContent({ initialProducts }: ShopContentProps = {}) {
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {visibleProducts.map((p) => (
-              <ProductCard key={p.id} product={p} />
+          <div className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {visibleProducts.map((p, i) => (
+              <div key={p.id} className="min-w-0 w-full">
+                <ProductCard product={p} priority={i < 4} />
+              </div>
             ))}
           </div>
           {hasMore && (

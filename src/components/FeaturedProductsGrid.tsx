@@ -72,10 +72,10 @@ export function FeaturedProductsGrid({ initialProducts, newProducts, dealProduct
   }, [newProducts, dealProducts])
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+    <div className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
       {displayed.map((p, i) => (
-        <div key={`${i}-${p.id}`} className="featured-product-enter">
-          <ProductCard product={p} />
+        <div key={`${i}-${p.id}`} className="featured-product-enter min-w-0 w-full">
+          <ProductCard product={p} priority={i < 3} />
         </div>
       ))}
     </div>

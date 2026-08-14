@@ -84,7 +84,9 @@ export function SafeProductImage({
         <img
           src={displaySrc}
           alt={alt}
-          className={`absolute inset-0 w-full h-full ${fitClass} ${className}`}
+          width={width ?? 800}
+          height={height ?? 800}
+          className={`absolute inset-0 w-full h-full max-w-full ${fitClass} ${className}`}
           referrerPolicy="no-referrer"
           loading={nativeLoading}
           fetchPriority={nativeFetchPriority}

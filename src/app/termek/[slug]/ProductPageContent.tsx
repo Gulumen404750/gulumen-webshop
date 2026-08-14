@@ -325,7 +325,7 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
               </div>
             ) : (
               <div
-                className="aspect-square rounded-xl border border-[var(--border)] bg-[var(--border)] relative overflow-hidden cursor-zoom-in"
+                className="w-full aspect-square rounded-xl border border-[var(--border)] bg-[var(--border)] relative overflow-hidden cursor-zoom-in"
                 onClick={() => setLightboxOpen(true)}
                 role="button"
                 tabIndex={0}
@@ -699,9 +699,11 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
       {similarProducts.length > 0 && (
         <section className="mt-16 pt-12 border-t border-[var(--border)]">
           <h2 className="font-heading text-xl font-bold text-foreground mb-6">{t('product.similarProducts') || 'Hasonló termékek'}</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {similarProducts.map((p) => (
-              <ProductCard key={p.id} product={p} />
+              <div key={p.id} className="min-w-0 w-full">
+                <ProductCard product={p} />
+              </div>
             ))}
           </div>
         </section>
