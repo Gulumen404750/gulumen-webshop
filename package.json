@@ -12,6 +12,7 @@
     "postinstall": "prisma generate",
     "deploy:railway": "node scripts/deploy-railway.cjs",
     "lint": "next lint",
+    "generate-favicons": "node scripts/generate-favicons.mjs",
     "convert-3d": "node scripts/convert-3d.mjs",
     "convert-3d:batch": "node scripts/convert-3d.mjs --batch",
     "convert-3d:webshop": "node scripts/convert-3d.mjs --webshop",
