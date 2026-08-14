@@ -21,7 +21,10 @@ Biztonsági audit alapján a következők kötelezőek éles környezetben.
 
 - [ ] `OPENAI_API_KEY` – ha az AI chat asszisztens valódi válaszokat ad
 - [ ] `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` – kártyás fizetés
-- [ ] `RESEND_API_KEY` – hírlevél / e-mail küldés
+- [ ] `RESEND_API_KEY` – hírlevél / e-mail küldés **és** admin jelszó-visszaállítás
+- [ ] `ADMIN_EMAIL` – callback értesítés + admin reset link címzettje
+- [ ] Admin jelszó beállítva a Beállításokban (ne csak `ADMIN_API_KEY` env-cserével lehessen helyreállítani)
+- [ ] Admin 2FA bekapcsolva, hogy a reset második csatornája a TOTP legyen
 
 ## .env.example
 

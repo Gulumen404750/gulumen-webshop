@@ -32,6 +32,19 @@ describe('admin middleware IP + CSRF', () => {
     expect(res.status).not.toBe(403)
   })
 
+  it('allows /admin/reset without a session cookie', async () => {
+    setEnv('NODE_ENV', 'production')
+    setEnv('ADMIN_ALLOWED_IPS', undefined)
+    const { middleware } = await import('@/middleware')
+    const req = new NextRequest('https://www.gulumen.com/admin/reset', {
+      headers: { 'x-forwarded-for': '203.0.113.10' },
+    })
+    const res = await middleware(req)
+    expect(res.status).not.toBe(403)
+    expect(res.status).not.toBe(307)
+    expect(res.status).not.toBe(308)
+  })
+
   it('returns 403 when CSRF token is missing on admin POST', async () => {
     setEnv('NODE_ENV', 'test')
     setEnv('ADMIN_ALLOWED_IPS', '203.0.113.10')

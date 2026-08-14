@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import '@/lib/admin-fetch'
 import { AdminLogoutButton } from '@/components/admin/AdminLogoutButton'
+import { isPublicAdminUiPath } from '@/lib/admin-session-constants'
 
 const nav = [
   { href: '/admin/dashboard', label: 'Áttekintés' },
@@ -25,9 +26,9 @@ export default function AdminLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
-  const isLogin = pathname === '/admin/login'
+  const isPublic = isPublicAdminUiPath(pathname)
 
-  if (isLogin) {
+  if (isPublic) {
     return <>{children}</>
   }
 

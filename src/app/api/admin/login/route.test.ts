@@ -46,8 +46,16 @@ vi.mock('@/lib/secure-compare', () => ({
   secureCompare: (...args: unknown[]) => secureCompare(...args),
 }))
 
+const getAdminPasswordState = vi.fn()
+const verifyAdminPassword = vi.fn()
+
+vi.mock('@/lib/admin-password', () => ({
+  getAdminPasswordState: () => getAdminPasswordState(),
+  verifyAdminPassword: (...args: unknown[]) => verifyAdminPassword(...args),
+}))
+
 vi.mock('@/lib/logger', () => ({
-  logger: { error: vi.fn(), info: vi.fn(), debug: vi.fn() },
+  logger: { error: vi.fn(), info: vi.fn(), debug: vi.fn(), warn: vi.fn() },
 }))
 
 describe('POST /api/admin/login 2FA gate', () => {
@@ -63,6 +71,8 @@ describe('POST /api/admin/login 2FA gate', () => {
     logAdminAction.mockResolvedValue(undefined)
     createAdminSessionToken.mockResolvedValue('full-admin-jwt')
     createAdminPendingTwoFactorToken.mockResolvedValue('pending-2fa-jwt')
+    getAdminPasswordState.mockResolvedValue({ passwordHash: null, passwordSetAt: null })
+    verifyAdminPassword.mockResolvedValue(false)
   })
 
   afterEach(() => {
@@ -101,5 +111,40 @@ describe('POST /api/admin/login 2FA gate', () => {
     expect(data.requiresTwoFactor).toBe(false)
     expect(createAdminSessionToken).toHaveBeenCalled()
     expect(res.headers.get('set-cookie') || '').toContain('admin_authorized=')
+  })
+
+  it('accepts the admin password when a hash is stored', async () => {
+    getAdminTwoFactorState.mockResolvedValue({ isTwoFactorEnabled: false, totpSecret: null })
+    getAdminPasswordState.mockResolvedValue({ passwordHash: 'stored-hash', passwordSetAt: new Date() })
+    verifyAdminPassword.mockResolvedValue(true)
+    secureCompare.mockReturnValue(false)
+    const { POST } = await import('@/app/api/admin/login/route')
+    const res = await POST(
+      new Request('http://localhost/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: 'CorrectHorse1' }),
+      })
+    )
+    expect(res.status).toBe(200)
+    expect(verifyAdminPassword).toHaveBeenCalledWith('CorrectHorse1', 'stored-hash')
+    expect(createAdminSessionToken).toHaveBeenCalled()
+  })
+
+  it('still accepts the API key as break-glass when a password is set', async () => {
+    getAdminTwoFactorState.mockResolvedValue({ isTwoFactorEnabled: false, totpSecret: null })
+    getAdminPasswordState.mockResolvedValue({ passwordHash: 'stored-hash', passwordSetAt: new Date() })
+    verifyAdminPassword.mockResolvedValue(false)
+    secureCompare.mockReturnValue(true)
+    const { POST } = await import('@/app/api/admin/login/route')
+    const res = await POST(
+      new Request('http://localhost/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'test-admin-key' }),
+      })
+    )
+    expect(res.status).toBe(200)
+    expect(createAdminSessionToken).toHaveBeenCalled()
   })
 })

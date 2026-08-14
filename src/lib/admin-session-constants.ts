@@ -6,5 +6,15 @@ export const JWT_AUDIENCE_2FA = 'gulumen-admin-2fa'
 export const ADMIN_SESSION_MAX_AGE_SEC = 60 * 60 * 24
 export const ADMIN_2FA_PENDING_MAX_AGE_SEC = 5 * 60
 export const ADMIN_SESSION_VERSION_CLAIM = 'sv'
+export const ADMIN_SESSION_EPOCH_CLAIM = 'ep'
+export const ADMIN_SESSION_EPOCH_REDIS_KEY = 'admin:session-epoch'
 export const ADMIN_2FA_PENDING_ROLE = 'admin-2fa-pending'
 export const ADMIN_RECORD_ID = 'admin'
+
+export function isPublicAdminUiPath(pathname: string): boolean {
+  return (
+    pathname === '/admin/login' ||
+    pathname === '/admin/reset' ||
+    pathname.startsWith('/admin/reset/')
+  )
+}

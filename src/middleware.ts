@@ -11,6 +11,7 @@ import {
   isAdminApiPath,
 } from '@/lib/admin-csrf'
 import { applySecurityHeaders } from '@/lib/admin-security-headers'
+import { isPublicAdminUiPath } from '@/lib/admin-session-constants'
 
 const ADMIN_PREFIX = '/admin'
 const ADMIN_LOGIN = '/admin/login'
@@ -31,7 +32,7 @@ function forbidden(message: string): NextResponse {
 
 /**
  * Security middleware – minden route-on fut.
- * /admin/* (kivéve /admin/login) védve: aláírt admin JWT cookie.
+ * /admin/* (kivéve /admin/login és /admin/reset) védve: aláírt admin JWT cookie.
  * /admin és /api/admin/*: IP whitelist + (mutáló API) CSRF.
  */
 export async function middleware(request: NextRequest) {
@@ -67,7 +68,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if (pathname.startsWith(ADMIN_PREFIX) && !pathname.startsWith(ADMIN_LOGIN)) {
+  if (pathname.startsWith(ADMIN_PREFIX) && !isPublicAdminUiPath(pathname)) {
     const token = request.cookies.get(ADMIN_COOKIE_NAME)?.value
     const authorized = await verifyAdminSessionToken(token)
     if (!authorized) {

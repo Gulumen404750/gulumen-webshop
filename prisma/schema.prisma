@@ -307,11 +307,17 @@ model LoyaltyRecord {
 
 /// Singleton admin fiók (közös ADMIN_API_KEY) – Google Authenticator TOTP 2FA.
 model Admin {
-  id                 String   @id @default("admin")
-  totpSecret         String?
-  isTwoFactorEnabled Boolean  @default(false)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                     String    @id @default("admin")
+  totpSecret             String?
+  isTwoFactorEnabled     Boolean   @default(false)
+  passwordHash           String?
+  passwordSetAt          DateTime?
+  passwordResetTokenHash String?
+  passwordResetExpiresAt DateTime?
+  /// Növelés jelszócserekor / resetkor: a korábbi JWT sütik érvénytelenek.
+  sessionEpoch           Int       @default(0)
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 }
 
 model AdminAction {

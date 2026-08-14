@@ -19,10 +19,13 @@ import {
 import { getAdminTwoFactorState } from '@/lib/admin-2fa'
 import { isDbConfigured } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
+import { getAdminPasswordState, verifyAdminPassword } from '@/lib/admin-password'
 
 /**
  * POST /api/admin/login
- * Body: { key: string }. Ha a 2FA be van kapcsolva, csak ideiglenes pending tokent ad;
+ * Body: { key?: string, password?: string }.
+ * Ha van DB jelszó, az a elsődleges belépés; az API kulcs vészhelyzeti.
+ * Ha a 2FA be van kapcsolva, csak ideiglenes pending tokent ad;
  * egyébként beállítja az aláírt admin JWT cookie-t.
  */
 export async function POST(request: Request) {
@@ -48,7 +51,28 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => ({}))
   const key = typeof body?.key === 'string' ? body.key : ''
-  if (!secureCompare(key, adminKey)) {
+  const password = typeof body?.password === 'string' ? body.password : ''
+
+  if (!key && !password) {
+    return NextResponse.json({ error: 'Jelszó vagy API kulcs szükséges.' }, { status: 400 })
+  }
+
+  let passwordHash: string | null = null
+  try {
+    passwordHash = (await getAdminPasswordState()).passwordHash
+  } catch (err) {
+    logger.error({ err }, 'admin login password lookup failed')
+  }
+
+  let authenticated = false
+  if (passwordHash && password) {
+    authenticated = await verifyAdminPassword(password, passwordHash)
+  }
+  if (!authenticated && key) {
+    authenticated = secureCompare(key, adminKey)
+  }
+
+  if (!authenticated) {
     const limit = await rateLimit(request, { preset: 'adminLogin' })
     if (!limit.ok) {
       await logAdminAction({
@@ -66,9 +90,9 @@ export async function POST(request: Request) {
       action: 'login',
       success: false,
       request,
-      details: { reason: 'invalid_key' },
+      details: { reason: 'invalid_credentials' },
     })
-    return NextResponse.json({ error: 'Hibás API kulcs.' }, { status: 401 })
+    return NextResponse.json({ error: 'Hibás belépési adat.' }, { status: 401 })
   }
 
   let twoFactor: { isTwoFactorEnabled: boolean }
