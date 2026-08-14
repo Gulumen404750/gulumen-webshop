@@ -21,7 +21,9 @@ Biztonsági audit alapján a következők kötelezőek éles környezetben.
 
 - [ ] `OPENAI_API_KEY` – ha az AI chat asszisztens valódi válaszokat ad
 - [ ] `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` – kártyás fizetés
-- [ ] `RESEND_API_KEY` – hírlevél / e-mail küldés
+- [ ] `RESEND_API_KEY` – hírlevél / e-mail küldés **és** admin belépési riasztás
+- [ ] `ADMIN_EMAIL` – callback + új eszköz / szokatlan ország riasztás címzettje
+- [ ] Production CDN geo header (`cf-ipcountry` vagy `x-vercel-ip-country`) – nélküle csak eszköz-riasztás van
 
 ## .env.example
 

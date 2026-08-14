@@ -50,6 +50,11 @@ vi.mock('@/lib/logger', () => ({
   logger: { error: vi.fn(), info: vi.fn(), debug: vi.fn() },
 }))
 
+const recordAdminLoginFingerprintSafe = vi.fn()
+vi.mock('@/lib/admin-login-alert', () => ({
+  recordAdminLoginFingerprintSafe: (...args: unknown[]) => recordAdminLoginFingerprintSafe(...args),
+}))
+
 describe('POST /api/admin/login 2FA gate', () => {
   const originalKey = process.env.ADMIN_API_KEY
 
@@ -63,6 +68,7 @@ describe('POST /api/admin/login 2FA gate', () => {
     logAdminAction.mockResolvedValue(undefined)
     createAdminSessionToken.mockResolvedValue('full-admin-jwt')
     createAdminPendingTwoFactorToken.mockResolvedValue('pending-2fa-jwt')
+    recordAdminLoginFingerprintSafe.mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -85,6 +91,7 @@ describe('POST /api/admin/login 2FA gate', () => {
     expect(res.headers.get('set-cookie') || '').toContain('admin_2fa_pending=')
     expect(res.headers.get('set-cookie') || '').not.toContain('admin_authorized=')
     expect(createAdminSessionToken).not.toHaveBeenCalled()
+    expect(recordAdminLoginFingerprintSafe).toHaveBeenCalled()
   })
 
   it('issues a full admin cookie when 2FA is off', async () => {
@@ -101,5 +108,20 @@ describe('POST /api/admin/login 2FA gate', () => {
     expect(data.requiresTwoFactor).toBe(false)
     expect(createAdminSessionToken).toHaveBeenCalled()
     expect(res.headers.get('set-cookie') || '').toContain('admin_authorized=')
+    expect(recordAdminLoginFingerprintSafe).toHaveBeenCalled()
+  })
+
+  it('does not record a fingerprint on a failed login', async () => {
+    secureCompare.mockReturnValue(false)
+    const { POST } = await import('@/app/api/admin/login/route')
+    const res = await POST(
+      new Request('http://localhost/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'wrong' }),
+      })
+    )
+    expect(res.status).toBe(401)
+    expect(recordAdminLoginFingerprintSafe).not.toHaveBeenCalled()
   })
 })
