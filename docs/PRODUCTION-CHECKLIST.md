@@ -5,7 +5,8 @@ Biztonsági audit alapján a következők kötelezőek éles környezetben.
 ## Kötelező env változók
 
 - **ADMIN_API_KEY** – Erős, véletlenszerű kulcs (pl. `openssl rand -hex 32`).  
-  Admin sourcing success/fail végpontok (`/api/admin/sourcing/[orderId]/success`, `fail`) csak ezzel a headerrel (`x-admin-key`) fogadnak kérést. Ha nincs beállítva → 503.
+  Admin sourcing success/fail végpontok (`/api/admin/sourcing/[orderId]/success`, `fail`) csak ezzel a headerrel (`x-admin-key`) fogadnak kérést. Ha nincs beállítva → 503.  
+  A session JWT-t a **JWT_SECRET** írja alá; az `ADMIN_API_KEY` csere a JWT `ak`/`sv` claimje miatt **szintén kilépteti** a már kiadott admin sütiket. Kényszerített csere: admin Beállítások → `mustChangeKey`, vagy `ADMIN_KEY_MAX_AGE_DAYS` (alap 90).
 
 - **PAYMENTS_WEBHOOK_SECRET** – Erős titok a payment webhook hitelesítéshez.  
   A külső rendszer a `X-Webhook-Secret` headerben küldi. Ha nincs beállítva → 503.

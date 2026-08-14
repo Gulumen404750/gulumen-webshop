@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { getAdminSessionVersion } from './admin-session-version'
+import { getAdminApiKeyClaim, getAdminSessionVersion } from './admin-session-version'
 import {
   createAdminSessionToken,
   createAdminPendingTwoFactorToken,
@@ -32,6 +32,14 @@ describe('admin session version', () => {
     expect(a).not.toBe(b)
   })
 
+  it('ak claim follows ADMIN_API_KEY and ignores JWT_SECRET', async () => {
+    const a = await getAdminApiKeyClaim({ ADMIN_API_KEY: 'key-a' })
+    const b = await getAdminApiKeyClaim({ ADMIN_API_KEY: 'key-b' })
+    const sameKeyDifferentJwt = await getAdminApiKeyClaim({ ADMIN_API_KEY: 'key-a' })
+    expect(a).not.toBe(b)
+    expect(a).toBe(sameKeyDifferentJwt)
+  })
+
   it('changes when JWT_SECRET changes', async () => {
     const a = await getAdminSessionVersion({
       JWT_SECRET: 'jwt-secret-at-least-16',
@@ -61,6 +69,31 @@ describe('admin session version', () => {
     expect(await verifyAdminSessionToken(token)).toBe(true)
 
     process.env.JWT_SECRET = 'rotated-jwt-secret-16+'
+    expect(await verifyAdminSessionToken(token)).toBe(false)
+  })
+
+  it('rejects a JWT that is signed correctly but has no ak (API key) claim', async () => {
+    process.env.JWT_SECRET = 'jwt-secret-at-least-16-chars'
+    process.env.ADMIN_API_KEY = 'admin-key'
+    const { SignJWT } = await import('jose')
+    const { getAdminSessionVersion } = await import('./admin-session-version')
+    const {
+      JWT_ISSUER,
+      JWT_AUDIENCE,
+      ADMIN_SESSION_VERSION_CLAIM,
+      ADMIN_SESSION_MAX_AGE_SEC,
+    } = await import('./admin-session-constants')
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET)
+    const now = Math.floor(Date.now() / 1000)
+    const sv = await getAdminSessionVersion()
+    const token = await new SignJWT({ role: 'admin', [ADMIN_SESSION_VERSION_CLAIM]: sv })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setSubject('admin')
+      .setIssuer(JWT_ISSUER)
+      .setAudience(JWT_AUDIENCE)
+      .setIssuedAt(now)
+      .setExpirationTime(now + ADMIN_SESSION_MAX_AGE_SEC)
+      .sign(secret)
     expect(await verifyAdminSessionToken(token)).toBe(false)
   })
 
