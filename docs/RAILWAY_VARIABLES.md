@@ -11,7 +11,7 @@ Ezeket a változókat állítsd be a **Railway → Project → Variables** felü
 | **NODE_ENV** | `production` (Railway gyakran automatikusan beállítja) |
 | **DATABASE_URL** | Postgres connection string. Pl. Railway Postgres: `postgresql://user:pass@host:5432/railway?sslmode=require` |
 | **JWT_SECRET** | Legalább 16 karakter. Pl. generálás: `openssl rand -hex 32` |
-| **ADMIN_API_KEY** | **Név (Railway Name):** `ADMIN_API_KEY` – ne töröld. **Érték (Value – hova írod):** a generált titkos kulcs (pl. `openssl rand -hex 32`). Részletesen: [Admin API kulcs beállítása](ADMIN-API-KULCS-BEALLITAS.md) |
+| **ADMIN_API_KEY** | **Név (Railway Name):** `ADMIN_API_KEY` – ne töröld. **Érték (Value – hova írod):** a generált titkos kulcs (pl. `openssl rand -hex 32`). Csere után a régi admin JWT sütik azonnal érvénytelenek (`ak`/`sv` claim, nem kell `JWT_SECRET`-et cserélni). Részletesen: [Admin API kulcs beállítása](ADMIN-API-KULCS-BEALLITAS.md) |
 | **NEXT_PUBLIC_APP_URL** | Az alkalmazás publikus URL-je. Pl. `https://www.gulumen.com` |
 | **NEXTAUTH_SECRET** | NextAuth JWT titok. Ha nincs megadva, a kód **JWT_SECRET** vagy **ADMIN_API_KEY** értékét használja fallbackként. Élesben érdemes külön generálni: `openssl rand -base64 32` |
 | **NEXTAUTH_URL** | Pl. `https://www.gulumen.com`. Ha nincs megadva, **NEXT_PUBLIC_APP_URL** lesz használva. |
@@ -45,7 +45,7 @@ Ezeket a változókat állítsd be a **Railway → Project → Variables** felü
 | TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID | Telegram értesítések |
 | SENTRY_DSN, SENTRY_ORG, SENTRY_PROJECT | Sentry (build-time is: next.config.js) |
 | NEXT_PUBLIC_SENTRY_DSN | Sentry kliens oldal |
-| CRON_SECRET | Cron route védelméhez (`/api/cron/*`) |
+| ADMIN_KEY_MAX_AGE_DAYS | Admin API kulcs max életkora napokban (alap 90, `0` = ki). Lejárat után login 403, amíg új kulcs nincs. |
 | NEXTAUTH_SECRET | Production fail-fast – min. 16 karakter (Google/NextAuth) |
 | UPSTASH_REDIS_REST_URL | Upstash Redis REST URL (elosztott rate limit + idempotency) |
 | UPSTASH_REDIS_REST_TOKEN | Upstash Redis REST token |

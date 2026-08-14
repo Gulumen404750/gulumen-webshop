@@ -19,6 +19,11 @@ import {
 import { getAdminTwoFactorState } from '@/lib/admin-2fa'
 import { isDbConfigured } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
+import {
+  MUST_CHANGE_KEY_MESSAGE,
+  evaluateAdminKeyPolicy,
+  recordAdminKeyAccepted,
+} from '@/lib/admin-key-policy'
 
 /**
  * POST /api/admin/login
@@ -71,6 +76,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Hibás API kulcs.' }, { status: 401 })
   }
 
+  try {
+    const policy = await evaluateAdminKeyPolicy(adminKey)
+    if (!policy.ok) {
+      await logAdminAction({
+        action: 'login',
+        success: false,
+        request,
+        details: { reason: policy.reason },
+      })
+      return NextResponse.json(
+        { error: MUST_CHANGE_KEY_MESSAGE, code: policy.reason },
+        { status: 403 }
+      )
+    }
+  } catch (err) {
+    logger.error({ err }, 'admin login key policy failed')
+  }
+
   let twoFactor: { isTwoFactorEnabled: boolean }
   try {
     twoFactor = await getAdminTwoFactorState()
@@ -107,6 +130,7 @@ export async function POST(request: Request) {
   }
 
   const token = await createAdminSessionToken()
+  await recordAdminKeyAccepted(adminKey)
   await logAdminAction({
     action: 'login',
     success: true,

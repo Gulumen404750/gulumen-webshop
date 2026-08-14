@@ -1,5 +1,6 @@
 import DealPopupSettings from './DealPopupSettings'
 import TwoFactorSettings from './TwoFactorSettings'
+import KeyPolicySettings from './KeyPolicySettings'
 
 export default function AdminSettingsPage() {
   const envStatus = [
@@ -25,6 +26,7 @@ export default function AdminSettingsPage() {
         </ul>
       </section>
       <TwoFactorSettings />
+      <KeyPolicySettings />
       <DealPopupSettings />
       <p className="text-sm text-muted">
         Webshop alapadatok, email, support, szállítási infó és feature flag-ek a <code className="rounded bg-[var(--border)] px-1">Setting</code> táblából

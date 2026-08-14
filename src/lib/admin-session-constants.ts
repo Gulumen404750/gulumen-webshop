@@ -6,5 +6,7 @@ export const JWT_AUDIENCE_2FA = 'gulumen-admin-2fa'
 export const ADMIN_SESSION_MAX_AGE_SEC = 60 * 60 * 24
 export const ADMIN_2FA_PENDING_MAX_AGE_SEC = 5 * 60
 export const ADMIN_SESSION_VERSION_CLAIM = 'sv'
+/** ADMIN_API_KEY ujjlenyomat a JWT-ben: kulcscsere után a régi sütik érvénytelenek (JWT_SECRET-től függetlenül). */
+export const ADMIN_SESSION_API_KEY_CLAIM = 'ak'
 export const ADMIN_2FA_PENDING_ROLE = 'admin-2fa-pending'
 export const ADMIN_RECORD_ID = 'admin'
