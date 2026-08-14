@@ -244,6 +244,7 @@ export default function ProfilePage() {
       OAuthSignin: 'profile.authErrorConfiguration',
       OAuthCallback: 'profile.authErrorConfiguration',
       OAuthAccountNotLinked: 'profile.authErrorOAuthAccountNotLinked',
+      account_locked: 'profile.authErrorAccountLocked',
     }
     const message = t(keyMap[code] ?? 'profile.authErrorDefault')
     setAuthError(code === 'google' || code.startsWith('OAuth') ? `${message} (${code})` : message)

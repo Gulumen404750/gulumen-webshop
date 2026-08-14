@@ -2,9 +2,10 @@
 
 ## Követelmény
 
-- Max **10 sikertelen** kísérlet / **10 perc** / IP.
-- Válasz limit túllépésekor: **429** body: `{ "error": "Too many login attempts. Try again later." }`
-- Sikeres login után a failed számláló **nullázódik**.
+- Max **10 sikertelen** kísérlet / **10 perc** / IP (rate limit).
+- **Fiókzárolás:** létező userre 10 hibás jelszó (IP-től függetlenül) → 15 perc `lockedUntil` a User rekordon. 429 body: `{ "error": "Too many login attempts. Try again later.", "locked": true, "retryAfterSec": N }` + `Retry-After` header.
+- Zároláskor **egyszeri e-mail** az `ADMIN_EMAIL` címre (ha van `RESEND_API_KEY`).
+- Sikeres login után a failed számláló **és** a zár **nullázódik**.
 
 ## Reproducible curl teszt
 

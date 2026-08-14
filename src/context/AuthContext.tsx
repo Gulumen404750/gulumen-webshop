@@ -70,6 +70,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsNewUser(false)
       return { ok: true }
     }
+    if (res.status === 429 && data.locked) {
+      return { ok: false, error: 'Túl sok hibás belépés. A fiók ideiglenesen zárolva van.' }
+    }
     return { ok: false, error: data.error || 'Login failed' }
   }, [])
 
