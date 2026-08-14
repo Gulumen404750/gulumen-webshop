@@ -24,6 +24,7 @@ import { HreflangLinks } from '@/components/HreflangLinks'
 import { NewUserConsentGate } from '@/components/NewUserConsentGate'
 import { DealPopup } from '@/components/DealPopup'
 import { ThemeChooser } from '@/components/ThemeChooser'
+import { AmbientAtmosphere } from '@/components/AmbientAtmosphere'
 import { ThemeProvider } from '@/context/ThemeContext'
 import { getServerLocale } from '@/lib/locale-server'
 import { BASE_URL, BRAND_IMAGE, buildLocalizedMetadata } from '@/lib/site-metadata'
@@ -86,7 +87,7 @@ export default async function RootLayout({
         <HreflangLinks />
         <link rel="modulepreload" href="https://ajax.googleapis.com/ajax/libs/model-viewer/4.1.0/model-viewer.min.js" />
       </head>
-      <body className="min-h-screen flex flex-col font-body">
+      <body className="relative isolate min-h-screen flex flex-col font-body">
         <WalletErrorGuard />
         <Analytics />
         <OrganizationJsonLd />
@@ -102,6 +103,7 @@ export default async function RootLayout({
                   <ToastProvider>
                     <NewUserConsentGate />
                     <ThemeChooser />
+                    <AmbientAtmosphere />
                     <Suspense fallback={<div className="h-16 border-b border-[var(--border)] bg-[var(--card-bg)]" aria-hidden />}>
                       <Header />
                     </Suspense>

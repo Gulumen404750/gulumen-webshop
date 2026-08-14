@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { ProductCard } from '@/components/ProductCard'
+import { ProductStaggerItem } from '@/components/ProductStaggerItem'
 import type { Product } from '@/lib/data'
 import { useLocale } from '@/context/LocaleContext'
 
@@ -29,15 +30,15 @@ export function LejartTermekekClient({ products, serverNow }: Props) {
       </Link>
       <h1 className="font-heading text-2xl font-bold text-foreground mb-8">{t('pages.expiredTitle')}</h1>
       <div className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {products.map((p) => (
-          <div key={p.id} className="min-w-0 w-full">
+        {products.map((p, i) => (
+          <ProductStaggerItem key={p.id} index={i}>
             <ProductCard
               product={p}
               sourcingListMode
               serverNow={serverNow}
               expiredListMode
             />
-          </div>
+          </ProductStaggerItem>
         ))}
       </div>
       {products.length === 0 && (

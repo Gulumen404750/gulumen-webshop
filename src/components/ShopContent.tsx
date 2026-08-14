@@ -7,6 +7,7 @@ import type { Product } from '@/lib/data'
 import { AUTO_HIDE_FILTERS_BELOW_COUNT } from '@/lib/storefront-config'
 import { SlidersHorizontal } from 'lucide-react'
 import { ProductCard } from '@/components/ProductCard'
+import { ProductStaggerItem } from '@/components/ProductStaggerItem'
 import { SearchNoResultsEmptyState } from '@/components/empty-states/SearchNoResultsEmptyState'
 import { ShopFiltersDrawer } from '@/components/ShopFiltersDrawer'
 import { HungarianFlagIcon } from '@/components/HungarianFlagIcon'
@@ -219,11 +220,14 @@ export function ShopContent({ initialProducts }: ShopContentProps = {}) {
               </select>
             </div>
           </div>
-          <div className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div
+            key={`${categoryParam}|${subParam}`}
+            className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+          >
             {visibleProducts.map((p, i) => (
-              <div key={p.id} className="min-w-0 w-full">
+              <ProductStaggerItem key={p.id} index={i}>
                 <ProductCard product={p} priority={i < 4} />
-              </div>
+              </ProductStaggerItem>
             ))}
           </div>
           {hasMore && (

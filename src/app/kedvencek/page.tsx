@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { ProductCard } from '@/components/ProductCard'
+import { ProductStaggerItem } from '@/components/ProductStaggerItem'
 import { LuckySpinPanel } from '@/components/LuckySpinPanel'
 import { WishlistEmptyState } from '@/components/empty-states/WishlistEmptyState'
 import { useWishlist } from '@/context/WishlistContext'
@@ -56,9 +57,9 @@ export default function WishlistPage() {
               )}
               <div className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {displayProducts.map((p, i) => (
-                  <div key={p.id} className="min-w-0 w-full">
+                  <ProductStaggerItem key={p.id} index={i}>
                     <ProductCard product={p} priority={i < 4} />
-                  </div>
+                  </ProductStaggerItem>
                 ))}
               </div>
               {productIds.length > displayProducts.length && (

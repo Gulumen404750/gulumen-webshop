@@ -19,6 +19,7 @@ import { SourcingDealBox } from '@/components/SourcingDealBox'
 import { Breadcrumbs, productBreadcrumbs } from '@/components/Breadcrumbs'
 import { ProductJsonLd } from '@/components/ProductJsonLd'
 import { ProductCard } from '@/components/ProductCard'
+import { ProductStaggerItem } from '@/components/ProductStaggerItem'
 import { Lightbox } from '@/components/Lightbox'
 import dynamic from 'next/dynamic'
 import { Product360Viewer } from '@/components/Product360Viewer'
@@ -700,10 +701,10 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
         <section className="mt-16 pt-12 border-t border-[var(--border)]">
           <h2 className="font-heading text-xl font-bold text-foreground mb-6">{t('product.similarProducts') || 'Hasonló termékek'}</h2>
           <div className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {similarProducts.map((p) => (
-              <div key={p.id} className="min-w-0 w-full">
+            {similarProducts.map((p, i) => (
+              <ProductStaggerItem key={p.id} index={i}>
                 <ProductCard product={p} />
-              </div>
+              </ProductStaggerItem>
             ))}
           </div>
         </section>

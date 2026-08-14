@@ -18,14 +18,17 @@ describe('mobile product grid wiring', () => {
   it('shop and featured grids stay 1 column on mobile with min-w-0 items', () => {
     const shop = readFileSync(join(process.cwd(), 'src/components/ShopContent.tsx'), 'utf-8')
     expect(shop).toMatch(/grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3/)
-    expect(shop).toMatch(/min-w-0 w-full/)
+    expect(shop).toMatch(/ProductStaggerItem/)
 
     const featured = readFileSync(
       join(process.cwd(), 'src/components/FeaturedProductsGrid.tsx'),
       'utf-8'
     )
     expect(featured).toMatch(/grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3/)
-    expect(featured).toMatch(/min-w-0 w-full/)
+    expect(featured).toMatch(/ProductStaggerItem/)
+
+    const stagger = readFileSync(join(process.cwd(), 'src/components/ProductStaggerItem.tsx'), 'utf-8')
+    expect(stagger).toMatch(/min-w-0 w-full/)
   })
 
   it('product cards use sized CDN URLs and a full-width square image box', () => {

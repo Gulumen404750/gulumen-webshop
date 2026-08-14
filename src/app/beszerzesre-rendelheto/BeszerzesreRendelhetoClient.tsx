@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef, useLayoutEffect } from 'react
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ProductCard } from '@/components/ProductCard'
+import { ProductStaggerItem } from '@/components/ProductStaggerItem'
 import { useLocale } from '@/context/LocaleContext'
 import type { Product } from '@/lib/data'
 
@@ -106,8 +107,8 @@ export function BeszerzesreRendelhetoClient({ products, serverNow }: Props) {
       </div>
       <p className="text-muted mb-8">{t('sourcing.intro')}</p>
       <div className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {displayProducts.map((p) => (
-          <div key={p.id} className="min-w-0 w-full">
+        {displayProducts.map((p, i) => (
+          <ProductStaggerItem key={p.id} index={i}>
             <ProductCard
               product={p}
               sourcingListMode
@@ -115,7 +116,7 @@ export function BeszerzesreRendelhetoClient({ products, serverNow }: Props) {
               showSoldImpact={expiredAnimatingIds.has(p.id)}
               onExpired={onExpired}
             />
-          </div>
+          </ProductStaggerItem>
         ))}
       </div>
       {displayProducts.length === 0 && (

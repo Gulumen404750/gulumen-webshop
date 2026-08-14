@@ -1,5 +1,6 @@
 import { getAllProductsAsync } from '@/lib/data'
 import { ProductCard } from '@/components/ProductCard'
+import { ProductStaggerItem } from '@/components/ProductStaggerItem'
 import { PageEmptyMessage, PageHeading } from '@/components/PageHeading'
 import type { Metadata } from 'next'
 import { buildLocalizedMetadata, getSiteCopy } from '@/lib/site-metadata'
@@ -28,9 +29,9 @@ export default async function NewPage() {
       <PageHeading titleKey="pages.newTitle" />
       <div className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {newProducts.map((p, i) => (
-          <div key={p.id} className="min-w-0 w-full">
+          <ProductStaggerItem key={p.id} index={i}>
             <ProductCard product={p} priority={i < 4} />
-          </div>
+          </ProductStaggerItem>
         ))}
       </div>
       {newProducts.length === 0 && <PageEmptyMessage messageKey="pages.newEmpty" />}

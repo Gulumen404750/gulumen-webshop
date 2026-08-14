@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import type { Product } from '@/lib/data'
 import { ProductCard } from '@/components/ProductCard'
+import { ProductStaggerItem } from '@/components/ProductStaggerItem'
 import { FEATURED_PRODUCT_COUNT, FEATURED_ROTATION_MS } from '@/lib/storefront-config'
 
 type Props = {
@@ -74,9 +75,9 @@ export function FeaturedProductsGrid({ initialProducts, newProducts, dealProduct
   return (
     <div className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
       {displayed.map((p, i) => (
-        <div key={`${i}-${p.id}`} className="featured-product-enter min-w-0 w-full">
+        <ProductStaggerItem key={`${i}-${p.id}`} index={i}>
           <ProductCard product={p} priority={i < 3} />
-        </div>
+        </ProductStaggerItem>
       ))}
     </div>
   )

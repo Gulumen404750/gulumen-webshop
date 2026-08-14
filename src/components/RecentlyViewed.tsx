@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { getProductById } from '@/lib/data'
 import { ProductCard } from '@/components/ProductCard'
+import { ProductStaggerItem } from '@/components/ProductStaggerItem'
 import { useLocale } from '@/context/LocaleContext'
 
 const STORAGE_KEY = 'gulumen-recently-viewed'
@@ -32,9 +33,9 @@ export function RecentlyViewed() {
         <h2 className="font-heading text-2xl font-bold text-foreground mb-8">{t('product.recentlyViewed') || 'Utoljára megtekintett termékek'}</h2>
         <div className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {products.map((p, i) => (
-            <div key={p.id} className="min-w-0 w-full">
+            <ProductStaggerItem key={p.id} index={i}>
               <ProductCard product={p} priority={i < 2} />
-            </div>
+            </ProductStaggerItem>
           ))}
         </div>
       </div>
