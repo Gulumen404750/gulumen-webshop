@@ -52,12 +52,16 @@ A kimenő címed: `curl -4 ifconfig.me`. VPN-nél a VPN egress IP-t add hozzá, 
 
 ## 4. Session, titkok, csere
 
-Az admin süti **aláírt JWT** (max **8 óra**, **30 perc idle**). HMAC: **`JWT_SECRET`**. Logout a `jti`-t denylistára teszi (Redis + DB). `SameSite=Strict`, `httpOnly`.
+Az admin süti **aláírt JWT** (max **8 óra**, **30 perc idle**). HMAC: **`JWT_SECRET`** (vagy `NEXTAUTH_SECRET`). Logout a `jti`-t denylistára teszi (Redis + DB). `SameSite=Strict`, `httpOnly`. A token `sv` claimje a `JWT_SECRET` + `ADMIN_API_KEY` hash-e; az `ak` claim **csak** az `ADMIN_API_KEY`-t köti. Token `ak` vagy érvénytelen `jti`/idle nélkül elutasított.
 
 | Titok csere | Hatás |
 |-------------|--------|
 | `JWT_SECRET` | Minden admin session érvénytelen (aláírás nem stimmel). |
-| `ADMIN_API_KEY` | A már kiadott sütik `sv` claimje nem stimmel → **kiléptetés**. Nem kell a JWT_SECRET-et is cserélni, de szivárgásnál **mindkettőt** cseréld. |
+| `ADMIN_API_KEY` | A már kiadott sütik `ak` / `sv` claimje nem stimmel → **kiléptetés**. Nem kell a JWT_SECRET-et is cserélni, de szivárgásnál **mindkettőt** cseréld. |
+
+**Kényszerített csere (`mustChangeKey`):** Admin → Beállítások → „Következő belépéshez új kulcs kell”. A jelenlegi session megmarad; a következő belépés a régi kulccsal 403, amíg új `ADMIN_API_KEY` nincs az env-ben. A nyers kulcs nem kerül DB-be, csak SHA-256 fingerprint.
+
+**Periodikus csere:** `ADMIN_KEY_MAX_AGE_DAYS` (alap 90, `0` = ki).
 
 **Kulcscsere menete (szivárgás vagy rutin):**
 

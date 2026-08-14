@@ -3,6 +3,7 @@ import DealPopupSettings from './DealPopupSettings'
 import TwoFactorSettings from './TwoFactorSettings'
 import StaffSettings from './StaffSettings'
 import LoginFingerprintSettings from './LoginFingerprintSettings'
+import KeyPolicySettings from './KeyPolicySettings'
 
 export default function AdminSettingsPage() {
   const envStatus = [
@@ -32,6 +33,7 @@ export default function AdminSettingsPage() {
       <AdminSecurityPolicy />
       <StaffSettings />
       <TwoFactorSettings />
+      <KeyPolicySettings />
       <LoginFingerprintSettings />
       <DealPopupSettings />
       <p className="text-sm text-muted">

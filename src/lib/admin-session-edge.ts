@@ -2,6 +2,7 @@
  * Edge-safe admin session verify + sliding idle refresh (middleware).
  * Elfogad név szerinti operátor JWT-t és a bootstrap owner sütit is.
  * A Node `getAdminActor` dönti el, hogy a bootstrap session még érvényes-e.
+ * sv + ak: JWT_SECRET aláírás mellett az ADMIN_API_KEY csere is azonnal kiléptet.
  */
 
 import {

@@ -1,12 +1,13 @@
 /**
  * Admin JWT aláírás / claim-ellenőrzés (Edge + Node).
- * Idle (act) + jti + RBAC actor (sub/role/un). Revoke listát a hívó ellenőrzi.
+ * Idle (act) + jti + RBAC actor (sub/role/un) + ak (ADMIN_API_KEY binding). Revoke listát a hívó ellenőrzi.
  */
 
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose'
 import {
   ADMIN_ACTOR_ROLE_CLAIM,
   ADMIN_SESSION_ACTIVITY_CLAIM,
+  ADMIN_SESSION_API_KEY_CLAIM,
   ADMIN_SESSION_IDLE_SEC,
   ADMIN_SESSION_JTI_CLAIM,
   ADMIN_SESSION_MAX_AGE_SEC,
@@ -16,7 +17,7 @@ import {
   JWT_AUDIENCE,
   JWT_ISSUER,
 } from '@/lib/admin-session-constants'
-import { getAdminSessionVersion } from '@/lib/admin-session-version'
+import { getAdminApiKeyClaim, getAdminSessionVersion } from '@/lib/admin-session-version'
 import {
   type AdminActor,
   BOOTSTRAP_ADMIN_ACTOR,
@@ -43,6 +44,7 @@ export type AdminSessionClaims = {
   jti: string
   act: number
   sv: string
+  ak: string
   actor: AdminActor
 }
 
@@ -79,11 +81,13 @@ export function readAdminSessionClaims(
   const jti = payload[ADMIN_SESSION_JTI_CLAIM] ?? payload.jti
   const act = payload[ADMIN_SESSION_ACTIVITY_CLAIM]
   const sv = payload[ADMIN_SESSION_VERSION_CLAIM]
+  const ak = payload[ADMIN_SESSION_API_KEY_CLAIM]
   if (typeof jti !== 'string' || jti.length < 16) return null
   if (typeof act !== 'number' || !Number.isFinite(act)) return null
   if (typeof sv !== 'string' || !sv) return null
+  if (typeof ak !== 'string' || !ak) return null
   if (now - act > ADMIN_SESSION_IDLE_SEC) return null
-  return { jti, act, sv, actor }
+  return { jti, act, sv, ak, actor }
 }
 
 export async function signAdminSessionToken(opts?: {
@@ -95,12 +99,13 @@ export async function signAdminSessionToken(opts?: {
   if (!secret) throw new Error('JWT_SECRET / NEXTAUTH_SECRET not configured')
   const actor = opts?.actor ?? BOOTSTRAP_ADMIN_ACTOR
   const now = Math.floor(Date.now() / 1000)
-  const sv = await getAdminSessionVersion()
+  const [sv, ak] = await Promise.all([getAdminSessionVersion(), getAdminApiKeyClaim()])
   const jti = opts?.jti || newAdminSessionJti()
   const act = opts?.act ?? now
   return new SignJWT({
     role: actor.role,
     [ADMIN_SESSION_VERSION_CLAIM]: sv,
+    [ADMIN_SESSION_API_KEY_CLAIM]: ak,
     [ADMIN_TFA_CLAIM]: true,
     [ADMIN_SESSION_JTI_CLAIM]: jti,
     [ADMIN_SESSION_ACTIVITY_CLAIM]: act,
@@ -129,8 +134,12 @@ export async function readAdminSessionPayload(
     })
     const claims = readAdminSessionClaims(payload)
     if (!claims) return null
-    const expected = await getAdminSessionVersion()
-    if (claims.sv !== expected) return null
+    const [expectedSv, expectedAk] = await Promise.all([
+      getAdminSessionVersion(),
+      getAdminApiKeyClaim(),
+    ])
+    if (claims.sv !== expectedSv) return null
+    if (claims.ak !== expectedAk) return null
     return { ...payload, ...claims }
   } catch {
     return null

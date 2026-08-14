@@ -10,6 +10,8 @@ export const ADMIN_2FA_PENDING_MAX_AGE_SEC = 5 * 60
 export const ADMIN_SESSION_VERSION_CLAIM = 'sv'
 export const ADMIN_SESSION_JTI_CLAIM = 'jti'
 export const ADMIN_SESSION_ACTIVITY_CLAIM = 'act'
+/** ADMIN_API_KEY ujjlenyomat a JWT-ben: kulcscsere után a régi sütik érvénytelenek (JWT_SECRET-től függetlenül). */
+export const ADMIN_SESSION_API_KEY_CLAIM = 'ak'
 /** Teljes admin session csak 2FA után: a claim nélkül a régi 24 órás JWT elutasítva. */
 export const ADMIN_TFA_CLAIM = 'tfa'
 export const ADMIN_2FA_PENDING_ROLE = 'admin-2fa-pending'

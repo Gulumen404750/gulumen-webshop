@@ -31,7 +31,8 @@ export default function AdminSecurityPolicy() {
           Élesben az <code>ADMIN_ALLOWED_IPS</code> ki van töltve (iroda/VPN). Üres lista productionben = 403 (lockout); dev-ben nyitva marad.
         </li>
         <li>
-          Kulcs- vagy <code>JWT_SECRET</code>-csere kilépteti a sessionöket. Szivárgásnál mindkettőt cseréld.
+          Kulcs- vagy <code>JWT_SECRET</code>-csere kilépteti a sessionöket (<code>ak</code> + <code>sv</code> claim).
+          Szivárgásnál mindkettőt cseréld. Beállítások: „Következő belépéshez új kulcs kell”.
         </li>
         <li>
           Rendelés-export és vásárlói adatok csak admin gépen maradnak. Nagy CSV / tömeges ár / burst törlés

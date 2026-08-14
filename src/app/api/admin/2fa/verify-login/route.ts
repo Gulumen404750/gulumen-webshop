@@ -19,6 +19,12 @@ import { getAdminTwoFactorState } from '@/lib/admin-2fa'
 import { isDbConfigured } from '@/lib/prisma'
 import { normalizeTotpCode, verifyTotpCode } from '@/lib/admin-totp'
 import { recordAdminLoginFingerprintSafe } from '@/lib/admin-login-alert'
+import {
+  MUST_CHANGE_KEY_MESSAGE,
+  evaluateAdminKeyPolicy,
+  recordAdminKeyAccepted,
+} from '@/lib/admin-key-policy'
+import { logger } from '@/lib/logger'
 
 function clearPendingCookie(res: NextResponse) {
   res.cookies.set(ADMIN_2FA_PENDING_COOKIE, '', {
@@ -103,7 +109,32 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Érvénytelen hitelesítő kód.' }, { status: 401 })
   }
 
+  const adminKey = process.env.ADMIN_API_KEY
+  if (!adminKey) {
+    return NextResponse.json({ error: 'Admin not configured' }, { status: 503 })
+  }
+  try {
+    const policy = await evaluateAdminKeyPolicy(adminKey)
+    if (!policy.ok) {
+      await logAdminAction({
+        action: 'login_2fa',
+        success: false,
+        request,
+        details: { reason: policy.reason },
+      })
+      const res = NextResponse.json(
+        { error: MUST_CHANGE_KEY_MESSAGE, code: policy.reason },
+        { status: 403 }
+      )
+      clearPendingCookie(res)
+      return res
+    }
+  } catch (err) {
+    logger.error({ err }, 'admin 2FA login key policy failed')
+  }
+
   const token = await createAdminSessionToken(pendingActor)
+  await recordAdminKeyAccepted(adminKey)
   await recordAdminLoginFingerprintSafe(request)
   await logAdminAction({
     action: 'login_2fa',

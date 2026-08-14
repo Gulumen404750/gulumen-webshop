@@ -66,6 +66,12 @@ vi.mock('@/lib/admin-login-alert', () => ({
   recordAdminLoginFingerprintSafe: (...args: unknown[]) => recordAdminLoginFingerprintSafe(...args),
 }))
 
+const evaluateAdminKeyPolicy = vi.fn()
+vi.mock('@/lib/admin-key-policy', () => ({
+  MUST_CHANGE_KEY_MESSAGE: 'Az ADMIN_API_KEY-t cserélni kell.',
+  evaluateAdminKeyPolicy: (...args: unknown[]) => evaluateAdminKeyPolicy(...args),
+}))
+
 describe('POST /api/admin/login 2FA gate', () => {
   const originalKey = process.env.ADMIN_API_KEY
 
@@ -84,6 +90,7 @@ describe('POST /api/admin/login 2FA gate', () => {
       actor: { id: 'admin', username: 'admin', role: 'owner', bootstrap: true },
     })
     recordAdminLoginFingerprintSafe.mockResolvedValue(undefined)
+    evaluateAdminKeyPolicy.mockResolvedValue({ ok: true, rotated: false })
   })
 
   afterEach(() => {
@@ -198,5 +205,23 @@ describe('POST /api/admin/login 2FA gate', () => {
     )
     expect(res.status).toBe(401)
     expect(recordAdminLoginFingerprintSafe).not.toHaveBeenCalled()
+  })
+
+  it('rejects login with the current key when mustChangeKey is set', async () => {
+    evaluateAdminKeyPolicy.mockResolvedValue({ ok: false, reason: 'must_change_key' })
+    const { POST } = await import('@/app/api/admin/login/route')
+    const res = await POST(
+      new Request('http://localhost/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'test-admin-key' }),
+      })
+    )
+    expect(res.status).toBe(403)
+    const data = await res.json()
+    expect(data.code).toBe('must_change_key')
+    expect(createAdminSessionToken).not.toHaveBeenCalled()
+    expect(createAdminPendingTwoFactorToken).not.toHaveBeenCalled()
+    expect(resolveAdminLoginActor).not.toHaveBeenCalled()
   })
 })

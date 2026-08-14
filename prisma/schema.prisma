@@ -315,13 +315,18 @@ model LoyaltyRecord {
 
 /// Singleton admin fiók (közös ADMIN_API_KEY) – Google Authenticator TOTP 2FA.
 model Admin {
-  id                 String   @id @default("admin")
+  id                 String    @id @default("admin")
   totpSecret         String?
   /// Újrapárosítás: az új secret addig itt van, amíg a verify-setup meg nem erősíti.
   pendingTotpSecret  String?
-  isTwoFactorEnabled Boolean  @default(false)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  isTwoFactorEnabled Boolean   @default(false)
+  /// Következő belépéshez új ADMIN_API_KEY kell (a régi fingerprintdel a login elutasított).
+  mustChangeKey      Boolean   @default(false)
+  /// SHA-256 hex az aktuálisan elfogadott ADMIN_API_KEY-ről (nem a nyers kulcs).
+  apiKeyFingerprint  String?
+  keyConfirmedAt     DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 }
 
 model AdminAction {

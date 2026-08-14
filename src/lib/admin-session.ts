@@ -1,5 +1,7 @@
 /**
- * Aláírt admin session cookie (JWT/HMAC): sub, iat, exp, sv, jti, act, tfa, role, un.
+ * Aláírt admin session cookie (JWT/HMAC): sub, iat, exp, sv, ak, jti, act, tfa, role, un.
+ * Aláírás: JWT_SECRET. Binding: sv (secret+key) és ak (csak ADMIN_API_KEY) –
+ * kulcsváltáskor a régi sütik azonnal érvénytelenek, a JWT_SECRET-et nem kell cserélni.
  * Logout: jti denylist. Inaktivitás: act (30 perc).
  * Bootstrap (nincs operátor): sub=admin, role=owner. Név szerinti: sub=operatorId.
  */
@@ -13,11 +15,12 @@ import {
   ADMIN_SESSION_MAX_AGE_SEC,
   ADMIN_2FA_PENDING_MAX_AGE_SEC,
   ADMIN_SESSION_VERSION_CLAIM,
+  ADMIN_SESSION_API_KEY_CLAIM,
   ADMIN_2FA_PENDING_ROLE,
   ADMIN_USERNAME_CLAIM,
   ADMIN_ACTOR_ROLE_CLAIM,
 } from '@/lib/admin-session-constants'
-import { getAdminSessionVersion } from '@/lib/admin-session-version'
+import { getAdminApiKeyClaim, getAdminSessionVersion } from '@/lib/admin-session-version'
 import {
   isAdminSessionConfigured,
   readAdminSessionPayload,
@@ -35,6 +38,7 @@ export {
   ADMIN_SESSION_MAX_AGE_SEC,
   ADMIN_2FA_PENDING_MAX_AGE_SEC,
   ADMIN_SESSION_VERSION_CLAIM,
+  ADMIN_SESSION_API_KEY_CLAIM,
 }
 
 export { isAdminSessionConfigured }
@@ -84,10 +88,11 @@ export async function createAdminPendingTwoFactorToken(
   const secret = getAdminJwtSecret()
   if (!secret) throw new Error('JWT_SECRET / NEXTAUTH_SECRET not configured')
   const now = Math.floor(Date.now() / 1000)
-  const sv = await getAdminSessionVersion()
+  const [sv, ak] = await Promise.all([getAdminSessionVersion(), getAdminApiKeyClaim()])
   return new SignJWT({
     role: ADMIN_2FA_PENDING_ROLE,
     [ADMIN_SESSION_VERSION_CLAIM]: sv,
+    [ADMIN_SESSION_API_KEY_CLAIM]: ak,
     [ADMIN_USERNAME_CLAIM]: actor.username,
     [ADMIN_ACTOR_ROLE_CLAIM]: actor.role,
   })
@@ -111,8 +116,12 @@ export async function parseAdminPendingTwoFactorToken(
       issuer: JWT_ISSUER,
       audience: JWT_AUDIENCE_2FA,
     })
-    const expected = await getAdminSessionVersion()
-    if (payload[ADMIN_SESSION_VERSION_CLAIM] !== expected) return null
+    const [expectedSv, expectedAk] = await Promise.all([
+      getAdminSessionVersion(),
+      getAdminApiKeyClaim(),
+    ])
+    if (payload[ADMIN_SESSION_VERSION_CLAIM] !== expectedSv) return null
+    if (payload[ADMIN_SESSION_API_KEY_CLAIM] !== expectedAk) return null
     return actorFromPendingPayload(payload)
   } catch {
     return null

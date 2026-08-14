@@ -7,7 +7,8 @@ Irányelvek: [SECURITY.md](../SECURITY.md) (sebezhetőség-bejelentés) · [Admi
 ## Kötelező env változók
 
 - **ADMIN_API_KEY** – Erős, véletlenszerű kulcs (pl. `openssl rand -hex 32`).  
-  Admin sourcing success/fail végpontok (`/api/admin/sourcing/[orderId]/success`, `fail` vagy rejtett slug mellett `/api/<ADMIN_URL_SLUG>/sourcing/...`) `x-admin-key` headerrel is fogadnak kérést. Ha nincs beállítva → 503.
+  Admin sourcing success/fail végpontok (`/api/admin/sourcing/[orderId]/success`, `fail` vagy rejtett slug mellett `/api/<ADMIN_URL_SLUG>/sourcing/...`) `x-admin-key` headerrel is fogadnak kérést. Ha nincs beállítva → 503.  
+  A session JWT-t a **JWT_SECRET** írja alá; az `ADMIN_API_KEY` csere a JWT `ak`/`sv` claimje miatt **szintén kilépteti** a már kiadott admin sütiket. Kényszerített csere: admin Beállítások → `mustChangeKey`, vagy `ADMIN_KEY_MAX_AGE_DAYS` (alap 90).
 
 - **ADMIN_URL_SLUG** – Ajánlott. Véletlen útvonal (8–64 karakter, pl. `openssl rand -hex 8`).  
   Belépés: `https://<domain>/<slug>/login`. A nyilvános `/admin` és `/api/admin` session nélkül 404.  

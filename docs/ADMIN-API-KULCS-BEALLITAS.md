@@ -63,6 +63,16 @@ Másold ki a generált értéket – ezt írod be az **=` után** (helyi) vagy a
 
 ---
 
+## 4. Kulcscsere és session érvénytelenítés
+
+A belépés után kiadott admin süti **JWT**, HMAC aláírása a `JWT_SECRET`. Az `ADMIN_API_KEY` **nem** része az aláírásnak, de a token `ak` és `sv` claimje a kulcshoz van kötve: **kulcscsere után a régi sütik azonnal érvénytelenek** (nem kell `JWT_SECRET`-et cserélni). A `JWT_SECRET` csere külön kiléptet, mert az aláírás nem stimmel.
+
+**Kényszerített csere (`mustChangeKey`):** Admin → Beállítások → „Következő belépéshez új kulcs kell”. A jelenlegi session megmarad; a következő belépés a **régi** kulccsal 403. Állíts új `ADMIN_API_KEY`-t Railway-en, majd lépj be az újjal.
+
+**Periodikus csere:** `ADMIN_KEY_MAX_AGE_DAYS` (alap 90 nap, `0` = kikapcsolva).
+
+---
+
 ## Összefoglaló
 
 | Környezet | Változó neve (ne töröld) | Hova írod a kulcsot |

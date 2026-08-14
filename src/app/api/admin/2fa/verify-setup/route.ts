@@ -19,6 +19,12 @@ import {
   getAdminCsrfCookieOptions,
 } from '@/lib/admin-csrf'
 import { recordAdminLoginFingerprintSafe } from '@/lib/admin-login-alert'
+import {
+  MUST_CHANGE_KEY_MESSAGE,
+  evaluateAdminKeyPolicy,
+  recordAdminKeyAccepted,
+} from '@/lib/admin-key-policy'
+import { logger } from '@/lib/logger'
 
 function clearPendingCookie(res: NextResponse) {
   res.cookies.set(ADMIN_2FA_PENDING_COOKIE, '', {
@@ -80,6 +86,32 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid code' }, { status: 401 })
   }
 
+  if (auth === 'pending') {
+    const adminKey = process.env.ADMIN_API_KEY
+    if (!adminKey) {
+      return NextResponse.json({ error: 'Admin not configured' }, { status: 503 })
+    }
+    try {
+      const policy = await evaluateAdminKeyPolicy(adminKey)
+      if (!policy.ok) {
+        await logAdminAction({
+          action: '2fa_verify_setup',
+          success: false,
+          request,
+          details: { reason: policy.reason },
+        })
+        const res = NextResponse.json(
+          { error: MUST_CHANGE_KEY_MESSAGE, code: policy.reason },
+          { status: 403 }
+        )
+        clearPendingCookie(res)
+        return res
+      }
+    } catch (err) {
+      logger.error({ err }, 'admin 2FA setup key policy failed')
+    }
+  }
+
   await confirmAdminTotpSetup()
   await logAdminAction({
     action: '2fa_verify_setup',
@@ -92,6 +124,8 @@ export async function POST(request: Request) {
   if (auth === 'pending') {
     const actor = (await getPendingAdminActor()) ?? BOOTSTRAP_ADMIN_ACTOR
     const token = await createAdminSessionToken(actor)
+    const adminKey = process.env.ADMIN_API_KEY
+    if (adminKey) await recordAdminKeyAccepted(adminKey)
     await recordAdminLoginFingerprintSafe(request)
     res.cookies.set(ADMIN_COOKIE_NAME, token, getAdminCookieOptions())
     res.cookies.set(ADMIN_CSRF_COOKIE, generateCsrfToken(), getAdminCsrfCookieOptions())

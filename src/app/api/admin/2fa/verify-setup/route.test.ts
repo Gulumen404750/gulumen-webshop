@@ -71,6 +71,18 @@ vi.mock('@/lib/admin-login-alert', () => ({
   recordAdminLoginFingerprintSafe: (...args: unknown[]) => recordAdminLoginFingerprintSafe(...args),
 }))
 
+const evaluateAdminKeyPolicy = vi.fn()
+const recordAdminKeyAccepted = vi.fn()
+vi.mock('@/lib/admin-key-policy', () => ({
+  MUST_CHANGE_KEY_MESSAGE: 'Az ADMIN_API_KEY-t cserélni kell.',
+  evaluateAdminKeyPolicy: () => evaluateAdminKeyPolicy(),
+  recordAdminKeyAccepted: () => recordAdminKeyAccepted(),
+}))
+
+vi.mock('@/lib/logger', () => ({
+  logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn(), debug: vi.fn() },
+}))
+
 describe('POST /api/admin/2fa/verify-setup', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -83,6 +95,9 @@ describe('POST /api/admin/2fa/verify-setup', () => {
     verifyTotpCode.mockResolvedValue(true)
     createAdminSessionToken.mockResolvedValue('full-admin-jwt')
     recordAdminLoginFingerprintSafe.mockResolvedValue(undefined)
+    evaluateAdminKeyPolicy.mockResolvedValue({ ok: true, rotated: false })
+    recordAdminKeyAccepted.mockResolvedValue(undefined)
+    process.env.ADMIN_API_KEY = 'test-admin-key'
   })
 
   it('first setup verifies the stored secret and enables 2FA', async () => {
@@ -125,6 +140,7 @@ describe('POST /api/admin/2fa/verify-setup', () => {
     )
     expect(res.status).toBe(200)
     expect(createAdminSessionToken).toHaveBeenCalled()
+    expect(recordAdminKeyAccepted).toHaveBeenCalled()
     expect(res.headers.get('set-cookie') || '').toContain('admin_authorized=')
     expect(recordAdminLoginFingerprintSafe).toHaveBeenCalled()
   })

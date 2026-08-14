@@ -27,6 +27,7 @@ import { RECAPTCHA_ACTIONS, verifyRecaptchaToken } from '@/lib/recaptcha'
 import { resolveAdminLoginActor } from '@/lib/admin-operators'
 import type { AdminActor } from '@/lib/admin-rbac'
 import { recordAdminLoginFingerprintSafe } from '@/lib/admin-login-alert'
+import { MUST_CHANGE_KEY_MESSAGE, evaluateAdminKeyPolicy } from '@/lib/admin-key-policy'
 
 /**
  * POST /api/admin/login
@@ -145,6 +146,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Hibás API kulcs.' }, { status: 401 })
   }
 
+  await clearAdminLoginLockout(request)
+
+  try {
+    const policy = await evaluateAdminKeyPolicy(adminKey)
+    if (!policy.ok) {
+      await logAdminAction({
+        action: 'login',
+        success: false,
+        request,
+        details: { reason: policy.reason },
+      })
+      return NextResponse.json(
+        { error: MUST_CHANGE_KEY_MESSAGE, code: policy.reason },
+        { status: 403 }
+      )
+    }
+  } catch (err) {
+    logger.error({ err }, 'admin login key policy failed')
+  }
+
   const loginActor = await resolveAdminLoginActor({
     username: body.username,
     password: body.password,
@@ -199,8 +220,6 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ error: 'Hibás felhasználónév vagy jelszó.' }, { status: 401 })
   }
-
-  await clearAdminLoginLockout(request)
 
   const actor: AdminActor = loginActor.actor
 

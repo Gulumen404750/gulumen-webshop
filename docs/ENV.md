@@ -29,8 +29,18 @@ DATABASE_URL="postgresql://user:password@host:5432/dbname?sslmode=require"
 - Jelenlegi `schema.prisma` csak `url = env("DATABASE_URL")` – DIRECT_URL nincs benne.
 
 ### JWT_SECRET
-- **Auth:** session cookie aláíráshoz. Legalább 16 karakter. Pl. `openssl rand -hex 32`.
+- **Auth:** session cookie HMAC aláíráshoz (HS256). Legalább 16 karakter. Pl. `openssl rand -hex 32`.
 - Ha nincs: `getSession()` null, register/login 503 ha nincs DB sem.
+- **Admin JWT:** az aláírás **csak** a `JWT_SECRET` (vagy `NEXTAUTH_SECRET`) – a `JWT_SECRET` csere minden admin sessiont kiléptet, mert az HMAC nem stimmel.
+- Az `ADMIN_API_KEY` **nem** írja alá a JWT-t. A süti `ak` (csak API kulcs) és `sv` (`JWT_SECRET` + `ADMIN_API_KEY`) claimjeit a verify ellenőrzi, ezért az **`ADMIN_API_KEY` csere is azonnal érvényteleníti** a már kiadott admin JWT-ket, JWT_SECRET csere nélkül.
+
+### ADMIN_API_KEY
+- Admin belépés (login mező + opcionális `x-admin-key` header).
+- Kulcscsere menete: Beállítások → „Következő belépéshez új kulcs kell” (`mustChangeKey`) → új érték a Railway / env Variables-ben → belépés az **új** kulccsal. A régi JWT sütik az `ak`/`sv` claim miatt azonnal érvénytelenek.
+- Periodikus kényszer: `ADMIN_KEY_MAX_AGE_DAYS` (alap **90**; **0** = kikapcsolva). Az óra az első rögzített fingerprinttől (`keyConfirmedAt`) megy, nem minden belépéstől. A nyers kulcs nem kerül DB-be, csak SHA-256 fingerprint.
+
+### ADMIN_KEY_MAX_AGE_DAYS (opcionális)
+- Admin API kulcs max életkora napokban. Alap: `90`. `0` = nincs lejárat. Érvénytelen érték → 90.
 
 ---
 
@@ -104,7 +114,9 @@ DATABASE_URL="postgresql://user:password@host:5432/dbname?sslmode=require"
 |-----------------------------|----------|------------|
 | DATABASE_URL                | Nem      | Ha nincs: JSON orders, 503 auth. Ha van de elérhetetlen: ordersCount/orders try/catch → JSON fallback. |
 | DIRECT_URL                  | Nem      | Csak ha Prisma Accelerate + migráció. |
-| JWT_SECRET                  | Auth-hoz | Regisztráció/login session-höz. |
+| JWT_SECRET                  | Auth-hoz | Regisztráció/login + admin JWT HMAC. Csere → admin sessionök érvénytelenek. |
+| ADMIN_API_KEY               | Adminhoz | Admin belépés. Csere → JWT `ak`/`sv` miatt a régi sütik érvénytelenek. |
+| ADMIN_KEY_MAX_AGE_DAYS      | Nem      | Admin kulcs max kora napokban (alap 90, 0 = ki). |
 | NEXT_PUBLIC_SUPPORT_PHONE   | Nem      | Ügyfélszolgálati telefonszám (Hívj minket). |
 | CALLBACK_WEBHOOK_URL        | Nem      | Visszahívás kérések továbbítása (Make/CRM). |
 | VOICE_AGENT_WEBHOOK_SECRET  | Voice-hoz| call-summary + ai-voice hitelesítés. |
