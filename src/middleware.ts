@@ -62,7 +62,7 @@ function withAdminHeaders(response: NextResponse): NextResponse {
  * Security middleware – minden route-on fut.
  * Rejtett admin: ADMIN_URL_SLUG → /{slug} és /api/{slug}/* ; /admin session nélkül 404.
  * /{slug}/* (kivéve login) védve: aláírt admin JWT cookie.
- * Admin UI/API: IP whitelist + (mutáló API) CSRF.
+ * Admin UI/API: IP whitelist (productionben kötelező) + (mutáló API) CSRF.
  */
 export async function middleware(request: NextRequest) {
   const host = request.nextUrl.hostname
@@ -109,7 +109,9 @@ export async function middleware(request: NextRequest) {
     if (ipDecision.reason === 'unconfigured' && !warnedMissingAllowlist) {
       warnedMissingAllowlist = true
       console.warn(
-        '[admin] ADMIN_ALLOWED_IPS is empty; allowing all IPs. Set a comma-separated allowlist to restrict admin access.'
+        ipDecision.ok
+          ? '[admin] ADMIN_ALLOWED_IPS is empty; allowing all IPs outside production. Set office/VPN CIDRs to restrict /admin.'
+          : '[admin] ADMIN_ALLOWED_IPS is empty in production; blocking all admin IPs. Set ADMIN_ALLOWED_IPS (office/VPN) before deploy or you will lock yourself out.'
       )
     }
     if (!ipDecision.ok) {
