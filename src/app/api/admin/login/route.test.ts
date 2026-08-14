@@ -108,7 +108,7 @@ describe('POST /api/admin/login 2FA gate', () => {
     expect(res.headers.get('set-cookie') || '').not.toContain('admin_authorized=')
   })
 
-  it('issues a full admin cookie when 2FA is off', async () => {
+  it('never issues a full admin cookie from the API key alone', async () => {
     getAdminTwoFactorState.mockResolvedValue({ isTwoFactorEnabled: false, totpSecret: null })
     const { POST } = await import('@/app/api/admin/login/route')
     const res = await POST(
@@ -119,8 +119,12 @@ describe('POST /api/admin/login 2FA gate', () => {
       })
     )
     const data = await res.json()
+    expect(res.status).toBe(200)
     expect(data.requiresTwoFactor).toBe(false)
-    expect(createAdminSessionToken).toHaveBeenCalled()
-    expect(res.headers.get('set-cookie') || '').toContain('admin_authorized=')
+    expect(data.requiresTwoFactorSetup).toBe(true)
+    expect(createAdminSessionToken).not.toHaveBeenCalled()
+    expect(createAdminPendingTwoFactorToken).toHaveBeenCalled()
+    expect(res.headers.get('set-cookie') || '').toContain('admin_2fa_pending=')
+    expect(res.headers.get('set-cookie') || '').not.toContain('admin_authorized=')
   })
 })

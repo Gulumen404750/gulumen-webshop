@@ -71,4 +71,29 @@ describe('admin session version', () => {
     expect(await verifyAdminPendingTwoFactorToken(pending)).toBe(true)
     expect(await verifyAdminSessionToken(pending)).toBe(false)
   })
+
+  it('rejects a full session JWT that was not issued after 2FA', async () => {
+    process.env.JWT_SECRET = 'jwt-secret-at-least-16-chars'
+    process.env.ADMIN_API_KEY = 'admin-key'
+    const { SignJWT } = await import('jose')
+    const { getAdminSessionVersion } = await import('./admin-session-version')
+    const {
+      JWT_ISSUER,
+      JWT_AUDIENCE,
+      ADMIN_SESSION_VERSION_CLAIM,
+    } = await import('./admin-session-constants')
+    const now = Math.floor(Date.now() / 1000)
+    const sv = await getAdminSessionVersion()
+    const token = await new SignJWT({ role: 'admin', [ADMIN_SESSION_VERSION_CLAIM]: sv })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setSubject('admin')
+      .setIssuer(JWT_ISSUER)
+      .setAudience(JWT_AUDIENCE)
+      .setIssuedAt(now)
+      .setExpirationTime(now + 60)
+      .sign(new TextEncoder().encode(process.env.JWT_SECRET))
+    expect(await verifyAdminSessionToken(token)).toBe(false)
+    const withTfa = await createAdminSessionToken()
+    expect(await verifyAdminSessionToken(withTfa)).toBe(true)
+  })
 })

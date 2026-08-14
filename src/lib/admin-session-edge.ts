@@ -8,6 +8,7 @@ import {
   JWT_ISSUER,
   JWT_AUDIENCE,
   ADMIN_SESSION_VERSION_CLAIM,
+  ADMIN_TFA_CLAIM,
 } from '@/lib/admin-session-constants'
 import { getAdminSessionVersion } from '@/lib/admin-session-version'
 
@@ -29,6 +30,7 @@ export async function verifyAdminSessionToken(token: string | undefined | null):
       audience: JWT_AUDIENCE,
     })
     if (payload.sub !== 'admin') return false
+    if (payload[ADMIN_TFA_CLAIM] !== true) return false
     const expected = await getAdminSessionVersion()
     return payload[ADMIN_SESSION_VERSION_CLAIM] === expected
   } catch {

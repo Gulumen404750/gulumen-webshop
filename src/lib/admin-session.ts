@@ -13,6 +13,7 @@ import {
   ADMIN_SESSION_MAX_AGE_SEC,
   ADMIN_2FA_PENDING_MAX_AGE_SEC,
   ADMIN_SESSION_VERSION_CLAIM,
+  ADMIN_TFA_CLAIM,
   ADMIN_2FA_PENDING_ROLE,
 } from '@/lib/admin-session-constants'
 import { getAdminSessionVersion } from '@/lib/admin-session-version'
@@ -40,7 +41,11 @@ export async function createAdminSessionToken(): Promise<string> {
   if (!secret) throw new Error('JWT_SECRET / NEXTAUTH_SECRET not configured')
   const now = Math.floor(Date.now() / 1000)
   const sv = await getAdminSessionVersion()
-  return new SignJWT({ role: 'admin', [ADMIN_SESSION_VERSION_CLAIM]: sv })
+  return new SignJWT({
+    role: 'admin',
+    [ADMIN_SESSION_VERSION_CLAIM]: sv,
+    [ADMIN_TFA_CLAIM]: true,
+  })
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject('admin')
     .setIssuer(JWT_ISSUER)
@@ -60,6 +65,7 @@ export async function verifyAdminSessionToken(token: string | undefined | null):
       audience: JWT_AUDIENCE,
     })
     if (payload.sub !== 'admin') return false
+    if (payload[ADMIN_TFA_CLAIM] !== true) return false
     const expected = await getAdminSessionVersion()
     return payload[ADMIN_SESSION_VERSION_CLAIM] === expected
   } catch {

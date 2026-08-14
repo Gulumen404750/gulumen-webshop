@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const requireAdmin = vi.fn()
+const requireAdminOrPendingTwoFactor = vi.fn()
 const isDbConfigured = vi.fn()
 const saveAdminTotpSetup = vi.fn()
 const getAdminTwoFactorState = vi.fn()
@@ -12,7 +12,7 @@ const verifyTotpCode = vi.fn()
 const rateLimit = vi.fn()
 
 vi.mock('@/lib/admin-auth', () => ({
-  requireAdmin: () => requireAdmin(),
+  requireAdminOrPendingTwoFactor: () => requireAdminOrPendingTwoFactor(),
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -46,7 +46,7 @@ vi.mock('@/lib/admin-totp', () => ({
 describe('POST /api/admin/2fa/setup', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    requireAdmin.mockResolvedValue(true)
+    requireAdminOrPendingTwoFactor.mockResolvedValue('admin')
     isDbConfigured.mockReturnValue(true)
     generateTotpSecret.mockReturnValue('JBSWY3DPEHPK3PXP')
     buildTotpAuthUrl.mockReturnValue('otpauth://totp/Gulumen:admin?secret=JBSWY3DPEHPK3PXP')
@@ -129,8 +129,29 @@ describe('POST /api/admin/2fa/setup', () => {
     expect(saveAdminTotpSetup).toHaveBeenCalledWith('JBSWY3DPEHPK3PXP')
   })
 
+  it('allows first-time setup with a pending login token', async () => {
+    requireAdminOrPendingTwoFactor.mockResolvedValue('pending')
+    const { POST } = await import('@/app/api/admin/2fa/setup/route')
+    const res = await POST(new Request('http://localhost/api/admin/2fa/setup', { method: 'POST' }))
+    expect(res.status).toBe(200)
+    expect(saveAdminTotpSetup).toHaveBeenCalledWith('JBSWY3DPEHPK3PXP')
+  })
+
+  it('rejects re-enroll from a pending login token when 2FA is already on', async () => {
+    requireAdminOrPendingTwoFactor.mockResolvedValue('pending')
+    getAdminTwoFactorState.mockResolvedValue({
+      isTwoFactorEnabled: true,
+      totpSecret: 'ACTIVESECRET',
+      pendingTotpSecret: null,
+    })
+    const { POST } = await import('@/app/api/admin/2fa/setup/route')
+    const res = await POST(new Request('http://localhost/api/admin/2fa/setup', { method: 'POST' }))
+    expect(res.status).toBe(401)
+    expect(saveAdminTotpSetup).not.toHaveBeenCalled()
+  })
+
   it('returns 401 when not admin', async () => {
-    requireAdmin.mockResolvedValue(false)
+    requireAdminOrPendingTwoFactor.mockResolvedValue(null)
     const { POST } = await import('@/app/api/admin/2fa/setup/route')
     const res = await POST(new Request('http://localhost/api/admin/2fa/setup', { method: 'POST' }))
     expect(res.status).toBe(401)

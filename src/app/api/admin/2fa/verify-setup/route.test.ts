@@ -1,15 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const requireAdmin = vi.fn()
+const requireAdminOrPendingTwoFactor = vi.fn()
 const isDbConfigured = vi.fn()
 const getAdminTwoFactorState = vi.fn()
 const confirmAdminTotpSetup = vi.fn()
 const verifyTotpCode = vi.fn()
 const rateLimit = vi.fn()
 const logAdminAction = vi.fn()
+const isAdminSessionConfigured = vi.fn()
+const createAdminSessionToken = vi.fn()
+const getAdminCookieOptions = vi.fn((..._args: unknown[]) => ({
+  path: '/',
+  maxAge: 60,
+  httpOnly: true,
+  sameSite: 'lax' as const,
+  secure: false,
+}))
 
 vi.mock('@/lib/admin-auth', () => ({
-  requireAdmin: () => requireAdmin(),
+  requireAdminOrPendingTwoFactor: () => requireAdminOrPendingTwoFactor(),
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -37,15 +46,31 @@ vi.mock('@/lib/admin-audit', () => ({
   logAdminAction: (...args: unknown[]) => logAdminAction(...args),
 }))
 
+vi.mock('@/lib/admin-session', () => ({
+  ADMIN_COOKIE_NAME: 'admin_authorized',
+  ADMIN_2FA_PENDING_COOKIE: 'admin_2fa_pending',
+  isAdminSessionConfigured: () => isAdminSessionConfigured(),
+  createAdminSessionToken: () => createAdminSessionToken(),
+  getAdminCookieOptions: (maxAge?: number) => getAdminCookieOptions(maxAge),
+}))
+
+vi.mock('@/lib/admin-csrf', () => ({
+  ADMIN_CSRF_COOKIE: 'admin_csrf',
+  generateCsrfToken: () => 'csrf-token',
+  getAdminCsrfCookieOptions: () => ({ path: '/', maxAge: 60, httpOnly: false, sameSite: 'strict' }),
+}))
+
 describe('POST /api/admin/2fa/verify-setup', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    requireAdmin.mockResolvedValue(true)
+    requireAdminOrPendingTwoFactor.mockResolvedValue('admin')
     isDbConfigured.mockReturnValue(true)
+    isAdminSessionConfigured.mockReturnValue(true)
     rateLimit.mockResolvedValue({ ok: true })
     confirmAdminTotpSetup.mockResolvedValue(undefined)
     logAdminAction.mockResolvedValue(undefined)
     verifyTotpCode.mockResolvedValue(true)
+    createAdminSessionToken.mockResolvedValue('full-admin-jwt')
   })
 
   it('first setup verifies the stored secret and enables 2FA', async () => {
@@ -67,6 +92,27 @@ describe('POST /api/admin/2fa/verify-setup', () => {
     expect(confirmAdminTotpSetup).toHaveBeenCalled()
     const data = await res.json()
     expect(data.isTwoFactorEnabled).toBe(true)
+    expect(createAdminSessionToken).not.toHaveBeenCalled()
+  })
+
+  it('issues a full admin session after first-time setup with a pending login token', async () => {
+    requireAdminOrPendingTwoFactor.mockResolvedValue('pending')
+    getAdminTwoFactorState.mockResolvedValue({
+      isTwoFactorEnabled: false,
+      totpSecret: 'FIRSTSECRET',
+      pendingTotpSecret: null,
+    })
+    const { POST } = await import('@/app/api/admin/2fa/verify-setup/route')
+    const res = await POST(
+      new Request('http://localhost/api/admin/2fa/verify-setup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: '123456' }),
+      })
+    )
+    expect(res.status).toBe(200)
+    expect(createAdminSessionToken).toHaveBeenCalled()
+    expect(res.headers.get('set-cookie') || '').toContain('admin_authorized=')
   })
 
   it('re-enroll verifies the pending secret, not the still-active one', async () => {
@@ -106,5 +152,6 @@ describe('POST /api/admin/2fa/verify-setup', () => {
     )
     expect(res.status).toBe(401)
     expect(confirmAdminTotpSetup).not.toHaveBeenCalled()
+    expect(createAdminSessionToken).not.toHaveBeenCalled()
   })
 })

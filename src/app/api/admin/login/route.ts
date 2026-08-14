@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rate-limit'
 import {
-  createAdminSessionToken,
   createAdminPendingTwoFactorToken,
   getAdminCookieOptions,
-  ADMIN_COOKIE_NAME,
   ADMIN_2FA_PENDING_COOKIE,
   ADMIN_2FA_PENDING_MAX_AGE_SEC,
   isAdminSessionConfigured,
@@ -22,8 +20,9 @@ import { logger } from '@/lib/logger'
 
 /**
  * POST /api/admin/login
- * Body: { key: string }. Ha a 2FA be van kapcsolva, csak ideiglenes pending tokent ad;
- * egyébként beállítja az aláírt admin JWT cookie-t.
+ * Body: { key: string }.
+ * A kulcs önmagában soha nem ad teljes admin sessiont: csak ideiglenes 2FA pending tokent.
+ * Ha a 2FA már be van kapcsolva → TOTP kód. Ha még nincs → első Authenticator párosítás.
  */
 export async function POST(request: Request) {
   const adminKey = process.env.ADMIN_API_KEY
@@ -44,6 +43,15 @@ export async function POST(request: Request) {
       details: { reason: 'session_not_configured' },
     })
     return NextResponse.json({ error: 'Admin session not configured' }, { status: 503 })
+  }
+  if (!isDbConfigured()) {
+    await logAdminAction({
+      action: 'login',
+      success: false,
+      request,
+      details: { reason: 'database_not_configured' },
+    })
+    return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
   }
 
   const body = await request.json().catch(() => ({}))
@@ -85,35 +93,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Admin login unavailable' }, { status: 503 })
   }
 
-  if (twoFactor.isTwoFactorEnabled) {
-    if (!isDbConfigured()) {
-      return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
-    }
-    const pending = await createAdminPendingTwoFactorToken()
-    await logAdminAction({
-      action: 'login',
-      success: true,
-      request,
-      details: { step: 'pending_2fa' },
-    })
-    const res = NextResponse.json({ ok: true, requiresTwoFactor: true })
-    res.cookies.set(
-      ADMIN_2FA_PENDING_COOKIE,
-      pending,
-      getAdminCookieOptions(ADMIN_2FA_PENDING_MAX_AGE_SEC)
-    )
-    res.cookies.set(ADMIN_CSRF_COOKIE, generateCsrfToken(), getAdminCsrfCookieOptions())
-    return res
-  }
-
-  const token = await createAdminSessionToken()
+  const pending = await createAdminPendingTwoFactorToken()
+  const requiresTwoFactor = twoFactor.isTwoFactorEnabled
   await logAdminAction({
     action: 'login',
     success: true,
     request,
+    details: { step: requiresTwoFactor ? 'pending_2fa' : 'pending_2fa_setup' },
   })
-  const res = NextResponse.json({ ok: true, requiresTwoFactor: false })
-  res.cookies.set(ADMIN_COOKIE_NAME, token, getAdminCookieOptions())
+  const res = NextResponse.json({
+    ok: true,
+    requiresTwoFactor,
+    requiresTwoFactorSetup: !requiresTwoFactor,
+  })
+  res.cookies.set(
+    ADMIN_2FA_PENDING_COOKIE,
+    pending,
+    getAdminCookieOptions(ADMIN_2FA_PENDING_MAX_AGE_SEC)
+  )
   res.cookies.set(ADMIN_CSRF_COOKIE, generateCsrfToken(), getAdminCsrfCookieOptions())
   return res
 }
