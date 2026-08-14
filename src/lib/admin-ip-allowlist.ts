@@ -6,7 +6,7 @@
  */
 
 import { normalizeIp } from '@/lib/request-ip'
-import { isAdminSurfacePath } from '@/lib/admin-url'
+import { isAdminSurfacePath, isOperatorSurfacePath } from '@/lib/admin-url'
 
 export type AdminIpDecision =
   | { ok: true; reason: 'allowed' | 'unconfigured' }
@@ -80,5 +80,5 @@ export function evaluateAdminIpAccess(
 }
 
 export function isAdminIpRestrictedPath(pathname: string): boolean {
-  return isAdminSurfacePath(pathname)
+  return isAdminSurfacePath(pathname) || isOperatorSurfacePath(pathname)
 }

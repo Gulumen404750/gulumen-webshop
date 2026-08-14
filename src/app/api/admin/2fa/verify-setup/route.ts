@@ -9,6 +9,7 @@ import { normalizeTotpCode, verifyTotpCode } from '@/lib/admin-totp'
 import {
   ADMIN_COOKIE_NAME,
   ADMIN_2FA_PENDING_COOKIE,
+  OPERATOR_COOKIE_NAME,
   createAdminSessionToken,
   getAdminCookieOptions,
   isAdminSessionConfigured,
@@ -127,7 +128,9 @@ export async function POST(request: Request) {
     const adminKey = process.env.ADMIN_API_KEY
     if (adminKey) await recordAdminKeyAccepted(adminKey)
     await recordAdminLoginFingerprintSafe(request)
-    res.cookies.set(ADMIN_COOKIE_NAME, token, getAdminCookieOptions())
+    const cookieName =
+      actor.bootstrap || actor.role === 'owner' ? ADMIN_COOKIE_NAME : OPERATOR_COOKIE_NAME
+    res.cookies.set(cookieName, token, getAdminCookieOptions())
     res.cookies.set(ADMIN_CSRF_COOKIE, generateCsrfToken(), getAdminCsrfCookieOptions())
     clearPendingCookie(res)
   }

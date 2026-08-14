@@ -25,7 +25,7 @@ describe('admin RBAC', () => {
 
     expect(roleHasPermission('catalog', 'products:write')).toBe(true)
     expect(roleHasPermission('catalog', 'customers:pii')).toBe(false)
-    expect(roleHasPermission('catalog', 'products:delete')).toBe(false)
+    expect(roleHasPermission('catalog', 'products:delete')).toBe(true)
 
     expect(roleHasPermission('viewer', 'orders:read')).toBe(true)
     expect(roleHasPermission('viewer', 'orders:write')).toBe(false)

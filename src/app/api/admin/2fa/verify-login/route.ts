@@ -4,10 +4,12 @@ import { rateLimit } from '@/lib/rate-limit'
 import {
   ADMIN_COOKIE_NAME,
   ADMIN_2FA_PENDING_COOKIE,
+  OPERATOR_COOKIE_NAME,
   createAdminSessionToken,
   getAdminCookieOptions,
   isAdminSessionConfigured,
-  parseAdminPendingTwoFactorToken,
+  parseAdminPendingTwoFactorSession,
+  sessionCookieNameForScope,
 } from '@/lib/admin-session'
 import {
   ADMIN_CSRF_COOKIE,
@@ -36,7 +38,8 @@ function clearPendingCookie(res: NextResponse) {
 /**
  * POST /api/admin/2fa/verify-login
  * Body: { code: string, pendingToken?: string }
- * Az ideiglenes 2FA JWT (süti vagy body) + TOTP kód után kiadja a teljes admin sütit.
+ * Owner scope → `admin_authorized` (operátor süti érintetlen).
+ * Operator scope → `operator_authorized` (owner süti érintetlen).
  */
 export async function POST(request: Request) {
   const limit = await rateLimit(request, { preset: 'adminTotp' })
@@ -71,8 +74,8 @@ export async function POST(request: Request) {
   const pendingFromBody = typeof body?.pendingToken === 'string' ? body.pendingToken : ''
   const pendingToken = pendingFromCookie || pendingFromBody
 
-  const pendingActor = await parseAdminPendingTwoFactorToken(pendingToken)
-  if (!pendingActor) {
+  const pending = await parseAdminPendingTwoFactorSession(pendingToken)
+  if (!pending) {
     await logAdminAction({
       action: 'login_2fa',
       success: false,
@@ -86,6 +89,7 @@ export async function POST(request: Request) {
     clearPendingCookie(res)
     return res
   }
+  const { actor: pendingActor, scope } = pending
 
   const state = await getAdminTwoFactorState()
   if (!state.isTwoFactorEnabled || !state.totpSecret) {
@@ -137,10 +141,7 @@ export async function POST(request: Request) {
   await recordAdminKeyAccepted(adminKey)
   await recordAdminLoginFingerprintSafe(request)
 
-  const existingToken = cookieStore.get(ADMIN_COOKIE_NAME)?.value
-  const { parkExistingOwnerSessionIfNeeded } = await import('@/lib/admin-session-park')
-  const probe = NextResponse.json({})
-  const parked = await parkExistingOwnerSessionIfNeeded(probe, existingToken, pendingActor)
+  const cookieName = sessionCookieNameForScope(scope)
 
   await logAdminAction({
     action: 'login_2fa',
@@ -150,13 +151,18 @@ export async function POST(request: Request) {
     details: {
       username: pendingActor.username,
       role: pendingActor.role,
-      parkedPreviousSession: parked,
+      scope,
+      cookie: cookieName,
     },
   })
 
-  const finalRes = NextResponse.json({ ok: true, parkedPreviousSession: parked })
-  await parkExistingOwnerSessionIfNeeded(finalRes, existingToken, pendingActor)
-  finalRes.cookies.set(ADMIN_COOKIE_NAME, token, getAdminCookieOptions())
+  const finalRes = NextResponse.json({ ok: true, scope })
+  finalRes.cookies.set(cookieName, token, getAdminCookieOptions())
+  // Izoláció: a másik scope sütijét nem töröljük / nem írjuk felül.
+  if (cookieName === ADMIN_COOKIE_NAME) {
+    // Owner belépés: operátor süti maradhat (ritka); nem park kell már.
+    void OPERATOR_COOKIE_NAME
+  }
   finalRes.cookies.set(ADMIN_CSRF_COOKIE, generateCsrfToken(), getAdminCsrfCookieOptions())
   clearPendingCookie(finalRes)
   return finalRes

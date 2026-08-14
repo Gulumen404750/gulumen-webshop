@@ -368,6 +368,29 @@ model AdminOperator {
   @@index([role])
 }
 
+/// Tömeges törlés (és hasonló) jóváhagyási kérelmek – non-owner → PENDING_APPROVAL.
+model AdminPendingApproval {
+  id                   String    @id @default(cuid())
+  /// pl. bulk_delete_products | bulk_delete_users | bulk_delete_coupons
+  type                 String
+  /// PENDING_APPROVAL | APPROVED | REJECTED | EXPIRED
+  status               String
+  /// { resource, ids: string[] }
+  payload              Json
+  requestedById        String?
+  requestedByUsername  String?
+  requestedByRole      String?
+  reviewedById         String?
+  reviewedByUsername   String?
+  expiresAt            DateTime
+  resolvedAt           DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([status, expiresAt])
+  @@index([createdAt])
+}
+
 /// Logout után a JWT jti denylistája a lejáratig.
 model AdminRevokedSession {
   jti       String   @id

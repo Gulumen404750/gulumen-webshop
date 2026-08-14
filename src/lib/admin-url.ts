@@ -8,9 +8,12 @@ export const ADMIN_URL_SLUG_ENV = 'ADMIN_URL_SLUG'
 export const ADMIN_PUBLIC_BASE_COOKIE = 'g_admin_base'
 export const CANONICAL_ADMIN_UI_PREFIX = '/admin'
 export const CANONICAL_ADMIN_API_PREFIX = '/api/admin'
+export const CANONICAL_OPERATOR_UI_PREFIX = '/operator'
+export const CANONICAL_OPERATOR_API_PREFIX = '/api/operator'
 
 /** Shop / rendszer útvonalak, amikre a slug nem eshet. */
 export const ADMIN_URL_RESERVED_SLUGS = new Set([
+  'operator',
   'admin',
   'api',
   'auth',
@@ -161,8 +164,22 @@ function isApiLogin(internalPath: string): boolean {
     internalPath === `${CANONICAL_ADMIN_API_PREFIX}/login` ||
     internalPath === `${CANONICAL_ADMIN_API_PREFIX}/2fa/verify-login` ||
     internalPath === `${CANONICAL_ADMIN_API_PREFIX}/reset/request` ||
-    internalPath === `${CANONICAL_ADMIN_API_PREFIX}/reset/confirm`
+    internalPath === `${CANONICAL_ADMIN_API_PREFIX}/reset/confirm` ||
+    internalPath === `${CANONICAL_OPERATOR_API_PREFIX}/login`
   )
+}
+
+export function isOperatorSurfacePath(pathname: string): boolean {
+  return (
+    pathname === CANONICAL_OPERATOR_UI_PREFIX ||
+    pathname.startsWith(`${CANONICAL_OPERATOR_UI_PREFIX}/`) ||
+    pathname === CANONICAL_OPERATOR_API_PREFIX ||
+    pathname.startsWith(`${CANONICAL_OPERATOR_API_PREFIX}/`)
+  )
+}
+
+export function isOperatorLoginPathname(pathname: string): boolean {
+  return pathname === `${CANONICAL_OPERATOR_UI_PREFIX}/login`
 }
 
 export function classifyAdminPath(pathname: string, slug: string | null): AdminPathMatch {

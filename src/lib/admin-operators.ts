@@ -1,6 +1,8 @@
 /**
- * Név szerinti admin operátorok (RBAC).
- * Amíg a tábla üres / nem létezik, countAdminOperators() 0 → API-kulcsos fallback.
+ * Owner unbreakable fallback + szeparált operátor belépés.
+ * - Owner path (`/admin/login`): ADMIN_API_KEY (+ opcionális Admin.passwordHash) → mindig
+ *   bootstrap owner actor, akkor is, ha van aktív owner a táblában (lockout-mentés SQL nélkül).
+ * - Operator path (`/operator/login`): username + jelszó, külön süti.
  */
 import bcrypt from 'bcryptjs'
 import { prisma, isDbConfigured } from '@/lib/prisma'
@@ -17,9 +19,8 @@ import {
 const BCRYPT_ROUNDS = 12
 
 /**
- * Átmeneti lockout-mentés: Railway Variables → ADMIN_EMERGENCY_API_KEY_LOGIN=1
- * Majd újra belépés csak API-kulccsal (+ 2FA). Sikeres belépés után töröld az env-et,
- * vagy töröld az operátorokat SQL-lel (lásd docs).
+ * Legacy env flag – továbbra is támogatott, de az owner login path már env nélkül is
+ * mindig engedélyezi az API-kulcs + 2FA bootstrapot.
  */
 export function isAdminEmergencyApiKeyLoginEnabled(): boolean {
   const v = (process.env.ADMIN_EMERGENCY_API_KEY_LOGIN || '').trim().toLowerCase()
@@ -110,11 +111,71 @@ export type ResolveLoginResult =
   | { ok: false; code: 'requiresOperator' | 'invalid_credentials' | 'invalid_input' }
 
 /**
- * API-kulcs után:
- * - Ha nincs aktív owner → bootstrap owner (kulcs-only). Support/catalog/viewer
- *   létrehozása NEM zárja ki az API-kulcsos belépést.
- * - Ha van aktív owner → kötelező felhasználónév + jelszó (kivéve emergency env).
- * - Üres táblánál username+jelszó → első owner létrehozása.
+ * Owner belépési path (`/admin/login` / `/api/admin/login`):
+ * API-kulcs után mindig bootstrap owner – akkor is, ha van aktív owner a DB-ben.
+ * Így nincs szükség `DELETE FROM "AdminOperator"`-ra vagy emergency env-re a lockout ellen.
+ * Opcionális username+jelszó: első owner létrehozása üres táblán, vagy meglévő operátor
+ * hitelesítése (legacy együttes form); az owner cookie izoláció miatt a dedikált
+ * `/operator/login` az ajánlott másodlagos belépés.
+ */
+export async function resolveOwnerLoginActor(input: {
+  username?: unknown
+  password?: unknown
+} = {}): Promise<ResolveLoginResult> {
+  const totalCount = await countAdminOperators()
+  const rawUser = typeof input.username === 'string' ? input.username : ''
+  const rawPass = typeof input.password === 'string' ? input.password : ''
+  const hasOperatorFields = Boolean(rawUser.trim() || rawPass)
+
+  if (!hasOperatorFields) {
+    return { ok: true, actor: BOOTSTRAP_ADMIN_ACTOR }
+  }
+
+  const username = parseAdminUsername(rawUser)
+  const password = parseAdminPassword(rawPass)
+  if (!username || !password) {
+    return { ok: false, code: 'invalid_input' }
+  }
+  if (totalCount === 0) {
+    const actor = await createFirstOwner(username, password)
+    if (!actor) return { ok: false, code: 'invalid_credentials' }
+    return { ok: true, actor }
+  }
+  try {
+    const actor = await verifyOperatorPassword(username, rawPass)
+    if (actor) return { ok: true, actor }
+  } catch (err) {
+    logger.error({ err }, 'operator password verify failed (owner path)')
+  }
+  return { ok: false, code: 'invalid_credentials' }
+}
+
+/**
+ * Operátor belépési path (`/operator/login`): kötelező username + jelszó.
+ * Nincs API-kulcs; a session külön `operator_authorized` sütibe kerül.
+ */
+export async function resolveOperatorLoginActor(input: {
+  username?: unknown
+  password?: unknown
+}): Promise<ResolveLoginResult> {
+  const username = parseAdminUsername(input.username)
+  const rawPass = typeof input.password === 'string' ? input.password : ''
+  if (!username || !rawPass) {
+    return { ok: false, code: 'invalid_input' }
+  }
+  try {
+    const actor = await verifyOperatorPassword(username, rawPass)
+    if (!actor) return { ok: false, code: 'invalid_credentials' }
+    return { ok: true, actor }
+  } catch (err) {
+    logger.error({ err }, 'operator password verify failed')
+    return { ok: false, code: 'invalid_credentials' }
+  }
+}
+
+/**
+ * @deprecated Prefer `resolveOwnerLoginActor` / `resolveOperatorLoginActor`.
+ * Legacy: API-kulcs után – owner megléte esetén username+jelszó kell (emergency env kivételével).
  */
 export async function resolveAdminLoginActor(input: {
   username?: unknown
@@ -126,7 +187,6 @@ export async function resolveAdminLoginActor(input: {
   const rawPass = typeof input.password === 'string' ? input.password : ''
   const hasOperatorFields = Boolean(rawUser.trim() || rawPass)
 
-  // Nincs owner: API-kulcs fallback (üres tábla VAGY csak non-owner operátorok).
   if (ownerCount === 0) {
     if (!hasOperatorFields) {
       return { ok: true, actor: BOOTSTRAP_ADMIN_ACTOR }
@@ -141,7 +201,6 @@ export async function resolveAdminLoginActor(input: {
       if (!actor) return { ok: false, code: 'invalid_credentials' }
       return { ok: true, actor }
     }
-    // Van non-owner, de username+jelszó megadva → próbáld őket; különben invalid.
     try {
       const actor = await verifyOperatorPassword(username, rawPass)
       if (actor) return { ok: true, actor }
@@ -151,15 +210,17 @@ export async function resolveAdminLoginActor(input: {
     return { ok: false, code: 'invalid_credentials' }
   }
 
-  // Lockout recovery: env bekapcsolva → API-kulcs + 2FA elég (owner bootstrap).
-  if (!hasOperatorFields && isAdminEmergencyApiKeyLoginEnabled()) {
-    logger.warn('ADMIN_EMERGENCY_API_KEY_LOGIN active: API-key bootstrap allowed despite owners')
+  // Unbreakable owner fallback: API-kulcs alone → bootstrap (same as owner login path).
+  // Legacy ADMIN_EMERGENCY_API_KEY_LOGIN already covered by this path.
+  if (!hasOperatorFields) {
+    if (isAdminEmergencyApiKeyLoginEnabled()) {
+      logger.warn('ADMIN_EMERGENCY_API_KEY_LOGIN active: API-key bootstrap allowed despite owners')
+    } else {
+      logger.info('owner API-key bootstrap allowed despite active owners (unbreakable fallback)')
+    }
     return { ok: true, actor: BOOTSTRAP_ADMIN_ACTOR }
   }
 
-  if (!hasOperatorFields) {
-    return { ok: false, code: 'requiresOperator' }
-  }
   const username = parseAdminUsername(rawUser)
   if (!username || !rawPass) {
     return { ok: false, code: 'invalid_credentials' }
@@ -180,8 +241,6 @@ export async function createAdminOperator(input: {
   role: AdminRole
 }): Promise<AdminActor> {
   const owners = await countActiveOwners()
-  // Első owner kötelező: ne lehessen support-only táblával „majdnem” kizárni,
-  // és a bootstrap→owner átállás egyértelmű legyen.
   if (owners === 0 && input.role !== 'owner') {
     const err = new Error('FIRST_MUST_BE_OWNER')
     err.name = 'FIRST_MUST_BE_OWNER'

@@ -54,6 +54,7 @@ const ROLE_PERMISSIONS: Record<AdminRole, readonly AdminPermission[]> = {
     'dashboard:read',
     'products:read',
     'products:write',
+    'products:delete',
     'uploads:write',
     'orders:read',
   ],

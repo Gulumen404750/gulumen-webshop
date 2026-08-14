@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import '@/lib/admin-fetch'
 import { AdminLogoutButton } from '@/components/admin/AdminLogoutButton'
+import { AdminApprovalAlerts } from '@/components/admin/AdminApprovalAlerts'
 import {
   classifyAdminPath,
   isAdminLoginPathname,
@@ -167,6 +168,7 @@ export function AdminShell({
             </button>
           </div>
         )}
+        <AdminApprovalAlerts enabled={role === 'owner'} />
         {internalPath !== '/admin/dashboard' && pathname !== dashboardHref && (
           <div className="mb-4">
             <Link

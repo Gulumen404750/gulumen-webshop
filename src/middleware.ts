@@ -6,6 +6,7 @@ import {
   refreshAdminSessionCookieIfNeeded,
   getAdminCookieOptions,
 } from '@/lib/admin-session-edge'
+import { OPERATOR_COOKIE_NAME } from '@/lib/admin-session-constants'
 import { evaluateAdminIpAccess, isAdminIpRestrictedPath } from '@/lib/admin-ip-allowlist'
 import { getClientIp } from '@/lib/request-ip'
 import {
@@ -141,8 +142,11 @@ export async function middleware(request: NextRequest) {
   }
 
   if (adminPath.kind !== 'none' && slug && adminPath.isCanonical) {
-    const token = request.cookies.get(ADMIN_COOKIE_NAME)?.value
-    const hasSession = await verifyAdminSessionToken(token)
+    const ownerToken = request.cookies.get(ADMIN_COOKIE_NAME)?.value
+    const operatorToken = request.cookies.get(OPERATOR_COOKIE_NAME)?.value
+    const hasSession =
+      (await verifyAdminSessionToken(ownerToken)) ||
+      (await verifyAdminSessionToken(operatorToken))
     const hasApiKey = Boolean(request.headers.get('x-admin-key')?.trim())
     const decision = decideCanonicalAdminAccess(adminPath, { slug, hasSession, hasApiKey })
     if (decision === 'hide') return obscureNotFound(nonce)
@@ -181,8 +185,11 @@ export async function middleware(request: NextRequest) {
   }
 
   if (adminPath.kind === 'ui' && !adminPath.isLogin) {
-    const token = request.cookies.get(ADMIN_COOKIE_NAME)?.value
-    const authorized = await verifyAdminSessionToken(token)
+    const ownerToken = request.cookies.get(ADMIN_COOKIE_NAME)?.value
+    const operatorToken = request.cookies.get(OPERATOR_COOKIE_NAME)?.value
+    const authorized =
+      (await verifyAdminSessionToken(ownerToken)) ||
+      (await verifyAdminSessionToken(operatorToken))
     if (!authorized) {
       const loginUrl = new URL(publicAdminUiPath('/admin/login', slug), request.url)
       // Relatív admin path – a login oldalon safeAdminReturnPath allowlisteli (nincs open redirect).
@@ -206,10 +213,15 @@ export async function middleware(request: NextRequest) {
     if (isAdminIpRestrictedPath(pathname)) {
       ensureCsrfCookie(request, response)
     }
-    const token = request.cookies.get(ADMIN_COOKIE_NAME)?.value
-    const refreshed = await refreshAdminSessionCookieIfNeeded(token)
-    if (refreshed) {
-      response.cookies.set(ADMIN_COOKIE_NAME, refreshed, getAdminCookieOptions())
+    const ownerToken = request.cookies.get(ADMIN_COOKIE_NAME)?.value
+    const operatorToken = request.cookies.get(OPERATOR_COOKIE_NAME)?.value
+    const refreshedOwner = await refreshAdminSessionCookieIfNeeded(ownerToken)
+    if (refreshedOwner) {
+      response.cookies.set(ADMIN_COOKIE_NAME, refreshedOwner, getAdminCookieOptions())
+    }
+    const refreshedOperator = await refreshAdminSessionCookieIfNeeded(operatorToken)
+    if (refreshedOperator) {
+      response.cookies.set(OPERATOR_COOKIE_NAME, refreshedOperator, getAdminCookieOptions())
     }
     return withAdminHeaders(response, nonce)
   }
@@ -223,10 +235,15 @@ export async function middleware(request: NextRequest) {
 
   if (adminPath.kind !== 'none') {
     response.headers.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate')
-    const token = request.cookies.get(ADMIN_COOKIE_NAME)?.value
-    const refreshed = await refreshAdminSessionCookieIfNeeded(token)
-    if (refreshed) {
-      response.cookies.set(ADMIN_COOKIE_NAME, refreshed, getAdminCookieOptions())
+    const ownerToken = request.cookies.get(ADMIN_COOKIE_NAME)?.value
+    const operatorToken = request.cookies.get(OPERATOR_COOKIE_NAME)?.value
+    const refreshedOwner = await refreshAdminSessionCookieIfNeeded(ownerToken)
+    if (refreshedOwner) {
+      response.cookies.set(ADMIN_COOKIE_NAME, refreshedOwner, getAdminCookieOptions())
+    }
+    const refreshedOperator = await refreshAdminSessionCookieIfNeeded(operatorToken)
+    if (refreshedOperator) {
+      response.cookies.set(OPERATOR_COOKIE_NAME, refreshedOperator, getAdminCookieOptions())
     }
   }
 

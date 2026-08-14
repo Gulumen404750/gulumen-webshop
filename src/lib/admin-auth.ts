@@ -6,17 +6,14 @@ import {
   ADMIN_COOKIE_NAME,
   ADMIN_2FA_PENDING_COOKIE,
 } from '@/lib/admin-session'
+import { OPERATOR_COOKIE_NAME } from '@/lib/admin-session-constants'
 import {
   type AdminActor,
   type AdminPermission,
   BOOTSTRAP_ADMIN_ACTOR,
   roleHasPermission,
 } from '@/lib/admin-rbac'
-import {
-  countActiveOwners,
-  getAdminOperatorById,
-  isAdminEmergencyApiKeyLoginEnabled,
-} from '@/lib/admin-operators'
+import { getAdminOperatorById } from '@/lib/admin-operators'
 
 export type AdminAuthLevel = 'admin' | 'pending'
 
@@ -25,26 +22,34 @@ export type AdminPermissionGate =
   | { ok: false; response: NextResponse }
 
 /**
- * JWT → actor, DB-szabályokkal:
- * - 0 aktív owner (vagy tábla hiányzik): bootstrap `sub=admin` session OK
- *   (API-kulcs fallback — support-only operátorok NEM zárják ki a tulajdonost).
- * - van aktív owner: bootstrap / legacy `admin` session elutasítva; aktív operátor kell.
- * - ADMIN_EMERGENCY_API_KEY_LOGIN=1: bootstrap session ismét engedélyezett (lockout mentés).
+ * JWT → actor, DB-szabályokkal + unbreakable owner fallback:
+ * - Ha van érvényes `operator_authorized` (másodlagos fiók), az az aktív session
+ *   (owner süti érintetlenül megmarad a böngészőben).
+ * - Egyébként `admin_authorized`: bootstrap / owner session soha nem kerül elutasításra
+ *   (API-kulcs + 2FA lockout-mentés SQL nélkül).
  */
 export async function getAdminActor(): Promise<AdminActor | null> {
   const cookieStore = await cookies()
-  const parsed = await parseAdminSessionToken(cookieStore.get(ADMIN_COOKIE_NAME)?.value)
-  if (!parsed) return null
-  const ownerCount = await countActiveOwners()
-  if (ownerCount === 0) {
-    if (parsed.bootstrap || parsed.id === 'admin') return BOOTSTRAP_ADMIN_ACTOR
-    return parsed
+
+  const operatorParsed = await parseAdminSessionToken(
+    cookieStore.get(OPERATOR_COOKIE_NAME)?.value
+  )
+  if (operatorParsed && !operatorParsed.bootstrap && operatorParsed.id !== 'admin') {
+    const live = await getAdminOperatorById(operatorParsed.id)
+    if (live) return live
   }
-  if (parsed.bootstrap || parsed.id === 'admin') {
-    if (isAdminEmergencyApiKeyLoginEnabled()) return BOOTSTRAP_ADMIN_ACTOR
-    return null
+
+  const ownerParsed = await parseAdminSessionToken(cookieStore.get(ADMIN_COOKIE_NAME)?.value)
+  if (ownerParsed) {
+    if (ownerParsed.bootstrap || ownerParsed.id === 'admin') return BOOTSTRAP_ADMIN_ACTOR
+    if (ownerParsed.role === 'owner') {
+      const live = await getAdminOperatorById(ownerParsed.id)
+      return live ?? ownerParsed
+    }
+    return getAdminOperatorById(ownerParsed.id)
   }
-  return getAdminOperatorById(parsed.id)
+
+  return null
 }
 
 export async function getPendingAdminActor(): Promise<AdminActor | null> {
@@ -86,6 +91,28 @@ export async function requireAdminPermission(
   return { ok: true, actor }
 }
 
+/** Csak owner (vagy bootstrap owner) – pl. approval döntés. */
+export async function requireOwner(): Promise<AdminPermissionGate> {
+  const actor = await getAdminActor()
+  if (!actor) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+    }
+  }
+  if (actor.role !== 'owner') {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: 'Forbidden', permission: 'owner' }, { status: 403 }),
+    }
+  }
+  return { ok: true, actor }
+}
+
 export function getAdminApiKey(): string | undefined {
   return process.env.ADMIN_API_KEY
+}
+
+export function isOwnerActor(actor: AdminActor): boolean {
+  return actor.role === 'owner' || Boolean(actor.bootstrap)
 }

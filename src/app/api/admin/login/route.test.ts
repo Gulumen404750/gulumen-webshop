@@ -63,10 +63,10 @@ vi.mock('@/lib/recaptcha', () => ({
   verifyRecaptchaToken: async () => ({ ok: true, skipped: true }),
 }))
 
-const resolveAdminLoginActor = vi.fn()
+const resolveOwnerLoginActor = vi.fn()
 
 vi.mock('@/lib/admin-operators', () => ({
-  resolveAdminLoginActor: (...args: unknown[]) => resolveAdminLoginActor(...args),
+  resolveOwnerLoginActor: (...args: unknown[]) => resolveOwnerLoginActor(...args),
 }))
 
 const recordAdminLoginFingerprintSafe = vi.fn()
@@ -93,7 +93,7 @@ describe('POST /api/admin/login 2FA gate', () => {
     logAdminAction.mockResolvedValue(undefined)
     createAdminSessionToken.mockResolvedValue('full-admin-jwt')
     createAdminPendingTwoFactorToken.mockResolvedValue('pending-2fa-jwt')
-    resolveAdminLoginActor.mockResolvedValue({
+    resolveOwnerLoginActor.mockResolvedValue({
       ok: true,
       actor: { id: 'admin', username: 'admin', role: 'owner', bootstrap: true },
     })
@@ -169,7 +169,7 @@ describe('POST /api/admin/login 2FA gate', () => {
 
   it('keeps API-key-only login when there are no operators', async () => {
     getAdminTwoFactorState.mockResolvedValue({ isTwoFactorEnabled: true, totpSecret: 'SECRET' })
-    resolveAdminLoginActor.mockResolvedValue({
+    resolveOwnerLoginActor.mockResolvedValue({
       ok: true,
       actor: { id: 'admin', username: 'admin', role: 'owner', bootstrap: true },
     })
@@ -182,12 +182,16 @@ describe('POST /api/admin/login 2FA gate', () => {
       })
     )
     expect(res.status).toBe(200)
-    expect(resolveAdminLoginActor).toHaveBeenCalled()
+    expect(resolveOwnerLoginActor).toHaveBeenCalled()
     expect(createAdminSessionToken).not.toHaveBeenCalled()
   })
 
-  it('rejects key-only login once operators exist', async () => {
-    resolveAdminLoginActor.mockResolvedValue({ ok: false, code: 'requiresOperator' })
+  it('allows key-only owner login even when operators exist (unbreakable fallback)', async () => {
+    getAdminTwoFactorState.mockResolvedValue({ isTwoFactorEnabled: true, totpSecret: 'SECRET' })
+    resolveOwnerLoginActor.mockResolvedValue({
+      ok: true,
+      actor: { id: 'admin', username: 'admin', role: 'owner', bootstrap: true },
+    })
     const { POST } = await import('@/app/api/admin/login/route')
     const res = await POST(
       new Request('http://localhost/api/admin/login', {
@@ -196,10 +200,10 @@ describe('POST /api/admin/login 2FA gate', () => {
         body: JSON.stringify({ key: 'test-admin-key' }),
       })
     )
-    expect(res.status).toBe(401)
+    expect(res.status).toBe(200)
     const data = await res.json()
-    expect(data.requiresOperator).toBe(true)
-    expect(createAdminPendingTwoFactorToken).not.toHaveBeenCalled()
+    expect(data.scope).toBe('owner')
+    expect(createAdminPendingTwoFactorToken).toHaveBeenCalled()
     expect(createAdminSessionToken).not.toHaveBeenCalled()
   })
 
@@ -232,7 +236,7 @@ describe('POST /api/admin/login 2FA gate', () => {
     expect(data.code).toBe('must_change_key')
     expect(createAdminSessionToken).not.toHaveBeenCalled()
     expect(createAdminPendingTwoFactorToken).not.toHaveBeenCalled()
-    expect(resolveAdminLoginActor).not.toHaveBeenCalled()
+    expect(resolveOwnerLoginActor).not.toHaveBeenCalled()
   })
 
   it('rejects the API key alone once an Admin.passwordHash is set (extra factor required)', async () => {

@@ -141,9 +141,10 @@ export default function StaffSettings() {
         <h2 className="text-lg font-semibold">Operátorok (RBAC)</h2>
         <p className="text-sm text-muted mt-1">
           Amíg nincs aktív <strong>owner</strong> operátor, az API kulcs + 2FA elég (bootstrap).
-          Az első létrehozott operátor kötelezően owner (a te fiókod). Utána a belépéshez kulcs +
-          felhasználónév + jelszó kell. Másik operátor tesztelése ugyanebben a böngészőben
-          <strong> parkolja</strong> az owner sessiont (nem törli) — vagy használj inkognitó ablakot.
+          Az első létrehozott operátor kötelezően owner. A főadmin belépés (
+          <code>/admin/login</code>, API kulcs + 2FA) mindig működik — unbreakable fallback, SQL
+          nélkül. Másodlagos fiókok: <code>/operator/login</code> (felhasználónév + jelszó) — külön
+          süti, nem írja felül az owner sessiont.
         </p>
         {requireFirstOwner && (
           <p className="text-sm text-amber-700 dark:text-amber-300 mt-2">
