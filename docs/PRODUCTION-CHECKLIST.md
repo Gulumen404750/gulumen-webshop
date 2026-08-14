@@ -35,7 +35,7 @@ Irányelvek: [SECURITY.md](../SECURITY.md) (sebezhetőség-bejelentés) · [Admi
 - [ ] `ADMIN_EMAIL` – gyanús belépés / fiókzárolás riasztás (+ callback e-mail)
 - [ ] `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` + `RECAPTCHA_SECRET_KEY` – reCAPTCHA v3 a belépésnél
 - [ ] Railway Postgres backup / [BACKUP.md](BACKUP.md)
-- [ ] Cloudflare / [WAF.md](WAF.md) a `/admin` előtt
+- [ ] Cloudflare WAF az admin előtt (path challenge + login rate limit; shop / webhook skip) — [docs/WAF.md](WAF.md)
 - [ ] Staging service / [STAGING.md](STAGING.md)
 
 ## .env.example
