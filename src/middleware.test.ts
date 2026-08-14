@@ -47,4 +47,42 @@ describe('admin middleware IP + CSRF', () => {
     const res = await middleware(req)
     expect(res.status).toBe(403)
   })
+
+  it('sets production CSP without unsafe-inline or unsafe-eval', async () => {
+    setEnv('NODE_ENV', 'production')
+    const { middleware } = await import('@/middleware')
+    const req = new NextRequest('https://www.gulumen.com/', {
+      headers: { 'x-forwarded-for': '203.0.113.10' },
+    })
+    const res = await middleware(req)
+    const csp = res.headers.get('Content-Security-Policy') || ''
+    const scriptSrc = csp.split(';').find((part) => part.trim().startsWith('script-src')) ?? ''
+    expect(scriptSrc).not.toContain("'unsafe-inline'")
+    expect(scriptSrc).not.toContain("'unsafe-eval'")
+    expect(scriptSrc).toMatch(/'nonce-[A-Za-z0-9+/=]+'/)
+    expect(scriptSrc).toContain("'strict-dynamic'")
+    expect(csp).toContain('https://www.google.com')
+    expect(csp).toContain('https://www.gstatic.com')
+    expect(csp).toContain('https://www.recaptcha.net')
+  })
+
+  it('redirects unauthenticated admin UI with a relative from path (no open redirect)', async () => {
+    setEnv('NODE_ENV', 'production')
+    setEnv('ADMIN_ALLOWED_IPS', undefined)
+    const { middleware } = await import('@/middleware')
+    const req = new NextRequest('https://www.gulumen.com/admin/dashboard', {
+      headers: { 'x-forwarded-for': '203.0.113.10' },
+    })
+    const res = await middleware(req)
+    expect(res.status).toBeGreaterThanOrEqual(300)
+    expect(res.status).toBeLessThan(400)
+    const location = res.headers.get('location') || ''
+    const url = new URL(location, 'https://www.gulumen.com')
+    expect(url.pathname).toBe('/admin/login')
+    const from = url.searchParams.get('from')
+    expect(from).toBe('/admin/dashboard')
+    expect(from?.startsWith('/')).toBe(true)
+    expect(from?.startsWith('//')).toBe(false)
+    expect(from).not.toMatch(/^https?:/i)
+  })
 })

@@ -10,6 +10,8 @@ describe('ThemeChooser wiring', () => {
     expect(layout).toMatch(/<ThemeProvider>/)
     expect(layout).toMatch(/<ThemeChooser\s*\/>/)
     expect(layout).toMatch(/THEME_BOOTSTRAP_SCRIPT/)
+    expect(layout).toMatch(/nonce=\{nonce\}/)
+    expect(layout).toMatch(/CSP_NONCE_HEADER/)
   })
 
   it('persists the first choice and skips returning visitors', () => {

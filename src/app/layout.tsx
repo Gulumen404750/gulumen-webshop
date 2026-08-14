@@ -29,6 +29,8 @@ import { ThemeProvider } from '@/context/ThemeContext'
 import { getServerLocale } from '@/lib/locale-server'
 import { BASE_URL, BRAND_IMAGE, buildLocalizedMetadata } from '@/lib/site-metadata'
 import { THEME_BOOTSTRAP_SCRIPT } from '@/lib/theme'
+import { headers } from 'next/headers'
+import { CSP_NONCE_HEADER } from '@/lib/admin-security-headers'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -79,17 +81,18 @@ export default async function RootLayout({
   children: React.ReactNode
 }) {
   const htmlLang = await getServerLocale()
+  const nonce = (await headers()).get(CSP_NONCE_HEADER) ?? undefined
 
   return (
     <html lang={htmlLang} className={`${poppins.variable} ${inter.variable}`} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
         <HreflangLinks />
         <link rel="modulepreload" href="https://ajax.googleapis.com/ajax/libs/model-viewer/4.1.0/model-viewer.min.js" />
       </head>
       <body className="relative isolate min-h-screen flex flex-col font-body">
         <WalletErrorGuard />
-        <Analytics />
+        <Analytics nonce={nonce} />
         <OrganizationJsonLd />
         <LocaleProvider>
           <ThemeProvider>

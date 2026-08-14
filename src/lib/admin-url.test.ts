@@ -169,6 +169,7 @@ describe('safeAdminReturnPath', () => {
     expect(safeAdminReturnPath(`/${SLUG}/dashboard`, null)).toBe(`/${SLUG}/dashboard`)
     expect(safeAdminReturnPath('/admin/dashboard', SLUG)).toBe(`/${SLUG}/dashboard`)
     expect(safeAdminReturnPath('/admin/dashboard', null)).toBe('/admin/dashboard')
+    expect(safeAdminReturnPath('https://evil.example/admin/dashboard', SLUG)).toBe(`/${SLUG}/dashboard`)
   })
 })
 
