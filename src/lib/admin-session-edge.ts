@@ -1,5 +1,6 @@
 /**
  * Edge-safe admin session verify (middleware).
+ * sv + ak: JWT_SECRET aláírás mellett az ADMIN_API_KEY csere is azonnal kiléptet.
  */
 
 import { jwtVerify } from 'jose'
@@ -8,9 +9,10 @@ import {
   JWT_ISSUER,
   JWT_AUDIENCE,
   ADMIN_SESSION_VERSION_CLAIM,
+  ADMIN_SESSION_API_KEY_CLAIM,
   ADMIN_TFA_CLAIM,
 } from '@/lib/admin-session-constants'
-import { getAdminSessionVersion } from '@/lib/admin-session-version'
+import { getAdminApiKeyClaim, getAdminSessionVersion } from '@/lib/admin-session-version'
 
 export { ADMIN_COOKIE_NAME }
 
@@ -31,8 +33,8 @@ export async function verifyAdminSessionToken(token: string | undefined | null):
     })
     if (payload.sub !== 'admin') return false
     if (payload[ADMIN_TFA_CLAIM] !== true) return false
-    const expected = await getAdminSessionVersion()
-    return payload[ADMIN_SESSION_VERSION_CLAIM] === expected
+    const [sv, ak] = await Promise.all([getAdminSessionVersion(), getAdminApiKeyClaim()])
+    return payload[ADMIN_SESSION_VERSION_CLAIM] === sv && payload[ADMIN_SESSION_API_KEY_CLAIM] === ak
   } catch {
     return false
   }

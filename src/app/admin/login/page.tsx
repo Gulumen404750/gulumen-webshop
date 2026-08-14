@@ -88,6 +88,9 @@ export default function AdminLoginPage() {
         if (res.status === 401 && String(data?.error || '').includes('lejárt')) {
           setStep('key')
         }
+        if (res.status === 403) {
+          setStep('key')
+        }
         return
       }
       router.push(from)

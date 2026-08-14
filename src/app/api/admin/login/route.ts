@@ -24,6 +24,10 @@ import {
 } from '@/lib/admin-login-lockout'
 import { getClientIp } from '@/lib/request-ip'
 import { RECAPTCHA_ACTIONS, verifyRecaptchaToken } from '@/lib/recaptcha'
+import {
+  MUST_CHANGE_KEY_MESSAGE,
+  evaluateAdminKeyPolicy,
+} from '@/lib/admin-key-policy'
 
 /**
  * POST /api/admin/login
@@ -137,6 +141,24 @@ export async function POST(request: Request) {
   }
 
   await clearAdminLoginLockout(request)
+
+  try {
+    const policy = await evaluateAdminKeyPolicy(adminKey)
+    if (!policy.ok) {
+      await logAdminAction({
+        action: 'login',
+        success: false,
+        request,
+        details: { reason: policy.reason },
+      })
+      return NextResponse.json(
+        { error: MUST_CHANGE_KEY_MESSAGE, code: policy.reason },
+        { status: 403 }
+      )
+    }
+  } catch (err) {
+    logger.error({ err }, 'admin login key policy failed')
+  }
 
   let twoFactor: { isTwoFactorEnabled: boolean }
   try {

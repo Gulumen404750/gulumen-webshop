@@ -60,6 +60,18 @@ vi.mock('@/lib/admin-csrf', () => ({
   getAdminCsrfCookieOptions: () => ({ path: '/', maxAge: 60, httpOnly: false, sameSite: 'strict' }),
 }))
 
+const evaluateAdminKeyPolicy = vi.fn()
+const recordAdminKeyAccepted = vi.fn()
+vi.mock('@/lib/admin-key-policy', () => ({
+  MUST_CHANGE_KEY_MESSAGE: 'Az ADMIN_API_KEY-t cserélni kell.',
+  evaluateAdminKeyPolicy: () => evaluateAdminKeyPolicy(),
+  recordAdminKeyAccepted: () => recordAdminKeyAccepted(),
+}))
+
+vi.mock('@/lib/logger', () => ({
+  logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn(), debug: vi.fn() },
+}))
+
 describe('POST /api/admin/2fa/verify-setup', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -71,6 +83,9 @@ describe('POST /api/admin/2fa/verify-setup', () => {
     logAdminAction.mockResolvedValue(undefined)
     verifyTotpCode.mockResolvedValue(true)
     createAdminSessionToken.mockResolvedValue('full-admin-jwt')
+    evaluateAdminKeyPolicy.mockResolvedValue({ ok: true, rotated: false })
+    recordAdminKeyAccepted.mockResolvedValue(undefined)
+    process.env.ADMIN_API_KEY = 'test-admin-key'
   })
 
   it('first setup verifies the stored secret and enables 2FA', async () => {
@@ -112,6 +127,7 @@ describe('POST /api/admin/2fa/verify-setup', () => {
     )
     expect(res.status).toBe(200)
     expect(createAdminSessionToken).toHaveBeenCalled()
+    expect(recordAdminKeyAccepted).toHaveBeenCalled()
     expect(res.headers.get('set-cookie') || '').toContain('admin_authorized=')
   })
 
