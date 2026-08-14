@@ -113,7 +113,7 @@ describe('admin session version', () => {
     const now = Math.floor(Date.now() / 1000)
     const sv = await getAdminSessionVersion()
     const idleToken = await new SignJWT({
-      role: 'admin',
+      role: 'owner',
       [ADMIN_SESSION_VERSION_CLAIM]: sv,
       [ADMIN_TFA_CLAIM]: true,
       [ADMIN_SESSION_JTI_CLAIM]: 'a'.repeat(32),
@@ -133,5 +133,19 @@ describe('admin session version', () => {
     expect(await verifyAdminSessionToken(live)).toBe(true)
     await revokeAdminSessionToken(live)
     expect(await verifyAdminSessionToken(live)).toBe(false)
+  })
+
+  it('issues operator JWTs that Edge and Node both accept', async () => {
+    process.env.JWT_SECRET = 'jwt-secret-at-least-16-chars'
+    process.env.ADMIN_API_KEY = 'admin-key'
+    const actor = { id: 'op-support-1', username: 'kata', role: 'support' as const }
+    const token = await createAdminSessionToken(actor)
+    expect(await verifyAdminSessionToken(token)).toBe(true)
+    const { parseAdminSessionToken } = await import('./admin-session')
+    expect(await parseAdminSessionToken(token)).toEqual(
+      expect.objectContaining({ id: 'op-support-1', username: 'kata', role: 'support' })
+    )
+    const { verifyAdminSessionToken: verifyEdge } = await import('./admin-session-edge')
+    expect(await verifyEdge(token)).toBe(true)
   })
 })

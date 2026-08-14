@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireAdminPermission } from '@/lib/admin-auth'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { ageFromBirthDate } from '@/lib/birthday-coupon'
 import { maskEmail } from '@/lib/admin-pii'
@@ -8,8 +8,8 @@ import { maskEmail } from '@/lib/admin-pii'
  * GET /api/admin/users?marketing=all|subscribed|unsubscribed
  */
 export async function GET(request: Request) {
-  const ok = await requireAdmin()
-  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requireAdminPermission('customers:pii')
+  if (!gate.ok) return gate.response
   if (!isDbConfigured()) {
     return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
   }

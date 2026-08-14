@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { requireAdminOrPendingTwoFactor } from '@/lib/admin-auth'
+import { getPendingAdminActor, requireAdminOrPendingTwoFactor } from '@/lib/admin-auth'
+import { BOOTSTRAP_ADMIN_ACTOR } from '@/lib/admin-rbac'
 import { isDbConfigured } from '@/lib/prisma'
 import { rateLimit } from '@/lib/rate-limit'
 import { logAdminAction } from '@/lib/admin-audit'
@@ -88,7 +89,8 @@ export async function POST(request: Request) {
 
   const res = NextResponse.json({ ok: true, isTwoFactorEnabled: true })
   if (auth === 'pending') {
-    const token = await createAdminSessionToken()
+    const actor = (await getPendingAdminActor()) ?? BOOTSTRAP_ADMIN_ACTOR
+    const token = await createAdminSessionToken(actor)
     res.cookies.set(ADMIN_COOKIE_NAME, token, getAdminCookieOptions())
     res.cookies.set(ADMIN_CSRF_COOKIE, generateCsrfToken(), getAdminCsrfCookieOptions())
     clearPendingCookie(res)

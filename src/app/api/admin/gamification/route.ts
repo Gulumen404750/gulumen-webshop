@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireAdminPermission } from '@/lib/admin-auth'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { maskEmail } from '@/lib/admin-pii'
 
@@ -8,8 +8,8 @@ import { maskEmail } from '@/lib/admin-pii'
  * Gamification statisztikák, top 10 egyenleg, utolsó 50 PointTransaction.
  */
 export async function GET() {
-  const ok = await requireAdmin()
-  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requireAdminPermission('settings:write')
+  if (!gate.ok) return gate.response
   if (!isDbConfigured()) {
     return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
   }

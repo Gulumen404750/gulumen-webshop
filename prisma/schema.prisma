@@ -325,17 +325,34 @@ model Admin {
 }
 
 model AdminAction {
-  id         String   @id @default(cuid())
-  action     String
-  orderId    String?
-  success    Boolean
-  details    String?
-  ipAddress  String?
-  userAgent  String?
-  createdAt  DateTime @default(now())
+  id            String   @id @default(cuid())
+  action        String
+  orderId       String?
+  success       Boolean
+  details       String?
+  ipAddress     String?
+  userAgent     String?
+  actorId       String?
+  actorUsername String?
+  actorRole     String?
+  createdAt     DateTime @default(now())
 
   @@index([createdAt])
   @@index([action])
+  @@index([actorId])
+}
+
+/// Név szerinti admin operátor – RBAC (owner | support | catalog | viewer).
+model AdminOperator {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  role         String
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([role])
 }
 
 /// Logout után a JWT jti denylistája a lejáratig.

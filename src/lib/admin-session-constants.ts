@@ -14,3 +14,7 @@ export const ADMIN_SESSION_ACTIVITY_CLAIM = 'act'
 export const ADMIN_TFA_CLAIM = 'tfa'
 export const ADMIN_2FA_PENDING_ROLE = 'admin-2fa-pending'
 export const ADMIN_RECORD_ID = 'admin'
+/** Operátor felhasználónév a JWT-ben. */
+export const ADMIN_USERNAME_CLAIM = 'un'
+/** A pending 2FA tokenben az éles RBAC szerep (a `role` ott `admin-2fa-pending`). */
+export const ADMIN_ACTOR_ROLE_CLAIM = 'ar'

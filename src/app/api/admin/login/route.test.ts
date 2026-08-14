@@ -55,6 +55,12 @@ vi.mock('@/lib/recaptcha', () => ({
   verifyRecaptchaToken: async () => ({ ok: true, skipped: true }),
 }))
 
+const resolveAdminLoginActor = vi.fn()
+
+vi.mock('@/lib/admin-operators', () => ({
+  resolveAdminLoginActor: (...args: unknown[]) => resolveAdminLoginActor(...args),
+}))
+
 describe('POST /api/admin/login 2FA gate', () => {
   const originalKey = process.env.ADMIN_API_KEY
 
@@ -68,6 +74,10 @@ describe('POST /api/admin/login 2FA gate', () => {
     logAdminAction.mockResolvedValue(undefined)
     createAdminSessionToken.mockResolvedValue('full-admin-jwt')
     createAdminPendingTwoFactorToken.mockResolvedValue('pending-2fa-jwt')
+    resolveAdminLoginActor.mockResolvedValue({
+      ok: true,
+      actor: { id: 'admin', username: 'admin', role: 'owner', bootstrap: true },
+    })
   })
 
   afterEach(() => {
@@ -131,5 +141,41 @@ describe('POST /api/admin/login 2FA gate', () => {
     expect(createAdminPendingTwoFactorToken).toHaveBeenCalled()
     expect(res.headers.get('set-cookie') || '').toContain('admin_2fa_pending=')
     expect(res.headers.get('set-cookie') || '').not.toContain('admin_authorized=')
+  })
+
+  it('keeps API-key-only login when there are no operators', async () => {
+    getAdminTwoFactorState.mockResolvedValue({ isTwoFactorEnabled: true, totpSecret: 'SECRET' })
+    resolveAdminLoginActor.mockResolvedValue({
+      ok: true,
+      actor: { id: 'admin', username: 'admin', role: 'owner', bootstrap: true },
+    })
+    const { POST } = await import('@/app/api/admin/login/route')
+    const res = await POST(
+      new Request('http://localhost/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'test-admin-key' }),
+      })
+    )
+    expect(res.status).toBe(200)
+    expect(resolveAdminLoginActor).toHaveBeenCalled()
+    expect(createAdminSessionToken).not.toHaveBeenCalled()
+  })
+
+  it('rejects key-only login once operators exist', async () => {
+    resolveAdminLoginActor.mockResolvedValue({ ok: false, code: 'requiresOperator' })
+    const { POST } = await import('@/app/api/admin/login/route')
+    const res = await POST(
+      new Request('http://localhost/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'test-admin-key' }),
+      })
+    )
+    expect(res.status).toBe(401)
+    const data = await res.json()
+    expect(data.requiresOperator).toBe(true)
+    expect(createAdminPendingTwoFactorToken).not.toHaveBeenCalled()
+    expect(createAdminSessionToken).not.toHaveBeenCalled()
   })
 })

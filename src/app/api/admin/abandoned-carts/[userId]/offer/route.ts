@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireAdminPermission } from '@/lib/admin-auth'
 import {
   sendAbandonedCartOffer,
   ABANDONED_CART_OFFER_PERCENTS,
@@ -20,8 +20,8 @@ type RouteContext = { params: Promise<{ userId: string }> }
  * Személyes kedvezmény kupon + e-mail a kosár tartalmára.
  */
 export async function POST(request: Request, context: RouteContext) {
-  const ok = await requireAdmin()
-  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requireAdminPermission('support:write')
+  if (!gate.ok) return gate.response
 
   if (!isDbConfigured()) {
     return NextResponse.json({ error: 'Database not configured' }, { status: 503 })

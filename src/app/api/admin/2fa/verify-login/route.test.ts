@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const rateLimit = vi.fn()
 const isAdminSessionConfigured = vi.fn()
 const isDbConfigured = vi.fn()
-const verifyAdminPendingTwoFactorToken = vi.fn()
+const parseAdminPendingTwoFactorToken = vi.fn()
 const createAdminSessionToken = vi.fn()
 const getAdminCookieOptions = vi.fn((..._args: unknown[]) => ({
   path: '/',
@@ -31,7 +31,7 @@ vi.mock('@/lib/admin-session', () => ({
   ADMIN_COOKIE_NAME: 'admin_authorized',
   ADMIN_2FA_PENDING_COOKIE: 'admin_2fa_pending',
   isAdminSessionConfigured: () => isAdminSessionConfigured(),
-  verifyAdminPendingTwoFactorToken: (...args: unknown[]) => verifyAdminPendingTwoFactorToken(...args),
+  parseAdminPendingTwoFactorToken: (...args: unknown[]) => parseAdminPendingTwoFactorToken(...args),
   createAdminSessionToken: () => createAdminSessionToken(),
   getAdminCookieOptions: (maxAge?: number) => getAdminCookieOptions(maxAge),
 }))
@@ -69,7 +69,12 @@ describe('POST /api/admin/2fa/verify-login', () => {
     isAdminSessionConfigured.mockReturnValue(true)
     isDbConfigured.mockReturnValue(true)
     cookieGet.mockReturnValue({ value: 'pending-jwt' })
-    verifyAdminPendingTwoFactorToken.mockResolvedValue(true)
+    parseAdminPendingTwoFactorToken.mockResolvedValue({
+      id: 'admin',
+      username: 'admin',
+      role: 'owner',
+      bootstrap: true,
+    })
     getAdminTwoFactorState.mockResolvedValue({
       isTwoFactorEnabled: true,
       totpSecret: 'SECRET',

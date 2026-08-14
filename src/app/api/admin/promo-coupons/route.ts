@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireAdminPermission } from '@/lib/admin-auth'
 import { listAdminPromoCouponUsers } from '@/lib/promo-coupons'
 import { isDbConfigured } from '@/lib/prisma'
 
@@ -8,8 +8,8 @@ import { isDbConfigured } from '@/lib/prisma'
  * Regisztrált felhasználók macska (5%) és regisztrációs (10%) kupon állapota.
  */
 export async function GET() {
-  const ok = await requireAdmin()
-  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requireAdminPermission('coupons:write')
+  if (!gate.ok) return gate.response
   if (!isDbConfigured()) {
     return NextResponse.json({ users: [], message: 'Database not configured' })
   }

@@ -1,6 +1,7 @@
 import AdminSecurityPolicy from './AdminSecurityPolicy'
 import DealPopupSettings from './DealPopupSettings'
 import TwoFactorSettings from './TwoFactorSettings'
+import StaffSettings from './StaffSettings'
 
 export default function AdminSettingsPage() {
   const envStatus = [
@@ -26,6 +27,7 @@ export default function AdminSettingsPage() {
         </ul>
       </section>
       <AdminSecurityPolicy />
+      <StaffSettings />
       <TwoFactorSettings />
       <DealPopupSettings />
       <p className="text-sm text-muted">

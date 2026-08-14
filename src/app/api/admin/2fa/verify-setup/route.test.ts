@@ -19,6 +19,12 @@ const getAdminCookieOptions = vi.fn((..._args: unknown[]) => ({
 
 vi.mock('@/lib/admin-auth', () => ({
   requireAdminOrPendingTwoFactor: () => requireAdminOrPendingTwoFactor(),
+  getPendingAdminActor: async () => ({
+    id: 'admin',
+    username: 'admin',
+    role: 'owner',
+    bootstrap: true,
+  }),
 }))
 
 vi.mock('@/lib/prisma', () => ({

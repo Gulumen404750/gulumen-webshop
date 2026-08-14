@@ -5,18 +5,13 @@
  * Returns: { nameEn, nameDe, nameRo } or { descriptionEn, descriptionDe, descriptionRo }
  */
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireAdminPermission } from '@/lib/admin-auth'
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'
 
 export async function POST(request: Request) {
-  const ok = await requireAdmin()
-  if (!ok) {
-    return NextResponse.json(
-      { error: 'Nincs admin jogosultság. Jelentkezz be az Admin belépés oldalon.' },
-      { status: 401 }
-    )
-  }
+  const gate = await requireAdminPermission('products:write')
+  if (!gate.ok) return gate.response
 
   const apiKey = process.env.OPENAI_API_KEY?.trim()
   if (!apiKey) {

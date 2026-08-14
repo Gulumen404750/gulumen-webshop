@@ -20,6 +20,12 @@ export default function AdminSecurityPolicy() {
         <li>
           Az <code>ADMIN_API_KEY</code> nem kerülhet gitbe, chatbe, screenshotba. Éles kulcs ≠ fejlesztői kulcs.
         </li>
+        <li>
+          Amíg nincs név szerinti operátor, a kulcsos belépés marad (owner). Az első operátor után kulcs + felhasználónév + jelszó kell.
+        </li>
+        <li>
+          Szerepek: owner (minden) vs support (PII, rendelés – nincs ár / törlés / export). Katalógus: ár, nincs PII.
+        </li>
         <li>Élesben a Google Authenticator 2FA kötelező (lentebb párosítható).</li>
         <li>
           Élesben az <code>ADMIN_ALLOWED_IPS</code> ki van töltve. Üres lista = minden IP (csak fejlesztés).

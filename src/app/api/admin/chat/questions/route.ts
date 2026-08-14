@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireAdminPermission } from '@/lib/admin-auth'
 import { getTopChatQuestions, TOP_CHAT_QUESTIONS_MAX } from '@/lib/chat-log'
 import { isDbConfigured } from '@/lib/prisma'
 
@@ -7,8 +7,8 @@ export const dynamic = 'force-dynamic'
 
 /** GET /api/admin/chat/questions – leggyakoribb chat kérdések (admin, max. 100). */
 export async function GET() {
-  const ok = await requireAdmin()
-  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requireAdminPermission('settings:write')
+  if (!gate.ok) return gate.response
 
   if (!isDbConfigured()) {
     return NextResponse.json({ questions: [], message: 'Database not configured' })

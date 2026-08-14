@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import '@/lib/admin-fetch'
@@ -10,6 +11,7 @@ import {
   publicAdminUiPathFromBase,
   slugFromPublicBase,
 } from '@/lib/admin-url'
+import { navPermissionForHref, roleHasPermission, type AdminRole } from '@/lib/admin-rbac'
 
 const nav = [
   { href: '/admin/dashboard', label: 'Áttekintés' },
@@ -38,6 +40,35 @@ export function AdminShell({
   const internalPath = match.kind === 'ui' ? match.internalPath : pathname
   const isLogin = isAdminLoginPathname(pathname, slug)
   const dashboardHref = publicAdminUiPathFromBase('/admin/dashboard', publicBase)
+  const [role, setRole] = useState<AdminRole | null>(null)
+  const [username, setUsername] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (isLogin) return
+    let cancelled = false
+    fetch('/api/admin/me', { credentials: 'include' })
+      .then(async (res) => {
+        if (!res.ok) return
+        const data = await res.json().catch(() => ({}))
+        if (cancelled) return
+        if (typeof data.username === 'string') setUsername(data.username)
+        if (data.role === 'owner' || data.role === 'support' || data.role === 'catalog' || data.role === 'viewer') {
+          setRole(data.role)
+        }
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [isLogin])
+
+  const visibleNav = useMemo(() => {
+    if (!role) return nav
+    return nav.filter((item) => {
+      const permission = navPermissionForHref(item.href)
+      return !permission || roleHasPermission(role, permission)
+    })
+  }, [role])
 
   if (isLogin) {
     return <>{children}</>
@@ -50,9 +81,15 @@ export function AdminShell({
           <Link href={dashboardHref} className="font-heading font-bold text-lg text-white">
             Gulumen Admin
           </Link>
+          {username && (
+            <p className="mt-1 text-xs text-gray-400">
+              {username}
+              {role ? ` · ${role}` : ''}
+            </p>
+          )}
         </div>
         <nav className="flex-1 p-2 space-y-0.5">
-          {nav.map((item) => {
+          {visibleNav.map((item) => {
             const href = publicAdminUiPathFromBase(item.href, publicBase)
             const active =
               internalPath === item.href ||

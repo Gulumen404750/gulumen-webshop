@@ -1,20 +1,27 @@
 /**
  * Admin JWT aláírás / claim-ellenőrzés (Edge + Node).
- * Revoke listát a hívó ellenőrzi.
+ * Idle (act) + jti + RBAC actor (sub/role/un). Revoke listát a hívó ellenőrzi.
  */
 
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose'
 import {
+  ADMIN_ACTOR_ROLE_CLAIM,
   ADMIN_SESSION_ACTIVITY_CLAIM,
   ADMIN_SESSION_IDLE_SEC,
   ADMIN_SESSION_JTI_CLAIM,
   ADMIN_SESSION_MAX_AGE_SEC,
   ADMIN_SESSION_VERSION_CLAIM,
   ADMIN_TFA_CLAIM,
+  ADMIN_USERNAME_CLAIM,
   JWT_AUDIENCE,
   JWT_ISSUER,
 } from '@/lib/admin-session-constants'
 import { getAdminSessionVersion } from '@/lib/admin-session-version'
+import {
+  type AdminActor,
+  BOOTSTRAP_ADMIN_ACTOR,
+  isAdminRole,
+} from '@/lib/admin-rbac'
 
 export function newAdminSessionJti(): string {
   const bytes = new Uint8Array(16)
@@ -36,43 +43,71 @@ export type AdminSessionClaims = {
   jti: string
   act: number
   sv: string
+  actor: AdminActor
+}
+
+export function actorFromSessionPayload(payload: JWTPayload): AdminActor | null {
+  const sub = typeof payload.sub === 'string' ? payload.sub : ''
+  if (!sub) return null
+  const role = payload.role
+  if (role === 'admin' && sub === 'admin') {
+    return BOOTSTRAP_ADMIN_ACTOR
+  }
+  if (!isAdminRole(role)) return null
+  const usernameClaim = payload[ADMIN_USERNAME_CLAIM]
+  const username =
+    typeof usernameClaim === 'string' && usernameClaim.trim()
+      ? usernameClaim.trim()
+      : sub === 'admin'
+        ? 'admin'
+        : sub
+  return {
+    id: sub,
+    username,
+    role,
+    bootstrap: sub === 'admin',
+  }
 }
 
 export function readAdminSessionClaims(
   payload: JWTPayload,
   now = Math.floor(Date.now() / 1000)
 ): AdminSessionClaims | null {
-  if (payload.sub !== 'admin') return null
   if (payload[ADMIN_TFA_CLAIM] !== true) return null
-  const jti = payload[ADMIN_SESSION_JTI_CLAIM]
+  const actor = actorFromSessionPayload(payload)
+  if (!actor) return null
+  const jti = payload[ADMIN_SESSION_JTI_CLAIM] ?? payload.jti
   const act = payload[ADMIN_SESSION_ACTIVITY_CLAIM]
   const sv = payload[ADMIN_SESSION_VERSION_CLAIM]
   if (typeof jti !== 'string' || jti.length < 16) return null
   if (typeof act !== 'number' || !Number.isFinite(act)) return null
   if (typeof sv !== 'string' || !sv) return null
   if (now - act > ADMIN_SESSION_IDLE_SEC) return null
-  return { jti, act, sv }
+  return { jti, act, sv, actor }
 }
 
 export async function signAdminSessionToken(opts?: {
+  actor?: AdminActor
   jti?: string
   act?: number
 }): Promise<string> {
   const secret = getSecret()
   if (!secret) throw new Error('JWT_SECRET / NEXTAUTH_SECRET not configured')
+  const actor = opts?.actor ?? BOOTSTRAP_ADMIN_ACTOR
   const now = Math.floor(Date.now() / 1000)
   const sv = await getAdminSessionVersion()
   const jti = opts?.jti || newAdminSessionJti()
   const act = opts?.act ?? now
   return new SignJWT({
-    role: 'admin',
+    role: actor.role,
     [ADMIN_SESSION_VERSION_CLAIM]: sv,
     [ADMIN_TFA_CLAIM]: true,
     [ADMIN_SESSION_JTI_CLAIM]: jti,
     [ADMIN_SESSION_ACTIVITY_CLAIM]: act,
+    [ADMIN_USERNAME_CLAIM]: actor.username,
   })
     .setProtectedHeader({ alg: 'HS256' })
-    .setSubject('admin')
+    .setSubject(actor.id)
     .setIssuer(JWT_ISSUER)
     .setAudience(JWT_AUDIENCE)
     .setIssuedAt(now)
@@ -104,6 +139,28 @@ export async function readAdminSessionPayload(
 
 export function shouldRefreshAdminSession(act: number, now = Math.floor(Date.now() / 1000)): boolean {
   return now - act >= 60
+}
+
+export function actorFromPendingPayload(payload: JWTPayload): AdminActor | null {
+  const sub = typeof payload.sub === 'string' ? payload.sub : ''
+  if (!sub) return null
+  if (payload.role !== 'admin-2fa-pending') return null
+  const claimed = payload[ADMIN_ACTOR_ROLE_CLAIM]
+  const role = isAdminRole(claimed) ? claimed : sub === 'admin' ? 'owner' : null
+  if (!role) return null
+  const usernameClaim = payload[ADMIN_USERNAME_CLAIM]
+  const username =
+    typeof usernameClaim === 'string' && usernameClaim.trim()
+      ? usernameClaim.trim()
+      : sub === 'admin'
+        ? 'admin'
+        : sub
+  return {
+    id: sub,
+    username,
+    role,
+    bootstrap: sub === 'admin',
+  }
 }
 
 export { getSecret as getAdminJwtSecret }

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireAdminPermission } from '@/lib/admin-auth'
 import { isDbConfigured } from '@/lib/prisma'
 import { logAdminAction } from '@/lib/admin-audit'
 import {
@@ -24,8 +24,8 @@ const chatSettingsSchema = z.object({
 
 /** GET /api/admin/settings/chat – chat beállítások (default + DB override). */
 export async function GET() {
-  const ok = await requireAdmin()
-  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requireAdminPermission('settings:write')
+  if (!gate.ok) return gate.response
 
   if (!isDbConfigured()) {
     return NextResponse.json({
@@ -45,8 +45,8 @@ export async function GET() {
 
 /** PATCH /api/admin/settings/chat – chat beállítások mentése. */
 export async function PATCH(request: Request) {
-  const ok = await requireAdmin()
-  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requireAdminPermission('settings:write')
+  if (!gate.ok) return gate.response
   if (!isDbConfigured()) {
     return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
   }

@@ -5,8 +5,9 @@ import { getPaymentProvider } from '@/lib/payment-provider'
 import { logAdminAction } from '@/lib/admin-audit'
 import { logger } from '@/lib/logger'
 import { markReservationsCanceledByOrderId } from '@/lib/reservations'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireAdminPermission } from '@/lib/admin-auth'
 import { secureCompare } from '@/lib/secure-compare'
+import { API_KEY_MACHINE_ACTOR } from '@/lib/admin-rbac'
 
 /**
  * POST /api/admin/sourcing/:orderId/fail
@@ -21,13 +22,12 @@ export async function POST(
   logger.debug({ orderId }, 'admin/sourcing/fail')
 
   const adminKey = process.env.ADMIN_API_KEY
-  const cookieAuth = await requireAdmin()
   const keyAuth = Boolean(adminKey && secureCompare(request.headers.get('x-admin-key'), adminKey))
-  if (!cookieAuth && !keyAuth) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-  if (!adminKey && !cookieAuth) {
-    return NextResponse.json({ error: 'Admin not configured' }, { status: 503 })
+  let auditActor = API_KEY_MACHINE_ACTOR
+  if (!keyAuth) {
+    const gate = await requireAdminPermission('sourcing:capture')
+    if (!gate.ok) return gate.response
+    auditActor = gate.actor
   }
 
   const order = await getOrderById(orderId)
@@ -71,6 +71,7 @@ export async function POST(
       orderId,
       success: false,
       request,
+      actor: auditActor,
       details: { error: result.error },
     })
     return NextResponse.json(
@@ -82,7 +83,13 @@ export async function POST(
   await updatePaymentTransactionStatus(authTx.id, 'cancelled')
   await markReservationsCanceledByOrderId(orderId)
   await setOrderStatus(orderId, 'sourcing_failed')
-  await logAdminAction({ action: 'sourcing_fail', orderId, success: true, request })
+  await logAdminAction({
+    action: 'sourcing_fail',
+    orderId,
+    success: true,
+    request,
+    actor: auditActor,
+  })
 
   logger.debug({ orderId }, 'admin/sourcing/fail order sourcing_failed')
   return NextResponse.json({ success: true, orderId, status: 'sourcing_failed' })

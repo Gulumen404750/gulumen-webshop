@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma, isDbConfigured } from '@/lib/prisma'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireAdminPermission } from '@/lib/admin-auth'
 import { logAdminAction } from '@/lib/admin-audit'
 import { z } from 'zod'
 
@@ -60,8 +60,8 @@ const createCouponSchema = z
  * Query: active (true|false), source (gamification|admin|registration)
  */
 export async function GET(request: Request) {
-  const ok = await requireAdmin()
-  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requireAdminPermission('coupons:write')
+  if (!gate.ok) return gate.response
   if (!isDbConfigured()) return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
 
   const { searchParams } = new URL(request.url)
@@ -86,8 +86,8 @@ export async function GET(request: Request) {
  * POST /api/admin/coupons – új kupon (source=admin)
  */
 export async function POST(request: Request) {
-  const ok = await requireAdmin()
-  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requireAdminPermission('coupons:write')
+  if (!gate.ok) return gate.response
   if (!isDbConfigured()) return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
 
   let body: unknown

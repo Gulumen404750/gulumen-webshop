@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireAdminPermission } from '@/lib/admin-auth'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { sendAdminBulkEmail } from '@/lib/admin-bulk-email'
 import { logAdminAction } from '@/lib/admin-audit'
@@ -23,8 +23,8 @@ const schema = z.object({
  * Tömeges e-mail – marketing célból ALAPÉRTELMEZETTEN csak feliratkozottak.
  */
 export async function POST(request: Request) {
-  const ok = await requireAdmin()
-  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requireAdminPermission('customers:pii')
+  if (!gate.ok) return gate.response
   if (!isDbConfigured()) {
     return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
   }

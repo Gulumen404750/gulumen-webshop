@@ -5,7 +5,7 @@
  * Egyébként lokális public/uploads (dev / fallback).
  */
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireAdminPermission } from '@/lib/admin-auth'
 import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
 import sharp from 'sharp'
@@ -88,13 +88,8 @@ async function uploadToBunny(filename: string, body: Buffer): Promise<string> {
 }
 
 export async function POST(request: Request) {
-  const ok = await requireAdmin()
-  if (!ok) {
-    return NextResponse.json(
-      { error: 'Nincs admin jogosultság. Jelentkezz be az Admin belépés oldalon (API kulcs).' },
-      { status: 401 }
-    )
-  }
+  const gate = await requireAdminPermission('uploads:write')
+  if (!gate.ok) return gate.response
 
   let formData: FormData
   try {

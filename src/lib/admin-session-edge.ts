@@ -1,5 +1,7 @@
 /**
  * Edge-safe admin session verify + sliding idle refresh (middleware).
+ * Elfogad név szerinti operátor JWT-t és a bootstrap owner sütit is.
+ * A Node `getAdminActor` dönti el, hogy a bootstrap session még érvényes-e.
  */
 
 import {
@@ -39,5 +41,8 @@ export async function refreshAdminSessionCookieIfNeeded(
   if (!payload) return null
   if (await isAdminSessionRevoked(payload.jti)) return null
   if (!shouldRefreshAdminSession(payload.act)) return null
-  return signAdminSessionToken({ jti: payload.jti })
+  return signAdminSessionToken({
+    actor: payload.actor,
+    jti: payload.jti,
+  })
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireAdminPermission } from '@/lib/admin-auth'
 import { listAdminCartSnapshots, ABANDONED_CART_DAYS } from '@/lib/cart-snapshot'
 import { isDbConfigured } from '@/lib/prisma'
 
@@ -7,8 +7,8 @@ import { isDbConfigured } from '@/lib/prisma'
  * GET /api/admin/abandoned-carts?filter=abandoned|all&marketing=all|subscribed
  */
 export async function GET(request: Request) {
-  const ok = await requireAdmin()
-  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requireAdminPermission('support:write')
+  if (!gate.ok) return gate.response
 
   if (!isDbConfigured()) {
     return NextResponse.json({ carts: [], message: 'Database not configured' })

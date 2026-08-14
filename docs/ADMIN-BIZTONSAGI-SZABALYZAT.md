@@ -12,7 +12,9 @@ Ez a dokumentum **kötelező** mindenki számára, aki admin kulcsot, Railway Va
 ## 1. Ki léphet be
 
 - Csak a webshop üzemeltetői. Nincs külön „vendég admin”, demo kulcs vagy megosztott jelszó chatben.
-- Egyetlen belépési titok van: a Railway / env **`ADMIN_API_KEY`**. Ezt **ne** tedd gitbe, screenshotba, ticketbe, Slack/Discord üzenetbe, ügyfélszolgálati válaszba.
+- Belépési titok: a Railway / env **`ADMIN_API_KEY`**. Ezt **ne** tedd gitbe, screenshotba, ticketbe, Slack/Discord üzenetbe, ügyfélszolgálati válaszba.
+- **Név szerinti operátorok (RBAC):** owner / support / catalog / viewer. A megosztott API kulcs **nem** a teljes jogosultság: a kulcs csak a belépés első tényezője. Szerep dönti el a PII-t, törlést, árat, exportot.
+- **Fallback (kritikus):** amíg az `AdminOperator` tábla üres (vagy a migráció még nem futott), a régi API-kulcsos belépés **marad** (owner bootstrap, 2FA továbbra is kell). Az első operátor létrehozása után a belépéshez kulcs + felhasználónév + jelszó kell. Ne zárd ki az egykulcsos üzemet env/migráció nélkül.
 - Élesben a kulcs legalább **32 véletlen karakter** (`openssl rand -hex 32`). Ugyanaz a kulcs ne legyen a fejlesztői `.env.local`-ban és a production Variables-ben, ha a gép nem megbízható.
 - A nyers kulcs soha nem jelenhet meg a dashboardon. A Beállítások oldal csak annyit jelezhet: be van-e állítva.
 
@@ -65,17 +67,17 @@ Az admin süti **aláírt JWT** (max **8 óra**, **30 perc idle**). HMAC: **`JWT
 
 ## 6. Mit szabad / mit nem az adminban
 
-**Szabad (üzemeltetés):** termék, ár, kupon, rendelés státusz, sourcing success/fail, chat/deal beállítások — a dashboard funkcióin belül.
+**Szabad (üzemeltetés, szerep szerint):** termék, ár (catalog/owner), kupon (owner), rendelés státusz / PII (support/owner), sourcing success/fail, chat/deal beállítások — a dashboard funkcióin belül.
 
 **Tilos:**
 
-- Más üzemeltető sessionjét vagy kulcsát elkérni „csak gyorsan”.
-- Tömeges árváltoztatás vagy tömeges törlés ellenőrzés nélkül (vásárlói ár / készlet).
-- Rendelés-exportot (személyes adatok: név, cím, e-mail, telefon) nem admin gépre, nyilvános drive-ra, vagy ügyfélnek továbbítani.
+- Más üzemeltető sessionjét vagy kulcsát elkérni „csak gyorsan”. Megosztott `ADMIN_API_KEY` ne legyen a teljes jogosultság: hozz létre név szerinti operátorokat.
+- Tömeges árváltoztatás vagy tömeges törlés ellenőrzés nélkül (vásárlói ár / készlet). Support szerepnek ez tiltva van.
+- Rendelés-exportot (személyes adatok: név, cím, e-mail, telefon) nem admin gépre, nyilvános drive-ra, vagy ügyfélnek továbbítani. Export: owner.
 - Production `DATABASE_URL`, Stripe, webhook titkok másolása saját gépre „debug miatt”, ha van Railway one-off / log.
 - A `/admin` URL-t marketingben, footerben, ügyfél-emailben hirdetni.
 
-A belépések és a releváns műveletek az **`AdminAction`** audit táblába mennek (IP, user-agent, siker/kudarc). Az auditot ne kapcsold ki, ne töröld rutinból.
+A belépések és a releváns műveletek az **`AdminAction`** audit táblába mennek (IP, user-agent, siker/kudarc, **actorId / actorUsername / actorRole**). Az auditot ne kapcsold ki, ne töröld rutinból.
 
 ---
 
@@ -121,4 +123,5 @@ A belépések és a releváns műveletek az **`AdminAction`** audit táblába me
 | CSRF | `src/lib/admin-csrf.ts` |
 | 2FA | `src/lib/admin-2fa.ts`, `/api/admin/2fa/*` |
 | Audit | `src/lib/admin-audit.ts`, `AdminAction` |
+| RBAC / operátorok | `src/lib/admin-rbac.ts`, `src/lib/admin-operators.ts`, `AdminOperator` |
 | Belépés | `POST /api/admin/login` |
