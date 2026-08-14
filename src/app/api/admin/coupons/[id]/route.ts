@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { requireAdminPermission } from '@/lib/admin-auth'
 import { logAdminAction } from '@/lib/admin-audit'
+import { alertBulkDeleteIfAnomalousSafe } from '@/lib/admin-anomaly-alert'
 import { z } from 'zod'
 
 const discountTypeSchema = z.enum(['percent', 'fixed'])
@@ -152,6 +153,7 @@ export async function DELETE(
       request,
       details: { id: coupon.id, code: coupon.code },
     })
+    await alertBulkDeleteIfAnomalousSafe(request)
     return NextResponse.json({ coupon })
   } catch {
     await logAdminAction({

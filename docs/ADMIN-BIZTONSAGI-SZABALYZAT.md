@@ -83,6 +83,8 @@ Az admin süti **aláírt JWT** (max **8 óra**, **30 perc idle**). HMAC: **`JWT
 
 A belépések és a releváns műveletek az **`AdminAction`** audit táblába mennek (IP, user-agent, siker/kudarc, **actorId / actorUsername / actorRole**). Az auditot ne kapcsold ki, ne töröld rutinból.
 
+Nagy CSV-export (≥100 sor), tömeges árváltoztatás (≥10 termék) és burst törlés (≥5 termék/user/kupon 10 perc alatt) **valós idejű** e-mailt küld az `ADMIN_EMAIL`-re. A művelet nem blokkolódik; ha az env hiányzik, csak audit/log.
+
 ---
 
 ## 7. Rate limit és brute force

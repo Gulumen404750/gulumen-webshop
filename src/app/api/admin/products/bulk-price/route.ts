@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { requireAdminPermission } from '@/lib/admin-auth'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { logAdminAction } from '@/lib/admin-audit'
+import { alertAdminAnomalySafe } from '@/lib/admin-anomaly-alert'
 
 const bulkPriceSchema = z
   .object({
@@ -106,7 +107,13 @@ export async function PATCH(request: Request) {
     action: 'product_bulk_price',
     success: true,
     request,
-    details: { updated: products.length, missingIds, mode },
+    details: { updated: products.length, missingIds, mode, percentChange, priceHuf },
+  })
+  await alertAdminAnomalySafe({
+    kind: 'bulk_price',
+    count: products.length,
+    request,
+    details: { mode, percentChange, priceHuf },
   })
   return NextResponse.json({
     updated: products.length,
