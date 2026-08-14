@@ -36,6 +36,30 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+  npm-audit:
+    name: npm audit (high / critical)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Meglévő high/critical advisory-k látszanak (piros job), de nem blokkolják a többi CI-t.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Full production audit report (non-blocking below high)
+        continue-on-error: true
+        run: npm audit --omit=dev
+
+      - name: Fail on high and critical production advisories
+        run: npm audit --omit=dev --audit-level=high
+
   e2e:
     name: E2E (Playwright)
     runs-on: ubuntu-latest
