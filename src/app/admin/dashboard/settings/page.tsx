@@ -1,11 +1,14 @@
 import DealPopupSettings from './DealPopupSettings'
 import TwoFactorSettings from './TwoFactorSettings'
+import LoginFingerprintSettings from './LoginFingerprintSettings'
 
 export default function AdminSettingsPage() {
   const envStatus = [
     { key: 'DATABASE_URL', label: 'Adatbázis', value: process.env.DATABASE_URL ? '✓ beállítva' : '– nincs' },
     { key: 'STRIPE_SECRET_KEY', label: 'Stripe', value: process.env.STRIPE_SECRET_KEY ? '✓ beállítva' : '– nincs' },
     { key: 'ADMIN_API_KEY', label: 'Admin kulcs', value: process.env.ADMIN_API_KEY ? '✓ beállítva' : '– nincs' },
+    { key: 'ADMIN_EMAIL', label: 'Admin e-mail (riasztás)', value: process.env.ADMIN_EMAIL ? '✓ beállítva' : '– nincs' },
+    { key: 'RESEND_API_KEY', label: 'Resend', value: process.env.RESEND_API_KEY ? '✓ beállítva' : '– nincs' },
     { key: 'NEXT_PUBLIC_APP_URL', label: 'App URL', value: process.env.NEXT_PUBLIC_APP_URL || '–' },
   ]
 
@@ -25,6 +28,7 @@ export default function AdminSettingsPage() {
         </ul>
       </section>
       <TwoFactorSettings />
+      <LoginFingerprintSettings />
       <DealPopupSettings />
       <p className="text-sm text-muted">
         Webshop alapadatok, email, support, szállítási infó és feature flag-ek a <code className="rounded bg-[var(--border)] px-1">Setting</code> táblából

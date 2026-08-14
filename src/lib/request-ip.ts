@@ -46,6 +46,19 @@ export function getClientIp(request: Request): string {
   return 'unknown'
 }
 
+/** ISO 3166-1 alpha-2 a CDN / edge geo headerből. XX/T1 (Cloudflare unknown/tor) kihagyva. */
+export function getRequestCountryCode(request: Request): string | null {
+  const raw =
+    request.headers.get('cf-ipcountry') ||
+    request.headers.get('x-vercel-ip-country') ||
+    request.headers.get('x-country-code') ||
+    request.headers.get('cloudfront-viewer-country') ||
+    ''
+  const code = raw.trim().toUpperCase()
+  if (!code || code === 'XX' || code === 'T1' || !/^[A-Z]{2}$/.test(code)) return null
+  return code
+}
+
 export function getUserAgent(request: Request): string {
   return request.headers.get('user-agent')?.trim() || ''
 }

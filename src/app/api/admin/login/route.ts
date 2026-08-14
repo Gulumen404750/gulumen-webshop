@@ -19,6 +19,7 @@ import {
 import { getAdminTwoFactorState } from '@/lib/admin-2fa'
 import { isDbConfigured } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
+import { recordAdminLoginFingerprintSafe } from '@/lib/admin-login-alert'
 
 /**
  * POST /api/admin/login
@@ -90,6 +91,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
     }
     const pending = await createAdminPendingTwoFactorToken()
+    await recordAdminLoginFingerprintSafe(request)
     await logAdminAction({
       action: 'login',
       success: true,
@@ -107,6 +109,7 @@ export async function POST(request: Request) {
   }
 
   const token = await createAdminSessionToken()
+  await recordAdminLoginFingerprintSafe(request)
   await logAdminAction({
     action: 'login',
     success: true,

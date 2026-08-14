@@ -86,6 +86,7 @@ DATABASE_URL="postgresql://user:password@host:5432/dbname?sslmode=require"
 
 ### ADMIN_EMAIL
 - **Értesítések:** Visszahívás kérés és hívás összefoglaló e-mail címzettje. Ha nincs, e-mail nem kerül kiküldésre (callback/call-summary).
+- **Admin belépés riasztás:** új eszköz (böngésző ujjlenyomat) vagy szokatlan ország (CDN geo header: `cf-ipcountry`, `x-vercel-ip-country`, `cloudfront-viewer-country`). Az első belépés a baseline. `RESEND_API_KEY` kell a küldéshez. Geo header nélkül csak az eszköz-riasztás él.
 
 ### CRON_SECRET (napi adatmegőrzési job)
 - **Cron:** A `GET /api/cron/data-retention` (Vercel Cron, napi 1×) ezt várja: `Authorization: Bearer <CRON_SECRET>`. Ha nincs vagy nem egyezik, 401.
@@ -108,6 +109,6 @@ DATABASE_URL="postgresql://user:password@host:5432/dbname?sslmode=require"
 | VOICE_AGENT_WEBHOOK_SECRET  | Voice-hoz| call-summary + ai-voice hitelesítés. |
 | OPENAI_API_KEY              | Nem      | ai-voice rövid válaszok (ha nincs: fallback szöveg). |
 | TELEGRAM_BOT_TOKEN / CHAT_ID| Nem      | Hívás összefoglaló Telegramra. |
-| ADMIN_EMAIL                 | Nem      | Callback + call-summary e-mail címzett. |
+| ADMIN_EMAIL                 | Nem      | Callback + call-summary + admin új-eszköz/ország riasztás. |
 | CRON_SECRET                 | Cron-hoz | Napi data-retention job (Vercel Cron). |
-| RESEND_API_KEY              | E-mailhez| Callback + call-summary értesítés (Resend). |
+| RESEND_API_KEY              | E-mailhez| Callback + call-summary + admin belépési riasztás (Resend). |
