@@ -15,7 +15,12 @@ import {
   getAdminCsrfCookieOptions,
   isAdminApiPath,
 } from '@/lib/admin-csrf'
-import { applySecurityHeaders } from '@/lib/admin-security-headers'
+import {
+  applySecurityHeaders,
+  buildContentSecurityPolicy,
+  CSP_NONCE_HEADER,
+  generateCspNonce,
+} from '@/lib/admin-security-headers'
 import {
   ADMIN_PUBLIC_BASE_COOKIE,
   classifyAdminPath,
@@ -27,6 +32,10 @@ import {
 
 let warnedMissingAllowlist = false
 let warnedMissingAdminSlug = false
+
+function isDevEnv(): boolean {
+  return process.env.NODE_ENV !== 'production'
+}
 
 function ensureCsrfCookie(request: NextRequest, response: NextResponse): void {
   if (!request.cookies.get(ADMIN_CSRF_COOKIE)?.value) {
@@ -42,24 +51,37 @@ function rememberPublicBase(response: NextResponse, slug: string): void {
   )
 }
 
-function forbidden(message: string): NextResponse {
+function requestHeadersWithNonce(request: NextRequest, nonce: string, pathname: string): Headers {
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set(CSP_NONCE_HEADER, nonce)
+  requestHeaders.set('x-pathname', pathname)
+  requestHeaders.set('x-search', request.nextUrl.search)
+  requestHeaders.set('Content-Security-Policy', buildContentSecurityPolicy(isDevEnv(), nonce))
+  return requestHeaders
+}
+
+function applyNonceSecurity(headers: Headers, nonce: string): void {
+  applySecurityHeaders(headers, isDevEnv(), nonce)
+}
+
+function forbidden(message: string, nonce: string): NextResponse {
   const res = NextResponse.json({ error: message }, { status: 403 })
-  applySecurityHeaders(res.headers)
+  applyNonceSecurity(res.headers, nonce)
   return res
 }
 
-function obscureNotFound(): NextResponse {
+function obscureNotFound(nonce: string): NextResponse {
   const res = new NextResponse('Not Found', {
     status: 404,
     headers: { 'content-type': 'text/plain; charset=utf-8' },
   })
-  applySecurityHeaders(res.headers)
+  applyNonceSecurity(res.headers, nonce)
   return res
 }
 
-function withAdminHeaders(response: NextResponse): NextResponse {
+function withAdminHeaders(response: NextResponse, nonce: string): NextResponse {
   response.headers.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate')
-  applySecurityHeaders(response.headers)
+  applyNonceSecurity(response.headers, nonce)
   return response
 }
 
@@ -68,6 +90,7 @@ function withAdminHeaders(response: NextResponse): NextResponse {
  * Rejtett admin: ADMIN_URL_SLUG → /{slug} és /api/{slug}/* ; /admin session nélkül 404.
  * /{slug}/* (kivéve login) védve: aláírt admin JWT cookie.
  * Admin UI/API: IP whitelist (productionben kötelező) + (mutáló API) CSRF.
+ * Production CSP: per-request nonce a kérésen (Next.js scriptek) és a válaszon.
  */
 export async function middleware(request: NextRequest) {
   const host = request.nextUrl.hostname
@@ -77,6 +100,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(wwwUrl, 308)
   }
 
+  const nonce = generateCspNonce()
   const pathname = request.nextUrl.pathname
 
   // Railway healthcheck a konténeren belül HTTP-n hív (nincs x-forwarded-proto).
@@ -121,13 +145,13 @@ export async function middleware(request: NextRequest) {
     const hasSession = await verifyAdminSessionToken(token)
     const hasApiKey = Boolean(request.headers.get('x-admin-key')?.trim())
     const decision = decideCanonicalAdminAccess(adminPath, { slug, hasSession, hasApiKey })
-    if (decision === 'hide') return obscureNotFound()
+    if (decision === 'hide') return obscureNotFound(nonce)
     if (decision === 'redirect-public') {
       const url = request.nextUrl.clone()
       url.pathname = publicAdminUiPath(adminPath.internalPath, slug)
       const redirectRes = NextResponse.redirect(url)
       rememberPublicBase(redirectRes, slug)
-      return withAdminHeaders(redirectRes)
+      return withAdminHeaders(redirectRes, nonce)
     }
   }
 
@@ -144,7 +168,7 @@ export async function middleware(request: NextRequest) {
     }
     if (!ipDecision.ok) {
       console.warn({ ip, pathname, reason: ipDecision.reason }, '[admin] IP not allowed')
-      return forbidden('Forbidden')
+      return forbidden('Forbidden', nonce)
     }
   }
 
@@ -152,7 +176,7 @@ export async function middleware(request: NextRequest) {
     const csrf = evaluateAdminCsrf(request)
     if (!csrf.ok) {
       console.warn({ pathname, reason: csrf.reason }, '[admin] CSRF check failed')
-      return forbidden('Forbidden')
+      return forbidden('Forbidden', nonce)
     }
   }
 
@@ -161,19 +185,21 @@ export async function middleware(request: NextRequest) {
     const authorized = await verifyAdminSessionToken(token)
     if (!authorized) {
       const loginUrl = new URL(publicAdminUiPath('/admin/login', slug), request.url)
+      // Relatív admin path – a login oldalon safeAdminReturnPath allowlisteli (nincs open redirect).
       loginUrl.searchParams.set('from', adminPath.publicPath)
       const redirectRes = NextResponse.redirect(loginUrl)
-      applySecurityHeaders(redirectRes.headers)
       ensureCsrfCookie(request, redirectRes)
       if (slug) rememberPublicBase(redirectRes, slug)
-      return withAdminHeaders(redirectRes)
+      return withAdminHeaders(redirectRes, nonce)
     }
   }
 
   if (adminPath.kind !== 'none' && slug && !adminPath.isCanonical) {
     const url = request.nextUrl.clone()
     url.pathname = adminPath.internalPath
-    const response = NextResponse.rewrite(url)
+    const response = NextResponse.rewrite(url, {
+      request: { headers: requestHeadersWithNonce(request, nonce, pathname) },
+    })
     response.headers.set('x-pathname', pathname)
     response.headers.set('x-search', request.nextUrl.search)
     rememberPublicBase(response, slug)
@@ -185,13 +211,15 @@ export async function middleware(request: NextRequest) {
     if (refreshed) {
       response.cookies.set(ADMIN_COOKIE_NAME, refreshed, getAdminCookieOptions())
     }
-    return withAdminHeaders(response)
+    return withAdminHeaders(response, nonce)
   }
 
-  const response = NextResponse.next()
+  const response = NextResponse.next({
+    request: { headers: requestHeadersWithNonce(request, nonce, request.nextUrl.pathname) },
+  })
   response.headers.set('x-pathname', request.nextUrl.pathname)
   response.headers.set('x-search', request.nextUrl.search)
-  applySecurityHeaders(response.headers)
+  applyNonceSecurity(response.headers, nonce)
 
   if (adminPath.kind !== 'none') {
     response.headers.set('Cache-Control', 'private, no-store, max-age=0, must-revalidate')

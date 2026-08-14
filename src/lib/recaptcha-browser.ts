@@ -1,5 +1,7 @@
 'use client'
 
+import { applyCspNonceToScript } from '@/lib/csp-nonce-browser'
+
 declare global {
   interface Window {
     grecaptcha?: {
@@ -35,6 +37,7 @@ function loadScript(key: string): Promise<void> {
     script.src = `https://www.google.com/recaptcha/api.js?render=${encodeURIComponent(key)}`
     script.async = true
     script.defer = true
+    applyCspNonceToScript(script)
     script.onload = () => resolve()
     script.onerror = () => reject(new Error('recaptcha load failed'))
     document.head.appendChild(script)

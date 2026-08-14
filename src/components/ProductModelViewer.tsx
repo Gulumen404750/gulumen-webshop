@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useLocale } from '@/context/LocaleContext'
+import { applyCspNonceToScript } from '@/lib/csp-nonce-browser'
 
 const MODEL_VIEWER_SCRIPT = 'https://ajax.googleapis.com/ajax/libs/model-viewer/4.1.0/model-viewer.min.js'
 
@@ -68,6 +69,7 @@ export function ProductModelViewer({ src, alt, className = '', selectedColorHex,
     const script = document.createElement('script')
     script.type = 'module'
     script.src = MODEL_VIEWER_SCRIPT
+    applyCspNonceToScript(script)
     script.onload = onReady
     document.head.appendChild(script)
   }, [])
