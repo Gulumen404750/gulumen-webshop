@@ -2,10 +2,17 @@
 #
 # Elsődleges út: Railway Dashboard → gulumen-webshop → Settings → Source
 #   → GitHub repo + branch: master (automatikus deploy push után).
+#   www.gulumen.com. Ne cseréld a branchet stagingre, ne a service nevet.
 #
 # Opcionális CLI deploy: állítsd be a RAILWAY_TOKEN secretet
 #   Railway → gulumen-webshop → Settings → Tokens → Create project token
 #   GitHub → Settings → Secrets → Actions → RAILWAY_TOKEN
+#
+# Staging (admin/auth kapu): docs/STAGING.md
+#   külön service gulumen-webshop-staging + .github/workflows/railway-staging.yml
+#   Ez a fájl szándékosan NEM használ `environment: production`-t, hogy
+#   egy üres/protected GitHub Environment ne várakoztassa / ne látszódjon
+#   kapunak, amíg a Railway Source továbbra is azonnal deployol.
 name: Deploy gulumen-webshop to Railway
 
 on:

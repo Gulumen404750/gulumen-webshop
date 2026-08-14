@@ -111,6 +111,9 @@ A belépések és a releváns műveletek az **`AdminAction`** audit táblába me
 | `ADMIN_ALLOWED_IPS` | lehet üres | **kötelező kitölteni** |
 | Titkok a gitben | soha | soha |
 | Admin URL | `/admin/login` | ne publikáld |
+| Deploy | feature / `staging` | `master` → **gulumen-webshop** (`www`) |
+
+Admin / auth **kód**változás (middleware, session, 2FA, IP-lista, login): először a **staging** service, saját `ADMIN_API_KEY` / `JWT_SECRET` / Postgres — ne egyből a `www.gulumen.com`. Lépések: [STAGING.md](STAGING.md).
 
 `.env` / `.env.local` a `.gitignore`-ban van. A repo `.env.example` csak üres placeholder.
 
@@ -130,3 +133,4 @@ A belépések és a releváns műveletek az **`AdminAction`** audit táblába me
 | Audit | `src/lib/admin-audit.ts`, `AdminAction` |
 | RBAC / operátorok | `src/lib/admin-rbac.ts`, `src/lib/admin-operators.ts`, `AdminOperator` |
 | Belépés | `POST /api/admin/login` |
+| Staging kapu (deploy) | [STAGING.md](STAGING.md) — `gulumen-webshop-staging`, GitHub Environment |

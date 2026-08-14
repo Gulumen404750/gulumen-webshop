@@ -41,16 +41,17 @@ A build lokálisan is lefut (`npm install` → `npm run build` → `npm run star
 
 ---
 
-## FONTOS: két service – csak a gulumen-webshop-ot használd!
+## FONTOS: melyik service – éles vs staging vs felesleges
 
-A Railway projektben **két** webshop service lehet:
+A Railway projektben több service lehet. Az éles oldal **csak** a **gulumen-webshop**.
 
-| Service | Domain | Mit csinálj |
-|---------|--------|-------------|
-| **gulumen-webshop** | `www.gulumen.com` | **Ide deployolj!** GitHub → master |
+| Service | Domain / Source | Mit csinálj |
+|---------|-----------------|-------------|
+| **gulumen-webshop** | `www.gulumen.com`, GitHub → **`master`** | **Éles.** Ne cseréld a Source branchet. |
+| **gulumen-webshop-staging** | saját URL, GitHub → **`staging`** | Opcionális teszt (admin/auth kapu). Saját Postgres + saját titkok. [STAGING.md](STAGING.md) |
 | **dynamic-perfection** | nincs (Unexposed) | **Ne használd** – törölheted |
 
-Ha a GitHub push a **dynamic-perfection**-re megy, a weboldal **nem változik**, mert a domain a **gulumen-webshop**-on van.
+Ha a GitHub push a **dynamic-perfection**-re megy, a weboldal **nem változik**, mert a domain a **gulumen-webshop**-on van. A `staging` ág push-a **ne** menjen a `gulumen-webshop` Source-ára.
 
 ### Deploy a helyes service-re
 
@@ -68,6 +69,8 @@ Ha a GitHub push a **dynamic-perfection**-re megy, a weboldal **nem változik**,
 
 GitHub → repo → Settings → Secrets → `RAILWAY_TOKEN` (Railway → gulumen-webshop → Settings → Tokens).  
 Push után a GitHub Actions a **gulumen-webshop**-ot deployolja (`railway up --service gulumen-webshop`).
+
+Staging CLI (külön workflow, `staging` ág): `railway up --service gulumen-webshop-staging` — [STAGING.md](STAGING.md).
 
 ---
 

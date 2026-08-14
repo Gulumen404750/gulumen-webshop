@@ -36,7 +36,7 @@ Irányelvek: [SECURITY.md](../SECURITY.md) (sebezhetőség-bejelentés) · [Admi
 - [ ] `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` + `RECAPTCHA_SECRET_KEY` – reCAPTCHA v3 a belépésnél
 - [ ] Railway Postgres backup / [BACKUP.md](BACKUP.md)
 - [ ] Cloudflare WAF az admin előtt (path challenge + login rate limit; shop / webhook skip) — [docs/WAF.md](WAF.md)
-- [ ] Staging service / [STAGING.md](STAGING.md)
+- [ ] Admin / auth kód: először **staging** (`gulumen-webshop-staging`, saját `ADMIN_API_KEY` / `JWT_SECRET` / DB), utána `master` → www — [docs/STAGING.md](STAGING.md)
 
 ## .env.example
 
