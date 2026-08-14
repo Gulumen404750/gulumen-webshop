@@ -56,4 +56,16 @@ describe('admin operators fallback', () => {
     const result = await resolveAdminLoginActor({})
     expect(result).toEqual({ ok: false, code: 'requiresOperator' })
   })
+
+  it('emergency env allows API-key bootstrap even with operators', async () => {
+    count.mockResolvedValue(2)
+    vi.stubEnv('ADMIN_EMERGENCY_API_KEY_LOGIN', '1')
+    const { resolveAdminLoginActor } = await import('./admin-operators')
+    const result = await resolveAdminLoginActor({})
+    expect(result).toEqual({
+      ok: true,
+      actor: expect.objectContaining({ id: 'admin', role: 'owner', bootstrap: true }),
+    })
+    vi.unstubAllEnvs()
+  })
 })

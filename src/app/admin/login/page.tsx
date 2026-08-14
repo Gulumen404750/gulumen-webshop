@@ -137,8 +137,8 @@ export default function AdminLoginPage() {
         <form onSubmit={handleKeySubmit} className="w-full max-w-sm space-y-4">
           <h1 className="text-xl font-semibold text-foreground">Admin belépés</h1>
           <p className="text-sm text-muted">
-            API kulcs + Google Authenticator. Amíg nincs operátor a rendszerben, a kulcs elég a 2FA lépéshez.
-            Ha már van operátor, add meg a felhasználónevet és a jelszót is.
+            API kulcs + Google Authenticator. Amíg nincs operátor, a kulcs elég a 2FA-hoz.
+            Ha már van operátor, kötelező a felhasználónév és a jelszó is (amit az Operátoroknál megadtál).
           </p>
           <div>
             <label htmlFor="admin-key" className="block text-sm font-medium text-foreground mb-1">

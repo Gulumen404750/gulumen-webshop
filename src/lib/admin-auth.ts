@@ -12,7 +12,11 @@ import {
   BOOTSTRAP_ADMIN_ACTOR,
   roleHasPermission,
 } from '@/lib/admin-rbac'
-import { countAdminOperators, getAdminOperatorById } from '@/lib/admin-operators'
+import {
+  countAdminOperators,
+  getAdminOperatorById,
+  isAdminEmergencyApiKeyLoginEnabled,
+} from '@/lib/admin-operators'
 
 export type AdminAuthLevel = 'admin' | 'pending'
 
@@ -24,6 +28,7 @@ export type AdminPermissionGate =
  * JWT → actor, DB-szabályokkal:
  * - 0 operátor (vagy tábla hiányzik): bootstrap `sub=admin` session OK.
  * - van operátor: bootstrap / legacy `admin` session elutasítva; aktív operátor kell.
+ * - ADMIN_EMERGENCY_API_KEY_LOGIN=1: bootstrap session ismét engedélyezett (lockout mentés).
  */
 export async function getAdminActor(): Promise<AdminActor | null> {
   const cookieStore = await cookies()
@@ -34,7 +39,10 @@ export async function getAdminActor(): Promise<AdminActor | null> {
     if (parsed.bootstrap || parsed.id === 'admin') return BOOTSTRAP_ADMIN_ACTOR
     return parsed
   }
-  if (parsed.bootstrap || parsed.id === 'admin') return null
+  if (parsed.bootstrap || parsed.id === 'admin') {
+    if (isAdminEmergencyApiKeyLoginEnabled()) return BOOTSTRAP_ADMIN_ACTOR
+    return null
+  }
   return getAdminOperatorById(parsed.id)
 }
 

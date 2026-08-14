@@ -23,6 +23,7 @@ vi.mock('@/lib/admin-session', () => ({
 vi.mock('@/lib/admin-operators', () => ({
   countAdminOperators: () => countAdminOperators(),
   getAdminOperatorById: (...args: unknown[]) => getAdminOperatorById(...args),
+  isAdminEmergencyApiKeyLoginEnabled: () => false,
 }))
 
 describe('requireAdmin / requireAdminOrPendingTwoFactor', () => {

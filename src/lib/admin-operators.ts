@@ -16,6 +16,16 @@ import {
 
 const BCRYPT_ROUNDS = 12
 
+/**
+ * Átmeneti lockout-mentés: Railway Variables → ADMIN_EMERGENCY_API_KEY_LOGIN=1
+ * Majd újra belépés csak API-kulccsal (+ 2FA). Sikeres belépés után töröld az env-et,
+ * vagy töröld az operátorokat SQL-lel (lásd docs).
+ */
+export function isAdminEmergencyApiKeyLoginEnabled(): boolean {
+  const v = (process.env.ADMIN_EMERGENCY_API_KEY_LOGIN || '').trim().toLowerCase()
+  return v === '1' || v === 'true' || v === 'yes'
+}
+
 function toActor(row: { id: string; username: string; role: string }): AdminActor | null {
   if (!isAdminRole(row.role)) return null
   return { id: row.id, username: row.username, role: row.role }
@@ -125,6 +135,12 @@ export async function resolveAdminLoginActor(input: {
     const actor = await createFirstOwner(username, password)
     if (!actor) return { ok: false, code: 'invalid_credentials' }
     return { ok: true, actor }
+  }
+
+  // Lockout recovery: env bekapcsolva → API-kulcs + 2FA elég (owner bootstrap).
+  if (!hasOperatorFields && isAdminEmergencyApiKeyLoginEnabled()) {
+    logger.warn('ADMIN_EMERGENCY_API_KEY_LOGIN active: API-key bootstrap allowed despite operators')
+    return { ok: true, actor: BOOTSTRAP_ADMIN_ACTOR }
   }
 
   if (!hasOperatorFields) {

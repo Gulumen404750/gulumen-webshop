@@ -15,6 +15,9 @@ Ez a dokumentum **kötelező** mindenki számára, aki admin kulcsot, Railway Va
 - Belépési titok: a Railway / env **`ADMIN_API_KEY`**. Ezt **ne** tedd gitbe, screenshotba, ticketbe, Slack/Discord üzenetbe, ügyfélszolgálati válaszba.
 - **Név szerinti operátorok (RBAC):** owner / support / catalog / viewer. A megosztott API kulcs **nem** a teljes jogosultság: a kulcs csak a belépés első tényezője. Szerep dönti el a PII-t, törlést, árat, exportot.
 - **Fallback (kritikus):** amíg az `AdminOperator` tábla üres (vagy a migráció még nem futott), a régi API-kulcsos belépés **marad** (owner bootstrap, 2FA továbbra is kell). Az első operátor létrehozása után a belépéshez kulcs + felhasználónév + jelszó kell. Ne zárd ki az egykulcsos üzemet env/migráció nélkül.
+- **Lockout mentés (ha elfelejtetted az operátor jelszót):**
+  1. **Gyors (SQL):** Railway → Postgres → Query → `DELETE FROM "AdminOperator";` → utána újra elég az API-kulcs (+ 2FA). Újra hozz létre **owner** operátort ismert jelszóval.
+  2. **Env:** `ADMIN_EMERGENCY_API_KEY_LOGIN=1` (Variables) → redeploy → belépés csak kulccsal + 2FA → Operátorok javítása → **töröld** az env változót. Ne hagyd bekapcsolva élesben.
 - Élesben a kulcs legalább **32 véletlen karakter** (`openssl rand -hex 32`). Ugyanaz a kulcs ne legyen a fejlesztői `.env.local`-ban és a production Variables-ben, ha a gép nem megbízható.
 - A nyers kulcs soha nem jelenhet meg a dashboardon. A Beállítások oldal csak annyit jelezhet: be van-e állítva.
 
