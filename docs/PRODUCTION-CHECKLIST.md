@@ -5,7 +5,11 @@ Biztonsági audit alapján a következők kötelezőek éles környezetben.
 ## Kötelező env változók
 
 - **ADMIN_API_KEY** – Erős, véletlenszerű kulcs (pl. `openssl rand -hex 32`).  
-  Admin sourcing success/fail végpontok (`/api/admin/sourcing/[orderId]/success`, `fail`) csak ezzel a headerrel (`x-admin-key`) fogadnak kérést. Ha nincs beállítva → 503.
+  Admin sourcing success/fail végpontok (`/api/admin/sourcing/[orderId]/success`, `fail` vagy rejtett slug mellett `/api/<ADMIN_URL_SLUG>/sourcing/...`) `x-admin-key` headerrel is fogadnak kérést. Ha nincs beállítva → 503.
+
+- **ADMIN_URL_SLUG** – Ajánlott. Véletlen útvonal (8–64 karakter, pl. `openssl rand -hex 8`).  
+  Belépés: `https://<domain>/<slug>/login`. A nyilvános `/admin` és `/api/admin` session nélkül 404.  
+  Sourcing capture: `/api/<slug>/sourcing/...` (a régi `/api/admin/sourcing/...` csak `x-admin-key`-vel marad elérhető).
 
 - **PAYMENTS_WEBHOOK_SECRET** – Erős titok a payment webhook hitelesítéshez.  
   A külső rendszer a `X-Webhook-Secret` headerben küldi. Ha nincs beállítva → 503.
@@ -13,6 +17,7 @@ Biztonsági audit alapján a következők kötelezőek éles környezetben.
 ## Ellenőrizendő
 
 - [ ] `ADMIN_API_KEY` generálva és a deploy környezetben beállítva (pl. Vercel / .env)
+- [ ] `ADMIN_URL_SLUG` beállítva (rejtett belépési URL; `/admin` session nélkül 404)
 - [ ] `PAYMENTS_WEBHOOK_SECRET` beállítva a deploy környezetben
 - [ ] Nincs hardcode-olt titok a kódban (csak `process.env.*`)
 - [ ] Build ne bukjon env hiány miatt (a kritikus végpontok 503-at adnak, az alkalmazás elindul)

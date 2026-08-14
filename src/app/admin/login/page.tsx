@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import '@/lib/admin-fetch'
+import { readAdminPublicBase } from '@/lib/admin-public-base'
+import { safeAdminReturnPath, slugFromPublicBase } from '@/lib/admin-url'
 
 type LoginStep = 'key' | 'totp' | 'setup'
 
@@ -16,7 +18,7 @@ export default function AdminLoginPage() {
   const [secret, setSecret] = useState<string | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const from = searchParams.get('from') || '/admin/dashboard'
+  const from = safeAdminReturnPath(searchParams.get('from'), slugFromPublicBase(readAdminPublicBase()))
 
   async function startEnrollment() {
     const res = await fetch('/api/admin/2fa/setup', {

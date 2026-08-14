@@ -1,17 +1,20 @@
 'use client'
 
+import { adminPageHref } from '@/lib/admin-public-base'
+
 type AdminLogoutButtonProps = {
   className?: string
+  loginHref?: string
 }
 
-export function AdminLogoutButton({ className }: AdminLogoutButtonProps) {
+export function AdminLogoutButton({ className, loginHref }: AdminLogoutButtonProps) {
   async function handleLogout() {
     try {
       await fetch('/api/admin/logout', { method: 'POST', credentials: 'include' })
     } catch {
       // A sütit a szerver törli; hálózati hiba esetén is a loginra irányítunk.
     }
-    window.location.href = '/admin/login'
+    window.location.href = loginHref || adminPageHref('/admin/login')
   }
 
   return (

@@ -93,4 +93,19 @@ describe('evaluateAdminCsrf', () => {
     const req = adminRequest({ adminKey: 'machine-key' })
     expect(evaluateAdminCsrf(req)).toEqual({ ok: true, reason: 'api_key' })
   })
+
+  it('treats hidden slug login API as login when ADMIN_URL_SLUG is set', () => {
+    const prev = process.env.ADMIN_URL_SLUG
+    process.env.ADMIN_URL_SLUG = 'desk-a1b2c3d4'
+    try {
+      const req = adminRequest({
+        path: '/api/desk-a1b2c3d4/login',
+        origin: 'https://www.gulumen.com',
+      })
+      expect(evaluateAdminCsrf(req)).toEqual({ ok: true, reason: 'login' })
+    } finally {
+      if (prev === undefined) delete process.env.ADMIN_URL_SLUG
+      else process.env.ADMIN_URL_SLUG = prev
+    }
+  })
 })
