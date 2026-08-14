@@ -12,6 +12,7 @@ import { PointsProgress } from '@/components/PointsProgress'
 import { PointsGuide } from '@/components/PointsGuide'
 import { PointHistoryTimeline } from '@/components/PointHistoryTimeline'
 import { LoyaltyTierBadge } from '@/components/LoyaltyTierBadge'
+import { ProductsPortalButton } from '@/components/ProductsPortalButton'
 import { usePointWallet } from '@/hooks/usePointWallet'
 import { applyStashedPointsRedeemOnce } from '@/lib/point-wallet-client'
 
@@ -268,8 +269,13 @@ export default function ProfilePage() {
   if (isLoggedIn) {
     return (
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <h1 className="font-heading text-2xl font-bold text-foreground mb-6">{t('profile.title')}</h1>
-        <p className="text-muted mb-4">{t('profile.loggedInAs')} {userId}</p>
+        <div className="flex items-start justify-between gap-4 mb-6">
+          <div className="min-w-0">
+            <h1 className="font-heading text-2xl font-bold text-foreground">{t('profile.title')}</h1>
+            <p className="text-muted mt-2 break-all">{t('profile.loggedInAs')} {userId}</p>
+          </div>
+          <ProductsPortalButton />
+        </div>
         {userId && <LoyaltyTierBadge email={userId} className="mb-6" />}
         <NameProfileSection />
         <BirthDateProfileSection />
