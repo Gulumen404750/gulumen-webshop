@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/admin-auth'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { ageFromBirthDate, formatBirthDateForInput } from '@/lib/birthday-coupon'
 import { logAdminAction } from '@/lib/admin-audit'
+import { alertBulkDeleteIfAnomalousSafe } from '@/lib/admin-anomaly-alert'
 
 /**
  * GET /api/admin/users/[id]
@@ -138,6 +139,7 @@ export async function DELETE(
       request,
       details: { id, email: user.email, ordersDetached: user._count.orders },
     })
+    await alertBulkDeleteIfAnomalousSafe(request)
     return NextResponse.json({
       ok: true,
       deletedUserId: id,
