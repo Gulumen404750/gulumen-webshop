@@ -1,6 +1,8 @@
 # Admin API kulcs beállítása (helyi + Railway)
 
-Az **Admin belépés** az alábbi környezeti változóval működik. Ha nincs beállítva, a `/admin/login` oldalon „Admin not configured” hibát kapsz.
+Az **Admin belépés** az `ADMIN_API_KEY` környezeti változóval **és** (ha be van állítva) az adatbázisban tárolt admin jelszóval működik. Elfelejtett jelszó: `/admin/reset` (e-mail a `ADMIN_EMAIL` címre, 15 perc; 2FA esetén Authenticator-kód is kell). Az API kulcs vészhelyzeti belépés marad – env-cserére csak akkor van szükség, ha a kulcs szivárgott.
+
+Ha a kulcs nincs beállítva, a `/admin/login` oldalon „Admin not configured” hibát kapsz.
 
 ---
 

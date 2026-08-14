@@ -116,7 +116,7 @@ export default function TwoFactorSettings() {
       <div>
         <h2 className="text-lg font-semibold">Kétlépcsős azonosítás (2FA)</h2>
         <p className="text-sm text-muted mt-1">
-          Google Authenticator (TOTP). A belépéshez API kulcs után 6 jegyű kód kell.
+          Google Authenticator (TOTP). A belépéshez jelszó vagy API kulcs után 6 jegyű kód kell.
         </p>
       </div>
 

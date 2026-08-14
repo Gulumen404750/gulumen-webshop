@@ -1,6 +1,7 @@
 /**
- * Aláírt admin session cookie (JWT/HMAC): sub, iat, exp, sv (session version).
- * Az sv claim JWT_SECRET + ADMIN_API_KEY hash-e: kulcsváltáskor a régi sütik azonnal érvénytelenek.
+ * Aláírt admin session cookie (JWT/HMAC): sub, iat, exp, sv, ep.
+ * sv: JWT_SECRET + ADMIN_API_KEY hash (kulcsváltáskor azonnal érvénytelen).
+ * ep: Admin.sessionEpoch – jelszócsere / reset után a régi sütik érvénytelenek.
  */
 
 import { SignJWT, jwtVerify } from 'jose'
@@ -13,9 +14,11 @@ import {
   ADMIN_SESSION_MAX_AGE_SEC,
   ADMIN_2FA_PENDING_MAX_AGE_SEC,
   ADMIN_SESSION_VERSION_CLAIM,
+  ADMIN_SESSION_EPOCH_CLAIM,
   ADMIN_2FA_PENDING_ROLE,
 } from '@/lib/admin-session-constants'
 import { getAdminSessionVersion } from '@/lib/admin-session-version'
+import { getAdminSessionEpoch } from '@/lib/admin-session-epoch'
 
 export {
   ADMIN_COOKIE_NAME,
@@ -23,6 +26,7 @@ export {
   ADMIN_SESSION_MAX_AGE_SEC,
   ADMIN_2FA_PENDING_MAX_AGE_SEC,
   ADMIN_SESSION_VERSION_CLAIM,
+  ADMIN_SESSION_EPOCH_CLAIM,
 }
 
 function getSecret(): Uint8Array | null {
@@ -35,12 +39,27 @@ export function isAdminSessionConfigured(): boolean {
   return getSecret() !== null
 }
 
+async function sessionVersionClaims(): Promise<{ sv: string; ep: number }> {
+  const ep = await getAdminSessionEpoch()
+  const sv = await getAdminSessionVersion()
+  return { sv, ep }
+}
+
+function epochFromPayload(payload: { [key: string]: unknown }): number {
+  const raw = payload[ADMIN_SESSION_EPOCH_CLAIM]
+  return typeof raw === 'number' && Number.isInteger(raw) && raw >= 0 ? raw : 0
+}
+
 export async function createAdminSessionToken(): Promise<string> {
   const secret = getSecret()
   if (!secret) throw new Error('JWT_SECRET / NEXTAUTH_SECRET not configured')
   const now = Math.floor(Date.now() / 1000)
-  const sv = await getAdminSessionVersion()
-  return new SignJWT({ role: 'admin', [ADMIN_SESSION_VERSION_CLAIM]: sv })
+  const { sv, ep } = await sessionVersionClaims()
+  return new SignJWT({
+    role: 'admin',
+    [ADMIN_SESSION_VERSION_CLAIM]: sv,
+    [ADMIN_SESSION_EPOCH_CLAIM]: ep,
+  })
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject('admin')
     .setIssuer(JWT_ISSUER)
@@ -60,8 +79,9 @@ export async function verifyAdminSessionToken(token: string | undefined | null):
       audience: JWT_AUDIENCE,
     })
     if (payload.sub !== 'admin') return false
-    const expected = await getAdminSessionVersion()
-    return payload[ADMIN_SESSION_VERSION_CLAIM] === expected
+    const { sv, ep } = await sessionVersionClaims()
+    if (payload[ADMIN_SESSION_VERSION_CLAIM] !== sv) return false
+    return epochFromPayload(payload as { [key: string]: unknown }) === ep
   } catch {
     return false
   }
@@ -81,10 +101,11 @@ export async function createAdminPendingTwoFactorToken(): Promise<string> {
   const secret = getSecret()
   if (!secret) throw new Error('JWT_SECRET / NEXTAUTH_SECRET not configured')
   const now = Math.floor(Date.now() / 1000)
-  const sv = await getAdminSessionVersion()
+  const { sv, ep } = await sessionVersionClaims()
   return new SignJWT({
     role: ADMIN_2FA_PENDING_ROLE,
     [ADMIN_SESSION_VERSION_CLAIM]: sv,
+    [ADMIN_SESSION_EPOCH_CLAIM]: ep,
   })
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject('admin')
@@ -108,8 +129,9 @@ export async function verifyAdminPendingTwoFactorToken(
     })
     if (payload.sub !== 'admin') return false
     if (payload.role !== ADMIN_2FA_PENDING_ROLE) return false
-    const expected = await getAdminSessionVersion()
-    return payload[ADMIN_SESSION_VERSION_CLAIM] === expected
+    const { sv, ep } = await sessionVersionClaims()
+    if (payload[ADMIN_SESSION_VERSION_CLAIM] !== sv) return false
+    return epochFromPayload(payload as { [key: string]: unknown }) === ep
   } catch {
     return false
   }

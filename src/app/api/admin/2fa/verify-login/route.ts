@@ -73,7 +73,7 @@ export async function POST(request: Request) {
       details: { reason: 'invalid_pending' },
     })
     const res = NextResponse.json(
-      { error: 'A 2FA munkamenet lejárt. Add meg újra az API kulcsot.' },
+      { error: 'A 2FA munkamenet lejárt. Add meg újra a jelszót vagy az API kulcsot.' },
       { status: 401 }
     )
     clearPendingCookie(res)

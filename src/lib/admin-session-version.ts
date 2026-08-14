@@ -1,6 +1,7 @@
 /**
  * Session verzió: JWT_SECRET + ADMIN_API_KEY hash.
  * Ha bármelyik megváltozik, a korábbi 24 órás JWT sütik érvénytelenek.
+ * Jelszócsere / reset: külön `ep` (sessionEpoch) claim, nem ez a hash.
  * Edge-kompatibilis (Web Crypto).
  */
 
