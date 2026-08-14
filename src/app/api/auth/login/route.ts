@@ -23,7 +23,7 @@ import { RECAPTCHA_ACTIONS, verifyRecaptchaToken } from '@/lib/recaptcha'
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
-  captchaToken: z.string().max(4000).optional(),
+  captchaToken: z.string().max(4000).nullish(),
 })
 
 function tooManyResponse(opts?: { locked?: boolean; retryAfterSec?: number }) {

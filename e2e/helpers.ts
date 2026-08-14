@@ -51,7 +51,9 @@ export async function registerUser(
   await page.locator('#reg-password').fill(password)
   await page.locator('#reg-privacy').check()
   await page.getByRole('button', { name: 'Regisztráció', exact: true }).click()
-  await page.waitForURL('**/termekek')
+  // Sikeres regisztráció után a page `/termekek`-re pushol, de az isLoggedIn
+  // effect gyakran `/profil`-ra cseréli — mindkettő sikeres session.
+  await page.waitForURL(/\/(termekek|profil)(\?.*)?$/)
 }
 
 export async function loginUser(
@@ -65,7 +67,10 @@ export async function loginUser(
   await page.locator('#email').fill(email)
   await page.locator('#password').fill(password)
   await page.getByRole('button', { name: 'Bejelentkezés', exact: true }).click()
-  await page.waitForURL('**/')
+  await page.waitForURL((url) => {
+    const path = url.pathname.replace(/\/$/, '') || '/'
+    return path === '/'
+  })
 }
 
 export async function logoutUser(page: Page): Promise<void> {

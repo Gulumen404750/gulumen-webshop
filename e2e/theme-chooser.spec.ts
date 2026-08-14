@@ -2,11 +2,16 @@ import { expect, test } from '@playwright/test'
 
 test.describe('Első látogatásos témaválasztó', () => {
   test('megjelenik, sötét módot ment, újratöltéskor nem kérdez újra', async ({ page }) => {
+    // Ne töröld a témát minden navigációnál / reloadnál — különben a mentett
+    // dark választás eltűnik, mielőtt a bootstrap script futna.
     await page.addInitScript(() => {
       localStorage.setItem('gulumen-locale', 'hu')
-      localStorage.removeItem('gulumen-theme')
-      localStorage.removeItem('gulumen-dark')
       sessionStorage.setItem('gulumen-deal-popup-closed', 'true')
+      if (!sessionStorage.getItem('e2e-theme-chooser-cleared')) {
+        localStorage.removeItem('gulumen-theme')
+        localStorage.removeItem('gulumen-dark')
+        sessionStorage.setItem('e2e-theme-chooser-cleared', '1')
+      }
     })
 
     await page.goto('/')

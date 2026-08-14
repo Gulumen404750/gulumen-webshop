@@ -21,7 +21,7 @@ test.describe('Cart flow', () => {
 
     await page.goto('/kosar')
     await dismissDealPopup(page)
-    await expect(page.getByRole('heading', { name: 'Kosár' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Kosár', exact: true })).toBeVisible()
     await expect(page.getByText(/Roll-top hátizsák/i).first()).toBeVisible()
     await expect(page.getByRole('button', { name: 'Rendelés véglegesítése' })).toBeEnabled()
   })

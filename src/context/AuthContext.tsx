@@ -64,7 +64,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ email: email.trim(), password, captchaToken }),
+      body: JSON.stringify({
+        email: email.trim(),
+        password,
+        ...(captchaToken ? { captchaToken } : {}),
+      }),
     })
     const data = await res.json().catch(() => ({}))
     if (res.ok && data.user?.email) {

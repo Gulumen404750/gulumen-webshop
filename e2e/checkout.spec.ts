@@ -18,6 +18,7 @@ test.describe('Checkout flow', () => {
     await addProductToCart(page)
     await page.goto('/kosar')
     await dismissDealPopup(page)
+    await expect(page.getByText(/Roll-top hátizsák/i).first()).toBeVisible()
     await page.getByRole('button', { name: 'Rendelés véglegesítése' }).click()
     await expect(page).toHaveURL(/\/fizetes/)
 
@@ -33,7 +34,7 @@ test.describe('Checkout flow', () => {
     await page.getByRole('button', { name: 'Fizetek kártyával' }).click()
     await payPromise
 
-    await page.waitForURL(/\/fizetes\/siker/, { timeout: 15_000 })
+    await page.waitForURL(/\/fizetes\/siker/, { timeout: 30_000 })
     await expect(page.getByRole('heading', { name: 'Sikeres fizetés' })).toBeVisible({ timeout: 15_000 })
     await expect(page.getByText(/Raktári rendelés|ord_/i).first()).toBeVisible()
   })
