@@ -9,6 +9,7 @@ import {
 } from '@/lib/product-images'
 import { revalidateShopProducts } from '@/lib/revalidate-shop'
 import { logAdminAction } from '@/lib/admin-audit'
+import { alertBulkDeleteIfAnomalousSafe } from '@/lib/admin-anomaly-alert'
 import { z } from 'zod'
 
 async function uniqueProductSlug(base: string, excludeId: string): Promise<string> {
@@ -221,5 +222,6 @@ export async function DELETE(
     request,
     details: { id, slug: existing.slug },
   })
+  await alertBulkDeleteIfAnomalousSafe(request)
   return NextResponse.json({ ok: true })
 }
