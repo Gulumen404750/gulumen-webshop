@@ -12,7 +12,7 @@ Ez a dokumentum **kötelező** mindenki számára, aki admin kulcsot, Railway Va
 ## 1. Ki léphet be
 
 - Csak a webshop üzemeltetői. Nincs külön „vendég admin”, demo kulcs vagy megosztott jelszó chatben.
-- **Owner belépés:** `/admin/login` — **`ADMIN_API_KEY` + 2FA**. Ez a főadmin útvonal **mindig** elérhető (unbreakable fallback), akkor is, ha van aktív owner az `AdminOperator` táblában. Nincs szükség `DELETE FROM "AdminOperator"`-ra vagy emergency env-re a lockout ellen.
+- **Owner belépés:** `/admin/login` — **`ADMIN_API_KEY` + 2FA**. Ez a főadmin útvonal **mindig** elérhető (unbreakable fallback), akkor is, ha van aktív owner az `AdminOperator` táblában, ha `mustChangeKey` aktív, vagy ha van `Admin.passwordHash`. Nincs szükség `DELETE FROM "AdminOperator"`-ra vagy emergency env-re a lockout ellen. Sikeres 2FA után a `mustChangeKey` flag törlődik.
 - **Operátor belépés:** `/operator/login` — felhasználónév + jelszó. Session az `operator_authorized` sütibe kerül; **nem írja felül** az owner `admin_authorized` sessiont.
 - Belépési titok (owner): a Railway / env **`ADMIN_API_KEY`** — ezt **ne** tedd gitbe, screenshotba, ticketbe.
 - **Név szerinti operátorok (RBAC):** owner / support / catalog / viewer. Catalog törölhet terméket; **>10 bulk törlés** non-owner esetén `PENDING_APPROVAL` (owner 5 perc ablak).
@@ -59,7 +59,7 @@ Az admin süti **aláírt JWT** (max **8 óra**, **30 perc idle**). HMAC: **`JWT
 | `ADMIN_API_KEY` | A már kiadott sütik `ak` / `sv` claimje nem stimmel → **kiléptetés**. Nem kell a JWT_SECRET-et is cserélni, de szivárgásnál **mindkettőt** cseréld. |
 | Admin jelszó csere / reset | A JWT `ep` (session epoch) nő → a régi sütik érvénytelenek (Node mindig DB-ből; Edge csak ha van Redis-cache). |
 
-**Kényszerített csere (`mustChangeKey`):** Admin → Beállítások → „Következő belépéshez új kulcs kell”. A jelenlegi session megmarad; a következő belépés a régi kulccsal 403, amíg új `ADMIN_API_KEY` nincs az env-ben. A nyers kulcs nem kerül DB-be, csak SHA-256 fingerprint.
+**Kényszerített csere (`mustChangeKey`):** Admin → Beállítások → „Következő belépéshez új kulcs kell”. Emékeztető flag: a gyári `ADMIN_API_KEY` + 2FA owner belépés **nem** záródik ki. Sikeres belépés után a flag törlődik / a fingerprint frissül. A nyers kulcs nem kerül DB-be, csak SHA-256 fingerprint.
 
 **Periodikus csere:** `ADMIN_KEY_MAX_AGE_DAYS` (alap 90, `0` = ki).
 

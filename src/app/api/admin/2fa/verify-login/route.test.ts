@@ -76,11 +76,11 @@ vi.mock('@/lib/logger', () => ({
   logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn(), debug: vi.fn() },
 }))
 
-const evaluateAdminKeyPolicy = vi.fn()
+const softCheckAdminKeyPolicyForOwnerLogin = vi.fn()
 const recordAdminKeyAccepted = vi.fn()
 vi.mock('@/lib/admin-key-policy', () => ({
   MUST_CHANGE_KEY_MESSAGE: 'Az ADMIN_API_KEY-t cserélni kell.',
-  evaluateAdminKeyPolicy: () => evaluateAdminKeyPolicy(),
+  softCheckAdminKeyPolicyForOwnerLogin: () => softCheckAdminKeyPolicyForOwnerLogin(),
   recordAdminKeyAccepted: () => recordAdminKeyAccepted(),
 }))
 
@@ -108,7 +108,7 @@ describe('POST /api/admin/2fa/verify-login', () => {
     createAdminSessionToken.mockResolvedValue('full-admin-jwt')
     logAdminAction.mockResolvedValue(undefined)
     recordAdminLoginFingerprintSafe.mockResolvedValue(undefined)
-    evaluateAdminKeyPolicy.mockResolvedValue({ ok: true, rotated: false })
+    softCheckAdminKeyPolicyForOwnerLogin.mockResolvedValue({ ok: true, rotated: false })
     recordAdminKeyAccepted.mockResolvedValue(undefined)
     process.env.ADMIN_API_KEY = 'test-admin-key'
   })
@@ -147,8 +147,8 @@ describe('POST /api/admin/2fa/verify-login', () => {
     expect(setCookie).toContain('operator_authorized=')
   })
 
-  it('rejects 2FA completion when mustChangeKey is set for the current key', async () => {
-    evaluateAdminKeyPolicy.mockResolvedValue({ ok: false, reason: 'must_change_key' })
+  it('allows 2FA completion when mustChangeKey is set (emergency bypass + clear on accept)', async () => {
+    softCheckAdminKeyPolicyForOwnerLogin.mockResolvedValue({ ok: false, reason: 'must_change_key' })
     const { POST } = await import('@/app/api/admin/2fa/verify-login/route')
     const res = await POST(
       new Request('http://localhost/api/admin/2fa/verify-login', {
@@ -157,9 +157,9 @@ describe('POST /api/admin/2fa/verify-login', () => {
         body: JSON.stringify({ code: '123456' }),
       })
     )
-    expect(res.status).toBe(403)
-    expect(createAdminSessionToken).not.toHaveBeenCalled()
-    expect(recordAdminKeyAccepted).not.toHaveBeenCalled()
+    expect(res.status).toBe(200)
+    expect(createAdminSessionToken).toHaveBeenCalled()
+    expect(recordAdminKeyAccepted).toHaveBeenCalled()
   })
 
   it('rejects an invalid TOTP code without issuing a session', async () => {

@@ -22,8 +22,7 @@ import { isDbConfigured } from '@/lib/prisma'
 import { normalizeTotpCode, verifyTotpCode } from '@/lib/admin-totp'
 import { recordAdminLoginFingerprintSafe } from '@/lib/admin-login-alert'
 import {
-  MUST_CHANGE_KEY_MESSAGE,
-  evaluateAdminKeyPolicy,
+  softCheckAdminKeyPolicyForOwnerLogin,
   recordAdminKeyAccepted,
 } from '@/lib/admin-key-policy'
 import { logger } from '@/lib/logger'
@@ -117,24 +116,19 @@ export async function POST(request: Request) {
   if (!adminKey) {
     return NextResponse.json({ error: 'Admin not configured' }, { status: 503 })
   }
+  // Soft: mustChangeKey / lejárat nem zárhatja ki a 2FA utáni sessiont – feloldás recordAdminKeyAccepted-tel.
   try {
-    const policy = await evaluateAdminKeyPolicy(adminKey)
+    const policy = await softCheckAdminKeyPolicyForOwnerLogin(adminKey)
     if (!policy.ok) {
       await logAdminAction({
         action: 'login_2fa',
-        success: false,
+        success: true,
         request,
-        details: { reason: policy.reason },
+        details: { reason: 'key_policy_bypass', policy: policy.reason },
       })
-      const res = NextResponse.json(
-        { error: MUST_CHANGE_KEY_MESSAGE, code: policy.reason },
-        { status: 403 }
-      )
-      clearPendingCookie(res)
-      return res
     }
   } catch (err) {
-    logger.error({ err }, 'admin 2FA login key policy failed')
+    logger.error({ err }, 'admin 2FA login key policy soft-check failed')
   }
 
   const token = await createAdminSessionToken(pendingActor)

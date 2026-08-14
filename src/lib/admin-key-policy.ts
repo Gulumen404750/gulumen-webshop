@@ -86,18 +86,16 @@ export async function evaluateAdminKeyPolicy(apiKey: string): Promise<AdminKeyPo
   }
 }
 
+/**
+ * Sikeres owner belépés (2FA után): fingerprint frissítés + mustChangeKey / lejárat feloldás.
+ * Ugyanazzal a kulccsal is: a flag-eket töröljük, hogy ne maradjon lockout a DB-ben
+ * (emergency bypass után a következő belépés is menjen).
+ */
 export async function recordAdminKeyAccepted(apiKey: string): Promise<void> {
   if (!isDbConfigured()) return
   const fp = hashAdminApiKeyFingerprint(apiKey)
   const now = new Date()
   try {
-    const row = await prisma.admin.findUnique({
-      where: { id: ADMIN_RECORD_ID },
-      select: { apiKeyFingerprint: true },
-    })
-    if (row?.apiKeyFingerprint && fingerprintsMatch(row.apiKeyFingerprint, fp)) {
-      return
-    }
     await prisma.admin.upsert({
       where: { id: ADMIN_RECORD_ID },
       create: {
@@ -115,6 +113,24 @@ export async function recordAdminKeyAccepted(apiKey: string): Promise<void> {
   } catch (err) {
     logger.error({ err }, 'admin key fingerprint save failed')
   }
+}
+
+/**
+ * Owner login soft-check: soha ne zárja ki a gyári ADMIN_API_KEY + 2FA útvonalat.
+ * mustChangeKey / lejárat csak figyelmeztetés – a belépés folytatódik, a sikeres 2FA
+ * `recordAdminKeyAccepted`-tel feloldja a flag-eket.
+ */
+export async function softCheckAdminKeyPolicyForOwnerLogin(
+  apiKey: string
+): Promise<AdminKeyPolicyDecision> {
+  const policy = await evaluateAdminKeyPolicy(apiKey)
+  if (!policy.ok) {
+    logger.warn(
+      { reason: policy.reason },
+      'admin key policy would block login; allowing owner emergency bypass (API key + 2FA)'
+    )
+  }
+  return policy
 }
 
 export async function getAdminKeyPolicyStatus(): Promise<AdminKeyPolicyStatus> {

@@ -21,8 +21,7 @@ import {
 } from '@/lib/admin-csrf'
 import { recordAdminLoginFingerprintSafe } from '@/lib/admin-login-alert'
 import {
-  MUST_CHANGE_KEY_MESSAGE,
-  evaluateAdminKeyPolicy,
+  softCheckAdminKeyPolicyForOwnerLogin,
   recordAdminKeyAccepted,
 } from '@/lib/admin-key-policy'
 import { logger } from '@/lib/logger'
@@ -92,24 +91,19 @@ export async function POST(request: Request) {
     if (!adminKey) {
       return NextResponse.json({ error: 'Admin not configured' }, { status: 503 })
     }
+    // Soft: mustChangeKey nem zárhatja ki az első 2FA setupot sem.
     try {
-      const policy = await evaluateAdminKeyPolicy(adminKey)
+      const policy = await softCheckAdminKeyPolicyForOwnerLogin(adminKey)
       if (!policy.ok) {
         await logAdminAction({
           action: '2fa_verify_setup',
-          success: false,
+          success: true,
           request,
-          details: { reason: policy.reason },
+          details: { reason: 'key_policy_bypass', policy: policy.reason },
         })
-        const res = NextResponse.json(
-          { error: MUST_CHANGE_KEY_MESSAGE, code: policy.reason },
-          { status: 403 }
-        )
-        clearPendingCookie(res)
-        return res
       }
     } catch (err) {
-      logger.error({ err }, 'admin 2FA setup key policy failed')
+      logger.error({ err }, 'admin 2FA setup key policy soft-check failed')
     }
   }
 

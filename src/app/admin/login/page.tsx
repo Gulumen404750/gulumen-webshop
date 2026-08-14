@@ -12,10 +12,10 @@ import { publicAdminUiPathFromBase, safeAdminReturnPath, slugFromPublicBase } fr
 /**
  * Owner belépés: ADMIN_API_KEY + 2FA.
  * Az operátor session külön sütiben él (`/operator/login`) — nem írja felül ezt.
+ * mustChangeKey / Admin jelszó NEM zárhatja ki ezt az útvonalat.
  */
 export default function AdminLoginPage() {
   const [key, setKey] = useState('')
-  const [password, setPassword] = useState('')
   const [totpCode, setTotpCode] = useState('')
   const [step, setStep] = useState<'key' | 'totp' | 'setup'>('key')
   const [error, setError] = useState('')
@@ -53,7 +53,6 @@ export default function AdminLoginPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           key,
-          password: password || undefined,
           captchaToken,
         }),
       })
@@ -141,12 +140,12 @@ export default function AdminLoginPage() {
         <form onSubmit={handleKeySubmit} className="w-full max-w-sm space-y-4">
           <h1 className="text-xl font-semibold text-foreground">Owner belépés</h1>
           <p className="text-sm text-muted">
-            API kulcs + Google Authenticator. Ez a főadmin (owner) útvonal — a session soha nem
-            záródik ki operátorok miatt. Másodlagos fiók:{' '}
+            Gyári <code>ADMIN_API_KEY</code> + Google Authenticator — ez a mentőöv mindig működik
+            (mustChangeKey / admin jelszó nem zárhatja ki). Másodlagos fiók:{' '}
             <a href="/operator/login" className="underline">
               /operator/login
             </a>
-            . Elfelejtett admin jelszó:{' '}
+            . Elfelejtett admin jelszó (reset flow):{' '}
             <a href={resetHref} className="underline">
               /admin/reset
             </a>
@@ -165,20 +164,6 @@ export default function AdminLoginPage() {
               placeholder="ADMIN_API_KEY"
               autoComplete="off"
               required
-            />
-          </div>
-          <div>
-            <label htmlFor="admin-password" className="block text-sm font-medium text-foreground mb-1">
-              Admin jelszó (ha beállítottad a resetnél)
-            </label>
-            <input
-              id="admin-password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
-              placeholder="opcionális"
-              autoComplete="current-password"
             />
           </div>
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}

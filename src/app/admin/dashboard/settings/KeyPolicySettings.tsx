@@ -81,7 +81,9 @@ export default function KeyPolicySettings() {
         <p className="text-sm text-muted mt-1">
           A session JWT-t a <code>JWT_SECRET</code> írja alá. Az <code>ADMIN_API_KEY</code> csere a JWT{' '}
           <code>ak</code> / <code>sv</code> claimje miatt ugyanúgy kiléptet. Periodikus csere:{' '}
-          <code>ADMIN_KEY_MAX_AGE_DAYS</code> (alap 90, 0 = kikapcsolva).
+          <code>ADMIN_KEY_MAX_AGE_DAYS</code> (alap 90, 0 = kikapcsolva). A flag emlékeztető — a gyári
+          kulcs + 2FA owner belépés <strong>nem</strong> záródik ki; sikeres belépés törli a
+          mustChangeKey-t.
         </p>
       </div>
 

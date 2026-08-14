@@ -55,7 +55,7 @@ vi.mock('@/lib/admin-password', () => ({
 }))
 
 vi.mock('@/lib/logger', () => ({
-  logger: { error: vi.fn(), info: vi.fn(), debug: vi.fn() },
+  logger: { error: vi.fn(), info: vi.fn(), debug: vi.fn(), warn: vi.fn() },
 }))
 
 vi.mock('@/lib/recaptcha', () => ({
@@ -74,10 +74,11 @@ vi.mock('@/lib/admin-login-alert', () => ({
   recordAdminLoginFingerprintSafe: (...args: unknown[]) => recordAdminLoginFingerprintSafe(...args),
 }))
 
-const evaluateAdminKeyPolicy = vi.fn()
+const softCheckAdminKeyPolicyForOwnerLogin = vi.fn()
 vi.mock('@/lib/admin-key-policy', () => ({
   MUST_CHANGE_KEY_MESSAGE: 'Az ADMIN_API_KEY-t cserélni kell.',
-  evaluateAdminKeyPolicy: (...args: unknown[]) => evaluateAdminKeyPolicy(...args),
+  softCheckAdminKeyPolicyForOwnerLogin: (...args: unknown[]) =>
+    softCheckAdminKeyPolicyForOwnerLogin(...args),
 }))
 
 describe('POST /api/admin/login 2FA gate', () => {
@@ -98,7 +99,7 @@ describe('POST /api/admin/login 2FA gate', () => {
       actor: { id: 'admin', username: 'admin', role: 'owner', bootstrap: true },
     })
     recordAdminLoginFingerprintSafe.mockResolvedValue(undefined)
-    evaluateAdminKeyPolicy.mockResolvedValue({ ok: true, rotated: false })
+    softCheckAdminKeyPolicyForOwnerLogin.mockResolvedValue({ ok: true, rotated: false })
     getAdminPasswordState.mockResolvedValue({ passwordHash: null, passwordSetAt: null })
     verifyAdminPassword.mockResolvedValue(false)
   })
@@ -221,60 +222,40 @@ describe('POST /api/admin/login 2FA gate', () => {
     expect(recordAdminLoginFingerprintSafe).not.toHaveBeenCalled()
   })
 
-  it('rejects login with the current key when mustChangeKey is set', async () => {
-    evaluateAdminKeyPolicy.mockResolvedValue({ ok: false, reason: 'must_change_key' })
+  it('allows owner login when mustChangeKey would block (emergency bypass)', async () => {
+    getAdminTwoFactorState.mockResolvedValue({ isTwoFactorEnabled: true, totpSecret: 'SECRET' })
+    softCheckAdminKeyPolicyForOwnerLogin.mockResolvedValue({ ok: false, reason: 'must_change_key' })
     const { POST } = await import('@/app/api/admin/login/route')
     const res = await POST(
       new Request('http://localhost/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: 'test-admin-key' }),
-      })
-    )
-    expect(res.status).toBe(403)
-    const data = await res.json()
-    expect(data.code).toBe('must_change_key')
-    expect(createAdminSessionToken).not.toHaveBeenCalled()
-    expect(createAdminPendingTwoFactorToken).not.toHaveBeenCalled()
-    expect(resolveOwnerLoginActor).not.toHaveBeenCalled()
-  })
-
-  it('rejects the API key alone once an Admin.passwordHash is set (extra factor required)', async () => {
-    getAdminTwoFactorState.mockResolvedValue({ isTwoFactorEnabled: true, totpSecret: 'SECRET' })
-    getAdminPasswordState.mockResolvedValue({ passwordHash: 'stored-hash', passwordSetAt: new Date() })
-    verifyAdminPassword.mockResolvedValue(false)
-    const { POST } = await import('@/app/api/admin/login/route')
-    const res = await POST(
-      new Request('http://localhost/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'test-admin-key' }),
-      })
-    )
-    expect(res.status).toBe(401)
-    expect(createAdminPendingTwoFactorToken).not.toHaveBeenCalled()
-    expect(createAdminSessionToken).not.toHaveBeenCalled()
-  })
-
-  it('accepts key + Admin.passwordHash together once a legacy password is set', async () => {
-    getAdminTwoFactorState.mockResolvedValue({ isTwoFactorEnabled: true, totpSecret: 'SECRET' })
-    getAdminPasswordState.mockResolvedValue({ passwordHash: 'stored-hash', passwordSetAt: new Date() })
-    verifyAdminPassword.mockResolvedValue(true)
-    const { POST } = await import('@/app/api/admin/login/route')
-    const res = await POST(
-      new Request('http://localhost/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'test-admin-key', password: 'CorrectHorse1' }),
       })
     )
     expect(res.status).toBe(200)
-    expect(verifyAdminPassword).toHaveBeenCalledWith('CorrectHorse1', 'stored-hash')
     expect(createAdminPendingTwoFactorToken).toHaveBeenCalled()
     expect(createAdminSessionToken).not.toHaveBeenCalled()
   })
 
-  it('never accepts the legacy Admin password alone without the shared API key', async () => {
+  it('allows API key alone even when Admin.passwordHash is set (password not required)', async () => {
+    getAdminTwoFactorState.mockResolvedValue({ isTwoFactorEnabled: true, totpSecret: 'SECRET' })
+    getAdminPasswordState.mockResolvedValue({ passwordHash: 'stored-hash', passwordSetAt: new Date() })
+    const { POST } = await import('@/app/api/admin/login/route')
+    const res = await POST(
+      new Request('http://localhost/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'test-admin-key' }),
+      })
+    )
+    expect(res.status).toBe(200)
+    expect(verifyAdminPassword).not.toHaveBeenCalled()
+    expect(createAdminPendingTwoFactorToken).toHaveBeenCalled()
+    expect(createAdminSessionToken).not.toHaveBeenCalled()
+  })
+
+  it('never accepts a password alone without the shared API key', async () => {
     getAdminPasswordState.mockResolvedValue({ passwordHash: 'stored-hash', passwordSetAt: new Date() })
     verifyAdminPassword.mockResolvedValue(true)
     secureCompare.mockReturnValue(false)

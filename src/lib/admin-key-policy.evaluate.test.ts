@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const findUnique = vi.fn()
+const upsert = vi.fn()
 const isDbConfigured = vi.fn()
 
 vi.mock('@/lib/prisma', () => ({
@@ -8,7 +9,7 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     admin: {
       findUnique: (...args: unknown[]) => findUnique(...args),
-      upsert: vi.fn(),
+      upsert: (...args: unknown[]) => upsert(...args),
     },
   },
 }))
@@ -102,5 +103,49 @@ describe('evaluateAdminKeyPolicy', () => {
       if (previous === undefined) delete process.env.ADMIN_KEY_MAX_AGE_DAYS
       else process.env.ADMIN_KEY_MAX_AGE_DAYS = previous
     }
+  })
+})
+
+describe('softCheckAdminKeyPolicyForOwnerLogin', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    isDbConfigured.mockReturnValue(true)
+  })
+
+  it('returns the blocking decision but does not throw (owner bypass logs warn)', async () => {
+    const { softCheckAdminKeyPolicyForOwnerLogin, hashAdminApiKeyFingerprint } = await import(
+      './admin-key-policy'
+    )
+    const fp = hashAdminApiKeyFingerprint('current-key')
+    findUnique.mockResolvedValue({
+      mustChangeKey: true,
+      apiKeyFingerprint: fp,
+      keyConfirmedAt: new Date(),
+    })
+    await expect(softCheckAdminKeyPolicyForOwnerLogin('current-key')).resolves.toEqual({
+      ok: false,
+      reason: 'must_change_key',
+    })
+  })
+})
+
+describe('recordAdminKeyAccepted', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    isDbConfigured.mockReturnValue(true)
+    upsert.mockResolvedValue({})
+  })
+
+  it('clears mustChangeKey even when the fingerprint already matches', async () => {
+    const { recordAdminKeyAccepted, hashAdminApiKeyFingerprint } = await import('./admin-key-policy')
+    await recordAdminKeyAccepted('current-key')
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          mustChangeKey: false,
+          apiKeyFingerprint: hashAdminApiKeyFingerprint('current-key'),
+        }),
+      })
+    )
   })
 })

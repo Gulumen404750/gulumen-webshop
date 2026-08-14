@@ -71,11 +71,11 @@ vi.mock('@/lib/admin-login-alert', () => ({
   recordAdminLoginFingerprintSafe: (...args: unknown[]) => recordAdminLoginFingerprintSafe(...args),
 }))
 
-const evaluateAdminKeyPolicy = vi.fn()
+const softCheckAdminKeyPolicyForOwnerLogin = vi.fn()
 const recordAdminKeyAccepted = vi.fn()
 vi.mock('@/lib/admin-key-policy', () => ({
   MUST_CHANGE_KEY_MESSAGE: 'Az ADMIN_API_KEY-t cserélni kell.',
-  evaluateAdminKeyPolicy: () => evaluateAdminKeyPolicy(),
+  softCheckAdminKeyPolicyForOwnerLogin: () => softCheckAdminKeyPolicyForOwnerLogin(),
   recordAdminKeyAccepted: () => recordAdminKeyAccepted(),
 }))
 
@@ -95,7 +95,7 @@ describe('POST /api/admin/2fa/verify-setup', () => {
     verifyTotpCode.mockResolvedValue(true)
     createAdminSessionToken.mockResolvedValue('full-admin-jwt')
     recordAdminLoginFingerprintSafe.mockResolvedValue(undefined)
-    evaluateAdminKeyPolicy.mockResolvedValue({ ok: true, rotated: false })
+    softCheckAdminKeyPolicyForOwnerLogin.mockResolvedValue({ ok: true, rotated: false })
     recordAdminKeyAccepted.mockResolvedValue(undefined)
     process.env.ADMIN_API_KEY = 'test-admin-key'
   })

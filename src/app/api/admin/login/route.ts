@@ -27,16 +27,14 @@ import { RECAPTCHA_ACTIONS, verifyRecaptchaToken } from '@/lib/recaptcha'
 import { resolveOwnerLoginActor } from '@/lib/admin-operators'
 import type { AdminActor } from '@/lib/admin-rbac'
 import { recordAdminLoginFingerprintSafe } from '@/lib/admin-login-alert'
-import { MUST_CHANGE_KEY_MESSAGE, evaluateAdminKeyPolicy } from '@/lib/admin-key-policy'
-import { getAdminPasswordState, verifyAdminPassword } from '@/lib/admin-password'
+import { softCheckAdminKeyPolicyForOwnerLogin } from '@/lib/admin-key-policy'
 
 /**
  * POST /api/admin/login — Owner path.
- * Body: { key: string, password?: string }.
+ * Body: { key: string }.
  * ADMIN_API_KEY mindig kötelező; soha nem ad teljes sessiont, csak 2FA pending tokent.
- * Unbreakable fallback: owner megléte esetén is API-kulcs + 2FA → bootstrap owner session
- * (`admin_authorized`), SQL / emergency env nélkül.
- * Az operátor belépés: `/operator/login` (külön süti).
+ * Unbreakable fallback: gyári ADMIN_API_KEY + 2FA mindig belép (mustChangeKey, kulcs-lejárat
+ * és Admin.passwordHash NEM zárhatja ki). Operátor: `/operator/login` (külön süti).
  */
 export async function POST(request: Request) {
   const adminKey = process.env.ADMIN_API_KEY
@@ -71,7 +69,6 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => ({}))) as {
     key?: unknown
     captchaToken?: unknown
-    password?: unknown
   }
   const key = typeof body.key === 'string' ? body.key : ''
   const captcha = await verifyRecaptchaToken({
@@ -149,22 +146,19 @@ export async function POST(request: Request) {
 
   await clearAdminLoginLockout(request)
 
+  // Soft policy only: mustChangeKey / lejárat NEM 403 – owner emergency bypass.
   try {
-    const policy = await evaluateAdminKeyPolicy(adminKey)
+    const policy = await softCheckAdminKeyPolicyForOwnerLogin(adminKey)
     if (!policy.ok) {
       await logAdminAction({
         action: 'login',
-        success: false,
+        success: true,
         request,
-        details: { reason: policy.reason, path: 'owner' },
+        details: { reason: 'key_policy_bypass', policy: policy.reason, path: 'owner' },
       })
-      return NextResponse.json(
-        { error: MUST_CHANGE_KEY_MESSAGE, code: policy.reason },
-        { status: 403 }
-      )
     }
   } catch (err) {
-    logger.error({ err }, 'admin login key policy failed')
+    logger.error({ err }, 'admin login key policy soft-check failed')
   }
 
   const loginActor = await resolveOwnerLoginActor({})
@@ -172,40 +166,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Owner login unavailable' }, { status: 503 })
   }
   const actor: AdminActor = loginActor.actor
-
-  const rawPassword = typeof body.password === 'string' ? body.password : ''
-  if (actor.bootstrap) {
-    try {
-      const passwordState = await getAdminPasswordState()
-      if (passwordState.passwordHash) {
-        const passwordOk = rawPassword
-          ? await verifyAdminPassword(rawPassword, passwordState.passwordHash)
-          : false
-        if (!passwordOk) {
-          const lock = await recordAdminLoginFailure(request)
-          await logAdminAction({
-            action: 'login',
-            success: false,
-            request,
-            details: { reason: 'invalid_admin_password', locked: lock.locked, path: 'owner' },
-          })
-          if (lock.locked) {
-            return NextResponse.json(
-              {
-                error: 'Túl sok hibás belépés. Próbáld újra 15 perc múlva.',
-                locked: true,
-                retryAfterSec: lock.retryAfterSec,
-              },
-              { status: 429, headers: { 'Retry-After': String(lock.retryAfterSec) } }
-            )
-          }
-          return NextResponse.json({ error: 'Hibás jelszó.' }, { status: 401 })
-        }
-      }
-    } catch (err) {
-      logger.error({ err }, 'admin login password lookup failed')
-    }
-  }
 
   let twoFactor: { isTwoFactorEnabled: boolean }
   try {

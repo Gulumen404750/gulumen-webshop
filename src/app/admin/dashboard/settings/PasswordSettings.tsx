@@ -98,9 +98,9 @@ export default function PasswordSettings() {
       <div>
         <h2 className="text-lg font-semibold">Admin jelszó</h2>
         <p className="text-sm text-muted mt-1">
-          Ez a jelszó az adatbázisban van, kétlépcsősen visszaállítható (e-mail token + TOTP), és a
-          megosztott <code>ADMIN_API_KEY</code> MELLETT kötelező extra faktor a bootstrap belépésnél
-          (amíg nincs név szerinti operátorod). A nyers kulcs soha nem megy e-mailben.
+          Ez a jelszó az adatbázisban van, kétlépcsősen visszaállítható (e-mail token + TOTP). A
+          gyári <code>ADMIN_API_KEY</code> + 2FA owner belépés <strong>nem</strong> függ ettől a
+          jelszótól (lockout-mentés). A nyers kulcs soha nem megy e-mailben.
         </p>
       </div>
 
@@ -110,8 +110,8 @@ export default function PasswordSettings() {
         }`}
       >
         {passwordSet
-          ? 'Jelszó be van állítva – belépéshez a kulcs ÉS ez a jelszó is kell'
-          : 'Még nincs jelszó – most elég az API kulcs (+ 2FA)'}
+          ? 'Jelszó be van állítva – reset flowhoz használható; owner belépéshez továbbra is elég a kulcs + 2FA'
+          : 'Még nincs jelszó – owner belépés: API kulcs + 2FA'}
       </p>
 
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
