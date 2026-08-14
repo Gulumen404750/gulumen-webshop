@@ -34,8 +34,8 @@ Irányelvek: [SECURITY.md](../SECURITY.md) (sebezhetőség-bejelentés) · [Admi
 
 - [ ] `OPENAI_API_KEY` – ha az AI chat asszisztens valódi válaszokat ad
 - [ ] `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` – kártyás fizetés
-- [ ] `RESEND_API_KEY` – hírlevél / e-mail küldés **és** admin anomália-riasztás
-- [ ] `ADMIN_EMAIL` – gyanús belépés / fiókzárolás + nagy CSV / tömeges ár / burst törlés riasztás (+ callback)
+- [ ] `RESEND_API_KEY` – hírlevél / e-mail küldés **és** admin anomália- / belépési riasztás
+- [ ] `ADMIN_EMAIL` – gyanús belépés / fiókzárolás + nagy CSV / tömeges ár / burst törlés riasztás + új eszköz / szokatlan ország riasztás (+ callback)
 - [ ] `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` + `RECAPTCHA_SECRET_KEY` – reCAPTCHA v3 a belépésnél
 - [ ] Railway Postgres backup / [BACKUP.md](BACKUP.md)
 - [ ] Cloudflare WAF az admin előtt (path challenge + login rate limit; shop / webhook skip) — [docs/WAF.md](WAF.md)

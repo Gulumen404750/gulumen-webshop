@@ -62,6 +62,11 @@ vi.mock('@/lib/admin-audit', () => ({
   logAdminAction: (...args: unknown[]) => logAdminAction(...args),
 }))
 
+const recordAdminLoginFingerprintSafe = vi.fn()
+vi.mock('@/lib/admin-login-alert', () => ({
+  recordAdminLoginFingerprintSafe: (...args: unknown[]) => recordAdminLoginFingerprintSafe(...args),
+}))
+
 describe('POST /api/admin/2fa/verify-login', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -82,6 +87,7 @@ describe('POST /api/admin/2fa/verify-login', () => {
     verifyTotpCode.mockResolvedValue(true)
     createAdminSessionToken.mockResolvedValue('full-admin-jwt')
     logAdminAction.mockResolvedValue(undefined)
+    recordAdminLoginFingerprintSafe.mockResolvedValue(undefined)
   })
 
   it('issues the admin cookie when pending token and TOTP are valid', async () => {
@@ -96,6 +102,7 @@ describe('POST /api/admin/2fa/verify-login', () => {
     expect(res.status).toBe(200)
     expect(createAdminSessionToken).toHaveBeenCalled()
     expect(res.headers.get('set-cookie') || '').toContain('admin_authorized=')
+    expect(recordAdminLoginFingerprintSafe).toHaveBeenCalled()
   })
 
   it('rejects an invalid TOTP code without issuing a session', async () => {
@@ -110,5 +117,6 @@ describe('POST /api/admin/2fa/verify-login', () => {
     )
     expect(res.status).toBe(401)
     expect(createAdminSessionToken).not.toHaveBeenCalled()
+    expect(recordAdminLoginFingerprintSafe).not.toHaveBeenCalled()
   })
 })

@@ -85,8 +85,9 @@ DATABASE_URL="postgresql://user:password@host:5432/dbname?sslmode=require"
 - **Telegram:** Hívás összefoglaló értesítés a `/api/call-summary` után. Bot token + chat ID (ahova küldjük az üzenetet).
 
 ### ADMIN_EMAIL
-- **Értesítések:** Visszahívás kérés, hívás összefoglaló, **gyanús belépés / fiókzárolás**, **és admin anomália** e-mail címzettje. Ha nincs, e-mail nem kerül kiküldésre (audit/log marad, a művelet nem 500-ozik).
+- **Értesítések:** Visszahívás kérés, hívás összefoglaló, **gyanús belépés / fiókzárolás**, **admin anomália**, **és új admin eszköz / szokatlan ország** e-mail címzettje. Ha nincs, e-mail nem kerül kiküldésre (audit/log marad, a művelet/belépés nem 500-ozik).
 - **Admin anomália (valós idejű, nem blokkol):** nagy CSV-export (alap: ≥100 sor), tömeges árváltoztatás (≥10 termék), burst törlés (≥5 termék/user/kupon törlés 10 perc alatt). Küszöbök: `ADMIN_ANOMALY_CSV_MIN`, `ADMIN_ANOMALY_BULK_PRICE_MIN`, `ADMIN_ANOMALY_DELETE_MIN`, `ADMIN_ANOMALY_DELETE_WINDOW_MIN` (perc). `RESEND_API_KEY` kell a tényleges levélhez.
+- **Admin belépés riasztás:** új eszköz (SHA-256 ujjlenyomat UA + Client Hints-ből; a nyers anyag nem megy DB-be, a UI csak prefixet lát) vagy szokatlan ország (CDN geo header: `cf-ipcountry`, `x-vercel-ip-country`, `cloudfront-viewer-country`). Az első belépés a baseline, arra nincs riasztás. Geo header nélkül csak az eszköz-riasztás él. `RESEND_API_KEY` kell a tényleges levélhez.
 
 ### CRON_SECRET (napi adatmegőrzési job)
 - **Cron:** A `GET /api/cron/data-retention` (Vercel Cron, napi 1×) ezt várja: `Authorization: Bearer <CRON_SECRET>`. Ha nincs vagy nem egyezik, 401.
@@ -109,6 +110,6 @@ DATABASE_URL="postgresql://user:password@host:5432/dbname?sslmode=require"
 | VOICE_AGENT_WEBHOOK_SECRET  | Voice-hoz| call-summary + ai-voice hitelesítés. |
 | OPENAI_API_KEY              | Nem      | ai-voice rövid válaszok (ha nincs: fallback szöveg). |
 | TELEGRAM_BOT_TOKEN / CHAT_ID| Nem      | Hívás összefoglaló Telegramra. |
-| ADMIN_EMAIL                 | Nem      | Callback + call-summary + lockout + admin anomália-riasztás. |
+| ADMIN_EMAIL                 | Nem      | Callback + call-summary + lockout + admin anomália-riasztás + új-eszköz/ország riasztás. |
 | CRON_SECRET                 | Cron-hoz | Napi data-retention job (Vercel Cron). |
-| RESEND_API_KEY              | E-mailhez| Callback + call-summary + admin anomália-riasztás (Resend). |
+| RESEND_API_KEY              | E-mailhez| Callback + call-summary + admin anomália-riasztás + admin belépési riasztás (Resend). |

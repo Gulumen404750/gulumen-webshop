@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getClientIp, normalizeIp } from './request-ip'
+import { getClientIp, getRequestCountryCode, normalizeIp } from './request-ip'
 
 describe('normalizeIp', () => {
   it('strips IPv4-mapped IPv6 prefix', () => {
@@ -37,5 +37,40 @@ describe('getClientIp', () => {
 
   it('returns unknown when no headers', () => {
     expect(getClientIp(new Request('http://localhost/admin'))).toBe('unknown')
+  })
+})
+
+describe('getRequestCountryCode', () => {
+  it('reads Cloudflare / Vercel / CloudFront country headers', () => {
+    expect(
+      getRequestCountryCode(
+        new Request('http://localhost', { headers: { 'cf-ipcountry': 'hu' } })
+      )
+    ).toBe('HU')
+    expect(
+      getRequestCountryCode(
+        new Request('http://localhost', { headers: { 'x-vercel-ip-country': 'DE' } })
+      )
+    ).toBe('DE')
+    expect(
+      getRequestCountryCode(
+        new Request('http://localhost', {
+          headers: { 'cloudfront-viewer-country': 'GB' },
+        })
+      )
+    ).toBe('GB')
+  })
+
+  it('ignores unknown Cloudflare placeholders and junk', () => {
+    expect(
+      getRequestCountryCode(new Request('http://localhost', { headers: { 'cf-ipcountry': 'XX' } }))
+    ).toBeNull()
+    expect(
+      getRequestCountryCode(new Request('http://localhost', { headers: { 'cf-ipcountry': 'T1' } }))
+    ).toBeNull()
+    expect(
+      getRequestCountryCode(new Request('http://localhost', { headers: { 'cf-ipcountry': 'HUN' } }))
+    ).toBeNull()
+    expect(getRequestCountryCode(new Request('http://localhost'))).toBeNull()
   })
 })

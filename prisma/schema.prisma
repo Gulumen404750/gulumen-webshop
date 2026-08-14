@@ -364,6 +364,29 @@ model AdminRevokedSession {
   @@index([expiresAt])
 }
 
+/// Ismert admin belépési eszköz. Kulcs: SHA-256 hash (nyers UA/hints nem tárolódik azonosítóként).
+model AdminLoginDevice {
+  id          String   @id @default(cuid())
+  fingerprint String   @unique
+  /// Rövid megjelenítés a beállításokban (nem a hash bemenete).
+  userAgent   String?
+  lastCountry String?
+  lastIp      String?
+  loginCount  Int      @default(1)
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now()) @updatedAt
+
+  @@index([lastSeenAt])
+}
+
+/// Látott admin belépési országkódok (CDN geo header). Új ország → riasztás.
+model AdminLoginCountry {
+  countryCode String   @id
+  loginCount  Int      @default(1)
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now()) @updatedAt
+}
+
 /// Sourcing slot foglalás: atomi maxOrders védelem. RESERVED = checkout indítva, 15 min; PAID = fizetve; EXPIRED/CANCELED = felszabadult.
 model ProductReservation {
   id        String   @id @default(cuid())

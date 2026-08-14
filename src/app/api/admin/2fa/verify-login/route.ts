@@ -18,6 +18,7 @@ import { logAdminAction } from '@/lib/admin-audit'
 import { getAdminTwoFactorState } from '@/lib/admin-2fa'
 import { isDbConfigured } from '@/lib/prisma'
 import { normalizeTotpCode, verifyTotpCode } from '@/lib/admin-totp'
+import { recordAdminLoginFingerprintSafe } from '@/lib/admin-login-alert'
 
 function clearPendingCookie(res: NextResponse) {
   res.cookies.set(ADMIN_2FA_PENDING_COOKIE, '', {
@@ -103,6 +104,7 @@ export async function POST(request: Request) {
   }
 
   const token = await createAdminSessionToken(pendingActor)
+  await recordAdminLoginFingerprintSafe(request)
   await logAdminAction({
     action: 'login_2fa',
     success: true,

@@ -94,6 +94,8 @@ A belépések és a releváns műveletek az **`AdminAction`** audit táblába me
 
 Nagy CSV-export (≥100 sor), tömeges árváltoztatás (≥10 termék) és burst törlés (≥5 termék/user/kupon 10 perc alatt) **valós idejű** e-mailt küld az `ADMIN_EMAIL`-re. A művelet nem blokkolódik; ha az env hiányzik, csak audit/log.
 
+Új böngésző / eszköz vagy szokatlan ország (CDN geo header) **e-mailt** küld az `ADMIN_EMAIL`-re. Az első belépés a baseline (nincs riasztás), a belépés soha nem blokkolódik. A nyers ujjlenyomat-anyag nem kerül a DB-be, csak SHA-256 hash (a UI prefixet mutat).
+
 ---
 
 ## 7. Rate limit és brute force

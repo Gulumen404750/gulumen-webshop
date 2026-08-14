@@ -37,6 +37,10 @@ export default function AdminSecurityPolicy() {
           Rendelés-export és vásárlói adatok csak admin gépen maradnak. Nagy CSV / tömeges ár / burst törlés
           riasztást küld az <code>ADMIN_EMAIL</code>-re (nem blokkol).
         </li>
+        <li>
+          Új eszköz vagy szokatlan ország riasztást küld az <code>ADMIN_EMAIL</code>-re (első belépés
+          a baseline, nem blokkol).
+        </li>
       </ul>
     </section>
   )

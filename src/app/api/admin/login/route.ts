@@ -26,6 +26,7 @@ import { getClientIp } from '@/lib/request-ip'
 import { RECAPTCHA_ACTIONS, verifyRecaptchaToken } from '@/lib/recaptcha'
 import { resolveAdminLoginActor } from '@/lib/admin-operators'
 import type { AdminActor } from '@/lib/admin-rbac'
+import { recordAdminLoginFingerprintSafe } from '@/lib/admin-login-alert'
 
 /**
  * POST /api/admin/login
@@ -219,6 +220,7 @@ export async function POST(request: Request) {
 
   const pending = await createAdminPendingTwoFactorToken(actor)
   const requiresTwoFactor = twoFactor.isTwoFactorEnabled
+  await recordAdminLoginFingerprintSafe(request)
   await logAdminAction({
     action: 'login',
     success: true,

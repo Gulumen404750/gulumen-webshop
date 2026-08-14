@@ -66,6 +66,11 @@ vi.mock('@/lib/admin-csrf', () => ({
   getAdminCsrfCookieOptions: () => ({ path: '/', maxAge: 60, httpOnly: false, sameSite: 'strict' }),
 }))
 
+const recordAdminLoginFingerprintSafe = vi.fn()
+vi.mock('@/lib/admin-login-alert', () => ({
+  recordAdminLoginFingerprintSafe: (...args: unknown[]) => recordAdminLoginFingerprintSafe(...args),
+}))
+
 describe('POST /api/admin/2fa/verify-setup', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -77,6 +82,7 @@ describe('POST /api/admin/2fa/verify-setup', () => {
     logAdminAction.mockResolvedValue(undefined)
     verifyTotpCode.mockResolvedValue(true)
     createAdminSessionToken.mockResolvedValue('full-admin-jwt')
+    recordAdminLoginFingerprintSafe.mockResolvedValue(undefined)
   })
 
   it('first setup verifies the stored secret and enables 2FA', async () => {
@@ -99,6 +105,7 @@ describe('POST /api/admin/2fa/verify-setup', () => {
     const data = await res.json()
     expect(data.isTwoFactorEnabled).toBe(true)
     expect(createAdminSessionToken).not.toHaveBeenCalled()
+    expect(recordAdminLoginFingerprintSafe).not.toHaveBeenCalled()
   })
 
   it('issues a full admin session after first-time setup with a pending login token', async () => {
@@ -119,6 +126,7 @@ describe('POST /api/admin/2fa/verify-setup', () => {
     expect(res.status).toBe(200)
     expect(createAdminSessionToken).toHaveBeenCalled()
     expect(res.headers.get('set-cookie') || '').toContain('admin_authorized=')
+    expect(recordAdminLoginFingerprintSafe).toHaveBeenCalled()
   })
 
   it('re-enroll verifies the pending secret, not the still-active one', async () => {
@@ -139,6 +147,7 @@ describe('POST /api/admin/2fa/verify-setup', () => {
     expect(verifyTotpCode).toHaveBeenCalledWith('PENDINGSECRET', '654321')
     expect(verifyTotpCode).not.toHaveBeenCalledWith('ACTIVESECRET', expect.anything())
     expect(confirmAdminTotpSetup).toHaveBeenCalled()
+    expect(recordAdminLoginFingerprintSafe).not.toHaveBeenCalled()
   })
 
   it('rejects an invalid pending code without promoting the secret', async () => {
@@ -159,5 +168,6 @@ describe('POST /api/admin/2fa/verify-setup', () => {
     expect(res.status).toBe(401)
     expect(confirmAdminTotpSetup).not.toHaveBeenCalled()
     expect(createAdminSessionToken).not.toHaveBeenCalled()
+    expect(recordAdminLoginFingerprintSafe).not.toHaveBeenCalled()
   })
 })
