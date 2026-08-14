@@ -2,6 +2,8 @@
 
 Biztonsági audit alapján a következők kötelezőek éles környezetben.
 
+Irányelvek: [SECURITY.md](../SECURITY.md) (sebezhetőség-bejelentés) · [Admin biztonsági szabályzat](ADMIN-BIZTONSAGI-SZABALYZAT.md) (üzemeltetés).
+
 ## Kötelező env változók
 
 - **ADMIN_API_KEY** – Erős, véletlenszerű kulcs (pl. `openssl rand -hex 32`).  
@@ -13,6 +15,8 @@ Biztonsági audit alapján a következők kötelezőek éles környezetben.
 ## Ellenőrizendő
 
 - [ ] `ADMIN_API_KEY` generálva és a deploy környezetben beállítva (pl. Vercel / .env)
+- [ ] Admin 2FA (Google Authenticator) bekapcsolva élesben — [szabályzat](ADMIN-BIZTONSAGI-SZABALYZAT.md)
+- [ ] `ADMIN_ALLOWED_IPS` ki van töltve élesben (üres = minden IP)
 - [ ] `PAYMENTS_WEBHOOK_SECRET` beállítva a deploy környezetben
 - [ ] Nincs hardcode-olt titok a kódban (csak `process.env.*`)
 - [ ] Build ne bukjon env hiány miatt (a kritikus végpontok 503-at adnak, az alkalmazás elindul)

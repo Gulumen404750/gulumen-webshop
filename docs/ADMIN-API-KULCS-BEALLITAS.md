@@ -71,3 +71,5 @@ Másold ki a generált értéket – ezt írod be az **=` után** (helyi) vagy a
 | **Railway** | `ADMIN_API_KEY` | Variables → **Value** mező |
 
 A `.env` és `.env.local` ne kerüljön gitbe. Railway-n a Value csak a dashboardon látszik, ne írd be a kódba.
+
+Üzemeltetési szabályok (2FA, IP-lista, kulcscsere, incidens): [Admin biztonsági szabályzat](ADMIN-BIZTONSAGI-SZABALYZAT.md). Sebezhetőség-bejelentés: [SECURITY.md](../SECURITY.md).
