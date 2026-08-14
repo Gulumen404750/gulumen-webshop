@@ -477,6 +477,7 @@
     "authErrorOAuthAccountNotLinked": "Acest cont Google este deja legat de altă metodă de autentificare.",
     "authErrorAccessDenied": "Autentificarea Google a fost anulată sau nu este permisă.",
     "authErrorConfiguration": "Autentificarea Google este configurată incorect (chei OAuth sau URL callback).",
+    "authErrorAccountLocked": "Contul este blocat temporar după prea multe încercări eșuate. Încercați din nou în 15 minute.",
     "authErrorDefault": "Autentificarea Google a eșuat. Încercați din nou mai târziu.",
     "loyaltyTierBronze": "Bronz",
     "loyaltyTierSilver": "Argint",

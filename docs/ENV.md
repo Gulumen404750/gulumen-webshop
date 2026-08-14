@@ -85,7 +85,7 @@ DATABASE_URL="postgresql://user:password@host:5432/dbname?sslmode=require"
 - **Telegram:** Hívás összefoglaló értesítés a `/api/call-summary` után. Bot token + chat ID (ahova küldjük az üzenetet).
 
 ### ADMIN_EMAIL
-- **Értesítések:** Visszahívás kérés és hívás összefoglaló e-mail címzettje. Ha nincs, e-mail nem kerül kiküldésre (callback/call-summary).
+- **Értesítések:** Visszahívás kérés, hívás összefoglaló, **és gyanús belépés / fiókzárolás** e-mail címzettje. Ha nincs, e-mail nem kerül kiküldésre.
 
 ### CRON_SECRET (napi adatmegőrzési job)
 - **Cron:** A `GET /api/cron/data-retention` (Vercel Cron, napi 1×) ezt várja: `Authorization: Bearer <CRON_SECRET>`. Ha nincs vagy nem egyezik, 401.

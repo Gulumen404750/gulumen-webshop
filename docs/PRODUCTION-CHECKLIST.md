@@ -27,6 +27,7 @@ Biztonsági audit alapján a következők kötelezőek éles környezetben.
 - [ ] `OPENAI_API_KEY` – ha az AI chat asszisztens valódi válaszokat ad
 - [ ] `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` – kártyás fizetés
 - [ ] `RESEND_API_KEY` – hírlevél / e-mail küldés
+- [ ] `ADMIN_EMAIL` – gyanús belépés / fiókzárolás riasztás (+ callback e-mail)
 
 ## .env.example
 

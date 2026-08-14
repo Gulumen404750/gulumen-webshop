@@ -11,11 +11,23 @@ import {
   loginRateLimitRecordFailure,
   loginRateLimitRecordSuccess,
 } from '@/lib/login-rate-limit'
+import {
+  clearUserLockout,
+  getUserLockoutStatus,
+  recordUserLoginFailure,
+  tooManyLoginAttemptsResponse,
+} from '@/lib/account-lockout'
+import { getClientIp } from '@/lib/request-ip'
 
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
 })
+
+function tooManyResponse(opts?: { locked?: boolean; retryAfterSec?: number }) {
+  const payload = tooManyLoginAttemptsResponse(opts)
+  return NextResponse.json(payload.body, { status: payload.status, headers: payload.headers })
+}
 
 export async function POST(request: Request) {
   if (!isJwtConfigured()) {
@@ -32,10 +44,7 @@ export async function POST(request: Request) {
 
   const limit = await loginRateLimitCheck(request)
   if (!limit.ok) {
-    return NextResponse.json(
-      { error: 'Too many login attempts. Try again later.' },
-      { status: 429 }
-    )
+    return tooManyResponse()
   }
 
   let body: unknown
@@ -53,9 +62,17 @@ export async function POST(request: Request) {
   }
   const { email, password } = parsed.data
   const emailNorm = normalizeEmail(email)
+  const ip = getClientIp(request)
+  const userAgent = request.headers.get('user-agent')
 
   if (isDbConfigured()) {
     const user = await findUserByEmail(emailNorm)
+    if (user) {
+      const lock = getUserLockoutStatus(user)
+      if (lock.locked) {
+        return tooManyResponse({ locked: true, retryAfterSec: lock.retryAfterSec })
+      }
+    }
     if (!user) {
       await loginRateLimitRecordFailure(request)
       return NextResponse.json(
@@ -65,6 +82,15 @@ export async function POST(request: Request) {
     }
     if (!user.passwordHash) {
       await loginRateLimitRecordFailure(request)
+      const lock = await recordUserLoginFailure({
+        userId: user.id,
+        email: user.email,
+        ip,
+        userAgent,
+      })
+      if (lock.locked) {
+        return tooManyResponse({ locked: true, retryAfterSec: lock.retryAfterSec })
+      }
       return NextResponse.json(
         { error: 'Ehhez a fiókhoz Google-lel jelentkezz be.' },
         { status: 401 }
@@ -74,6 +100,15 @@ export async function POST(request: Request) {
     const ok = await bcrypt.compare(password, user.passwordHash)
     if (!ok) {
       await loginRateLimitRecordFailure(request)
+      const lock = await recordUserLoginFailure({
+        userId: user.id,
+        email: user.email,
+        ip,
+        userAgent,
+      })
+      if (lock.locked) {
+        return tooManyResponse({ locked: true, retryAfterSec: lock.retryAfterSec })
+      }
       return NextResponse.json(
         { error: 'Hibás e-mail vagy jelszó' },
         { status: 401 }
@@ -81,6 +116,7 @@ export async function POST(request: Request) {
     }
 
     await loginRateLimitRecordSuccess(request)
+    await clearUserLockout(user.id)
     const token = await createSession(user.id, user.email)
     const response = NextResponse.json({
       user: { id: user.id, email: user.email, name: user.name },

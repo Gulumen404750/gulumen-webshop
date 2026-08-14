@@ -17,6 +17,7 @@ import {
 } from '@/lib/bootstrap-auth-env'
 import { checkDbConnectivity } from '@/lib/prisma'
 import { findUserByEmail, normalizeEmail } from '@/lib/user-email'
+import { clearUserLockout, getUserLockoutStatus } from '@/lib/account-lockout'
 
 const AUTH_ERROR_BASE = '/profil'
 
@@ -163,6 +164,14 @@ function buildAuthOptions(): NextAuthOptions {
               if (!dbUser) throw createError
               isNewUser = false
             }
+          }
+          const lock = getUserLockoutStatus(dbUser)
+          if (lock.locked) {
+            logSignInError('account locked', ctx)
+            return authErrorRedirect('account_locked')
+          }
+          if (dbUser.failedLoginCount > 0 || dbUser.lockedUntil) {
+            await clearUserLockout(dbUser.id)
           }
           console.error('[auth] signIn callback success', {
             userId: dbUser.id,

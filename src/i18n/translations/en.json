@@ -492,6 +492,7 @@
     "authErrorOAuthAccountNotLinked": "This Google account is already linked to another sign-in method.",
     "authErrorAccessDenied": "Google sign-in was cancelled or not permitted.",
     "authErrorConfiguration": "Google sign-in is misconfigured (OAuth keys or callback URL).",
+    "authErrorAccountLocked": "This account is temporarily locked after too many failed sign-ins. Try again in 15 minutes.",
     "authErrorDefault": "Google sign-in failed. Please try again later.",
     "loyaltyTierBronze": "Bronze",
     "loyaltyTierSilver": "Silver",

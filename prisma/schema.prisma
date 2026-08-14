@@ -120,6 +120,14 @@ model User {
   birthDate DateTime?
   /// Melyik naptári évben küldtünk már születésnapi kupont (év / Europe/Budapest).
   birthdayCouponLastSentYear Int?
+  /// Sikertelen jelszavas belépések a jelenlegi zárolási ablakban.
+  failedLoginCount    Int       @default(0)
+  /// Aktív fiókzárolás vége (brute-force). null = nincs zár.
+  lockedUntil         DateTime?
+  lastFailedLoginAt   DateTime?
+  lastFailedLoginIp   String?
+  /// Utolsó lockout-riasztó e-mail ideje (ne spamelje az admint).
+  lockAlertSentAt     DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   orders    Order[]

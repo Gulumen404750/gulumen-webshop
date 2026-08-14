@@ -492,6 +492,7 @@
     "authErrorOAuthAccountNotLinked": "Dieses Google-Konto ist bereits mit einer anderen Anmeldemethode verknüpft.",
     "authErrorAccessDenied": "Google-Anmeldung abgebrochen oder nicht erlaubt.",
     "authErrorConfiguration": "Google-Anmeldung ist falsch konfiguriert (OAuth-Schlüssel oder Callback-URL).",
+    "authErrorAccountLocked": "Das Konto ist nach zu vielen fehlgeschlagenen Anmeldungen vorübergehend gesperrt. In 15 Minuten erneut versuchen.",
     "authErrorDefault": "Google-Anmeldung fehlgeschlagen. Bitte später erneut versuchen.",
     "loyaltyTierBronze": "Bronze",
     "loyaltyTierSilver": "Silber",

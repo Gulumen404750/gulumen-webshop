@@ -17,6 +17,11 @@ import {
 import { getAdminTwoFactorState } from '@/lib/admin-2fa'
 import { isDbConfigured } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
+import {
+  clearAdminLoginLockout,
+  getAdminLoginLockout,
+  recordAdminLoginFailure,
+} from '@/lib/admin-login-lockout'
 
 /**
  * POST /api/admin/login
@@ -56,7 +61,43 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => ({}))
   const key = typeof body?.key === 'string' ? body.key : ''
+
+  const existingLock = await getAdminLoginLockout(request)
+  if (existingLock.locked) {
+    await logAdminAction({
+      action: 'login',
+      success: false,
+      request,
+      details: { reason: 'locked', retryAfterSec: existingLock.retryAfterSec },
+    })
+    return NextResponse.json(
+      {
+        error: 'Túl sok hibás belépés. Próbáld újra 15 perc múlva.',
+        locked: true,
+        retryAfterSec: existingLock.retryAfterSec,
+      },
+      { status: 429, headers: { 'Retry-After': String(existingLock.retryAfterSec) } }
+    )
+  }
+
   if (!secureCompare(key, adminKey)) {
+    const lock = await recordAdminLoginFailure(request)
+    if (lock.locked) {
+      await logAdminAction({
+        action: 'login',
+        success: false,
+        request,
+        details: { reason: 'locked', retryAfterSec: lock.retryAfterSec },
+      })
+      return NextResponse.json(
+        {
+          error: 'Túl sok hibás belépés. Próbáld újra 15 perc múlva.',
+          locked: true,
+          retryAfterSec: lock.retryAfterSec,
+        },
+        { status: 429, headers: { 'Retry-After': String(lock.retryAfterSec) } }
+      )
+    }
     const limit = await rateLimit(request, { preset: 'adminLogin' })
     if (!limit.ok) {
       await logAdminAction({
@@ -78,6 +119,8 @@ export async function POST(request: Request) {
     })
     return NextResponse.json({ error: 'Hibás API kulcs.' }, { status: 401 })
   }
+
+  await clearAdminLoginLockout(request)
 
   let twoFactor: { isTwoFactorEnabled: boolean }
   try {
