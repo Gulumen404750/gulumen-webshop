@@ -79,4 +79,17 @@ describe('isAdminIpRestrictedPath', () => {
     expect(isAdminIpRestrictedPath('/api/products')).toBe(false)
     expect(isAdminIpRestrictedPath('/')).toBe(false)
   })
+
+  it('covers the hidden slug when ADMIN_URL_SLUG is set', () => {
+    const prev = process.env.ADMIN_URL_SLUG
+    process.env.ADMIN_URL_SLUG = 'desk-a1b2c3d4'
+    try {
+      expect(isAdminIpRestrictedPath('/desk-a1b2c3d4/login')).toBe(true)
+      expect(isAdminIpRestrictedPath('/api/desk-a1b2c3d4/orders')).toBe(true)
+      expect(isAdminIpRestrictedPath('/termekek')).toBe(false)
+    } finally {
+      if (prev === undefined) delete process.env.ADMIN_URL_SLUG
+      else process.env.ADMIN_URL_SLUG = prev
+    }
+  })
 })

@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { readAdminPublicBase } from '@/lib/admin-public-base'
+import { safeAdminReturnPath, slugFromPublicBase } from '@/lib/admin-url'
 
 export default function AdminLoginPage() {
   const [key, setKey] = useState('')
@@ -11,7 +13,7 @@ export default function AdminLoginPage() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const from = searchParams.get('from') || '/admin/dashboard'
+  const from = safeAdminReturnPath(searchParams.get('from'), slugFromPublicBase(readAdminPublicBase()))
 
   async function handleKeySubmit(e: React.FormEvent) {
     e.preventDefault()

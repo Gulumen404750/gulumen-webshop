@@ -69,7 +69,7 @@ export function formatCallbackRequestTelegram(payload: {
     `Tel: ${payload.phone}`,
     `Téma: ${payload.topic ?? '–'}`,
     `Idő: ${timeStr}`,
-    'Admin: /admin/dashboard/calls',
+    'Admin panel → Hívások',
   ]
   return lines.join('\n')
 }

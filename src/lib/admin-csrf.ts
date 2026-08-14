@@ -5,6 +5,7 @@
 
 import { ADMIN_SESSION_MAX_AGE_SEC } from '@/lib/admin-session-constants'
 import { ADMIN_CSRF_COOKIE, ADMIN_CSRF_HEADER } from '@/lib/admin-csrf-constants'
+import { classifyAdminPath, getAdminUrlSlug } from '@/lib/admin-url'
 
 export {
   ADMIN_CSRF_COOKIE,
@@ -45,12 +46,13 @@ export function isMutatingMethod(method: string): boolean {
   return MUTATING.has(method.toUpperCase())
 }
 
-export function isAdminApiPath(pathname: string): boolean {
-  return pathname.startsWith('/api/admin/')
+export function isAdminApiPath(pathname: string, slug: string | null = getAdminUrlSlug()): boolean {
+  return classifyAdminPath(pathname, slug).kind === 'api'
 }
 
-export function isAdminLoginApiPath(pathname: string): boolean {
-  return pathname === '/api/admin/login' || pathname === '/api/admin/2fa/verify-login'
+export function isAdminLoginApiPath(pathname: string, slug: string | null = getAdminUrlSlug()): boolean {
+  const match = classifyAdminPath(pathname, slug)
+  return match.kind === 'api' && match.isLogin
 }
 
 function hostFromUrl(value: string | null): string | null {

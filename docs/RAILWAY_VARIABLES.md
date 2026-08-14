@@ -50,6 +50,8 @@ Ezeket a változókat állítsd be a **Railway → Project → Variables** felü
 | UPSTASH_REDIS_REST_URL | Upstash Redis REST URL (elosztott rate limit + idempotency) |
 | UPSTASH_REDIS_REST_TOKEN | Upstash Redis REST token |
 | LOG_LEVEL | Pl. `info` vagy `debug` |
+| ADMIN_ALLOWED_IPS | Admin IP allowlist (vesszővel). Üresen: nincs IP-szűrés |
+| ADMIN_URL_SLUG | Rejtett admin útvonal (pl. `openssl rand -hex 8`). Belépés: `/{slug}/login`. Üresen: `/admin` |
 
 ### Railway Cron (külső / platform cron)
 
