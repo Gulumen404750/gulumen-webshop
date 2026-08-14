@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { prisma, isDbConfigured } from '@/lib/prisma'
+import { getAdminActor } from '@/lib/admin-auth'
+import { roleHasPermission } from '@/lib/admin-rbac'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,6 +23,7 @@ export default async function AdminDashboardPage() {
     usersCount,
     lowStockCount,
     topViewed,
+    actorRow,
   ] = await Promise.all([
     prisma.product.count(),
     prisma.order.count(),
@@ -48,15 +51,17 @@ export default async function AdminDashboardPage() {
         active: true,
       },
     }),
+    getAdminActor(),
   ])
 
+  const actor = actorRow
   const cards = [
-    { label: 'Termékek', value: productsCount, href: '/admin/dashboard/products' },
-    { label: 'Rendelések', value: ordersCount, href: '/admin/dashboard/orders' },
-    { label: 'Visszahívás függőben', value: pendingCallbacks, href: '/admin/dashboard/calls' },
-    { label: 'Mai hívások', value: todayCallsCount, href: '/admin/dashboard/calls' },
-    { label: 'Felhasználók', value: usersCount, href: '/admin/dashboard/users' },
-  ]
+    { label: 'Termékek', value: productsCount, href: '/admin/dashboard/products', permission: 'products:read' as const },
+    { label: 'Rendelések', value: ordersCount, href: '/admin/dashboard/orders', permission: 'orders:read' as const },
+    { label: 'Visszahívás függőben', value: pendingCallbacks, href: '/admin/dashboard/calls', permission: 'support:write' as const },
+    { label: 'Mai hívások', value: todayCallsCount, href: '/admin/dashboard/calls', permission: 'support:write' as const },
+    { label: 'Felhasználók', value: usersCount, href: '/admin/dashboard/users', permission: 'customers:pii' as const },
+  ].filter((c) => actor && roleHasPermission(actor.role, c.permission))
 
   return (
     <div className="space-y-8">

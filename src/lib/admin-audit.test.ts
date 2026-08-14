@@ -47,6 +47,9 @@ describe('logAdminAction', () => {
         details: JSON.stringify({ reason: 'invalid_key' }),
         ipAddress: '203.0.113.10',
         userAgent: 'Vitest',
+        actorId: null,
+        actorUsername: null,
+        actorRole: null,
       },
     })
   })

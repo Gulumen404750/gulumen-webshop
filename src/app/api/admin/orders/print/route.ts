@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma, isDbConfigured } from '@/lib/prisma'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireAdminPermission } from '@/lib/admin-auth'
 import { logAdminAction } from '@/lib/admin-audit'
 import { logger } from '@/lib/logger'
 
@@ -12,8 +12,8 @@ const MAX_BULK = 50
  * Tömeges címkenyomtatás jelölés → printedAt = now (idempotens, meglévő printedAt megmarad).
  */
 export async function POST(request: Request) {
-  const ok = await requireAdmin()
-  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireAdminPermission('orders:write')
+  if (!auth.ok) return auth.response
   if (!isDbConfigured()) {
     return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
   }

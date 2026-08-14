@@ -17,13 +17,14 @@ import {
   getAdminCsrfCookieOptions,
 } from '@/lib/admin-csrf'
 import { getAdminTwoFactorState } from '@/lib/admin-2fa'
+import { authenticateAdminOperator } from '@/lib/admin-operators'
 import { isDbConfigured } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 
 /**
  * POST /api/admin/login
- * Body: { key: string }. Ha a 2FA be van kapcsolva, csak ideiglenes pending tokent ad;
- * egyébként beállítja az aláírt admin JWT cookie-t.
+ * Body: { key, username, password }.
+ * A közös API kulcs csak kapu; a JWT sub/role az operátoré.
  */
 export async function POST(request: Request) {
   const adminKey = process.env.ADMIN_API_KEY
@@ -71,6 +72,33 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Hibás API kulcs.' }, { status: 401 })
   }
 
+  const operator = await authenticateAdminOperator(body?.username, body?.password)
+  if (!operator.ok) {
+    if (operator.reason === 'no_db') {
+      return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
+    }
+    const limit = await rateLimit(request, { preset: 'adminLogin' })
+    if (!limit.ok) {
+      return NextResponse.json(
+        { error: 'Túl sok hibás belépés. Próbáld újra 10 perc múlva.' },
+        { status: 429 }
+      )
+    }
+    await logAdminAction({
+      action: 'login',
+      success: false,
+      request,
+      details: { reason: operator.reason },
+    })
+    const message =
+      operator.reason === 'inactive'
+        ? 'Ez a fiók le van tiltva.'
+        : 'Hibás felhasználónév vagy jelszó. Az első belépéskor a megadott név lesz az owner fiók.'
+    return NextResponse.json({ error: message }, { status: 401 })
+  }
+
+  const actor = operator.actor
+
   let twoFactor: { isTwoFactorEnabled: boolean }
   try {
     twoFactor = await getAdminTwoFactorState()
@@ -80,6 +108,7 @@ export async function POST(request: Request) {
       action: 'login',
       success: false,
       request,
+      actor,
       details: { reason: 'two_factor_lookup_failed' },
     })
     return NextResponse.json({ error: 'Admin login unavailable' }, { status: 503 })
@@ -89,14 +118,20 @@ export async function POST(request: Request) {
     if (!isDbConfigured()) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
     }
-    const pending = await createAdminPendingTwoFactorToken()
+    const pending = await createAdminPendingTwoFactorToken(actor)
     await logAdminAction({
       action: 'login',
       success: true,
       request,
-      details: { step: 'pending_2fa' },
+      actor,
+      details: { step: 'pending_2fa', created: operator.created },
     })
-    const res = NextResponse.json({ ok: true, requiresTwoFactor: true })
+    const res = NextResponse.json({
+      ok: true,
+      requiresTwoFactor: true,
+      username: actor.username,
+      role: actor.role,
+    })
     res.cookies.set(
       ADMIN_2FA_PENDING_COOKIE,
       pending,
@@ -106,13 +141,20 @@ export async function POST(request: Request) {
     return res
   }
 
-  const token = await createAdminSessionToken()
+  const token = await createAdminSessionToken(actor)
   await logAdminAction({
     action: 'login',
     success: true,
     request,
+    actor,
+    details: { created: operator.created },
   })
-  const res = NextResponse.json({ ok: true, requiresTwoFactor: false })
+  const res = NextResponse.json({
+    ok: true,
+    requiresTwoFactor: false,
+    username: actor.username,
+    role: actor.role,
+  })
   res.cookies.set(ADMIN_COOKIE_NAME, token, getAdminCookieOptions())
   res.cookies.set(ADMIN_CSRF_COOKIE, generateCsrfToken(), getAdminCsrfCookieOptions())
   return res

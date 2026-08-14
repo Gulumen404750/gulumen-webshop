@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireAdminPermission } from '@/lib/admin-auth'
 import { slugifyProduct } from '@/lib/slug'
 import {
   sanitizeColorImages,
@@ -27,8 +27,8 @@ async function uniqueProductSlug(base: string): Promise<string> {
  * Query: search, category, active, type, lowStock. List products for admin.
  */
 export async function GET(request: Request) {
-  const ok = await requireAdmin()
-  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireAdminPermission('products:read')
+  if (!auth.ok) return auth.response
   if (!isDbConfigured()) return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
 
   const { searchParams } = new URL(request.url)
@@ -144,8 +144,8 @@ const createProductSchema = z.object({
  * POST /api/admin/products – új termék
  */
 export async function POST(request: Request) {
-  const ok = await requireAdmin()
-  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireAdminPermission('products:write')
+  if (!auth.ok) return auth.response
   if (!isDbConfigured()) return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
 
   let body: unknown

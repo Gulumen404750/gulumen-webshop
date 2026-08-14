@@ -25,6 +25,7 @@ export async function logAdminAction(params: {
   request?: Request
   ipAddress?: string
   userAgent?: string
+  actor?: { id: string; username: string; role: string } | null
 }): Promise<void> {
   const ipAddress =
     params.ipAddress ?? (params.request ? getClientIp(params.request) : undefined)
@@ -38,6 +39,9 @@ export async function logAdminAction(params: {
     details,
     ipAddress: ipAddress || null,
     userAgent: userAgent || null,
+    actorId: params.actor?.id ?? null,
+    actorUsername: params.actor?.username ?? null,
+    actorRole: params.actor?.role ?? null,
   }
 
   if (isDbConfigured()) {

@@ -9,6 +9,9 @@ const getAdminTwoFactorState = vi.fn()
 const isDbConfigured = vi.fn()
 const logAdminAction = vi.fn()
 const secureCompare = vi.fn()
+const authenticateAdminOperator = vi.fn()
+
+const OWNER = { id: 'op1', username: 'alice', role: 'owner' }
 
 vi.mock('@/lib/rate-limit', () => ({
   rateLimit: (...args: unknown[]) => rateLimit(...args),
@@ -19,8 +22,8 @@ vi.mock('@/lib/admin-session', () => ({
   ADMIN_2FA_PENDING_COOKIE: 'admin_2fa_pending',
   ADMIN_2FA_PENDING_MAX_AGE_SEC: 300,
   isAdminSessionConfigured: () => isAdminSessionConfigured(),
-  createAdminSessionToken: () => createAdminSessionToken(),
-  createAdminPendingTwoFactorToken: () => createAdminPendingTwoFactorToken(),
+  createAdminSessionToken: (...args: unknown[]) => createAdminSessionToken(...args),
+  createAdminPendingTwoFactorToken: (...args: unknown[]) => createAdminPendingTwoFactorToken(...args),
   getAdminCookieOptions: (maxAge?: number) => getAdminCookieOptions(maxAge),
 }))
 
@@ -32,6 +35,10 @@ vi.mock('@/lib/admin-csrf', () => ({
 
 vi.mock('@/lib/admin-2fa', () => ({
   getAdminTwoFactorState: () => getAdminTwoFactorState(),
+}))
+
+vi.mock('@/lib/admin-operators', () => ({
+  authenticateAdminOperator: (...args: unknown[]) => authenticateAdminOperator(...args),
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -50,6 +57,15 @@ vi.mock('@/lib/logger', () => ({
   logger: { error: vi.fn(), info: vi.fn(), debug: vi.fn() },
 }))
 
+function loginBody(extra: Record<string, string> = {}) {
+  return JSON.stringify({
+    key: 'test-admin-key',
+    username: 'alice',
+    password: 'longenough1',
+    ...extra,
+  })
+}
+
 describe('POST /api/admin/login 2FA gate', () => {
   const originalKey = process.env.ADMIN_API_KEY
 
@@ -63,6 +79,7 @@ describe('POST /api/admin/login 2FA gate', () => {
     logAdminAction.mockResolvedValue(undefined)
     createAdminSessionToken.mockResolvedValue('full-admin-jwt')
     createAdminPendingTwoFactorToken.mockResolvedValue('pending-2fa-jwt')
+    authenticateAdminOperator.mockResolvedValue({ ok: true, actor: OWNER, created: false })
   })
 
   afterEach(() => {
@@ -76,18 +93,38 @@ describe('POST /api/admin/login 2FA gate', () => {
       new Request('http://localhost/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'test-admin-key' }),
+        body: loginBody(),
       })
     )
     expect(res.status).toBe(200)
     const data = await res.json()
     expect(data.requiresTwoFactor).toBe(true)
+    expect(data.username).toBe('alice')
     expect(res.headers.get('set-cookie') || '').toContain('admin_2fa_pending=')
     expect(res.headers.get('set-cookie') || '').not.toContain('admin_authorized=')
     expect(createAdminSessionToken).not.toHaveBeenCalled()
+    expect(createAdminPendingTwoFactorToken).toHaveBeenCalledWith(OWNER)
   })
 
-  it('issues a full admin cookie when 2FA is off', async () => {
+  it('issues a full admin cookie bound to the operator when 2FA is off', async () => {
+    getAdminTwoFactorState.mockResolvedValue({ isTwoFactorEnabled: false, totpSecret: null })
+    const { POST } = await import('@/app/api/admin/login/route')
+    const res = await POST(
+      new Request('http://localhost/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: loginBody(),
+      })
+    )
+    const data = await res.json()
+    expect(data.requiresTwoFactor).toBe(false)
+    expect(data.role).toBe('owner')
+    expect(createAdminSessionToken).toHaveBeenCalledWith(OWNER)
+    expect(res.headers.get('set-cookie') || '').toContain('admin_authorized=')
+  })
+
+  it('rejects a valid API key without operator credentials', async () => {
+    authenticateAdminOperator.mockResolvedValue({ ok: false, reason: 'invalid' })
     getAdminTwoFactorState.mockResolvedValue({ isTwoFactorEnabled: false, totpSecret: null })
     const { POST } = await import('@/app/api/admin/login/route')
     const res = await POST(
@@ -97,9 +134,7 @@ describe('POST /api/admin/login 2FA gate', () => {
         body: JSON.stringify({ key: 'test-admin-key' }),
       })
     )
-    const data = await res.json()
-    expect(data.requiresTwoFactor).toBe(false)
-    expect(createAdminSessionToken).toHaveBeenCalled()
-    expect(res.headers.get('set-cookie') || '').toContain('admin_authorized=')
+    expect(res.status).toBe(401)
+    expect(createAdminSessionToken).not.toHaveBeenCalled()
   })
 })

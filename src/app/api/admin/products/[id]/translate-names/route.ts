@@ -4,7 +4,7 @@
  * Body: { overwriteExisting?: boolean } – ha false, csak az üres mezőket tölti ki.
  */
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireAdminPermission } from '@/lib/admin-auth'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions'
@@ -13,8 +13,8 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const ok = await requireAdmin()
-  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireAdminPermission('products:write')
+  if (!auth.ok) return auth.response
   if (!isDbConfigured()) return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
 
   const apiKey = process.env.OPENAI_API_KEY?.trim()

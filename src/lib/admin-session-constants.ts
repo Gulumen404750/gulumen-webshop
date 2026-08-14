@@ -8,3 +8,5 @@ export const ADMIN_2FA_PENDING_MAX_AGE_SEC = 5 * 60
 export const ADMIN_SESSION_VERSION_CLAIM = 'sv'
 export const ADMIN_2FA_PENDING_ROLE = 'admin-2fa-pending'
 export const ADMIN_RECORD_ID = 'admin'
+export const ADMIN_USERNAME_CLAIM = 'un'
+export const ADMIN_ACTOR_ROLE_CLAIM = 'ar'

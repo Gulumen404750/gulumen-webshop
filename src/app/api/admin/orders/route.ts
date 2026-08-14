@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server'
 import { prisma, isDbConfigured } from '@/lib/prisma'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireAdminPermission } from '@/lib/admin-auth'
+import { roleHasPermission } from '@/lib/admin-rbac'
 
 /**
  * GET /api/admin/orders
  * Query: status, limit. List orders for admin.
  */
 export async function GET(request: Request) {
-  const ok = await requireAdmin()
-  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireAdminPermission('orders:read')
+  if (!auth.ok) return auth.response
   if (!isDbConfigured()) return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
 
   const { searchParams } = new URL(request.url)
@@ -25,6 +26,8 @@ export async function GET(request: Request) {
     include: { items: true },
   })
 
+  const canSeePii = roleHasPermission(auth.actor.role, 'customers:pii')
+
   return NextResponse.json({
     orders: orders.map((o) => ({
       id: o.id,
@@ -36,14 +39,14 @@ export async function GET(request: Request) {
       totalHuf: o.totalHuf,
       currency: o.currency,
       createdAt: o.createdAt.toISOString(),
-      customerEmail: o.customerEmail,
-      customerName: o.customerName,
-      customerPhone: o.customerPhone,
-      shippingPostalCode: o.shippingPostalCode,
-      shippingCity: o.shippingCity,
-      shippingStreet: o.shippingStreet,
-      shippingHouseNumber: o.shippingHouseNumber,
-      deliveryNotes: o.deliveryNotes,
+      customerEmail: canSeePii ? o.customerEmail : null,
+      customerName: canSeePii ? o.customerName : null,
+      customerPhone: canSeePii ? o.customerPhone : null,
+      shippingPostalCode: canSeePii ? o.shippingPostalCode : null,
+      shippingCity: canSeePii ? o.shippingCity : null,
+      shippingStreet: canSeePii ? o.shippingStreet : null,
+      shippingHouseNumber: canSeePii ? o.shippingHouseNumber : null,
+      deliveryNotes: canSeePii ? o.deliveryNotes : null,
       addressType: o.addressType,
       paidAt: o.paidAt?.toISOString(),
       printedAt: o.printedAt?.toISOString() ?? null,

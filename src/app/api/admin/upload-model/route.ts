@@ -4,7 +4,7 @@
  * Saves to public/models/. Returns { success: true, url: '/models/...' }.
  */
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireAdminPermission } from '@/lib/admin-auth'
 import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
 import { logAdminAction } from '@/lib/admin-audit'
@@ -16,13 +16,8 @@ const MIME_GLB = 'model/gltf-binary'
 const MIME_GLTF = 'model/gltf+json'
 
 export async function POST(request: Request) {
-  const ok = await requireAdmin()
-  if (!ok) {
-    return NextResponse.json(
-      { error: 'Nincs admin jogosultság. Jelentkezz be az Admin belépés oldalon (API kulcs).' },
-      { status: 401 }
-    )
-  }
+  const auth = await requireAdminPermission('uploads:write')
+  if (!auth.ok) return auth.response
 
   let formData: FormData
   try {

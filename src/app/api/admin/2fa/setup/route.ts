@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireAdminPermission } from '@/lib/admin-auth'
 import { isDbConfigured } from '@/lib/prisma'
 import { logAdminAction } from '@/lib/admin-audit'
 import {
@@ -14,8 +14,8 @@ import { saveAdminTotpSetup } from '@/lib/admin-2fa'
  * Új TOTP secret + QR. isTwoFactorEnabled false marad, amíg a kód meg nincs erősítve.
  */
 export async function POST(request: Request) {
-  const ok = await requireAdmin()
-  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireAdminPermission('settings:write')
+  if (!auth.ok) return auth.response
   if (!isDbConfigured()) {
     return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
   }
