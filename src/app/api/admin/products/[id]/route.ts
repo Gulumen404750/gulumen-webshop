@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireAdminPermission } from '@/lib/admin-auth'
 import { slugifyProduct } from '@/lib/slug'
 import {
   sanitizeColorImages,
@@ -89,8 +89,8 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const ok = await requireAdmin()
-  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireAdminPermission('products:read')
+  if (!auth.ok) return auth.response
   if (!isDbConfigured()) return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
 
   const { id } = await params
@@ -103,8 +103,8 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const ok = await requireAdmin()
-  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireAdminPermission('products:write')
+  if (!auth.ok) return auth.response
   if (!isDbConfigured()) return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
 
   const { id } = await params
@@ -198,8 +198,8 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const ok = await requireAdmin()
-  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireAdminPermission('products:write')
+  if (!auth.ok) return auth.response
   if (!isDbConfigured()) return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
 
   const { id } = await params

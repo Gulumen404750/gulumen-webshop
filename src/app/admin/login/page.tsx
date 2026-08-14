@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 
 export default function AdminLoginPage() {
   const [key, setKey] = useState('')
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
   const [totpCode, setTotpCode] = useState('')
   const [step, setStep] = useState<'key' | 'totp'>('key')
   const [error, setError] = useState('')
@@ -21,7 +23,7 @@ export default function AdminLoginPage() {
       const res = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key }),
+        body: JSON.stringify({ key, username, password }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -76,7 +78,7 @@ export default function AdminLoginPage() {
         <form onSubmit={handleKeySubmit} className="w-full max-w-sm space-y-4">
           <h1 className="text-xl font-semibold text-foreground">Admin belépés</h1>
           <p className="text-sm text-muted">
-            Először az API kulcsot add meg. A 2FA bekapcsolása után a következő képernyőn jön a Google Authenticator 6 jegyű kódja.
+            API kulcs + saját felhasználónév és jelszó. Az első belépés létrehozza az owner fiókot. A 2FA bekapcsolása után Authenticator-kód is kell.
           </p>
           <div>
             <label htmlFor="admin-key" className="block text-sm font-medium text-foreground mb-1">
@@ -90,6 +92,32 @@ export default function AdminLoginPage() {
               className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
               placeholder="ADMIN_API_KEY"
               autoComplete="off"
+            />
+          </div>
+          <div>
+            <label htmlFor="admin-username" className="block text-sm font-medium text-foreground mb-1">
+              Felhasználónév
+            </label>
+            <input
+              id="admin-username"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
+              autoComplete="username"
+            />
+          </div>
+          <div>
+            <label htmlFor="admin-password" className="block text-sm font-medium text-foreground mb-1">
+              Jelszó
+            </label>
+            <input
+              id="admin-password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
+              autoComplete="current-password"
             />
           </div>
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}

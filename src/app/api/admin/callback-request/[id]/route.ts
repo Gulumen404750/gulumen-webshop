@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { isDbConfigured } from '@/lib/prisma'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireAdminPermission } from '@/lib/admin-auth'
 
 /**
  * PATCH /api/admin/callback-request/:id
@@ -12,9 +12,8 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!(await requireAdmin())) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const auth = await requireAdminPermission('support:write')
+  if (!auth.ok) return auth.response
   if (!isDbConfigured()) {
     return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
   }

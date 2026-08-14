@@ -1,22 +1,24 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import '@/lib/admin-fetch'
 import { AdminLogoutButton } from '@/components/admin/AdminLogoutButton'
+import { type AdminPermission, roleHasPermission, type AdminRole } from '@/lib/admin-rbac'
 
-const nav = [
-  { href: '/admin/dashboard', label: 'Áttekintés' },
-  { href: '/admin/dashboard/products', label: 'Termékek' },
-  { href: '/admin/dashboard/orders', label: 'Rendelések' },
-  { href: '/admin/dashboard/coupons', label: 'Kuponok' },
-  { href: '/admin/dashboard/abandoned-carts', label: 'Elhagyott kosarak' },
-  { href: '/admin/dashboard/gamification', label: 'Gamification' },
-  { href: '/admin/dashboard/users', label: 'Felhasználók' },
-  { href: '/admin/dashboard/chat', label: 'Chat / AI' },
-  { href: '/admin/dashboard/calls', label: 'Hívások' },
-  { href: '/admin/dashboard/deal-popup', label: 'Akciós popup' },
-  { href: '/admin/dashboard/settings', label: 'Beállítások' },
+const nav: Array<{ href: string; label: string; permission: AdminPermission }> = [
+  { href: '/admin/dashboard', label: 'Áttekintés', permission: 'dashboard:read' },
+  { href: '/admin/dashboard/products', label: 'Termékek', permission: 'products:read' },
+  { href: '/admin/dashboard/orders', label: 'Rendelések', permission: 'orders:read' },
+  { href: '/admin/dashboard/coupons', label: 'Kuponok', permission: 'coupons:write' },
+  { href: '/admin/dashboard/abandoned-carts', label: 'Elhagyott kosarak', permission: 'customers:pii' },
+  { href: '/admin/dashboard/gamification', label: 'Gamification', permission: 'coupons:write' },
+  { href: '/admin/dashboard/users', label: 'Felhasználók', permission: 'customers:pii' },
+  { href: '/admin/dashboard/chat', label: 'Chat / AI', permission: 'support:write' },
+  { href: '/admin/dashboard/calls', label: 'Hívások', permission: 'support:write' },
+  { href: '/admin/dashboard/deal-popup', label: 'Akciós popup', permission: 'settings:write' },
+  { href: '/admin/dashboard/settings', label: 'Beállítások', permission: 'settings:write' },
 ]
 
 export default function AdminLayout({
@@ -26,10 +28,25 @@ export default function AdminLayout({
 }) {
   const pathname = usePathname()
   const isLogin = pathname === '/admin/login'
+  const [role, setRole] = useState<AdminRole | null>(null)
+  const [username, setUsername] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (isLogin) return
+    void fetch('/api/admin/me', { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.role) setRole(data.role)
+        if (data?.username) setUsername(data.username)
+      })
+      .catch(() => {})
+  }, [isLogin])
 
   if (isLogin) {
     return <>{children}</>
   }
+
+  const visibleNav = nav.filter((item) => !role || roleHasPermission(role, item.permission))
 
   return (
     <div className="min-h-screen flex bg-[var(--card-bg)]">
@@ -38,9 +55,14 @@ export default function AdminLayout({
           <Link href="/admin/dashboard" className="font-heading font-bold text-lg text-white">
             Gulumen Admin
           </Link>
+          {username && (
+            <p className="text-xs text-gray-400 mt-1">
+              {username} · {role}
+            </p>
+          )}
         </div>
         <nav className="flex-1 p-2 space-y-0.5">
-          {nav.map((item) => {
+          {visibleNav.map((item) => {
             const active = pathname === item.href || (item.href !== '/admin/dashboard' && pathname.startsWith(item.href))
             return (
               <Link

@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const requireAdmin = vi.fn()
+const requireAdminPermission = vi.fn()
 const isDbConfigured = vi.fn()
 const updateMany = vi.fn()
 const logAdminAction = vi.fn()
 
 vi.mock('@/lib/admin-auth', () => ({
-  requireAdmin: () => requireAdmin(),
+  requireAdminPermission: (...args: unknown[]) => requireAdminPermission(...args),
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -29,7 +29,10 @@ vi.mock('@/lib/logger', () => ({
 describe('POST /api/admin/orders/print', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    requireAdmin.mockResolvedValue(true)
+    requireAdminPermission.mockResolvedValue({
+      ok: true,
+      actor: { id: 'op1', username: 'ops', role: 'ops' },
+    })
     isDbConfigured.mockReturnValue(true)
     updateMany.mockResolvedValue({ count: 2 })
     logAdminAction.mockResolvedValue(undefined)
@@ -70,7 +73,10 @@ describe('POST /api/admin/orders/print', () => {
   })
 
   it('returns 401 when not admin', async () => {
-    requireAdmin.mockResolvedValue(false)
+    requireAdminPermission.mockResolvedValue({
+      ok: false,
+      response: new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }),
+    })
     const { POST } = await import('./route')
     const res = await POST(
       new Request('http://localhost/api/admin/orders/print', {

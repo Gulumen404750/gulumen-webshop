@@ -3,7 +3,7 @@
  * Admin: popup konfig + az összes akciós (eligible) termék a kiválasztóhoz.
  */
 import { NextResponse } from 'next/server'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireAdminPermission } from '@/lib/admin-auth'
 import { isDbConfigured } from '@/lib/prisma'
 import { getAllProductsAsync } from '@/lib/data'
 import {
@@ -17,8 +17,8 @@ import {
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const ok = await requireAdmin()
-  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireAdminPermission('settings:write')
+  if (!auth.ok) return auth.response
 
   if (!isDbConfigured()) {
     const allProducts = await getAllProductsAsync()
@@ -56,8 +56,8 @@ const configSchema = {
 
 /** PATCH /api/admin/settings/deal-popup – popup beállítás mentése. */
 export async function PATCH(request: Request) {
-  const ok = await requireAdmin()
-  if (!ok) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireAdminPermission('settings:write')
+  if (!auth.ok) return auth.response
   if (!isDbConfigured()) return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
 
   let body: unknown

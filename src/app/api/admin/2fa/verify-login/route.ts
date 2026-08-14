@@ -7,7 +7,7 @@ import {
   createAdminSessionToken,
   getAdminCookieOptions,
   isAdminSessionConfigured,
-  verifyAdminPendingTwoFactorToken,
+  parseAdminPendingTwoFactorToken,
 } from '@/lib/admin-session'
 import {
   ADMIN_CSRF_COOKIE,
@@ -64,8 +64,8 @@ export async function POST(request: Request) {
   const pendingFromBody = typeof body?.pendingToken === 'string' ? body.pendingToken : ''
   const pendingToken = pendingFromCookie || pendingFromBody
 
-  const pendingOk = await verifyAdminPendingTwoFactorToken(pendingToken)
-  if (!pendingOk) {
+  const pendingActor = await parseAdminPendingTwoFactorToken(pendingToken)
+  if (!pendingActor) {
     await logAdminAction({
       action: 'login_2fa',
       success: false,
@@ -102,11 +102,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Érvénytelen hitelesítő kód.' }, { status: 401 })
   }
 
-  const token = await createAdminSessionToken()
+  const token = await createAdminSessionToken(pendingActor)
   await logAdminAction({
     action: 'login_2fa',
     success: true,
     request,
+    actor: pendingActor,
   })
 
   const res = NextResponse.json({ ok: true })

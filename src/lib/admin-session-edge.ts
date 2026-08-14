@@ -8,8 +8,10 @@ import {
   JWT_ISSUER,
   JWT_AUDIENCE,
   ADMIN_SESSION_VERSION_CLAIM,
+  ADMIN_USERNAME_CLAIM,
 } from '@/lib/admin-session-constants'
 import { getAdminSessionVersion } from '@/lib/admin-session-version'
+import { isAdminRole } from '@/lib/admin-rbac'
 
 export { ADMIN_COOKIE_NAME }
 
@@ -28,7 +30,10 @@ export async function verifyAdminSessionToken(token: string | undefined | null):
       issuer: JWT_ISSUER,
       audience: JWT_AUDIENCE,
     })
-    if (payload.sub !== 'admin') return false
+    const sub = typeof payload.sub === 'string' ? payload.sub.trim() : ''
+    const username =
+      typeof payload[ADMIN_USERNAME_CLAIM] === 'string' ? payload[ADMIN_USERNAME_CLAIM].trim() : ''
+    if (!sub || !username || !isAdminRole(payload.role)) return false
     const expected = await getAdminSessionVersion()
     return payload[ADMIN_SESSION_VERSION_CLAIM] === expected
   } catch {

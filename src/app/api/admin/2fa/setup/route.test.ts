@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const requireAdmin = vi.fn()
+const requireAdminPermission = vi.fn()
 const isDbConfigured = vi.fn()
 const saveAdminTotpSetup = vi.fn()
 const logAdminAction = vi.fn()
@@ -9,7 +9,7 @@ const buildTotpAuthUrl = vi.fn()
 const totpQrDataUrl = vi.fn()
 
 vi.mock('@/lib/admin-auth', () => ({
-  requireAdmin: () => requireAdmin(),
+  requireAdminPermission: (...args: unknown[]) => requireAdminPermission(...args),
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -33,7 +33,10 @@ vi.mock('@/lib/admin-totp', () => ({
 describe('POST /api/admin/2fa/setup', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    requireAdmin.mockResolvedValue(true)
+    requireAdminPermission.mockResolvedValue({
+      ok: true,
+      actor: { id: 'op1', username: 'alice', role: 'owner' },
+    })
     isDbConfigured.mockReturnValue(true)
     generateTotpSecret.mockReturnValue('JBSWY3DPEHPK3PXP')
     buildTotpAuthUrl.mockReturnValue('otpauth://totp/Gulumen:admin?secret=JBSWY3DPEHPK3PXP')
@@ -54,7 +57,10 @@ describe('POST /api/admin/2fa/setup', () => {
   })
 
   it('returns 401 when not admin', async () => {
-    requireAdmin.mockResolvedValue(false)
+    requireAdminPermission.mockResolvedValue({
+      ok: false,
+      response: new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }),
+    })
     const { POST } = await import('@/app/api/admin/2fa/setup/route')
     const res = await POST(new Request('http://localhost/api/admin/2fa/setup', { method: 'POST' }))
     expect(res.status).toBe(401)

@@ -14,6 +14,8 @@ const ORIGINAL_ENV = {
 }
 
 describe('admin session version', () => {
+  const OWNER = { id: 'op1', username: 'owner', role: 'owner' as const }
+
   afterEach(() => {
     process.env.JWT_SECRET = ORIGINAL_ENV.JWT_SECRET
     process.env.NEXTAUTH_SECRET = ORIGINAL_ENV.NEXTAUTH_SECRET
@@ -47,7 +49,7 @@ describe('admin session version', () => {
   it('invalidates cookies after ADMIN_API_KEY rotation', async () => {
     process.env.JWT_SECRET = 'jwt-secret-at-least-16-chars'
     process.env.ADMIN_API_KEY = 'original-admin-key'
-    const token = await createAdminSessionToken()
+    const token = await createAdminSessionToken(OWNER)
     expect(await verifyAdminSessionToken(token)).toBe(true)
 
     process.env.ADMIN_API_KEY = 'rotated-admin-key'
@@ -57,7 +59,7 @@ describe('admin session version', () => {
   it('invalidates cookies after JWT_SECRET rotation', async () => {
     process.env.JWT_SECRET = 'jwt-secret-at-least-16-chars'
     process.env.ADMIN_API_KEY = 'admin-key'
-    const token = await createAdminSessionToken()
+    const token = await createAdminSessionToken(OWNER)
     expect(await verifyAdminSessionToken(token)).toBe(true)
 
     process.env.JWT_SECRET = 'rotated-jwt-secret-16+'
@@ -67,8 +69,30 @@ describe('admin session version', () => {
   it('does not treat a pending 2FA token as a full admin session', async () => {
     process.env.JWT_SECRET = 'jwt-secret-at-least-16-chars'
     process.env.ADMIN_API_KEY = 'admin-key'
-    const pending = await createAdminPendingTwoFactorToken()
+    const pending = await createAdminPendingTwoFactorToken(OWNER)
     expect(await verifyAdminPendingTwoFactorToken(pending)).toBe(true)
     expect(await verifyAdminSessionToken(pending)).toBe(false)
+  })
+
+  it('rejects legacy shared admin JWTs without an operator identity', async () => {
+    process.env.JWT_SECRET = 'jwt-secret-at-least-16-chars'
+    process.env.ADMIN_API_KEY = 'admin-key'
+    const { SignJWT } = await import('jose')
+    const { getAdminSessionVersion } = await import('./admin-session-version')
+    const { JWT_ISSUER, JWT_AUDIENCE, ADMIN_SESSION_VERSION_CLAIM } = await import(
+      './admin-session-constants'
+    )
+    const now = Math.floor(Date.now() / 1000)
+    const sv = await getAdminSessionVersion()
+    const token = await new SignJWT({ role: 'admin', [ADMIN_SESSION_VERSION_CLAIM]: sv })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setSubject('admin')
+      .setIssuer(JWT_ISSUER)
+      .setAudience(JWT_AUDIENCE)
+      .setIssuedAt(now)
+      .setExpirationTime(now + 60)
+      .sign(new TextEncoder().encode(process.env.JWT_SECRET))
+    expect(await verifyAdminSessionToken(token)).toBe(false)
+    expect(await verifyAdminSessionToken(await createAdminSessionToken(OWNER))).toBe(true)
   })
 })
