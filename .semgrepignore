@@ -1,0 +1,9 @@
+# Semgrep skip list (OSS scan). node_modules is ignored by default; keep build/test output out.
+.next/
+coverage/
+playwright-report/
+test-results/
+out/
+dist/
+*.min.js
+public/uploads/

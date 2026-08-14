@@ -1,0 +1,65 @@
+# Semgrep OSS SAST — a repóban nincs GitHub Advanced Security / CodeQL.
+# Az npm audit a ci.yml-ben marad (mellé, nem helyette).
+# ERROR (high/critical jellegű) pirosan fail; WARNING/INFO külön job, continue-on-error.
+
+name: Semgrep SAST
+
+on:
+  pull_request:
+  push:
+
+concurrency:
+  group: semgrep-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  semgrep-high:
+    name: Semgrep ERROR (high / critical)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan ERROR findings
+        run: |
+          set +e
+          semgrep scan \
+            --config auto \
+            --severity ERROR \
+            --error \
+            --metrics=off \
+            --text
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "::error::Semgrep ERROR findings (high/critical). See the scan output above."
+          fi
+          exit "$status"
+
+  semgrep-info:
+    name: Semgrep WARNING / INFO (non-blocking)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan WARNING and INFO
+        run: |
+          set +e
+          semgrep scan \
+            --config auto \
+            --severity WARNING \
+            --severity INFO \
+            --error \
+            --metrics=off \
+            --text
+          status=$?
+          echo "::notice::WARNING/INFO is non-blocking (job continue-on-error). ERROR findings fail the high/critical job."
+          exit "$status"
