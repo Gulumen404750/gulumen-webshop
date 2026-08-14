@@ -12,6 +12,11 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+## Security
+
+- **Vulnerability reports:** [SECURITY.md](SECURITY.md) (private GitHub advisory or `info@gulumen.hu` — not public issues).
+- **Admin operator rules:** [docs/ADMIN-BIZTONSAGI-SZABALYZAT.md](docs/ADMIN-BIZTONSAGI-SZABALYZAT.md) (API key, 2FA, IP allowlist, secret rotation).
+
 ## Git & deploy branch
 
 - **Fejlesztési branch:** `master` (ez az alapértelmezett; nincs külön `main` deploy ág).
