@@ -6,6 +6,11 @@ export default function AdminSettingsPage() {
     { key: 'DATABASE_URL', label: 'Adatbázis', value: process.env.DATABASE_URL ? '✓ beállítva' : '– nincs' },
     { key: 'STRIPE_SECRET_KEY', label: 'Stripe', value: process.env.STRIPE_SECRET_KEY ? '✓ beállítva' : '– nincs' },
     { key: 'ADMIN_API_KEY', label: 'Admin kulcs', value: process.env.ADMIN_API_KEY ? '✓ beállítva' : '– nincs' },
+    {
+      key: 'ADMIN_ALLOWED_IPS',
+      label: 'Admin IP szűrő',
+      value: process.env.ADMIN_ALLOWED_IPS?.trim() ? '✓ beállítva' : '– nincs',
+    },
     { key: 'NEXT_PUBLIC_APP_URL', label: 'App URL', value: process.env.NEXT_PUBLIC_APP_URL || '–' },
   ]
 

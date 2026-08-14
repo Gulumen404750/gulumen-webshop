@@ -21,9 +21,36 @@ describe('admin middleware IP + CSRF', () => {
     setEnv('ADMIN_API_KEY', ORIGINAL_ENV.ADMIN_API_KEY)
   })
 
-  it('allows /admin/login in production when ADMIN_ALLOWED_IPS is empty', async () => {
+  it('blocks /admin/login in production when ADMIN_ALLOWED_IPS is empty', async () => {
     setEnv('NODE_ENV', 'production')
     setEnv('ADMIN_ALLOWED_IPS', undefined)
+    const { middleware } = await import('@/middleware')
+    const req = new NextRequest('https://www.gulumen.com/admin/login', {
+      headers: { 'x-forwarded-for': '203.0.113.10' },
+    })
+    const res = await middleware(req)
+    expect(res.status).toBe(403)
+  })
+
+  it('blocks /api/admin/login from an IP outside the allowlist', async () => {
+    setEnv('NODE_ENV', 'production')
+    setEnv('ADMIN_ALLOWED_IPS', '203.0.113.10')
+    const { middleware } = await import('@/middleware')
+    const req = new NextRequest('https://www.gulumen.com/api/admin/login', {
+      method: 'POST',
+      headers: {
+        'x-forwarded-for': '198.51.100.1',
+        origin: 'https://www.gulumen.com',
+        host: 'www.gulumen.com',
+      },
+    })
+    const res = await middleware(req)
+    expect(res.status).toBe(403)
+  })
+
+  it('allows /admin/login from a listed IP in production', async () => {
+    setEnv('NODE_ENV', 'production')
+    setEnv('ADMIN_ALLOWED_IPS', '203.0.113.10,10.0.0.0/8')
     const { middleware } = await import('@/middleware')
     const req = new NextRequest('https://www.gulumen.com/admin/login', {
       headers: { 'x-forwarded-for': '203.0.113.10' },

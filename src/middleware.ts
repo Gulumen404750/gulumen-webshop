@@ -32,7 +32,7 @@ function forbidden(message: string): NextResponse {
 /**
  * Security middleware – minden route-on fut.
  * /admin/* (kivéve /admin/login) védve: aláírt admin JWT cookie.
- * /admin és /api/admin/*: IP whitelist + (mutáló API) CSRF.
+ * /admin és /api/admin/*: IP whitelist (productionben kötelező) + (mutáló API) CSRF.
  */
 export async function middleware(request: NextRequest) {
   const host = request.nextUrl.hostname
@@ -50,7 +50,9 @@ export async function middleware(request: NextRequest) {
     if (ipDecision.reason === 'unconfigured' && !warnedMissingAllowlist) {
       warnedMissingAllowlist = true
       console.warn(
-        '[admin] ADMIN_ALLOWED_IPS is empty; allowing all IPs. Set a comma-separated allowlist to restrict admin access.'
+        ipDecision.ok
+          ? '[admin] ADMIN_ALLOWED_IPS is empty; allowing all IPs outside production. Set office/VPN CIDRs to restrict /admin.'
+          : '[admin] ADMIN_ALLOWED_IPS is empty in production; blocking all admin IPs. Set office/VPN addresses or CIDRs.'
       )
     }
     if (!ipDecision.ok) {

@@ -12,6 +12,7 @@ Ezeket a változókat állítsd be a **Railway → Project → Variables** felü
 | **DATABASE_URL** | Postgres connection string. Pl. Railway Postgres: `postgresql://user:pass@host:5432/railway?sslmode=require` |
 | **JWT_SECRET** | Legalább 16 karakter. Pl. generálás: `openssl rand -hex 32` |
 | **ADMIN_API_KEY** | **Név (Railway Name):** `ADMIN_API_KEY` – ne töröld. **Érték (Value – hova írod):** a generált titkos kulcs (pl. `openssl rand -hex 32`). Részletesen: [Admin API kulcs beállítása](ADMIN-API-KULCS-BEALLITAS.md) |
+| **ADMIN_ALLOWED_IPS** | Irodai / VPN kimenő IPv4 (vagy CIDR), vesszővel. Productionben üresen a `/admin` 403. Példa: `203.0.113.10,10.8.0.0/24` |
 | **NEXT_PUBLIC_APP_URL** | Az alkalmazás publikus URL-je. Pl. `https://www.gulumen.com` |
 | **NEXTAUTH_SECRET** | NextAuth JWT titok. Ha nincs megadva, a kód **JWT_SECRET** vagy **ADMIN_API_KEY** értékét használja fallbackként. Élesben érdemes külön generálni: `openssl rand -base64 32` |
 | **NEXTAUTH_URL** | Pl. `https://www.gulumen.com`. Ha nincs megadva, **NEXT_PUBLIC_APP_URL** lesz használva. |
@@ -74,8 +75,9 @@ A **PORT**-ot ne állítsd be kézzel – a Railway automatikusan beállítja. A
 1. **DATABASE_URL** – Postgres URL (Railway Postgres vagy külső)
 2. **JWT_SECRET** – legalább 16 karakter
 3. **ADMIN_API_KEY** – admin belépéshez
-4. **NEXT_PUBLIC_APP_URL** – pl. `https://www.gulumen.com`
-5. **NODE_ENV** – `production` (ha Railway nem állítja)
+4. **ADMIN_ALLOWED_IPS** – irodai / VPN IP, különben `/admin` 403
+5. **NEXT_PUBLIC_APP_URL** – pl. `https://www.gulumen.com`
+6. **NODE_ENV** – `production` (ha Railway nem állítja)
 
 Ha ezek megvannak, az alkalmazás el tud indulni. Stripe, email, AI stb. opcionális; hiányuk nem akadályozza meg az indulást.
 
