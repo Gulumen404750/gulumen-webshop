@@ -556,6 +556,16 @@
     "noResultsHintWithQuery": "Nincs találat a(z) „{query}” keresésre. Próbálj másik szót, vagy nézd meg a javasolt kategóriákat.",
     "suggestedCategories": "Javasolt kategóriák"
   },
+  "themeChooser": {
+    "title": "Hogyan szeretnéd böngészni?",
+    "subtitle": "Válaszd ki a számodra kényelmes nézetet. Később a fejlécben bármikor válthatsz.",
+    "light": "Világos mód",
+    "lightHint": "Világos háttér, nappali böngészéshez.",
+    "dark": "Sötét mód",
+    "darkHint": "Sötét háttér, kíméli a szemet.",
+    "system": "Automatikus",
+    "systemHint": "A készüléked beállítását követi."
+  },
   "common": {
     "language": "Nyelv",
     "lang_hu": "Magyar",
@@ -569,6 +579,7 @@
     "profile": "Profil",
     "darkMode": "Sötét mód",
     "lightMode": "Világos mód",
+    "systemMode": "Automatikus",
     "noResults": "Nincs ilyen szűrésű termék.",
     "sortNewest": "Legújabb",
     "sortPriceAsc": "Ár: növekvő",

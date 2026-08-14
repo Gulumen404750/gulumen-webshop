@@ -556,6 +556,16 @@
     "addFullBundle": "Gesamtes Paket in den Warenkorb",
     "bundleAdded": "Das gesamte Aktionspaket ist im Warenkorb!"
   },
+  "themeChooser": {
+    "title": "Wie möchtest du stöbern?",
+    "subtitle": "Wähle die Ansicht, die dir liegt. Später kannst du oben in der Leiste jederzeit wechseln.",
+    "light": "Hellmodus",
+    "lightHint": "Heller Hintergrund für den Tag.",
+    "dark": "Dunkelmodus",
+    "darkHint": "Dunkler Hintergrund, schonender für die Augen.",
+    "system": "Automatisch",
+    "systemHint": "Folgt der Einstellung deines Geräts."
+  },
   "common": {
     "language": "Sprache",
     "lang_hu": "Ungarisch",
@@ -569,6 +579,7 @@
     "profile": "Profil",
     "darkMode": "Dunkelmodus",
     "lightMode": "Hellmodus",
+    "systemMode": "Automatisch",
     "noResults": "Keine Produkte entsprechen dieser Filterung.",
     "sortNewest": "Neueste",
     "sortPriceAsc": "Preis: aufsteigend",

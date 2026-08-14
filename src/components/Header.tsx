@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 import { Phone, Box } from 'lucide-react'
 import { useLocale } from '@/context/LocaleContext'
+import { useTheme } from '@/context/ThemeContext'
 import { useCart } from '@/context/CartContext'
 import { LOCALES, type Locale } from '@/i18n/locales'
 import { getStorefrontCategories, getCategoryName, threeDSubcategories } from '@/lib/data'
@@ -25,10 +26,9 @@ export function Header() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const { t, locale, setLocale } = useLocale()
+  const { dark, toggleLightDark } = useTheme()
   const { itemCount } = useCart()
-  const [dark, setDark] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
-  const [mounted, setMounted] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
   const [productsOpen, setProductsOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
@@ -40,27 +40,6 @@ export function Header() {
   const langRef = useRef<HTMLDivElement>(null)
   const productsRef = useRef<HTMLDivElement>(null)
   const helpRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    setMounted(true)
-    const stored = localStorage.getItem('gulumen-dark')
-    const prefers =
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-color-scheme: dark)').matches
-    setDark(stored === 'true' || (!stored && prefers))
-  }, [])
-
-  useEffect(() => {
-    if (!mounted) return
-    const root = document.documentElement
-    if (dark) {
-      root.classList.add('dark')
-      localStorage.setItem('gulumen-dark', 'true')
-    } else {
-      root.classList.remove('dark')
-      localStorage.setItem('gulumen-dark', 'false')
-    }
-  }, [dark, mounted])
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -352,7 +331,7 @@ export function Header() {
 
               <button
                 type="button"
-                onClick={() => setDark((d) => !d)}
+                onClick={toggleLightDark}
                 className="hidden md:flex p-2 rounded-lg text-muted hover:text-foreground hover:bg-[var(--border)] shrink-0"
                 aria-label={dark ? t('common.lightMode') : t('common.darkMode')}
               >
@@ -502,7 +481,7 @@ export function Header() {
                     type="button"
                     className="w-full flex items-center gap-2 px-3 py-3 rounded-lg text-sm font-medium text-foreground hover:bg-[var(--border)]"
                     onClick={() => {
-                      setDark((d) => !d)
+                      toggleLightDark()
                       closeMobileNav()
                     }}
                     aria-label={dark ? t('common.lightMode') : t('common.darkMode')}

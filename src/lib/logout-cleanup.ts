@@ -3,6 +3,7 @@ import {
   clearPendingPointsRedeem,
   clearPointWalletCache,
 } from '@/lib/point-wallet-client'
+import { isThemeStorageKey } from '@/lib/theme'
 
 type LogoutListener = () => void
 
@@ -16,6 +17,7 @@ export function onLogoutCleanup(listener: LogoutListener): () => void {
 
 /**
  * Kijelentkezéskor: gulumen_* / gulumen-* / gulumen:* localStorage + teljes sessionStorage.
+ * A téma (gulumen-theme / gulumen-dark) megmarad – eszközbeállítás, nem fiókadat.
  * Megosztott böngészőn ne maradjon kedvenc / pending pont / consent a következő usernél.
  */
 export function clearGulumenClientStorage() {
@@ -37,6 +39,7 @@ export function clearGulumenClientStorage() {
         key.startsWith('gulumen-') ||
         key.startsWith('gulumen:')
       ) {
+        if (isThemeStorageKey(key)) continue
         keysToRemove.push(key)
       }
     }

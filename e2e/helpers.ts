@@ -10,10 +10,12 @@ export function uniqueEmail(prefix = 'e2e'): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@test.local`
 }
 
-/** Magyar UI + akciós popup kikapcsolása az E2E-ben. */
+/** Magyar UI + akciós popup / témaválasztó kikapcsolása az E2E-ben. */
 export async function prepareHungarianPage(page: Page): Promise<void> {
   await page.addInitScript(() => {
     localStorage.setItem('gulumen-locale', 'hu')
+    localStorage.setItem('gulumen-theme', 'light')
+    localStorage.setItem('gulumen-dark', 'false')
     sessionStorage.setItem('gulumen-deal-popup-closed', 'true')
   })
 }

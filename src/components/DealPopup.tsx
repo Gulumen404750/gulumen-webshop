@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { getProductName } from '@/lib/data'
 import { SafeProductImage } from '@/components/SafeProductImage'
 import { useLocale } from '@/context/LocaleContext'
+import { useTheme } from '@/context/ThemeContext'
 import { SaleCountdown } from '@/components/SaleCountdown'
 import { useSaleActive } from '@/hooks/useSaleActive'
 import { getSaleDiscountPercent } from '@/lib/storefront-config'
@@ -28,6 +29,7 @@ type PopupConfig = {
 export function DealPopup() {
   const pathname = usePathname()
   const { t } = useLocale()
+  const { hasChosen, ready: themeReady } = useTheme()
   const [visible, setVisible] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [config, setConfig] = useState<PopupConfig | null>(null)
@@ -74,7 +76,13 @@ export function DealPopup() {
     if (typeof window !== 'undefined') sessionStorage.setItem(STORAGE_KEY, 'true')
   }
 
-  const show = !suppressOnPath && visible && config?.enabled && products.length > 0
+  const show =
+    themeReady &&
+    hasChosen &&
+    !suppressOnPath &&
+    visible &&
+    config?.enabled &&
+    products.length > 0
 
   if (!show) return null
 

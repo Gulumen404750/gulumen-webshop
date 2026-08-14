@@ -556,6 +556,16 @@
     "addFullBundle": "Add full bundle to cart",
     "bundleAdded": "The full promo bundle is in your cart!"
   },
+  "themeChooser": {
+    "title": "How would you like to browse?",
+    "subtitle": "Pick the look that feels right. You can switch anytime from the header.",
+    "light": "Light mode",
+    "lightHint": "Bright background for daytime browsing.",
+    "dark": "Dark mode",
+    "darkHint": "Dark background that’s easier on the eyes.",
+    "system": "Automatic",
+    "systemHint": "Follows your device setting."
+  },
   "common": {
     "language": "Language",
     "lang_hu": "Hungarian",
@@ -569,6 +579,7 @@
     "profile": "Profile",
     "darkMode": "Dark mode",
     "lightMode": "Light mode",
+    "systemMode": "Automatic",
     "noResults": "No products match this filter.",
     "sortNewest": "Newest",
     "sortPriceAsc": "Price: low to high",

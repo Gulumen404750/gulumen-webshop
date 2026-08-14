@@ -541,6 +541,16 @@
     "addFullBundle": "Adaugă pachetul complet în coș",
     "bundleAdded": "Pachetul promo complet este în coș!"
   },
+  "themeChooser": {
+    "title": "Cum vrei să navighezi?",
+    "subtitle": "Alege aspectul care ți se potrivește. Poți schimba oricând din antet.",
+    "light": "Mod luminos",
+    "lightHint": "Fundal deschis, pentru navigare ziua.",
+    "dark": "Mod întunecat",
+    "darkHint": "Fundal închis, mai blând cu ochii.",
+    "system": "Automat",
+    "systemHint": "Urmează setarea dispozitivului tău."
+  },
   "common": {
     "language": "Limbă",
     "lang_hu": "Maghiară",
@@ -554,6 +564,7 @@
     "profile": "Profil",
     "darkMode": "Mod întunecat",
     "lightMode": "Mod lumină",
+    "systemMode": "Automat",
     "noResults": "Niciun produs nu corespunde filtrului.",
     "sortNewest": "Cele mai noi",
     "sortPriceAsc": "Preț: crescător",

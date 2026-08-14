@@ -23,8 +23,11 @@ import { BrowseHeartbeatTracker } from '@/components/BrowseHeartbeatTracker'
 import { HreflangLinks } from '@/components/HreflangLinks'
 import { NewUserConsentGate } from '@/components/NewUserConsentGate'
 import { DealPopup } from '@/components/DealPopup'
+import { ThemeChooser } from '@/components/ThemeChooser'
+import { ThemeProvider } from '@/context/ThemeContext'
 import { getServerLocale } from '@/lib/locale-server'
 import { BASE_URL, BRAND_IMAGE, buildLocalizedMetadata } from '@/lib/site-metadata'
+import { THEME_BOOTSTRAP_SCRIPT } from '@/lib/theme'
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -79,6 +82,7 @@ export default async function RootLayout({
   return (
     <html lang={htmlLang} className={`${poppins.variable} ${inter.variable}`} suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
         <HreflangLinks />
         <link rel="modulepreload" href="https://ajax.googleapis.com/ajax/libs/model-viewer/4.1.0/model-viewer.min.js" />
       </head>
@@ -87,6 +91,7 @@ export default async function RootLayout({
         <Analytics />
         <OrganizationJsonLd />
         <LocaleProvider>
+          <ThemeProvider>
           <EuroRateProvider>
           <SourcingDealOrdersProvider>
             <AuthProvider>
@@ -96,6 +101,7 @@ export default async function RootLayout({
                   <WishlistProvider>
                   <ToastProvider>
                     <NewUserConsentGate />
+                    <ThemeChooser />
                     <Suspense fallback={<div className="h-16 border-b border-[var(--border)] bg-[var(--card-bg)]" aria-hidden />}>
                       <Header />
                     </Suspense>
@@ -114,6 +120,7 @@ export default async function RootLayout({
             </AuthProvider>
           </SourcingDealOrdersProvider>
           </EuroRateProvider>
+          </ThemeProvider>
         </LocaleProvider>
       </body>
     </html>

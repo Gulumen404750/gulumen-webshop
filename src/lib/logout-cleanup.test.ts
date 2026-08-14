@@ -15,6 +15,8 @@ describe('clearGulumenClientStorage', () => {
       ['gulumen_favorites', '{"userId":"a","ids":["1"]}'],
       ['gulumen-cart', '[]'],
       ['gulumen-recently-viewed', '[]'],
+      ['gulumen-theme', 'dark'],
+      ['gulumen-dark', 'true'],
       ['theme', 'dark'],
       ['locale', 'hu'],
     ])
@@ -43,6 +45,8 @@ describe('clearGulumenClientStorage', () => {
     expect(localStore.has('gulumen_favorites')).toBe(false)
     expect(localStore.has('gulumen-cart')).toBe(false)
     expect(localStore.has('gulumen-recently-viewed')).toBe(false)
+    expect(localStore.get('gulumen-theme')).toBe('dark')
+    expect(localStore.get('gulumen-dark')).toBe('true')
     expect(localStore.get('theme')).toBe('dark')
     expect(localStore.get('locale')).toBe('hu')
   })
