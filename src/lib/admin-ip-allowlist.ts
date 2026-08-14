@@ -1,14 +1,14 @@
 /**
  * Admin IP whitelist – ADMIN_ALLOWED_IPS (vesszővel elválasztott IPv4/IPv6 / CIDR).
- * Developmentben üres lista: figyelmeztetés + átengedés.
- * Productionben üres lista: tiltás.
+ * Ha a változó üres / nincs beállítva: figyelmeztetés + átengedés (dev és production).
+ * Ha be van állítva: csak a listán szereplő címek férnek az adminhoz.
  */
 
 import { normalizeIp } from '@/lib/request-ip'
 
 export type AdminIpDecision =
-  | { ok: true; reason: 'allowed' | 'unconfigured_dev' }
-  | { ok: false; reason: 'denied' | 'unconfigured_prod' }
+  | { ok: true; reason: 'allowed' | 'unconfigured' }
+  | { ok: false; reason: 'denied' }
 
 function ipv4ToInt(ip: string): number | null {
   const parts = ip.split('.')
@@ -68,10 +68,7 @@ export function evaluateAdminIpAccess(
 ): AdminIpDecision {
   const allowlist = parseAdminAllowedIps(env.ADMIN_ALLOWED_IPS)
   if (allowlist.length === 0) {
-    if (env.NODE_ENV === 'production') {
-      return { ok: false, reason: 'unconfigured_prod' }
-    }
-    return { ok: true, reason: 'unconfigured_dev' }
+    return { ok: true, reason: 'unconfigured' }
   }
   if (isIpAllowed(ip, allowlist)) return { ok: true, reason: 'allowed' }
   return { ok: false, reason: 'denied' }

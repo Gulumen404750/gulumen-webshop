@@ -47,10 +47,10 @@ export async function middleware(request: NextRequest) {
   if (isAdminIpRestrictedPath(pathname)) {
     const ip = getClientIp(request)
     const ipDecision = evaluateAdminIpAccess(ip)
-    if (ipDecision.reason === 'unconfigured_dev' && !warnedMissingAllowlist) {
+    if (ipDecision.reason === 'unconfigured' && !warnedMissingAllowlist) {
       warnedMissingAllowlist = true
       console.warn(
-        '[admin] ADMIN_ALLOWED_IPS is empty; allowing admin access in development. Set the allowlist before production.'
+        '[admin] ADMIN_ALLOWED_IPS is empty; allowing all IPs. Set a comma-separated allowlist to restrict admin access.'
       )
     }
     if (!ipDecision.ok) {

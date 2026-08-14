@@ -21,7 +21,7 @@ describe('admin middleware IP + CSRF', () => {
     setEnv('ADMIN_API_KEY', ORIGINAL_ENV.ADMIN_API_KEY)
   })
 
-  it('returns 403 in production when ADMIN_ALLOWED_IPS is empty', async () => {
+  it('allows /admin/login in production when ADMIN_ALLOWED_IPS is empty', async () => {
     setEnv('NODE_ENV', 'production')
     setEnv('ADMIN_ALLOWED_IPS', undefined)
     const { middleware } = await import('@/middleware')
@@ -29,7 +29,7 @@ describe('admin middleware IP + CSRF', () => {
       headers: { 'x-forwarded-for': '203.0.113.10' },
     })
     const res = await middleware(req)
-    expect(res.status).toBe(403)
+    expect(res.status).not.toBe(403)
   })
 
   it('returns 403 when CSRF token is missing on admin POST', async () => {

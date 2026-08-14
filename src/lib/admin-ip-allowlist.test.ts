@@ -37,20 +37,20 @@ describe('isIpAllowed', () => {
 })
 
 describe('evaluateAdminIpAccess', () => {
-  it('allows and flags unconfigured development', () => {
+  it('allows when the allowlist is unset in development', () => {
     const decision = evaluateAdminIpAccess('203.0.113.10', {
       NODE_ENV: 'development',
       ADMIN_ALLOWED_IPS: '',
     })
-    expect(decision).toEqual({ ok: true, reason: 'unconfigured_dev' })
+    expect(decision).toEqual({ ok: true, reason: 'unconfigured' })
   })
 
-  it('denies unconfigured production', () => {
+  it('allows when the allowlist is unset in production (feature off until configured)', () => {
     const decision = evaluateAdminIpAccess('203.0.113.10', {
       NODE_ENV: 'production',
       ADMIN_ALLOWED_IPS: '',
     })
-    expect(decision).toEqual({ ok: false, reason: 'unconfigured_prod' })
+    expect(decision).toEqual({ ok: true, reason: 'unconfigured' })
   })
 
   it('denies IPs outside the allowlist', () => {
