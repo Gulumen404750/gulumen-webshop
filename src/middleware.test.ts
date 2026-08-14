@@ -48,7 +48,7 @@ describe('admin middleware IP + CSRF', () => {
     expect(res.status).toBe(403)
   })
 
-  it('redirects HTTP to HTTPS in production', async () => {
+  it('redirects HTTP to HTTPS in production when x-forwarded-proto is http', async () => {
     setEnv('NODE_ENV', 'production')
     const { middleware } = await import('@/middleware')
     const req = new NextRequest('http://www.gulumen.com/termekek', {
@@ -57,5 +57,26 @@ describe('admin middleware IP + CSRF', () => {
     const res = await middleware(req)
     expect(res.status).toBe(308)
     expect(res.headers.get('location') || '').toContain('https://')
+  })
+
+  it('does not HTTPS-redirect Railway healthchecks (no x-forwarded-proto)', async () => {
+    setEnv('NODE_ENV', 'production')
+    const { middleware } = await import('@/middleware')
+    const req = new NextRequest('http://0.0.0.0:8080/api/health/live', {
+      headers: { host: '0.0.0.0:8080' },
+    })
+    const res = await middleware(req)
+    expect(res.status).not.toBe(308)
+    expect(res.headers.get('location')).toBeNull()
+  })
+
+  it('does not HTTPS-redirect health paths even with x-forwarded-proto http', async () => {
+    setEnv('NODE_ENV', 'production')
+    const { middleware } = await import('@/middleware')
+    const req = new NextRequest('http://www.gulumen.com/api/health/live', {
+      headers: { 'x-forwarded-proto': 'http', host: 'www.gulumen.com' },
+    })
+    const res = await middleware(req)
+    expect(res.status).not.toBe(308)
   })
 })

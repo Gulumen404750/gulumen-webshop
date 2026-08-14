@@ -77,16 +77,30 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(wwwUrl, 308)
   }
 
-  if (process.env.NODE_ENV === 'production') {
-    const proto = (request.headers.get('x-forwarded-proto') || request.nextUrl.protocol.replace(':', '')).split(',')[0].trim()
-    if (proto === 'http') {
-      const httpsUrl = request.nextUrl.clone()
-      httpsUrl.protocol = 'https:'
-      return NextResponse.redirect(httpsUrl, 308)
+  const pathname = request.nextUrl.pathname
+
+  // Railway healthcheck a konténeren belül HTTP-n hív (nincs x-forwarded-proto).
+  // Ne redirecteljünk HTTPS-re: a 308 → unhealthy deploy (service unavailable).
+  const isHealthPath =
+    pathname === '/api/health' ||
+    pathname === '/api/health/live' ||
+    pathname === '/api/health/ready' ||
+    pathname.startsWith('/api/health/')
+
+  // Csak akkor kényszerítsünk HTTPS-t, ha a proxy explicit http-et jelez.
+  // nextUrl.protocol fallback TILTOTT: belső probe / localhost mindig http.
+  if (process.env.NODE_ENV === 'production' && !isHealthPath) {
+    const forwarded = request.headers.get('x-forwarded-proto')
+    if (forwarded) {
+      const proto = forwarded.split(',')[0].trim().toLowerCase()
+      if (proto === 'http') {
+        const httpsUrl = request.nextUrl.clone()
+        httpsUrl.protocol = 'https:'
+        return NextResponse.redirect(httpsUrl, 308)
+      }
     }
   }
 
-  const pathname = request.nextUrl.pathname
   const slug = getAdminUrlSlug()
   const adminPath = classifyAdminPath(pathname, slug)
 
