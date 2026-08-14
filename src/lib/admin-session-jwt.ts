@@ -8,6 +8,7 @@ import {
   ADMIN_ACTOR_ROLE_CLAIM,
   ADMIN_SESSION_ACTIVITY_CLAIM,
   ADMIN_SESSION_API_KEY_CLAIM,
+  ADMIN_SESSION_EPOCH_CLAIM,
   ADMIN_SESSION_IDLE_SEC,
   ADMIN_SESSION_JTI_CLAIM,
   ADMIN_SESSION_MAX_AGE_SEC,
@@ -23,6 +24,18 @@ import {
   BOOTSTRAP_ADMIN_ACTOR,
   isAdminRole,
 } from '@/lib/admin-rbac'
+
+/**
+ * Session epoch (`ep`): jelszócsere / reset után nő (`Admin.sessionEpoch`).
+ * Ez a modul Edge-safe marad (nincs Prisma import) – az `ep` érték itt csak
+ * parse-olva / átadva van, a tényleges DB-s ellenőrzést a hívó (Node: admin-session.ts,
+ * Edge: admin-session-edge.ts Redis cache-ből) végzi.
+ */
+function parseSessionEpoch(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value)
+  if (!Number.isInteger(n) || n < 0) return 0
+  return n
+}
 
 export function newAdminSessionJti(): string {
   const bytes = new Uint8Array(16)
@@ -45,6 +58,7 @@ export type AdminSessionClaims = {
   act: number
   sv: string
   ak: string
+  ep: number
   actor: AdminActor
 }
 
@@ -87,13 +101,16 @@ export function readAdminSessionClaims(
   if (typeof sv !== 'string' || !sv) return null
   if (typeof ak !== 'string' || !ak) return null
   if (now - act > ADMIN_SESSION_IDLE_SEC) return null
-  return { jti, act, sv, ak, actor }
+  const ep = parseSessionEpoch(payload[ADMIN_SESSION_EPOCH_CLAIM])
+  return { jti, act, sv, ak, ep, actor }
 }
 
 export async function signAdminSessionToken(opts?: {
   actor?: AdminActor
   jti?: string
   act?: number
+  /** Admin.sessionEpoch – hívó (Node) tölti a DB-ből; Edge refresh esetén a régi payloadból örökölt. */
+  ep?: number
 }): Promise<string> {
   const secret = getSecret()
   if (!secret) throw new Error('JWT_SECRET / NEXTAUTH_SECRET not configured')
@@ -102,10 +119,12 @@ export async function signAdminSessionToken(opts?: {
   const [sv, ak] = await Promise.all([getAdminSessionVersion(), getAdminApiKeyClaim()])
   const jti = opts?.jti || newAdminSessionJti()
   const act = opts?.act ?? now
+  const ep = parseSessionEpoch(opts?.ep ?? 0)
   return new SignJWT({
     role: actor.role,
     [ADMIN_SESSION_VERSION_CLAIM]: sv,
     [ADMIN_SESSION_API_KEY_CLAIM]: ak,
+    [ADMIN_SESSION_EPOCH_CLAIM]: ep,
     [ADMIN_TFA_CLAIM]: true,
     [ADMIN_SESSION_JTI_CLAIM]: jti,
     [ADMIN_SESSION_ACTIVITY_CLAIM]: act,

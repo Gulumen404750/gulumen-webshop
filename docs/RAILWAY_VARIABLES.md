@@ -34,7 +34,7 @@ Ezeket a változókat állítsd be a **Railway → Project → Variables** felü
 | Változó | Használat |
 |--------|-----------|
 | RESEND_API_KEY | Email küldés (rendelés, newsletter, callback, voice summary) |
-| ADMIN_EMAIL | Címzett a callback/voice emailnek, a gyanús belépés / fiókzárolás riasztásnak, az admin anomália-riasztásnak (nagy CSV-export ≥100 sor, tömeges ár ≥10 termék, ≥5 törlés / 10 perc), **és** az új admin eszköz / szokatlan ország riasztásnak |
+| ADMIN_EMAIL | Címzett a callback/voice emailnek, a gyanús belépés / fiókzárolás riasztásnak, az admin anomália-riasztásnak (nagy CSV-export ≥100 sor, tömeges ár ≥10 termék, ≥5 törlés / 10 perc), az új admin eszköz / szokatlan ország riasztásnak, **és** az admin jelszó-reset linknek (a nyers `ADMIN_API_KEY` soha nem megy e-mailben) |
 | ADMIN_ANOMALY_CSV_MIN | CSV-export riasztási küszöb (alap 100 sor). A művelet nem blokkolódik. |
 | EMAIL_FROM / RESEND_FROM | Feladó cím (alap: `Gulumen <noreply@gulumen.com>`) |
 | OPENAI_API_KEY | AI chat / voice asszisztens |

@@ -7,7 +7,7 @@ import { RecaptchaNotice } from '@/components/RecaptchaNotice'
 import { readAdminPublicBase } from '@/lib/admin-public-base'
 import { getRecaptchaToken } from '@/lib/recaptcha-browser'
 import { RECAPTCHA_ACTIONS } from '@/lib/recaptcha-constants'
-import { safeAdminReturnPath, slugFromPublicBase } from '@/lib/admin-url'
+import { publicAdminUiPathFromBase, safeAdminReturnPath, slugFromPublicBase } from '@/lib/admin-url'
 
 type LoginStep = 'key' | 'totp' | 'setup'
 
@@ -24,6 +24,7 @@ export default function AdminLoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const from = safeAdminReturnPath(searchParams.get('from'), slugFromPublicBase(readAdminPublicBase()))
+  const resetHref = publicAdminUiPathFromBase('/admin/reset', readAdminPublicBase())
 
   async function startEnrollment() {
     const res = await fetch('/api/admin/2fa/setup', {
@@ -140,8 +141,10 @@ export default function AdminLoginPage() {
         <form onSubmit={handleKeySubmit} className="w-full max-w-sm space-y-4">
           <h1 className="text-xl font-semibold text-foreground">Admin belépés</h1>
           <p className="text-sm text-muted">
-            API kulcs + Google Authenticator. Amíg nincs operátor, a kulcs elég a 2FA-hoz.
-            Ha már van operátor, kötelező a felhasználónév és a jelszó is (amit az Operátoroknál megadtál).
+            API kulcs (mindig kötelező) + Google Authenticator. Amíg nincs operátor, a kulcs elég a
+            2FA-hoz – kivéve ha a <a href={resetHref} className="underline">/admin/reset</a> oldalon
+            már beállítottál admin jelszót, mert az a kulcs mellett is kötelező. Ha már van operátor,
+            kötelező a felhasználónév és a jelszó is (amit az Operátoroknál megadtál).
           </p>
           <div>
             <label htmlFor="admin-key" className="block text-sm font-medium text-foreground mb-1">
@@ -173,7 +176,7 @@ export default function AdminLoginPage() {
           </div>
           <div>
             <label htmlFor="admin-password" className="block text-sm font-medium text-foreground mb-1">
-              Jelszó (operátor)
+              Jelszó (operátor, vagy admin jelszó ha beállítottad a resetnél)
             </label>
             <input
               id="admin-password"
@@ -181,7 +184,7 @@ export default function AdminLoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
-              placeholder="opcionális, amíg nincs operátor"
+              placeholder="opcionális, ha nincs operátor és nincs admin jelszó"
               autoComplete="current-password"
             />
           </div>
@@ -193,6 +196,11 @@ export default function AdminLoginPage() {
           >
             {loading ? 'Belépés…' : 'Tovább'}
           </button>
+          <p className="text-center text-sm">
+            <a href={resetHref} className="text-muted hover:text-foreground underline">
+              Elfelejtett jelszó
+            </a>
+          </p>
           <RecaptchaNotice />
         </form>
       ) : step === 'setup' ? (

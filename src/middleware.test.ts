@@ -125,6 +125,21 @@ describe('admin middleware IP + CSRF', () => {
     expect(res.status).not.toBe(403)
   })
 
+  it('allows /admin/reset POST after origin check without CSRF token', async () => {
+    setEnv('NODE_ENV', 'test')
+    setEnv('ADMIN_ALLOWED_IPS', undefined)
+    const { middleware } = await import('@/middleware')
+    const req = new NextRequest('https://www.gulumen.com/api/admin/reset/request', {
+      method: 'POST',
+      headers: {
+        origin: 'https://www.gulumen.com',
+        host: 'www.gulumen.com',
+      },
+    })
+    const res = await middleware(req)
+    expect(res.status).not.toBe(403)
+  })
+
   it('returns 403 when CSRF token is missing on admin POST', async () => {
     setEnv('NODE_ENV', 'test')
     setEnv('ADMIN_ALLOWED_IPS', '203.0.113.10')

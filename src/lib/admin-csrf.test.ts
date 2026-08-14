@@ -52,6 +52,25 @@ describe('evaluateAdminCsrf', () => {
     expect(evaluateAdminCsrf(req)).toEqual({ ok: true, reason: 'login' })
   })
 
+  it('skips password-reset request and confirm POST after origin check', () => {
+    expect(
+      evaluateAdminCsrf(
+        adminRequest({
+          path: '/api/admin/reset/request',
+          origin: 'https://www.gulumen.com',
+        })
+      )
+    ).toEqual({ ok: true, reason: 'login' })
+    expect(
+      evaluateAdminCsrf(
+        adminRequest({
+          path: '/api/admin/reset/confirm',
+          origin: 'https://www.gulumen.com',
+        })
+      )
+    ).toEqual({ ok: true, reason: 'login' })
+  })
+
   it('rejects cross-origin mutating requests', () => {
     const req = adminRequest({ origin: 'https://evil.example' })
     expect(evaluateAdminCsrf(req)).toEqual({ ok: false, reason: 'bad_origin' })

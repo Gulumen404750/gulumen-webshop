@@ -14,6 +14,9 @@ export const ADMIN_SESSION_ACTIVITY_CLAIM = 'act'
 export const ADMIN_SESSION_API_KEY_CLAIM = 'ak'
 /** Teljes admin session csak 2FA után: a claim nélkül a régi 24 órás JWT elutasítva. */
 export const ADMIN_TFA_CLAIM = 'tfa'
+/** Jelszócsere / reset után nő; a JWT `ep` claimnek egyeznie kell. */
+export const ADMIN_SESSION_EPOCH_CLAIM = 'ep'
+export const ADMIN_SESSION_EPOCH_REDIS_KEY = 'admin:session-epoch'
 export const ADMIN_2FA_PENDING_ROLE = 'admin-2fa-pending'
 export const ADMIN_RECORD_ID = 'admin'
 /** Operátor felhasználónév a JWT-ben. */

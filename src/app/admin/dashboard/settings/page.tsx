@@ -1,5 +1,6 @@
 import AdminSecurityPolicy from './AdminSecurityPolicy'
 import DealPopupSettings from './DealPopupSettings'
+import PasswordSettings from './PasswordSettings'
 import TwoFactorSettings from './TwoFactorSettings'
 import StaffSettings from './StaffSettings'
 import LoginFingerprintSettings from './LoginFingerprintSettings'
@@ -32,6 +33,7 @@ export default function AdminSettingsPage() {
       </section>
       <AdminSecurityPolicy />
       <StaffSettings />
+      <PasswordSettings />
       <TwoFactorSettings />
       <KeyPolicySettings />
       <LoginFingerprintSettings />

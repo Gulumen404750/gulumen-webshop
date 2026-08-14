@@ -28,13 +28,18 @@ import { resolveAdminLoginActor } from '@/lib/admin-operators'
 import type { AdminActor } from '@/lib/admin-rbac'
 import { recordAdminLoginFingerprintSafe } from '@/lib/admin-login-alert'
 import { MUST_CHANGE_KEY_MESSAGE, evaluateAdminKeyPolicy } from '@/lib/admin-key-policy'
+import { getAdminPasswordState, verifyAdminPassword } from '@/lib/admin-password'
 
 /**
  * POST /api/admin/login
  * Body: { key: string, username?: string, password?: string }.
- * A kulcs önmagában soha nem ad teljes admin sessiont: csak ideiglenes 2FA pending tokent.
- * Amíg nincs operátor a DB-ben, a régi API-kulcsos belépés marad (username nélkül).
- * Ha van legalább egy operátor, username+jelszó is kell.
+ * A megosztott ADMIN_API_KEY (`key`) mindig kötelező – ez soha nem ad önmagában teljes admin
+ * sessiont, csak ideiglenes 2FA pending tokent.
+ * Amíg nincs operátor a DB-ben, a kulcs (+ 2FA) elég a bootstrap owner belépéshez, KIVÉVE ha
+ * időközben `/admin/reset` (email + TOTP) beállított egy `Admin.passwordHash`-t: ekkor a `password`
+ * mező is kötelező, extra faktorként a kulcs mellett.
+ * Ha van legalább egy operátor, a `key` mellett név szerinti username+jelszó is kell
+ * (a `password` mező ekkor az operátor jelszava, nem az `Admin.passwordHash`).
  */
 export async function POST(request: Request) {
   const adminKey = process.env.ADMIN_API_KEY
@@ -166,9 +171,15 @@ export async function POST(request: Request) {
     logger.error({ err }, 'admin login key policy failed')
   }
 
+  // Az `username` mező jelenléte jelöli a név szerinti operátor belépési kísérletet – ekkor a
+  // `password` mező az operátor jelszava, és NEM az Admin.passwordHash-hoz megy.
+  const rawUsername = typeof body.username === 'string' ? body.username : ''
+  const rawPassword = typeof body.password === 'string' ? body.password : ''
+  const isOperatorAttempt = rawUsername.trim().length > 0
+
   const loginActor = await resolveAdminLoginActor({
-    username: body.username,
-    password: body.password,
+    username: isOperatorAttempt ? rawUsername : undefined,
+    password: isOperatorAttempt ? rawPassword : undefined,
   })
   if (!loginActor.ok) {
     if (loginActor.code === 'requiresOperator') {
@@ -222,6 +233,41 @@ export async function POST(request: Request) {
   }
 
   const actor: AdminActor = loginActor.actor
+
+  // Bootstrap/emergency owner (nincs név szerinti operátor ebben a belépésben): ha `/admin/reset`
+  // már beállított egy Admin.passwordHash-t, az a kulcs MELLETT kötelező extra faktor.
+  if (actor.bootstrap && !isOperatorAttempt) {
+    try {
+      const passwordState = await getAdminPasswordState()
+      if (passwordState.passwordHash) {
+        const passwordOk = rawPassword
+          ? await verifyAdminPassword(rawPassword, passwordState.passwordHash)
+          : false
+        if (!passwordOk) {
+          const lock = await recordAdminLoginFailure(request)
+          await logAdminAction({
+            action: 'login',
+            success: false,
+            request,
+            details: { reason: 'invalid_admin_password', locked: lock.locked },
+          })
+          if (lock.locked) {
+            return NextResponse.json(
+              {
+                error: 'Túl sok hibás belépés. Próbáld újra 15 perc múlva.',
+                locked: true,
+                retryAfterSec: lock.retryAfterSec,
+              },
+              { status: 429, headers: { 'Retry-After': String(lock.retryAfterSec) } }
+            )
+          }
+          return NextResponse.json({ error: 'Hibás jelszó.' }, { status: 401 })
+        }
+      }
+    } catch (err) {
+      logger.error({ err }, 'admin login password lookup failed')
+    }
+  }
 
   let twoFactor: { isTwoFactorEnabled: boolean }
   try {

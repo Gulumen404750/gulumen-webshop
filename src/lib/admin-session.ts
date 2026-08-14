@@ -1,7 +1,8 @@
 /**
- * Aláírt admin session cookie (JWT/HMAC): sub, iat, exp, sv, ak, jti, act, tfa, role, un.
+ * Aláírt admin session cookie (JWT/HMAC): sub, iat, exp, sv, ak, ep, jti, act, tfa, role, un.
  * Aláírás: JWT_SECRET. Binding: sv (secret+key) és ak (csak ADMIN_API_KEY) –
  * kulcsváltáskor a régi sütik azonnal érvénytelenek, a JWT_SECRET-et nem kell cserélni.
+ * ep: Admin.sessionEpoch – jelszócsere / reset után is azonnal érvénytelen a régi süti.
  * Logout: jti denylist. Inaktivitás: act (30 perc).
  * Bootstrap (nincs operátor): sub=admin, role=owner. Név szerinti: sub=operatorId.
  */
@@ -16,11 +17,13 @@ import {
   ADMIN_2FA_PENDING_MAX_AGE_SEC,
   ADMIN_SESSION_VERSION_CLAIM,
   ADMIN_SESSION_API_KEY_CLAIM,
+  ADMIN_SESSION_EPOCH_CLAIM,
   ADMIN_2FA_PENDING_ROLE,
   ADMIN_USERNAME_CLAIM,
   ADMIN_ACTOR_ROLE_CLAIM,
 } from '@/lib/admin-session-constants'
 import { getAdminApiKeyClaim, getAdminSessionVersion } from '@/lib/admin-session-version'
+import { getAdminSessionEpoch } from '@/lib/admin-session-epoch'
 import {
   isAdminSessionConfigured,
   readAdminSessionPayload,
@@ -39,6 +42,7 @@ export {
   ADMIN_2FA_PENDING_MAX_AGE_SEC,
   ADMIN_SESSION_VERSION_CLAIM,
   ADMIN_SESSION_API_KEY_CLAIM,
+  ADMIN_SESSION_EPOCH_CLAIM,
 }
 
 export { isAdminSessionConfigured }
@@ -46,7 +50,8 @@ export { isAdminSessionConfigured }
 export async function createAdminSessionToken(
   actor: AdminActor = BOOTSTRAP_ADMIN_ACTOR
 ): Promise<string> {
-  return signAdminSessionToken({ actor })
+  const ep = await getAdminSessionEpoch()
+  return signAdminSessionToken({ actor, ep })
 }
 
 export async function parseAdminSessionToken(
@@ -56,6 +61,8 @@ export async function parseAdminSessionToken(
   if (!payload) return null
   if (await isAdminSessionRevoked(payload.jti)) return null
   if (await dbIsAdminSessionRevoked(payload.jti)) return null
+  const currentEpoch = await getAdminSessionEpoch()
+  if (payload.ep !== currentEpoch) return null
   return payload.actor
 }
 
@@ -88,11 +95,16 @@ export async function createAdminPendingTwoFactorToken(
   const secret = getAdminJwtSecret()
   if (!secret) throw new Error('JWT_SECRET / NEXTAUTH_SECRET not configured')
   const now = Math.floor(Date.now() / 1000)
-  const [sv, ak] = await Promise.all([getAdminSessionVersion(), getAdminApiKeyClaim()])
+  const [sv, ak, ep] = await Promise.all([
+    getAdminSessionVersion(),
+    getAdminApiKeyClaim(),
+    getAdminSessionEpoch(),
+  ])
   return new SignJWT({
     role: ADMIN_2FA_PENDING_ROLE,
     [ADMIN_SESSION_VERSION_CLAIM]: sv,
     [ADMIN_SESSION_API_KEY_CLAIM]: ak,
+    [ADMIN_SESSION_EPOCH_CLAIM]: ep,
     [ADMIN_USERNAME_CLAIM]: actor.username,
     [ADMIN_ACTOR_ROLE_CLAIM]: actor.role,
   })
@@ -116,12 +128,14 @@ export async function parseAdminPendingTwoFactorToken(
       issuer: JWT_ISSUER,
       audience: JWT_AUDIENCE_2FA,
     })
-    const [expectedSv, expectedAk] = await Promise.all([
+    const [expectedSv, expectedAk, expectedEp] = await Promise.all([
       getAdminSessionVersion(),
       getAdminApiKeyClaim(),
+      getAdminSessionEpoch(),
     ])
     if (payload[ADMIN_SESSION_VERSION_CLAIM] !== expectedSv) return null
     if (payload[ADMIN_SESSION_API_KEY_CLAIM] !== expectedAk) return null
+    if (payload[ADMIN_SESSION_EPOCH_CLAIM] !== expectedEp) return null
     return actorFromPendingPayload(payload)
   } catch {
     return null

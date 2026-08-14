@@ -12,12 +12,13 @@ Ez a dokumentum **kötelező** mindenki számára, aki admin kulcsot, Railway Va
 ## 1. Ki léphet be
 
 - Csak a webshop üzemeltetői. Nincs külön „vendég admin”, demo kulcs vagy megosztott jelszó chatben.
-- Belépési titok: a Railway / env **`ADMIN_API_KEY`**. Ezt **ne** tedd gitbe, screenshotba, ticketbe, Slack/Discord üzenetbe, ügyfélszolgálati válaszba.
+- Belépési titok: a Railway / env **`ADMIN_API_KEY`** — ez **mindig kötelező**, minden belépésnél. Ezt **ne** tedd gitbe, screenshotba, ticketbe, Slack/Discord üzenetbe, ügyfélszolgálati válaszba, és **ne küldd e-mailben**.
 - **Név szerinti operátorok (RBAC):** owner / support / catalog / viewer. A megosztott API kulcs **nem** a teljes jogosultság: a kulcs csak a belépés első tényezője. Szerep dönti el a PII-t, törlést, árat, exportot.
-- **Fallback (kritikus):** amíg az `AdminOperator` tábla üres (vagy a migráció még nem futott), a régi API-kulcsos belépés **marad** (owner bootstrap, 2FA továbbra is kell). Az első operátor létrehozása után a belépéshez kulcs + felhasználónév + jelszó kell. Ne zárd ki az egykulcsos üzemet env/migráció nélkül.
-- **Lockout mentés (ha elfelejtetted az operátor jelszót):**
-  1. **Gyors (SQL):** Railway → Postgres → Query → `DELETE FROM "AdminOperator";` → utána újra elég az API-kulcs (+ 2FA). Újra hozz létre **owner** operátort ismert jelszóval.
-  2. **Env:** `ADMIN_EMERGENCY_API_KEY_LOGIN=1` (Variables) → redeploy → belépés csak kulccsal + 2FA → Operátorok javítása → **töröld** az env változót. Ne hagyd bekapcsolva élesben.
+- **Fallback (kritikus):** amíg az `AdminOperator` tábla üres (vagy a migráció még nem futott), a kulcsos belépés **marad** (owner bootstrap, 2FA továbbra is kell). Az első operátor létrehozása után a belépéshez kulcs + felhasználónév + jelszó kell. Ne zárd ki az egykulcsos üzemet env/migráció nélkül.
+- **Opcionális admin jelszó (extra faktor, `/admin/reset`):** amíg nincs operátor, a Beállítások → Admin jelszó oldalon beállítható egy DB-s jelszó (bcrypt hash). Ha be van állítva, a kulcs **mellett** ez is kötelező a bootstrap belépéshez. Elfelejtve: kétlépcsős visszaállítás (15 perces e-mail token + TOTP, `ADMIN_EMAIL` + `RESEND_API_KEY` kell) — nem kell hozzá Railway env-csere. **Ez nem old fel egy elfelejtett operátor jelszót** — ahhoz lásd a lockout mentést alább.
+- **Operátor lockout mentés (ha elfelejtetted az operátor jelszót):**
+  1. **Gyors (SQL):** Railway → Postgres → Query → `DELETE FROM "AdminOperator";` → utána újra elég az API-kulcs (+ esetleges admin jelszó extra faktor, + 2FA). Újra hozz létre **owner** operátort ismert jelszóval.
+  2. **Env:** `ADMIN_EMERGENCY_API_KEY_LOGIN=1` (Variables) → redeploy → belépés csak kulccsal (+ admin jelszó, ha be van állítva) + 2FA → Operátorok javítása → **töröld** az env változót. Ne hagyd bekapcsolva élesben.
 - Élesben a kulcs legalább **32 véletlen karakter** (`openssl rand -hex 32`). Ugyanaz a kulcs ne legyen a fejlesztői `.env.local`-ban és a production Variables-ben, ha a gép nem megbízható.
 - A nyers kulcs soha nem jelenhet meg a dashboardon. A Beállítások oldal csak annyit jelezhet: be van-e állítva.
 
@@ -52,12 +53,13 @@ A kimenő címed: `curl -4 ifconfig.me`. VPN-nél a VPN egress IP-t add hozzá, 
 
 ## 4. Session, titkok, csere
 
-Az admin süti **aláírt JWT** (max **8 óra**, **30 perc idle**). HMAC: **`JWT_SECRET`** (vagy `NEXTAUTH_SECRET`). Logout a `jti`-t denylistára teszi (Redis + DB). `SameSite=Strict`, `httpOnly`. A token `sv` claimje a `JWT_SECRET` + `ADMIN_API_KEY` hash-e; az `ak` claim **csak** az `ADMIN_API_KEY`-t köti. Token `ak` vagy érvénytelen `jti`/idle nélkül elutasított.
+Az admin süti **aláírt JWT** (max **8 óra**, **30 perc idle**). HMAC: **`JWT_SECRET`** (vagy `NEXTAUTH_SECRET`). Logout a `jti`-t denylistára teszi (Redis + DB). `SameSite=Strict`, `httpOnly`. A token `sv` claimje a `JWT_SECRET` + `ADMIN_API_KEY` hash-e; az `ak` claim **csak** az `ADMIN_API_KEY`-t köti; az `ep` claim az admin jelszó `sessionEpoch`-ját (jelszócsere / reset után nő). Token `ak`, érvénytelen `jti`/idle, vagy egyező `ep` nélkül elutasított.
 
 | Titok csere | Hatás |
 |-------------|--------|
 | `JWT_SECRET` | Minden admin session érvénytelen (aláírás nem stimmel). |
 | `ADMIN_API_KEY` | A már kiadott sütik `ak` / `sv` claimje nem stimmel → **kiléptetés**. Nem kell a JWT_SECRET-et is cserélni, de szivárgásnál **mindkettőt** cseréld. |
+| Admin jelszó csere / reset | A JWT `ep` (session epoch) nő → a régi sütik érvénytelenek (Node mindig DB-ből; Edge csak ha van Redis-cache). |
 
 **Kényszerített csere (`mustChangeKey`):** Admin → Beállítások → „Következő belépéshez új kulcs kell”. A jelenlegi session megmarad; a következő belépés a régi kulccsal 403, amíg új `ADMIN_API_KEY` nincs az env-ben. A nyers kulcs nem kerül DB-be, csak SHA-256 fingerprint.
 
@@ -149,5 +151,6 @@ Admin / auth **kód**változás (middleware, session, 2FA, IP-lista, login): el�
 | 2FA | `src/lib/admin-2fa.ts`, `/api/admin/2fa/*` |
 | Audit | `src/lib/admin-audit.ts`, `AdminAction` |
 | RBAC / operátorok | `src/lib/admin-rbac.ts`, `src/lib/admin-operators.ts`, `AdminOperator` |
+| Admin jelszó / reset / session epoch | `src/lib/admin-password.ts`, `src/lib/admin-password-reset.ts`, `src/lib/admin-session-epoch.ts`, `/admin/reset`, `/api/admin/password`, `/api/admin/reset/*` |
 | Belépés | `POST /api/admin/login` |
 | Staging kapu (deploy) | [STAGING.md](STAGING.md) — `gulumen-webshop-staging`, GitHub Environment |

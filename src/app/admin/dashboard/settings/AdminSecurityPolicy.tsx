@@ -42,6 +42,11 @@ export default function AdminSecurityPolicy() {
           Új eszköz vagy szokatlan ország riasztást küld az <code>ADMIN_EMAIL</code>-re (első belépés
           a baseline, nem blokkol).
         </li>
+        <li>
+          Elfelejtett admin jelszó: <code>/admin/reset</code> – e-mail token + TOTP, nem Railway env-csere.
+          A nyers <code>ADMIN_API_KEY</code> soha nem megy e-mailben, és ez a jelszó nem old fel egy
+          elfelejtett <strong>operátor</strong> jelszót (ahhoz lásd az operátor lockout mentést lentebb).
+        </li>
       </ul>
     </section>
   )

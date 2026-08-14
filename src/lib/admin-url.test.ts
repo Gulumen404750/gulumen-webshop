@@ -23,6 +23,8 @@ describe('parseAdminUrlSlug', () => {
   it('rejects short, reserved, or invalid values', () => {
     expect(parseAdminUrlSlug('')).toBeNull()
     expect(parseAdminUrlSlug('admin')).toBeNull()
+    expect(parseAdminUrlSlug('login')).toBeNull()
+    expect(parseAdminUrlSlug('reset')).toBeNull()
     expect(parseAdminUrlSlug('dashboard')).toBeNull()
     expect(parseAdminUrlSlug('termekek')).toBeNull()
     expect(parseAdminUrlSlug('abc')).toBeNull()
@@ -78,6 +80,16 @@ describe('classifyAdminPath', () => {
     expect(classifyAdminPath(`/api/${SLUG}/2fa/verify-login`, SLUG)).toMatchObject({
       kind: 'api',
       internalPath: '/api/admin/2fa/verify-login',
+      isLogin: true,
+    })
+    expect(classifyAdminPath(`/${SLUG}/reset`, SLUG)).toMatchObject({
+      kind: 'ui',
+      internalPath: '/admin/reset',
+      isLogin: true,
+    })
+    expect(classifyAdminPath(`/api/${SLUG}/reset/request`, SLUG)).toMatchObject({
+      kind: 'api',
+      internalPath: '/api/admin/reset/request',
       isLogin: true,
     })
     expect(classifyAdminPath(`/api/${SLUG}/orders`, SLUG)).toMatchObject({
@@ -155,7 +167,9 @@ describe('isAdminSurfacePath / isAdminLoginPathname', () => {
     expect(isAdminSurfacePath(`/api/${SLUG}/orders`, SLUG)).toBe(true)
     expect(isAdminSurfacePath('/termekek', SLUG)).toBe(false)
     expect(isAdminLoginPathname(`/${SLUG}/login`, SLUG)).toBe(true)
+    expect(isAdminLoginPathname(`/${SLUG}/reset`, SLUG)).toBe(true)
     expect(isAdminLoginPathname('/admin/login', null)).toBe(true)
+    expect(isAdminLoginPathname('/admin/reset', null)).toBe(true)
     expect(isAdminLoginPathname(`/${SLUG}/login`, null)).toBe(true)
   })
 })
