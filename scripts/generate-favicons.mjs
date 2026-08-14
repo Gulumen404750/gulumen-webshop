@@ -193,6 +193,15 @@ export function resolveSourcePath(cliPath, root = ROOT) {
   )
 }
 
+/**
+ * @param {{
+ *   sourcePath?: string,
+ *   publicDir?: string,
+ *   appDir?: string,
+ *   syncAppIcons?: boolean,
+ * }} [options]
+ * @returns {Promise<{ source: string, written: string[] }>}
+ */
 export async function generateFavicons({
   sourcePath,
   publicDir,
