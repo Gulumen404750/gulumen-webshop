@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { NextResponse } from 'next/server'
 
-const requireAdmin = vi.fn()
+const requireAdminPermission = vi.fn()
 const isDbConfigured = vi.fn()
 const findMany = vi.fn()
 const logAdminAction = vi.fn()
 const alertAdminAnomalySafe = vi.fn()
 
 vi.mock('@/lib/admin-auth', () => ({
-  requireAdmin: () => requireAdmin(),
+  requireAdminPermission: (...args: unknown[]) => requireAdminPermission(...args),
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -28,7 +29,10 @@ vi.mock('@/lib/admin-anomaly-alert', () => ({
 describe('GET /api/admin/orders/export', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    requireAdmin.mockResolvedValue(true)
+    requireAdminPermission.mockResolvedValue({
+      ok: true,
+      actor: { id: 'admin', username: 'admin', role: 'owner', bootstrap: true },
+    })
     isDbConfigured.mockReturnValue(true)
     logAdminAction.mockResolvedValue(undefined)
     alertAdminAnomalySafe.mockResolvedValue(undefined)
@@ -57,7 +61,10 @@ describe('GET /api/admin/orders/export', () => {
   })
 
   it('does not export when unauthorized', async () => {
-    requireAdmin.mockResolvedValue(false)
+    requireAdminPermission.mockResolvedValue({
+      ok: false,
+      response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+    })
     const { GET } = await import('@/app/api/admin/orders/export/route')
     const res = await GET(
       new Request('http://localhost/api/admin/orders/export?format=csv')

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const requireAdmin = vi.fn()
+const requireAdminPermission = vi.fn()
 const isDbConfigured = vi.fn()
 const findMany = vi.fn()
 const transaction = vi.fn()
@@ -9,7 +9,7 @@ const logAdminAction = vi.fn()
 const alertAdminAnomalySafe = vi.fn()
 
 vi.mock('@/lib/admin-auth', () => ({
-  requireAdmin: () => requireAdmin(),
+  requireAdminPermission: (...args: unknown[]) => requireAdminPermission(...args),
 }))
 
 vi.mock('@/lib/prisma', () => ({
@@ -34,7 +34,10 @@ vi.mock('@/lib/admin-anomaly-alert', () => ({
 describe('PATCH /api/admin/products/bulk-price', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    requireAdmin.mockResolvedValue(true)
+    requireAdminPermission.mockResolvedValue({
+      ok: true,
+      actor: { id: 'admin', username: 'admin', role: 'owner', bootstrap: true },
+    })
     isDbConfigured.mockReturnValue(true)
     logAdminAction.mockResolvedValue(undefined)
     alertAdminAnomalySafe.mockResolvedValue(undefined)
