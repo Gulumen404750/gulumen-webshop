@@ -93,7 +93,7 @@ export function Header() {
           <div className="flex items-center gap-1.5 sm:gap-3 h-14 sm:h-16 min-w-0 overflow-visible">
             <Link href="/" className="flex items-center gap-2 min-w-0 shrink-0" onClick={closeMobileNav}>
               <span className="flex w-9 h-9 sm:w-10 sm:h-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--card-bg)] border border-[var(--border)]">
-                <Image src="/img/logo.png" alt="Gulumen" width={40} height={40} className="object-cover w-full h-full" />
+                <Image src="/img/logo.png" alt="Gulumen" width={40} height={40} className="object-cover w-full h-full" unoptimized />
               </span>
               <span className="font-heading font-bold text-lg sm:text-xl text-foreground truncate hidden sm:inline">
                 Gulumen

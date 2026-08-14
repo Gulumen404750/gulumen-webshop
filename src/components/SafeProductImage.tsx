@@ -44,6 +44,8 @@ function shouldUseNativeImg(url: string, optimize?: boolean): boolean {
 }
 
 function shouldUnoptimize(url: string, optimize?: boolean): boolean {
+  // Lokális /img gyakran JPEG/WebP .png néven – az optimizer pipeline törékeny lehet.
+  if (url.startsWith('/img/')) return true
   if (optimize) return false
   return (
     url.startsWith('/uploads/') ||

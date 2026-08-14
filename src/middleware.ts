@@ -208,5 +208,9 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  // Ne fuss middleware a Next image optimizer / statikus képek előtt:
+  // különben a belső /img fetch üres body-t ad → "_next/image isn't a valid image".
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|img/|uploads/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|avif)$).*)',
+  ],
 }
