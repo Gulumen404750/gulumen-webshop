@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/admin-auth'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { logAdminAction } from '@/lib/admin-audit'
+import { alertAdminAnomalySafe } from '@/lib/admin-anomaly-alert'
 
 function escapeCsvField(value: string): string {
   if (/[",\n\r]/.test(value)) {
@@ -79,6 +80,12 @@ export async function GET(request: Request) {
     success: true,
     request,
     details: { count: orders.length, status: status || null, filename },
+  })
+  await alertAdminAnomalySafe({
+    kind: 'csv_export',
+    count: orders.length,
+    request,
+    details: { filename, status: status || null },
   })
 
   return new NextResponse(csv, {
