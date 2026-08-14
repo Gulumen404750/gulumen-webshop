@@ -33,6 +33,7 @@ Irányelvek: [SECURITY.md](../SECURITY.md) (sebezhetőség-bejelentés) · [Admi
 - [ ] `RESEND_API_KEY` – hírlevél / e-mail küldés
 - [ ] `ADMIN_EMAIL` – gyanús belépés / fiókzárolás riasztás (+ callback e-mail)
 - [ ] `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` + `RECAPTCHA_SECRET_KEY` – reCAPTCHA v3 a belépésnél
+- [ ] Cloudflare WAF az admin előtt (path challenge + login rate limit; shop / webhook skip) — [docs/WAF.md](WAF.md)
 
 ## .env.example
 

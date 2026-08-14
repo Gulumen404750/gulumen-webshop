@@ -32,6 +32,7 @@ Ez a dokumentum **kötelező** mindenki számára, aki admin kulcsot, Railway Va
 - Élesben add meg az **`ADMIN_ALLOWED_IPS`** változót (vesszővel elválasztott IPv4 / CIDR, pl. iroda + VPN).
 - Ha a változó **üres**, a kód **minden IP-t átenged** (logban figyelmeztetés). Ez fejlesztéshez való, productionben **tilos** üresen hagyni.
 - Új hálózat / home office: előbb bővítsd a listát, utána próbálj belépni. A login oldal is a listához van kötve.
+- Origin előtti szűrés (Cloudflare path / rate limit / bot, shop kimarad): [WAF.md](WAF.md). Az IP-listát a WAF **nem** helyettesíti.
 
 ---
 
@@ -117,6 +118,7 @@ A belépések és a releváns műveletek az **`AdminAction`** audit táblába me
 | Session verify | `src/lib/admin-session.ts`, `src/lib/admin-session-edge.ts` |
 | Session verzió (`sv`) | `src/lib/admin-session-version.ts` |
 | IP-lista | `src/lib/admin-ip-allowlist.ts`, `src/middleware.ts` |
+| WAF (Cloudflare, origin előtt) | [docs/WAF.md](WAF.md) — path / rate limit / bot / opcionális Access |
 | CSRF | `src/lib/admin-csrf.ts` |
 | 2FA | `src/lib/admin-2fa.ts`, `/api/admin/2fa/*` |
 | Audit | `src/lib/admin-audit.ts`, `AdminAction` |
