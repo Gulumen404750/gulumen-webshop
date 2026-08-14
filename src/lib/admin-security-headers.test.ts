@@ -6,6 +6,9 @@ describe('buildContentSecurityPolicy', () => {
     const csp = buildContentSecurityPolicy(false)
     expect(csp).not.toContain("'unsafe-eval'")
     expect(csp).toContain("script-src 'self' 'unsafe-inline' https://ajax.googleapis.com")
+    expect(csp).toContain('https://www.google.com')
+    expect(csp).toContain('https://www.gstatic.com')
+    expect(csp).toContain("frame-src 'self' https://www.google.com https://www.recaptcha.net")
     expect(csp).toContain("object-src 'none'")
   })
 

@@ -19,6 +19,8 @@ import {
 import { getAdminTwoFactorState } from '@/lib/admin-2fa'
 import { isDbConfigured } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
+import { getClientIp } from '@/lib/request-ip'
+import { RECAPTCHA_ACTIONS, verifyRecaptchaToken } from '@/lib/recaptcha'
 
 /**
  * POST /api/admin/login
@@ -46,8 +48,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Admin session not configured' }, { status: 503 })
   }
 
-  const body = await request.json().catch(() => ({}))
-  const key = typeof body?.key === 'string' ? body.key : ''
+  const body = (await request.json().catch(() => ({}))) as { key?: unknown; captchaToken?: unknown }
+  const key = typeof body.key === 'string' ? body.key : ''
+  const captcha = await verifyRecaptchaToken({
+    token: body.captchaToken,
+    action: RECAPTCHA_ACTIONS.adminLogin,
+    ip: getClientIp(request),
+  })
+  if (!captcha.ok) {
+    await logAdminAction({
+      action: 'login',
+      success: false,
+      request,
+      details: { reason: 'captcha' },
+    })
+    return NextResponse.json({ error: captcha.error }, { status: 400 })
+  }
   if (!secureCompare(key, adminKey)) {
     const limit = await rateLimit(request, { preset: 'adminLogin' })
     if (!limit.ok) {

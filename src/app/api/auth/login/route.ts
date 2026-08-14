@@ -11,10 +11,13 @@ import {
   loginRateLimitRecordFailure,
   loginRateLimitRecordSuccess,
 } from '@/lib/login-rate-limit'
+import { getClientIp } from '@/lib/request-ip'
+import { RECAPTCHA_ACTIONS, verifyRecaptchaToken } from '@/lib/recaptcha'
 
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
+  captchaToken: z.string().max(4000).optional(),
 })
 
 export async function POST(request: Request) {
@@ -51,8 +54,17 @@ export async function POST(request: Request) {
       { status: 400 }
     )
   }
-  const { email, password } = parsed.data
+  const { email, password, captchaToken } = parsed.data
   const emailNorm = normalizeEmail(email)
+
+  const captcha = await verifyRecaptchaToken({
+    token: captchaToken,
+    action: RECAPTCHA_ACTIONS.login,
+    ip: getClientIp(request),
+  })
+  if (!captcha.ok) {
+    return NextResponse.json({ error: captcha.error }, { status: 400 })
+  }
 
   if (isDbConfigured()) {
     const user = await findUserByEmail(emailNorm)

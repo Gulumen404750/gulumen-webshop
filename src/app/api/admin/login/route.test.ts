@@ -50,6 +50,11 @@ vi.mock('@/lib/logger', () => ({
   logger: { error: vi.fn(), info: vi.fn(), debug: vi.fn() },
 }))
 
+vi.mock('@/lib/recaptcha', () => ({
+  RECAPTCHA_ACTIONS: { login: 'login', adminLogin: 'admin_login' },
+  verifyRecaptchaToken: async () => ({ ok: true, skipped: true }),
+}))
+
 describe('POST /api/admin/login 2FA gate', () => {
   const originalKey = process.env.ADMIN_API_KEY
 

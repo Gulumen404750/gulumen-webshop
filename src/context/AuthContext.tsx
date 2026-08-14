@@ -5,6 +5,8 @@ import { clearGoogleAuthPending, saveGoogleAuthPending } from '@/lib/google-auth
 import { markRegistrationConsent } from '@/lib/registration-consent'
 import { runLogoutCleanup } from '@/lib/logout-cleanup'
 import { getCanonicalAppOrigin } from '@/lib/app-url'
+import { getRecaptchaToken } from '@/lib/recaptcha-browser'
+import { RECAPTCHA_ACTIONS } from '@/lib/recaptcha-constants'
 
 export type GoogleAuthOptions = {
   /** Új regisztráció: ÁSZF / adatkezelés elfogadva a Google indítás előtt */
@@ -57,11 +59,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = useCallback(async (email: string, password: string) => {
+    const captchaToken = await getRecaptchaToken(RECAPTCHA_ACTIONS.login)
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ email: email.trim(), password }),
+      body: JSON.stringify({ email: email.trim(), password, captchaToken }),
     })
     const data = await res.json().catch(() => ({}))
     if (res.ok && data.user?.email) {

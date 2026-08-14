@@ -15,6 +15,7 @@ import { LoyaltyTierBadge } from '@/components/LoyaltyTierBadge'
 import { ProductsPortalButton } from '@/components/ProductsPortalButton'
 import { usePointWallet } from '@/hooks/usePointWallet'
 import { applyStashedPointsRedeemOnce } from '@/lib/point-wallet-client'
+import { RecaptchaNotice } from '@/components/RecaptchaNotice'
 
 function NameProfileSection() {
   const { t } = useLocale()
@@ -361,6 +362,7 @@ export default function ProfilePage() {
         >
           {t('profile.loginCta')}
         </button>
+        <RecaptchaNotice />
         <div className="relative my-4">
           <span className="absolute inset-0 flex items-center">
             <span className="w-full border-t border-[var(--border)]" />

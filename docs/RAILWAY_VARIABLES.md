@@ -50,6 +50,8 @@ Ezeket a változókat állítsd be a **Railway → Project → Variables** felü
 | UPSTASH_REDIS_REST_URL | Upstash Redis REST URL (elosztott rate limit + idempotency) |
 | UPSTASH_REDIS_REST_TOKEN | Upstash Redis REST token |
 | LOG_LEVEL | Pl. `info` vagy `debug` |
+| NEXT_PUBLIC_RECAPTCHA_SITE_KEY | reCAPTCHA v3 site key (belépés). Üresen: captcha ki |
+| RECAPTCHA_SECRET_KEY | reCAPTCHA v3 secret. A site key-jel együtt kell |
 
 ### Railway Cron (külső / platform cron)
 
