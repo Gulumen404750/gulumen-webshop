@@ -5,6 +5,7 @@ const requireAdminPermission = vi.fn()
 const isDbConfigured = vi.fn()
 const listAdminOperators = vi.fn()
 const createAdminOperator = vi.fn()
+const deleteAdminOperator = vi.fn()
 const logAdminAction = vi.fn()
 
 vi.mock('@/lib/admin-auth', () => ({
@@ -19,7 +20,7 @@ vi.mock('@/lib/admin-operators', () => ({
   listAdminOperators: () => listAdminOperators(),
   createAdminOperator: (...args: unknown[]) => createAdminOperator(...args),
   updateAdminOperator: vi.fn(),
-  deleteAdminOperator: vi.fn(),
+  deleteAdminOperator: (...args: unknown[]) => deleteAdminOperator(...args),
   countActiveOwners: () => Promise.resolve(1),
 }))
 
@@ -89,5 +90,37 @@ describe('GET/POST /api/admin/staff', () => {
     )
     expect(res.status).toBe(200)
     expect(createAdminOperator).toHaveBeenCalled()
+  })
+
+  it('deletes an operator via POST action=delete', async () => {
+    deleteAdminOperator.mockResolvedValue('ok')
+    const { POST } = await import('@/app/api/admin/staff/route')
+    const res = await POST(
+      new Request('http://localhost/api/admin/staff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', id: 'op2' }),
+      })
+    )
+    expect(res.status).toBe(200)
+    const data = await res.json()
+    expect(data.ok).toBe(true)
+    expect(data.deletedId).toBe('op2')
+    expect(deleteAdminOperator).toHaveBeenCalledWith('op2')
+  })
+
+  it('rejects deleting the last owner', async () => {
+    deleteAdminOperator.mockResolvedValue('last_owner')
+    const { POST } = await import('@/app/api/admin/staff/route')
+    const res = await POST(
+      new Request('http://localhost/api/admin/staff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', id: 'op1' }),
+      })
+    )
+    expect(res.status).toBe(400)
+    const data = await res.json()
+    expect(data.code).toBe('last_owner')
   })
 })

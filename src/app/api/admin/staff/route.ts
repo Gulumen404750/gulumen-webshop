@@ -9,6 +9,7 @@ import {
   isAdminRole,
   parseAdminPassword,
   parseAdminUsername,
+  type AdminActor,
   type AdminRole,
 } from '@/lib/admin-rbac'
 import {
@@ -33,6 +34,51 @@ function parseRole(raw: unknown): AdminRole | null {
   return isAdminRole(raw) ? raw : null
 }
 
+async function deleteStaffOperator(
+  request: Request,
+  actor: AdminActor,
+  rawId: unknown
+): Promise<NextResponse> {
+  const id = typeof rawId === 'string' ? rawId.trim() : ''
+  if (!id) {
+    return NextResponse.json({ error: 'id required' }, { status: 400 })
+  }
+
+  try {
+    const result = await deleteAdminOperator(id)
+    if (result === 'not_found') {
+      return NextResponse.json({ error: 'Az operátor nem található.' }, { status: 404 })
+    }
+    if (result === 'last_owner') {
+      return NextResponse.json(
+        {
+          error:
+            'Az utolsó aktív owner nem törölhető. Hozz létre másik owner fiókot, vagy használd a főadmin API-kulcs belépést.',
+          code: 'last_owner',
+        },
+        { status: 400 }
+      )
+    }
+    await logAdminAction({
+      action: 'staff_delete',
+      success: true,
+      request,
+      actor,
+      details: { id },
+    })
+    return NextResponse.json({ ok: true, deletedId: id })
+  } catch (err) {
+    await logAdminAction({
+      action: 'staff_delete',
+      success: false,
+      request,
+      actor,
+      details: { id, error: err instanceof Error ? err.message : 'unknown' },
+    })
+    return NextResponse.json({ error: 'Operátor törlése sikertelen.' }, { status: 500 })
+  }
+}
+
 /**
  * GET /api/admin/staff
  * Operátor lista (jelszó hash nélkül).
@@ -49,6 +95,7 @@ export async function GET() {
     operators,
     roles: ADMIN_ROLES,
     requireFirstOwner: ownerCount === 0,
+    ownerCount,
     /** Szerepkör → tételes engedély / korlátozás katalógus a staff UI-hoz. */
     roleAccess: Object.fromEntries(
       ADMIN_ROLES.map((role) => [role, describeRoleAccess(role)])
@@ -58,7 +105,8 @@ export async function GET() {
 
 /**
  * POST /api/admin/staff
- * Body: { username, password, role }
+ * Body create: { username, password, role }
+ * Body delete: { action: 'delete', id }  — CSRF-biztos (a querystringes DELETE helyett)
  * Első operátor kötelezően owner. Bootstrap sessionből owner létrehozásakor
  * új JWT-t adunk (különben a következő kérés kizárna).
  */
@@ -70,6 +118,13 @@ export async function POST(request: Request) {
   }
 
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>
+
+  // Törlés: POST { action: 'delete', id } — a böngészős DELETE + querystring
+  // CSRF / rewrite alatt megbízhatatlan volt (confirm után sem történt törlés).
+  if (body.action === 'delete') {
+    return deleteStaffOperator(request, gate.actor, body.id)
+  }
+
   const username = parseAdminUsername(body.username)
   const password = parseAdminPassword(body.password)
   const role = parseRole(body.role)
@@ -195,7 +250,8 @@ export async function PATCH(request: Request) {
 }
 
 /**
- * DELETE /api/admin/staff?id=
+ * DELETE /api/admin/staff?id=  vagy body: { id }
+ * Preferáld a POST { action: 'delete', id } útvonalat a UI-ból.
  */
 export async function DELETE(request: Request) {
   const gate = await requireAdminPermission('staff:write')
@@ -205,20 +261,10 @@ export async function DELETE(request: Request) {
   }
 
   const { searchParams } = new URL(request.url)
-  const id = searchParams.get('id')?.trim() || ''
-  if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
-
-  const result = await deleteAdminOperator(id)
-  if (result === 'not_found') return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  if (result === 'last_owner') {
-    return NextResponse.json({ error: 'Az utolsó owner nem törölhető.' }, { status: 400 })
+  let id = searchParams.get('id')?.trim() || ''
+  if (!id) {
+    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>
+    id = typeof body.id === 'string' ? body.id.trim() : ''
   }
-  await logAdminAction({
-    action: 'staff_delete',
-    success: true,
-    request,
-    actor: gate.actor,
-    details: { id },
-  })
-  return NextResponse.json({ ok: true })
+  return deleteStaffOperator(request, gate.actor, id)
 }

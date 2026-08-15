@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import '@/lib/admin-fetch'
 import {
   ADMIN_ROLES,
   describeRoleAccess,
@@ -79,6 +80,7 @@ export default function StaffSettings() {
   const [password, setPassword] = useState('')
   const [role, setRole] = useState<AdminRole>('owner')
   const [requireFirstOwner, setRequireFirstOwner] = useState(true)
+  const [ownerCount, setOwnerCount] = useState(0)
   const [busy, setBusy] = useState(false)
   const [forbidden, setForbidden] = useState(false)
   const [previewRole, setPreviewRole] = useState<AdminRole>('owner')
@@ -101,6 +103,7 @@ export default function StaffSettings() {
       setOperators(Array.isArray(data.operators) ? data.operators : [])
       const needOwner = Boolean(data.requireFirstOwner)
       setRequireFirstOwner(needOwner)
+      setOwnerCount(typeof data.ownerCount === 'number' ? data.ownerCount : 0)
       if (needOwner) {
         setRole('owner')
         setPreviewRole('owner')
@@ -115,6 +118,11 @@ export default function StaffSettings() {
   useEffect(() => {
     void load()
   }, [load])
+
+  function canDeleteOperator(op: OperatorRow): boolean {
+    if (op.role === 'owner' && op.active && ownerCount <= 1) return false
+    return true
+  }
 
   async function createOperator(e: React.FormEvent) {
     e.preventDefault()
@@ -165,6 +173,7 @@ export default function StaffSettings() {
       if (typeof body.role === 'string') {
         setPreviewRole(body.role as AdminRole)
       }
+      setMessage('Operátor frissítve.')
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Hiba')
@@ -173,17 +182,34 @@ export default function StaffSettings() {
     }
   }
 
-  async function removeOperator(id: string) {
-    if (!confirm('Törlöd ezt az operátort?')) return
+  async function removeOperator(op: OperatorRow) {
+    if (!canDeleteOperator(op)) {
+      setError(
+        'Az utolsó aktív owner nem törölhető. Hozz létre másik owner fiókot előbb, vagy hagyd meg ezt a fiókot.'
+      )
+      setMessage(null)
+      return
+    }
+    if (!confirm(`Biztosan törlöd az operátort: ${op.username}?`)) return
     setBusy(true)
     setError(null)
+    setMessage(null)
     try {
-      const res = await fetch(`/api/admin/staff?id=${encodeURIComponent(id)}`, {
-        method: 'DELETE',
+      // POST + JSON body — a querystringes DELETE CSRF/rewrite alatt nem mindig futott le.
+      const res = await fetch('/api/admin/staff', {
+        method: 'POST',
         credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', id: op.id }),
       })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data.error || 'Törlés sikertelen')
+      if (!res.ok) {
+        throw new Error(
+          typeof data.error === 'string' ? data.error : 'Törlés sikertelen'
+        )
+      }
+      setOperators((prev) => prev.filter((row) => row.id !== op.id))
+      setMessage(`Operátor törölve: ${op.username}`)
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Hiba')
@@ -213,6 +239,20 @@ export default function StaffSettings() {
         )}
       </div>
 
+      {error && (
+        <p
+          className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300"
+          role="alert"
+        >
+          {error}
+        </p>
+      )}
+      {message && (
+        <p className="rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-800 dark:text-green-300">
+          {message}
+        </p>
+      )}
+
       {loading ? (
         <p className="text-sm text-muted">Betöltés…</p>
       ) : (
@@ -234,60 +274,68 @@ export default function StaffSettings() {
                   </td>
                 </tr>
               ) : (
-                operators.map((op) => (
-                  <tr key={op.id} className="border-b border-[var(--border)]/60">
-                    <td className="py-2 pr-3 font-mono">{op.username}</td>
-                    <td className="py-2 pr-3">
-                      <select
-                        value={op.role}
-                        disabled={busy}
-                        onChange={(e) => {
-                          const next = e.target.value as AdminRole
-                          setPreviewRole(next)
-                          void patchOperator(op.id, { role: next })
-                        }}
-                        onFocus={() => setPreviewRole(op.role)}
-                        className="rounded border border-[var(--border)] bg-background px-2 py-1"
-                      >
-                        {ADMIN_ROLES.map((r) => (
-                          <option key={r} value={r}>
-                            {r}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="py-2 pr-3">
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => patchOperator(op.id, { active: !op.active })}
-                        className="text-sm underline"
-                      >
-                        {op.active ? 'igen' : 'nem'}
-                      </button>
-                    </td>
-                    <td className="py-2">
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => {
-                          setPreviewRole(op.role)
-                        }}
-                        className="text-sm underline mr-3"
-                      >
-                        Jogok
-                      </button>
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => removeOperator(op.id)}
-                        className="text-sm text-red-600 dark:text-red-400"
-                      >
-                        Törlés
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                operators.map((op) => {
+                  const deletable = canDeleteOperator(op)
+                  return (
+                    <tr key={op.id} className="border-b border-[var(--border)]/60">
+                      <td className="py-2 pr-3 font-mono">{op.username}</td>
+                      <td className="py-2 pr-3">
+                        <select
+                          value={op.role}
+                          disabled={busy}
+                          onChange={(e) => {
+                            const next = e.target.value as AdminRole
+                            setPreviewRole(next)
+                            void patchOperator(op.id, { role: next })
+                          }}
+                          onFocus={() => setPreviewRole(op.role)}
+                          className="rounded border border-[var(--border)] bg-background px-2 py-1"
+                        >
+                          {ADMIN_ROLES.map((r) => (
+                            <option key={r} value={r}>
+                              {r}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="py-2 pr-3">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => patchOperator(op.id, { active: !op.active })}
+                          className="text-sm underline"
+                        >
+                          {op.active ? 'igen' : 'nem'}
+                        </button>
+                      </td>
+                      <td className="py-2">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => {
+                            setPreviewRole(op.role)
+                          }}
+                          className="text-sm underline mr-3"
+                        >
+                          Jogok
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy || !deletable}
+                          title={
+                            deletable
+                              ? `Törlés: ${op.username}`
+                              : 'Az utolsó aktív owner nem törölhető'
+                          }
+                          onClick={() => void removeOperator(op)}
+                          className="text-sm text-red-600 dark:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          Törlés
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })
               )}
             </tbody>
           </table>
@@ -356,9 +404,6 @@ export default function StaffSettings() {
       </form>
 
       <RolePermissionPreview role={previewRole} />
-
-      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-      {message && <p className="text-sm text-green-700 dark:text-green-400">{message}</p>}
     </section>
   )
 }
