@@ -16,6 +16,9 @@ A Gulumen **egyedi Next.js 14 App Router + Prisma 6 + PostgreSQL** webshop, Stri
 |---------|--------|
 | Szoftveres készültség (jelenlegi katalógus, kártyás fizetés) | **84%** |
 | Kereskedelmi élesítés 2000 SKU-val + számla + cookie CMP + futár API | **68%** |
+| Mai kód HU bekerülése (freelancer / kis cég) | **12–22 M Ft** |
+| Mai kód HU ügynökség (PM+QA) | **18–32 M Ft** |
+| 2000 SKU + számla + futár (még nincs) | **+9–20 M Ft**, ne keverd a mai értékhez |
 | API route-ok | 101 |
 | Prisma migrációk | 47 |
 | Vitest fájlok | 89 |
@@ -514,17 +517,31 @@ A 1–6 a **jelenlegi** shop biztonságos kártyás indulásához; 7+10 a 2000 S
 
 A számok **2026-os piaci sávok**, nem árajánlat. Forrás: magyar ügynökségi óradíjak (Netmetro 2026), budapesti senior €40–100/óra, CEE Next.js agency $40–100/óra, Stripe HU 1.5%+85 Ft, Railway usage.
 
+### Fontos: alma vs körte (miért ugrott „pár nap alatt” a szám)
+
+A shop **nem** lett 2–3× annyit érő néhány nap alatt. A 35–60 M Ft-os headline **összecsomagolt** három dolgot, amit korábbi elemzések általában **külön** vagy **alacsonyabb sávon** adtak:
+
+| Mit mérünk | Tipikus korábbi sáv | Mostani első kör (túl tág) | Helyes, összehasonlítható sáv |
+|------------|---------------------|----------------------------|-------------------------------|
+| **Mai kód** újraépítése HU freelancer / kis cég | **8–18 M Ft** | 25–40 M Ft | **12–22 M Ft** |
+| Ugyanez HU ügynökséggel (PM + QA + UAT) | ritkán mondták | 25–40 M Ft | **18–32 M Ft** |
+| 2026-08-08 → 08-15 delta (2FA, RBAC, IP, CSRF, címmódosítás, order API) | — | beleszőve a 25–40-be | **+2–5 M Ft** (80–200 óra) |
+| 2000 SKU feltöltés | külön / 0 | beleszőve a 35–60-ba | **+6–12 M Ft**, nincs a kódban |
+| Számla + futár API + cookie CMP | 0 | beleszőve a 35–60-ba | **+3–8 M Ft**, **még nincs meg** |
+
+A 1100–1700 óra **ügynökségi bruttó** (felfedezés, meeting, QA, UAT, PM 15–20%). Hatékony senior újraépítés ugyanerre a kódra **450–750 óra**. 20 ezer Ft/óra × 600 óra = **12 M Ft** — ez a korábbi „mennyibe fájna” szám, nem a 35 M.
+
 ## 51. Ügynökségi ár egy ilyen egyedi Next.js + Stripe + Admin + self-serve logisztikai shopra
 
 Ez **nem** WooCommerce-sablon. 101 API, 47 migráció, RBAC+2FA+CSRF, dual-order sourcing, gamifikáció, 4 nyelv, AI chat, tokenes címmódosítás.
 
-| Szegmens | Sáv (nettó, 2026) |
-|----------|-------------------|
-| HU kis ügynökség | **18–32 millió Ft** |
-| HU prémium / senior team | **28–45 millió Ft** |
-| Nyugat-EU ügynökség | **€90 000–180 000** (~36–72 M Ft @ 400 Ft/€) |
+| Szegmens | Sáv (nettó, 2026) | Mit tartalmaz |
+|----------|-------------------|---------------|
+| HU freelancer / kis cég, **mai kód** | **12–22 millió Ft** | Feature-paritás, kevés PM/UAT |
+| HU kis ügynökség, **mai kód** | **18–32 millió Ft** | PM + QA + szerződéses garancia |
+| HU prémium team / Nyugat-EU | 28–45 M Ft / €90–180k | Nem a reális HU összehasonlítás |
 
-Ebbe **nincs** beleszámolva 2000 termék feltöltése.
+Ebbe **nincs** beleszámolva 2000 termék feltöltése, és **nincs** benne a még meg nem írt számla/futár.
 
 ## 52. Senior Full-Stack óradíj / projektár
 
@@ -537,15 +554,20 @@ Ebbe **nincs** beleszámolva 2000 termék feltöltése.
 | Budapest senior agency EUR | €40–100 / óra |
 | Nyugat-EU Next.js agency | $80–150 / óra |
 
-Projektben egy ilyen stack **1100–1700 senior óra** (felfedezés, UI, checkout, admin security, teszt, ops). 25 ezer Ft/óra × 1400 óra ≈ **35 M Ft**.
+| Órabecslés | Óra | × 20 ezer Ft | Mit jelent |
+|------------|-----|--------------|------------|
+| Hatékony senior újraépítés | **450–750** | **9–15 M Ft** | Cursor/solo, kevés meeting |
+| Kis ügynökség (PM+QA) | **800–1100** | **16–22 M Ft** | Reális HU ajánlat a mai kódra |
+| Nagy ügynökség bruttó | 1100–1700 | 22–34 M Ft | Padding; **nem** a shop „értéke” |
 
 ## 53. Kulcsrakész nulláról külső kivitelezővel
 
-Ugyanaz a rendszer, szerződéses garanciával, staginggel, ÁSZF-szinkronnal, 4–8 hét UAT-tal:
+Ugyanaz a rendszer, szerződéses garanciával:
 
-- **Alsó (MVP kártya, vékony admin):** 12–18 M Ft — *ez a Gulumen mai mélysége alatt van*
-- **Reális (mai feature-paritás):** **25–40 M Ft**
-- **Plusz számla + futár API + CMP + 2000 SKU ops:** **38–55 M Ft**
+- **MVP kártya, vékony admin:** 8–15 M Ft — *ez a Gulumen mai mélysége **alatt** van*
+- **Mai feature-paritás, HU kis cég / freelancer:** **12–22 M Ft**
+- **Mai feature-paritás, HU ügynökség PM+QA:** **18–32 M Ft**
+- **Plusz** számla + futár API + CMP + 2000 SKU: **+9–20 M Ft** — ez **jövőbeli** munka, nem a mostani kód értéke
 
 Shopify/Unas sablon **nem** ekvivalens: a sourcing authorize/capture, self-serve cím, gamification ledger egyedi.
 
@@ -597,15 +619,24 @@ Napi 500 rendelés ugyanazon 50 eFt-tal: GMV ~9.1 Mrd Ft/év → Stripe ~**140 M
 
 ## 57. Piaci bekerülési érték, ha nem saját időből épül
 
+**Mai kód** (az, ami a GitHubon van, 35–68 SKU-val):
+
 | Tétel | Sáv |
 |-------|-----|
-| Szoftver (mai paritás) | 25–40 M Ft |
-| 2000 SKU feltöltés (közepes minőség) | 6–12 M Ft |
-| Számla + cookie + futár API | 3–8 M Ft |
-| Első év infra + Stripe (közepes forgalom) | 0.5–8 M Ft (forgalomfüggő) |
-| **Összesen „ha ügynökség csinálja”** | **35–60 M Ft** + Stripe |
+| Szoftver, HU freelancer / kis cég | **12–22 M Ft** |
+| Szoftver, HU ügynökség PM+QA | **18–32 M Ft** |
 
-Saját idő: a kódtörténet (százas nagyságrendű feature branch) **több száz–ezer óra** senior munkának felel meg.
+**Külön, nincs a mai kódban** (ne add hozzá a „most mennyit ér”-hez):
+
+| Tétel | Sáv |
+|-------|-----|
+| 2000 SKU feltöltés (közepes minőség) | 6–12 M Ft |
+| Számla + cookie CMP + futár API | 3–8 M Ft |
+| Első év infra + Stripe (közepes forgalom) | 0.5–8 M Ft (forgalomfüggő) |
+
+Ha valaki a teljes 2000 SKU-s kereskedelmi csomagot kéri kulcsrakészen: **27–52 M Ft** + Stripe. Ez **nem** azt jelenti, hogy a jelenlegi repo 35–60 M-et ér.
+
+Saját idő: a kódtörténet több száz senior órának felel meg; 600 óra × 15 ezer Ft opportunity cost ≈ **9 M Ft** — ez a „ha te építetted” alsó sáv.
 
 ## 58. ROI (reselling / e-commerce, fenntartás függvényében)
 
@@ -615,7 +646,7 @@ Egyszerűsített:
 `havi hozzájárulás = (árrés% − 1.5% Stripe) × GMV − hosting − munka`
 
 Példa 40% árrés, 10 M Ft/hó GMV:  
-Stripe ~0.15–0.2 M; árrés 4 M; hosting ~0.05 M → **~3.7 M Ft/hó** hozzájárulás a beszerzés előtt. A szoftver 35 M Ft-os ügynökségi ára ~**10–15 hónap** alatt térül, ha a GMV tartós. Saját fejlesztésnél a „költség” az elmaradt bér / opportunity cost.
+Stripe ~0.15–0.2 M; árrés 4 M; hosting ~0.05 M → **~3.7 M Ft/hó** hozzájárulás a beszerzés előtt. A szoftver **12–22 M Ft**-os reális HU bekerülése ~**4–8 hónap** alatt térül, ha a GMV tartós. Saját fejlesztésnél a „költség” az elmaradt bér / opportunity cost.
 
 Kockázat: készlet, sourcing laterálás, ÁFA-számla hiánya, MX, chargeback. Az egyedi platform **akkor** ver Shopify-t, ha a sourcing+gamification+self-serve a differenciáló — a 2% Shopify fee vs 0 hosting itt másodlagos a Stripe mellett.
 
@@ -670,7 +701,8 @@ Javasolt 500/nap előtt: 2 Railway replica, Redis, PgBouncer/pool, webhook queue
 6. Címke-folyamat próba; futár API ha a volumen nő  
 7. Staging kapu, majd master → www  
 
-**Készültség:** szoftver **84%**; 2000 SKU kereskedelmi csomag **68%**. A mag eladható kártyával; a 100% a jogi számla, a fogadó e-mail, a katalógus és a logisztikai automatizmus.
+**Készültség:** szoftver **84%**; 2000 SKU kereskedelmi csomag **68%**.  
+**Mai kód bekerülése (HU, összehasonlítható):** **12–22 M Ft** freelancer/kis cég, **18–32 M Ft** ügynökség. A 35–60 M Ft csak akkor érvényes, ha valaki a még hiányzó 2000 SKU + számla + futár csomagot is most kéri.
 
 ---
 
