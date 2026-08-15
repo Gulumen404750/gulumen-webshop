@@ -1,5 +1,7 @@
 /**
- * Rendelés megerősítő e-mail (Resend). Webhook (checkout.session.completed) után hívjuk.
+ * Rendelés megerősítő e-mail (Resend).
+ * Csak sikeres fizetés után hívjuk (Stripe webhook: payment_status === 'paid' /
+ * authorize requires_capture|succeeded; Dummy/points checkout után).
  * Ha nincs RESEND_API_KEY, csak logol – nem dob hibát.
  */
 
@@ -14,9 +16,16 @@ const CONTACT_URL = `${APP_URL}/kapcsolat`
 const RETURNS_URL = `${APP_URL}/visszakuldes`
 const SHIPPING_URL = `${APP_URL}/szallitas`
 
+/** Ügyfélszolgálat – módosítási kérésekhez (válasz / mailto). */
+export const ORDER_SUPPORT_EMAIL =
+  process.env.NEXT_PUBLIC_LEGAL_EMAIL?.trim() ||
+  process.env.ORDER_SUPPORT_EMAIL?.trim() ||
+  'info@gulumen.hu'
+
 const SENT_EMAIL_KEY_PREFIX = 'order_confirmation_sent:'
 const SENT_EMAILS_FILE = 'data/sent-order-emails.json'
 
+/** Sikeres fizetés utáni státuszok, amelyekre megerősítő e-mail mehet. */
 const SUCCESS_STATUSES = new Set(['paid', 'sourcing_pending', 'fulfilled'])
 
 function escapeHtml(s: string): string {
@@ -61,6 +70,162 @@ function orderFulfillmentText(order: Order): string {
   return parts.join(' ') || 'Szállítás: Posta, GLS, Foxpost, DPD.'
 }
 
+function formatAddressLines(params: {
+  name?: string
+  phone?: string
+  postalCode?: string
+  city?: string
+  street?: string
+  houseNumber?: string
+}): string[] {
+  const lines: string[] = []
+  if (params.name?.trim()) lines.push(params.name.trim())
+  const streetParts = [params.street, params.houseNumber].filter((p) => p?.trim()).join(' ').trim()
+  if (streetParts) lines.push(streetParts)
+  const cityLine = [params.postalCode, params.city].filter((p) => p?.trim()).join(' ').trim()
+  if (cityLine) lines.push(cityLine)
+  if (params.phone?.trim()) lines.push(`Tel: ${params.phone.trim()}`)
+  return lines
+}
+
+function hasShippingAddress(order: Order): boolean {
+  return !!(
+    order.shippingStreet ||
+    order.shippingCity ||
+    order.shippingPostalCode ||
+    order.shippingHouseNumber
+  )
+}
+
+function hasBillingAddress(order: Order): boolean {
+  return !!(
+    order.billingStreet ||
+    order.billingCity ||
+    order.billingPostalCode ||
+    order.billingHouseNumber
+  )
+}
+
+/** Címek + ügyféladatok egy rendelésből (csoportnál az első teljes című rendelést használjuk). */
+export function pickCustomerAddressOrder(orders: Order[]): Order {
+  return (
+    orders.find((o) => hasShippingAddress(o) || hasBillingAddress(o) || o.customerName) ??
+    orders[0]!
+  )
+}
+
+export function buildOrderChangeMailto(orderRef: string): string {
+  const subject = encodeURIComponent(`Rendelés módosítás – ${orderRef}`)
+  const body = encodeURIComponent(
+    `Kedves Gulumen!\n\nA(z) ${orderRef} azonosítójú rendelésem adatain szeretnék módosítani, mielőtt elkezdenék csomagolni.\n\nKért módosítás:\n`
+  )
+  return `mailto:${ORDER_SUPPORT_EMAIL}?subject=${subject}&body=${body}`
+}
+
+function buildCustomerDetailsSection(order: Order, orderRef: string): string {
+  const shippingLines = formatAddressLines({
+    name: order.customerName,
+    phone: order.customerPhone,
+    postalCode: order.shippingPostalCode,
+    city: order.shippingCity,
+    street: order.shippingStreet,
+    houseNumber: order.shippingHouseNumber,
+  })
+
+  const billingSame = order.billingSameAsShipping !== false && !hasBillingAddress(order)
+  const billingLines = billingSame
+    ? []
+    : formatAddressLines({
+        name: order.customerName,
+        postalCode: order.billingPostalCode,
+        city: order.billingCity,
+        street: order.billingStreet,
+        houseNumber: order.billingHouseNumber,
+      })
+
+  const shippingHtml =
+    shippingLines.length > 0
+      ? shippingLines.map((l) => `<li>${escapeHtml(l)}</li>`).join('')
+      : '<li>Nincs megadva</li>'
+
+  const billingHtml = billingSame
+    ? '<li>Megegyezik a szállítási címmel</li>'
+    : billingLines.length > 0
+      ? billingLines.map((l) => `<li>${escapeHtml(l)}</li>`).join('')
+      : '<li>Nincs megadva</li>'
+
+  const notes =
+    order.deliveryNotes?.trim()
+      ? `<p><strong>Szállítási megjegyzés:</strong> ${escapeHtml(order.deliveryNotes.trim())}</p>`
+      : ''
+
+  const mailto = buildOrderChangeMailto(orderRef)
+
+  return `
+  <div style="border: 1px solid #fde68a; background: #fffbeb; border-radius: 8px; padding: 16px; margin: 24px 0;">
+    <h2 style="margin-top: 0; color: #92400e;">Kérjük, ellenőrizd az adataidat!</h2>
+    <p style="color: #78350f;">
+      A csomagolás megkezdése előtt ellenőrizd a szállítási és számlázási adatokat.
+      Ha valamit módosítani szeretnél, jelezd nekünk mielőbb — amíg nem kezdjük el a csomagolást, tudunk segíteni.
+    </p>
+    <p>
+      <a href="${mailto}" style="display: inline-block; background: #92400e; color: #fff; text-decoration: none; padding: 10px 16px; border-radius: 6px; font-weight: 600;">
+        Módosítás jelzése e-mailben
+      </a>
+    </p>
+    <p style="font-size: 14px; color: #78350f;">
+      Vagy írj a <a href="${mailto}">${escapeHtml(ORDER_SUPPORT_EMAIL)}</a> címre,
+      illetve használd a <a href="${CONTACT_URL}">kapcsolati űrlapot</a>.
+    </p>
+    <h3>Szállítási cím</h3>
+    <ul style="list-style: none; padding-left: 0;">${shippingHtml}</ul>
+    <h3>Számlázási cím</h3>
+    <ul style="list-style: none; padding-left: 0;">${billingHtml}</ul>
+    ${notes}
+  </div>
+`.trim()
+}
+
+function buildCustomerDetailsText(order: Order, orderRef: string): string {
+  const shippingLines = formatAddressLines({
+    name: order.customerName,
+    phone: order.customerPhone,
+    postalCode: order.shippingPostalCode,
+    city: order.shippingCity,
+    street: order.shippingStreet,
+    houseNumber: order.shippingHouseNumber,
+  })
+  const billingSame = order.billingSameAsShipping !== false && !hasBillingAddress(order)
+  const billingLines = billingSame
+    ? ['Megegyezik a szállítási címmel']
+    : formatAddressLines({
+        name: order.customerName,
+        postalCode: order.billingPostalCode,
+        city: order.billingCity,
+        street: order.billingStreet,
+        houseNumber: order.billingHouseNumber,
+      })
+
+  return [
+    '',
+    '---',
+    'Kérjük, ellenőrizd az adataidat!',
+    'A csomagolás megkezdése előtt ellenőrizd a szállítási és számlázási adatokat.',
+    'Ha módosításra van szükség, jelezd mielőbb — amíg nem kezdjük el a csomagolást, tudunk segíteni.',
+    `Módosítás jelzése: ${ORDER_SUPPORT_EMAIL} (válaszolj erre az e-mailre, vagy nyisd meg: ${buildOrderChangeMailto(orderRef)})`,
+    `Kapcsolat: ${CONTACT_URL}`,
+    '',
+    'Szállítási cím:',
+    ...(shippingLines.length > 0 ? shippingLines.map((l) => `- ${l}`) : ['- Nincs megadva']),
+    '',
+    'Számlázási cím:',
+    ...(billingLines.length > 0 ? billingLines.map((l) => `- ${l}`) : ['- Nincs megadva']),
+    order.deliveryNotes?.trim() ? `\nSzállítási megjegyzés: ${order.deliveryNotes.trim()}` : null,
+  ]
+    .filter((line) => line !== null)
+    .join('\n')
+}
+
 function buildShippingInfoSection(): string {
   return `
   <h2>Szállítási információk</h2>
@@ -94,27 +259,30 @@ function buildOrderBlockHtml(order: Order): string {
   return `
   <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 16px 0;">
     <h2 style="margin-top: 0;">${escapeHtml(orderBlockTitle(order))}</h2>
-    <p><strong>Rendelés azonosító:</strong> ${escapeHtml(order.id)}</p>
+    <p><strong>Rendelésszám:</strong> ${escapeHtml(order.id)}</p>
     <h3>Rendelt tételek</h3>
     <ul>${itemsList}</ul>
     <ul style="list-style: none; padding-left: 0;">
       <li>Részösszeg: ${formatHuf(order.subtotalHuf)}</li>
       ${discountParts.join('\n      ')}
       <li>Szállítási díj: ${shipping === 0 ? 'Ingyenes' : formatHuf(shipping)}</li>
-      <li><strong>Fizetendő összeg:</strong> ${formatHuf(order.totalHuf)}</li>
+      <li><strong>Végösszeg:</strong> ${formatHuf(order.totalHuf)}</li>
     </ul>
     <p><strong>Várható teljesítés:</strong> ${escapeHtml(orderFulfillmentText(order))}</p>
   </div>
 `.trim()
 }
 
-function buildOrderGroupConfirmationHtml(orders: Order[], groupLabel: string): string {
+/** HTML sablon – tesztekhez exportálva. */
+export function buildOrderGroupConfirmationHtml(orders: Order[], groupLabel: string): string {
   const blocks = orders.map(buildOrderBlockHtml).join('\n')
   const grandTotal = orders.reduce((sum, o) => sum + o.totalHuf, 0)
   const groupLine =
     orders.length > 1
       ? `<p><strong>Rendelés csoport azonosító:</strong> ${escapeHtml(groupLabel)}</p>`
       : ''
+  const addressOrder = pickCustomerAddressOrder(orders)
+  const orderRef = orders.length === 1 ? orders[0]!.id : groupLabel
 
   return `
 <!DOCTYPE html>
@@ -122,9 +290,11 @@ function buildOrderGroupConfirmationHtml(orders: Order[], groupLabel: string): s
 <head><meta charset="utf-8"><title>Rendelés megerősítés</title></head>
 <body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #111;">
   <h1>Köszönjük a rendelésed!</h1>
+  <p>A fizetés sikeresen megtörtént. Az alábbiakban a rendelésed részletei találhatók.</p>
   ${groupLine}
   ${orders.length > 1 ? `<p><strong>Összesen fizetve:</strong> ${formatHuf(grandTotal)}</p>` : ''}
   ${blocks}
+  ${buildCustomerDetailsSection(addressOrder, orderRef)}
   ${buildShippingInfoSection()}
   <p style="margin-top: 24px;"><a href="${RETURNS_URL}">Visszaküldési feltételek</a></p>
   <p>Kérdés esetén: <a href="${CONTACT_URL}">Kapcsolat</a></p>
@@ -135,7 +305,8 @@ function buildOrderGroupConfirmationHtml(orders: Order[], groupLabel: string): s
 `.trim()
 }
 
-function buildOrderGroupConfirmationText(orders: Order[], groupLabel: string): string {
+/** Plain text sablon – tesztekhez exportálva. */
+export function buildOrderGroupConfirmationText(orders: Order[], groupLabel: string): string {
   const blocks = orders.map((order) => {
     const shipping = orderShippingHuf(order)
     const items = order.items
@@ -143,7 +314,7 @@ function buildOrderGroupConfirmationText(orders: Order[], groupLabel: string): s
       .join('\n')
     return [
       `${orderBlockTitle(order)}`,
-      `Rendelés azonosító: ${order.id}`,
+      `Rendelésszám: ${order.id}`,
       'Tételek:',
       items,
       `Részösszeg: ${formatHuf(order.subtotalHuf)}`,
@@ -152,7 +323,7 @@ function buildOrderGroupConfirmationText(orders: Order[], groupLabel: string): s
         ? `Pont kedvezmény: −${formatHuf(order.pointsDiscountHuf ?? 0)}`
         : null,
       `Szállítási díj: ${shipping === 0 ? 'Ingyenes' : formatHuf(shipping)}`,
-      `Fizetendő összeg: ${formatHuf(order.totalHuf)}`,
+      `Végösszeg: ${formatHuf(order.totalHuf)}`,
       `Várható teljesítés: ${orderFulfillmentText(order)}`,
     ]
       .filter(Boolean)
@@ -162,11 +333,16 @@ function buildOrderGroupConfirmationText(orders: Order[], groupLabel: string): s
   const grandTotal = orders.reduce((sum, o) => sum + o.totalHuf, 0)
   const header = [
     'Köszönjük a rendelésed!',
+    'A fizetés sikeresen megtörtént. Az alábbiakban a rendelésed részletei találhatók.',
     orders.length > 1 ? `Rendelés csoport: ${groupLabel}` : null,
     orders.length > 1 ? `Összesen fizetve: ${formatHuf(grandTotal)}` : null,
   ]
     .filter(Boolean)
     .join('\n')
+
+  const addressOrder = pickCustomerAddressOrder(orders)
+  const orderRef = orders.length === 1 ? orders[0]!.id : groupLabel
+  const customerDetails = buildCustomerDetailsText(addressOrder, orderRef)
 
   const shippingInfo = [
     '',
@@ -180,7 +356,7 @@ function buildOrderGroupConfirmationText(orders: Order[], groupLabel: string): s
     `Kapcsolat: ${CONTACT_URL}`,
   ].join('\n')
 
-  return `${header}\n\n${blocks.join('\n\n')}${shippingInfo}`
+  return `${header}\n\n${blocks.join('\n\n')}${customerDetails}${shippingInfo}`
 }
 
 function sentEmailKey(groupId: string): string {
@@ -250,6 +426,7 @@ async function sendViaResend(params: {
   subject: string
   html: string
   text: string
+  replyTo?: string
 }): Promise<SendOrderConfirmationResult> {
   const result = await sendMail(params)
   if (!result.ok) return { ok: false, error: result.error }
@@ -276,7 +453,13 @@ export async function sendOrderGroupConfirmationEmail(
     return { ok: true }
   }
 
-  return sendViaResend({ to: customerEmail, subject, html, text })
+  return sendViaResend({
+    to: customerEmail,
+    subject,
+    html,
+    text,
+    replyTo: ORDER_SUPPORT_EMAIL,
+  })
 }
 
 /**
@@ -302,7 +485,10 @@ export async function sendOrderConfirmationEmail(
 
 /**
  * Checkout / webhook után: csak akkor küld, ha a csoport minden rendelése lezárult (nincs payment_pending),
- * és még nem ment ki megerősítő e-mail.
+ * legalább egy sikeres (paid / sourcing_pending / fulfilled), és még nem ment ki megerősítő e-mail.
+ *
+ * A Stripe webhook útvonalak csak payment_status === 'paid' (capture) vagy érvényes authorize
+ * után hívják — tehát a fizetés 100%-ig sikeres, mielőtt ideérünk.
  */
 export async function maybeSendOrderGroupConfirmationEmail(
   triggerOrderId: string,
@@ -310,6 +496,16 @@ export async function maybeSendOrderGroupConfirmationEmail(
 ): Promise<SendOrderConfirmationResult> {
   const triggerOrder = await getOrderById(triggerOrderId)
   if (!triggerOrder) return { ok: true }
+
+  // Csak sikeres fizetés utáni státuszból indítható a küldés (webhook / checkout már átállította).
+  if (!SUCCESS_STATUSES.has(triggerOrder.status)) {
+    console.debug(
+      '[order-email] Skip confirmation – trigger order not in success status:',
+      triggerOrder.id,
+      triggerOrder.status
+    )
+    return { ok: true }
+  }
 
   const groupId = triggerOrder.orderGroupId ?? triggerOrder.id
   const orders = triggerOrder.orderGroupId
