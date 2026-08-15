@@ -7,7 +7,7 @@
 #   npm run deploy:railway
 #
 # Vagy GitHub Actions: állítsd be a RAILWAY_TOKEN secretet (Railway → gulumen-webshop → Settings → Tokens).
-# Redeploy trigger: fix order-change via contact form (no MX) 2026-08-15T12:20.
+# Redeploy trigger: fix payment email + admin address notify 2026-08-15T13:05.
 
 [build]
 builder = "nixpacks"
@@ -27,9 +27,9 @@ restartPolicyMaxRetries = 5
 HOSTNAME = "0.0.0.0"
 NEXT_PUBLIC_APP_URL = "https://www.gulumen.com"
 NEXTAUTH_URL = "https://www.gulumen.com"
-# Ügyfélszolgálat megjelenítés (mailto szöveg). Beérkező: ADMIN_EMAIL (Gmail),
-# mert a gulumen.com-nak jelenleg nincs MX-e – postmaster@ nem fogad levelet.
+# Ügyfélszolgálat megjelenítés (mailto szöveg). Beérkező / admin értesítő:
+# postmaster@gulumen.com + ADMIN_EMAIL (Gmail), mert a gulumen.com-nak jelenleg nincs MX-e.
 NEXT_PUBLIC_SUPPORT_EMAIL = "postmaster@gulumen.com"
 NEXT_PUBLIC_LEGAL_EMAIL = "postmaster@gulumen.com"
-# ORDER_SUPPORT_EMAIL-t NE a postmasterre állítsd, amíg nincs MX.
-# Hagyd üresen, vagy írd a Gmail címedet (ugyanaz, mint ADMIN_EMAIL).
+# ORDER_SUPPORT_EMAIL opcionális. ADMIN_EMAIL-t állítsd Gmailre (Railway Variables),
+# különben a módosítási figyelmeztetések és admin másolatok nem érkeznek meg.

@@ -3,6 +3,7 @@ import {
   DEFAULT_SUPPORT_INBOX,
   getPublicSupportEmail,
   getSupportInboxEmail,
+  getAdminNotificationEmails,
   isUnreliableInboundDomain,
   buildOrderChangeContactUrl,
 } from './support-email'
@@ -28,12 +29,21 @@ describe('support-email', () => {
     restore('NEXT_PUBLIC_LEGAL_EMAIL', prev.legal)
   })
 
-  it('skips gulumen.com postmaster (no MX) and uses ADMIN_EMAIL Gmail', () => {
+  it('skips gulumen.com postmaster (no MX) and uses ADMIN_EMAIL Gmail for Reply-To', () => {
     process.env.ORDER_SUPPORT_EMAIL = 'postmaster@gulumen.com'
     process.env.NEXT_PUBLIC_SUPPORT_EMAIL = 'postmaster@gulumen.com'
     process.env.ADMIN_EMAIL = 'ops@gmail.com'
     expect(isUnreliableInboundDomain('postmaster@gulumen.com')).toBe(true)
     expect(getSupportInboxEmail()).toBe('ops@gmail.com')
+  })
+
+  it('admin notifications always include postmaster plus reliable ADMIN_EMAIL', () => {
+    process.env.ORDER_SUPPORT_EMAIL = 'postmaster@gulumen.com'
+    process.env.ADMIN_EMAIL = 'ops@gmail.com'
+    const emails = getAdminNotificationEmails()
+    expect(emails).toContain(DEFAULT_SUPPORT_INBOX)
+    expect(emails).toContain('ops@gmail.com')
+    expect(emails.length).toBe(2)
   })
 
   it('uses ORDER_SUPPORT_EMAIL when it is a real inbox', () => {
@@ -60,5 +70,6 @@ describe('support-email', () => {
     delete process.env.NEXT_PUBLIC_SUPPORT_EMAIL
     delete process.env.NEXT_PUBLIC_LEGAL_EMAIL
     expect(getSupportInboxEmail()).toBe(DEFAULT_SUPPORT_INBOX)
+    expect(getAdminNotificationEmails()).toEqual([DEFAULT_SUPPORT_INBOX])
   })
 })

@@ -66,7 +66,20 @@ export async function POST(request: Request) {
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session
+      // Új checkout: metadata.transactionId (+ orderId). Régi: csak orderId.
       const orderId = session.metadata?.orderId
+      const transactionId = session.metadata?.transactionId
+
+      if (!orderId && transactionId) {
+        // Ha a Stripe Dashboard még a legacy /api/stripe/webhook-ra mutat,
+        // de az új checkout csak transactionId-t vár a payments webhookban:
+        // irányítsuk át a payments handler logikára a transactionId alapján.
+        logger.warn(
+          { transactionId },
+          'checkout.session.completed: legacy stripe webhook got transactionId without orderId – prefer /api/payments/webhook'
+        )
+      }
+
       if (!orderId) {
         logger.error('checkout.session.completed: missing metadata.orderId')
         return NextResponse.json({ received: true })
@@ -78,12 +91,33 @@ export async function POST(request: Request) {
         return NextResponse.json({ received: true })
       }
 
-      // Már paid: ne állítsuk újra paid-ra, de a jutalomégés idempotens – futtassuk le (retry).
+      // Már paid: ne állítsuk újra paid-ra, de jutalom + e-mail idempotens retry.
       if (order.status === 'paid' || order.paidWebhookEventId === event.id) {
         try {
           await finalizeOrderRewards(orderId)
         } catch (err) {
           logger.error({ err, orderId }, 'checkout.session.completed: finalize retry failed')
+        }
+        const customerEmailRetry =
+          session.customer_details?.email ?? session.customer_email ?? null
+        try {
+          const emailResult = await maybeSendOrderGroupConfirmationEmail(
+            orderId,
+            customerEmailRetry
+          )
+          if (!emailResult.ok) {
+            logger.error(
+              { err: emailResult.error, orderId },
+              'checkout.session.completed: email retry failed'
+            )
+          } else if (emailResult.sent) {
+            logger.info({ orderId }, 'checkout.session.completed: email sent on retry')
+          }
+        } catch (emailErr) {
+          logger.error(
+            { err: emailErr, orderId },
+            'checkout.session.completed: email retry error'
+          )
         }
         return NextResponse.json({ received: true })
       }

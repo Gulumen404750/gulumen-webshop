@@ -209,7 +209,37 @@ async function handleStripeWebhook(request: Request, signature: string): Promise
       return NextResponse.json({ received: true })
     }
 
+    // Már succeeded: ne claimeljünk újra, de az e-mailt mindig próbáljuk (Resend retry).
     if (tx.status === 'succeeded') {
+      const customerEmail =
+        session.customer_details?.email ?? session.customer_email ?? null
+      try {
+        const emailResult = await maybeSendOrderGroupConfirmationEmail(
+          tx.orderId,
+          customerEmail
+        )
+        if (!emailResult.ok) {
+          console.error(
+            '[payments/webhook] Order confirmation retry (already succeeded) failed:',
+            emailResult.error
+          )
+        } else if (emailResult.sent) {
+          console.info(
+            '[payments/webhook] Order confirmation sent on Stripe retry',
+            tx.orderId
+          )
+        } else if (emailResult.skipped) {
+          console.warn(
+            '[payments/webhook] Order confirmation skipped on retry (Resend not configured)',
+            tx.orderId
+          )
+        }
+      } catch (emailErr) {
+        console.error(
+          '[payments/webhook] Order confirmation retry error (already succeeded):',
+          emailErr
+        )
+      }
       return NextResponse.json({ received: true })
     }
 

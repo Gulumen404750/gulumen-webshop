@@ -12,8 +12,10 @@ import { FREE_SHIPPING_THRESHOLD } from './checkout'
 import { sendMail } from './mail'
 import {
   getSupportInboxEmail,
+  getAdminNotificationEmails,
   warnIfSupportInboxUnreliable,
   buildOrderChangeContactUrl,
+  DEFAULT_SUPPORT_INBOX,
 } from './support-email'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://gulumen.hu'
@@ -455,14 +457,19 @@ export type SendOrderConfirmationResult =
   | { ok: true; sent?: boolean; skipped?: boolean; id?: string; error?: string }
   | { ok: false; error: string }
 
-/** Admin / postmaster másolat sikeres fizetésről. */
+/** Admin / postmaster másolat sikeres fizetésről (címzettenként külön – MX hibák ne buktassák a többit). */
 async function sendAdminPaidNotification(
   orders: Order[],
   customerEmail: string,
   groupLabel: string
 ): Promise<void> {
-  const adminTo = getOrderSupportEmail()
-  if (!adminTo || adminTo.toLowerCase() === customerEmail.toLowerCase()) return
+  const recipients = getAdminNotificationEmails().filter(
+    (to) => to.toLowerCase() !== customerEmail.toLowerCase()
+  )
+  if (recipients.length === 0) {
+    console.warn('[order-email] No admin recipients for paid notification')
+    return
+  }
 
   const subjectRef = orders.length === 1 ? orders[0]!.id : groupLabel
   const total = orders.reduce((sum, o) => sum + o.totalHuf, 0)
@@ -491,19 +498,77 @@ async function sendAdminPaidNotification(
     items,
   ].join('\n')
 
-  const result = await sendMail({
-    to: adminTo,
-    subject: `[Gulumen] Új rendelés – ${subjectRef}`,
-    html: `<pre style="font-family:sans-serif;white-space:pre-wrap">${escapeHtml(text)}</pre>`,
-    text,
-    replyTo: customerEmail,
-  })
-  if (!result.ok) {
-    console.error('[order-email] Admin paid notification failed:', result.error)
-  } else if (result.skipped) {
-    console.warn('[order-email] Admin paid notification skipped (no RESEND_API_KEY)')
-  } else {
-    console.info('[order-email] Admin paid notification sent to', adminTo, result.id ?? '')
+  const subject = `[Gulumen] Új rendelés – ${subjectRef}`
+  const html = `<pre style="font-family:sans-serif;white-space:pre-wrap">${escapeHtml(text)}</pre>`
+
+  for (const adminTo of recipients) {
+    const result = await sendMail({
+      to: adminTo,
+      subject,
+      html,
+      text,
+      replyTo: customerEmail,
+    })
+    if (!result.ok) {
+      console.error('[order-email] Admin paid notification failed:', adminTo, result.error)
+    } else if (result.skipped) {
+      console.warn('[order-email] Admin paid notification skipped (no RESEND_API_KEY):', adminTo)
+    } else {
+      console.info('[order-email] Admin paid notification sent to', adminTo, result.id ?? '')
+    }
+  }
+}
+
+/**
+ * Admin címmódosítás figyelmeztetés (postmaster + ADMIN_EMAIL).
+ * A mentés után hívjuk – e-mail hiba nem gördíti vissza a DB írást.
+ */
+export async function sendAdminAddressChangeNotification(params: {
+  orderId: string
+  before: Order
+  after: Order
+  changedFields: string[]
+}): Promise<void> {
+  const { orderId, before, after, changedFields } = params
+  if (changedFields.length === 0) return
+
+  const recipients = getAdminNotificationEmails()
+  if (recipients.length === 0) return
+
+  const fmtAddr = (o: Order) =>
+    [
+      o.customerName,
+      [o.shippingStreet, o.shippingHouseNumber].filter(Boolean).join(' '),
+      [o.shippingPostalCode, o.shippingCity].filter(Boolean).join(' '),
+      o.customerPhone ? `Tel: ${o.customerPhone}` : null,
+      o.customerEmail,
+    ]
+      .filter(Boolean)
+      .join(', ') || '–'
+
+  const text = [
+    'Admin címmódosítás',
+    `Rendelés: ${orderId}`,
+    `Módosított mezők: ${changedFields.join(', ')}`,
+    '',
+    `Előtte: ${fmtAddr(before)}`,
+    `Utána: ${fmtAddr(after)}`,
+    '',
+    `Másolat: ${DEFAULT_SUPPORT_INBOX}`,
+  ].join('\n')
+
+  const subject = `[Gulumen] Címmódosítás – ${orderId}`
+  const html = `<pre style="font-family:sans-serif;white-space:pre-wrap">${escapeHtml(text)}</pre>`
+
+  for (const to of recipients) {
+    const result = await sendMail({ to, subject, html, text })
+    if (!result.ok) {
+      console.error('[order-email] Address-change notify failed:', to, result.error)
+    } else if (result.skipped) {
+      console.warn('[order-email] Address-change notify skipped (no RESEND_API_KEY):', to)
+    } else {
+      console.info('[order-email] Address-change notify sent to', to, result.id ?? '')
+    }
   }
 }
 

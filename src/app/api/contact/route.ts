@@ -3,6 +3,7 @@ import { rateLimit } from '@/lib/rate-limit'
 import { isResendConfigured, sendMailRequired } from '@/lib/mail'
 import {
   getSupportInboxEmail,
+  getAdminNotificationEmails,
   isUnreliableInboundDomain,
   warnIfSupportInboxUnreliable,
 } from '@/lib/support-email'
@@ -69,16 +70,9 @@ export async function POST(request: Request) {
 
     const primary = getSupportInboxEmail()
     warnIfSupportInboxUnreliable(primary, 'contact form')
-    const admin = process.env.ADMIN_EMAIL?.trim()
-    const recipients = [primary]
-    if (
-      admin &&
-      admin.toLowerCase() !== primary.toLowerCase() &&
-      !isUnreliableInboundDomain(admin)
-    ) {
-      recipients.push(admin)
-    }
-    if (recipients.every((r) => isUnreliableInboundDomain(r))) {
+    const to = getAdminNotificationEmails()
+    // Legalább egy megbízható inbox kell (Gmail), különben a módosítási figyelmeztetés elveszne.
+    if (to.length === 0 || to.every((r) => isUnreliableInboundDomain(r))) {
       console.error(
         '[contact] Nincs fogadó inbox – állítsd az ADMIN_EMAIL-t Gmail címre (gulumen.com-nak nincs MX)'
       )
@@ -91,7 +85,6 @@ export async function POST(request: Request) {
       )
     }
 
-    const to = recipients
     const subjectParts = ['[Gulumen] Kapcsolat']
     if (orderRef) subjectParts.push(`– ${orderRef}`)
     subjectParts.push(`– ${name}`)
@@ -123,16 +116,28 @@ export async function POST(request: Request) {
       .filter((line) => line !== null)
       .join('\n')
 
-    const result = await sendMailRequired({
-      to,
-      subject: subjectParts.join(' '),
-      html,
-      text,
-      replyTo: email,
-    })
+    // Címzettenként külön küldés: egy MX-hiba ne buktassa a megbízható inboxot.
+    let anyOk = false
+    let lastError: string | undefined
+    for (const recipient of to) {
+      const result = await sendMailRequired({
+        to: recipient,
+        subject: subjectParts.join(' '),
+        html,
+        text,
+        replyTo: email,
+      })
+      if (result.ok) {
+        anyOk = true
+        console.info('[contact] sent to', recipient, result.id ?? '')
+      } else {
+        lastError = result.error
+        console.error('[contact] send failed', recipient, result.error)
+      }
+    }
 
-    if (!result.ok) {
-      console.error('[contact] send failed', result.error)
+    if (!anyOk) {
+      console.error('[contact] all sends failed', lastError)
       return NextResponse.json(
         { error: 'Az üzenet küldése sikertelen. Próbáld újra később.' },
         { status: 500 }

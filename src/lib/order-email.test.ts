@@ -146,6 +146,7 @@ describe('maybeSendOrderGroupConfirmationEmail payment gate', () => {
   })
 
   it('sends via Resend only after paid status with customer email', async () => {
+    process.env.ADMIN_EMAIL = 'ops@gmail.com'
     const order = makeOrder({
       id: `ord_paid_${Date.now()}`,
       status: 'paid',
@@ -163,10 +164,16 @@ describe('maybeSendOrderGroupConfirmationEmail payment gate', () => {
         replyTo: getOrderSupportEmail(),
       })
     )
-    // Admin / postmaster másolat
+    // Admin / postmaster másolat (külön küldés címzettenként)
     expect(sendMail).toHaveBeenCalledWith(
       expect.objectContaining({
-        to: getOrderSupportEmail(),
+        to: 'postmaster@gulumen.com',
+        subject: expect.stringContaining('[Gulumen] Új rendelés'),
+      })
+    )
+    expect(sendMail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: 'ops@gmail.com',
         subject: expect.stringContaining('[Gulumen] Új rendelés'),
       })
     )
