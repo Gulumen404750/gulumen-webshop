@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import '@/lib/admin-fetch'
 import {
-  ADMIN_ROLES,
+  OPERATOR_ROLES,
   describeRoleAccess,
+  isOperatorRole,
   type AdminRole,
+  type OperatorRole,
 } from '@/lib/admin-rbac'
 
 type OperatorRow = {
@@ -18,11 +20,13 @@ type OperatorRow = {
 }
 
 const ROLE_LABEL: Record<AdminRole, string> = {
-  owner: 'Owner (főadmin – minden)',
+  owner: 'Owner (csak gyári főadmin – nem adható)',
   support: 'Support (PII, rendelés – nincs ár/törlés/export)',
   catalog: 'Katalógus (termék, ár – nincs PII)',
   viewer: 'Megtekintő',
 }
+
+const DEFAULT_OPERATOR_ROLE: OperatorRole = 'support'
 
 function RolePermissionPreview({ role }: { role: AdminRole }) {
   const access = useMemo(() => describeRoleAccess(role), [role])
@@ -33,8 +37,8 @@ function RolePermissionPreview({ role }: { role: AdminRole }) {
           Jogosultságok — {ROLE_LABEL[role]}
         </h3>
         <p className="text-xs text-muted mt-0.5">
-          A kiválasztott szerepkör pontosan ezeket a funkciókat éri el. A főadmin
-          (`owner` / API-kulcs útvonal) jogosultságait más soha nem kaphatja meg.
+          A kiválasztott operátori szerepkör pontosan ezeket a funkciókat éri el. A főadmin
+          (`ADMIN_API_KEY` + 2FA) jogosultságait másodlagos felhasználó soha nem kaphatja meg.
         </p>
       </div>
       <ul className="grid gap-1.5 sm:grid-cols-2 text-sm">
@@ -78,13 +82,12 @@ export default function StaffSettings() {
   const [operators, setOperators] = useState<OperatorRow[]>([])
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState<AdminRole>('owner')
-  const [requireFirstOwner, setRequireFirstOwner] = useState(true)
+  const [role, setRole] = useState<OperatorRole>(DEFAULT_OPERATOR_ROLE)
   const [ownerCount, setOwnerCount] = useState(0)
   const [masterSession, setMasterSession] = useState(false)
   const [busy, setBusy] = useState(false)
   const [forbidden, setForbidden] = useState(false)
-  const [previewRole, setPreviewRole] = useState<AdminRole>('owner')
+  const [previewRole, setPreviewRole] = useState<AdminRole>(DEFAULT_OPERATOR_ROLE)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -102,14 +105,10 @@ export default function StaffSettings() {
       }
       setForbidden(false)
       setOperators(Array.isArray(data.operators) ? data.operators : [])
-      const needOwner = Boolean(data.requireFirstOwner)
-      setRequireFirstOwner(needOwner)
       setOwnerCount(typeof data.ownerCount === 'number' ? data.ownerCount : 0)
       setMasterSession(Boolean(data.masterSession))
-      if (needOwner) {
-        setRole('owner')
-        setPreviewRole('owner')
-      }
+      setRole(DEFAULT_OPERATOR_ROLE)
+      setPreviewRole(DEFAULT_OPERATOR_ROLE)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Ismeretlen hiba')
     } finally {
@@ -130,6 +129,10 @@ export default function StaffSettings() {
 
   async function createOperator(e: React.FormEvent) {
     e.preventDefault()
+    if (!isOperatorRole(role)) {
+      setError('Owner / főadmin szerep nem adható operátornak.')
+      return
+    }
     setBusy(true)
     setError(null)
     setMessage(null)
@@ -144,6 +147,7 @@ export default function StaffSettings() {
       if (!res.ok) throw new Error(data.error || 'Létrehozás sikertelen')
       setUsername('')
       setPassword('')
+      setRole(DEFAULT_OPERATOR_ROLE)
       if (data.masterSessionPreserved || masterSession) {
         setMessage(
           'Operátor létrehozva. A főadmin (API-kulcs) sessioned érintetlen maradt. Tesztelés: /operator/login — külön süti, párhuzamos session.'
@@ -162,6 +166,11 @@ export default function StaffSettings() {
   }
 
   async function patchOperator(id: string, body: Record<string, unknown>) {
+    if (body.role === 'owner') {
+      setError('Owner / főadmin szerep nem adható operátornak.')
+      setMessage(null)
+      return
+    }
     setBusy(true)
     setError(null)
     setMessage(null)
@@ -174,8 +183,8 @@ export default function StaffSettings() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || 'Mentés sikertelen')
-      if (typeof body.role === 'string') {
-        setPreviewRole(body.role as AdminRole)
+      if (typeof body.role === 'string' && isOperatorRole(body.role)) {
+        setPreviewRole(body.role)
       }
       setMessage('Operátor frissítve.')
       await load()
@@ -189,7 +198,7 @@ export default function StaffSettings() {
   async function removeOperator(op: OperatorRow) {
     if (!canDeleteOperator(op)) {
       setError(
-        'Az utolsó aktív owner nem törölhető ebből a sessionből. Lépj be a főadmin API-kulcs + 2FA útvonalon (/admin/login), vagy hozz létre másik owner fiókot előbb.'
+        'Az utolsó aktív owner nem törölhető ebből a sessionből. Lépj be a főadmin API-kulcs + 2FA útvonalon (/admin/login).'
       )
       setMessage(null)
       return
@@ -234,26 +243,18 @@ export default function StaffSettings() {
       <div>
         <h2 className="text-lg font-semibold">Operátorok (RBAC)</h2>
         <p className="text-sm text-muted mt-1">
-          Amíg nincs aktív <strong>owner</strong> operátor, az API kulcs + 2FA elég (bootstrap).
-          Az első létrehozott operátor kötelezően owner. A főadmin belépés (
-          <code>/admin/login</code> vagy rejtett slug, API kulcs + 2FA) mindig működik —
-          unbreakable master jog, és soha nem íródik át DB-operátor sessionre. Másodlagos
-          fiókok: <code>/operator/login</code> (felhasználónév + jelszó) — külön süti, nem írja
-          felül az owner sessiont; párhuzamosan is bent lehetnek.
+          A főadmin hozzáférés kizárólag <code>/admin/login</code> (vagy rejtett slug) +{' '}
+          <strong>ADMIN_API_KEY + 2FA</strong> útvonalon érhető el — owner szerep operátornak soha
+          nem adható. Másodlagos fiókok: <code>/operator/login</code> (felhasználónév + jelszó),
+          választható szerepek: support, catalog, viewer. Külön süti; párhuzamos session lehetséges.
           {masterSession && (
             <>
               {' '}
-              Most <strong>master session</strong>ben vagy: bármely operátor (az utolsó owner is)
-              azonnal módosítható / törölhető.
+              Most <strong>master session</strong>ben vagy: bármely operátor azonnal módosítható /
+              törölhető.
             </>
           )}
         </p>
-        {requireFirstOwner && (
-          <p className="text-sm text-amber-700 dark:text-amber-300 mt-2">
-            Most hozz létre egy <strong>owner</strong> fiókot magadnak ismert jelszóval — ezután
-            adhatsz support/catalog jogosultságot másoknak.
-          </p>
-        )}
       </div>
 
       {error && (
@@ -287,30 +288,37 @@ export default function StaffSettings() {
               {operators.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="py-3 text-muted">
-                    Nincs operátor – egykulcsos fallback aktív.
+                    Nincs operátor – egykulcsos főadmin fallback aktív.
                   </td>
                 </tr>
               ) : (
                 operators.map((op) => {
                   const deletable = canDeleteOperator(op)
+                  const legacyOwner = op.role === 'owner'
                   return (
                     <tr key={op.id} className="border-b border-[var(--border)]/60">
                       <td className="py-2 pr-3 font-mono">{op.username}</td>
                       <td className="py-2 pr-3">
                         <select
-                          value={op.role}
+                          value={legacyOwner ? '' : op.role}
                           disabled={busy}
                           onChange={(e) => {
-                            const next = e.target.value as AdminRole
+                            const next = e.target.value as OperatorRole
+                            if (!isOperatorRole(next)) return
                             setPreviewRole(next)
                             void patchOperator(op.id, { role: next })
                           }}
-                          onFocus={() => setPreviewRole(op.role)}
+                          onFocus={() => setPreviewRole(isOperatorRole(op.role) ? op.role : 'support')}
                           className="rounded border border-[var(--border)] bg-background px-2 py-1"
                         >
-                          {ADMIN_ROLES.map((r) => (
+                          {legacyOwner && (
+                            <option value="" disabled>
+                              Owner (legacy – válassz operátori szerepet)
+                            </option>
+                          )}
+                          {OPERATOR_ROLES.map((r) => (
                             <option key={r} value={r}>
-                              {r}
+                              {ROLE_LABEL[r]}
                             </option>
                           ))}
                         </select>
@@ -330,7 +338,7 @@ export default function StaffSettings() {
                           type="button"
                           disabled={busy}
                           onClick={() => {
-                            setPreviewRole(op.role)
+                            setPreviewRole(isOperatorRole(op.role) ? op.role : 'support')
                           }}
                           className="text-sm underline mr-3"
                         >
@@ -396,13 +404,14 @@ export default function StaffSettings() {
             id="staff-role"
             value={role}
             onChange={(e) => {
-              const next = e.target.value as AdminRole
+              const next = e.target.value as OperatorRole
+              if (!isOperatorRole(next)) return
               setRole(next)
               setPreviewRole(next)
             }}
             className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-background"
           >
-            {ADMIN_ROLES.filter((r) => !requireFirstOwner || r === 'owner').map((r) => (
+            {OPERATOR_ROLES.map((r) => (
               <option key={r} value={r}>
                 {ROLE_LABEL[r]}
               </option>

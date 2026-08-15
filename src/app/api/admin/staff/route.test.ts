@@ -50,9 +50,9 @@ describe('GET/POST /api/admin/staff', () => {
     logAdminAction.mockResolvedValue(undefined)
   })
 
-  it('lists operators for owner and reports masterSession=false for DB owner', async () => {
+  it('lists operators and exposes only OPERATOR_ROLES (no owner)', async () => {
     listAdminOperators.mockResolvedValue([
-      { id: 'op1', username: 'anna', role: 'owner', active: true, createdAt: '2026-01-01', updatedAt: '2026-01-01' },
+      { id: 'op1', username: 'anna', role: 'support', active: true, createdAt: '2026-01-01', updatedAt: '2026-01-01' },
     ])
     const { GET } = await import('@/app/api/admin/staff/route')
     const res = await GET()
@@ -60,6 +60,10 @@ describe('GET/POST /api/admin/staff', () => {
     const data = await res.json()
     expect(data.operators[0].username).toBe('anna')
     expect(data.masterSession).toBe(false)
+    expect(data.requireFirstOwner).toBe(false)
+    expect(data.roles).toEqual(['viewer', 'catalog', 'support'])
+    expect(data.roles).not.toContain('owner')
+    expect(data.roleAccess.owner).toBeUndefined()
     expect(data.roleAccess.catalog.permissions.length).toBeGreaterThan(0)
     expect(
       data.roleAccess.catalog.permissions.find(
@@ -87,9 +91,26 @@ describe('GET/POST /api/admin/staff', () => {
     expect(res.status).toBe(403)
   })
 
-  it('creates an operator without rewriting master session', async () => {
+  it('creates a support operator without rewriting master session', async () => {
     requireAdminPermission.mockResolvedValue({ ok: true, actor: masterActor })
-    createAdminOperator.mockResolvedValue({ id: 'op2', username: 'bela', role: 'owner' })
+    createAdminOperator.mockResolvedValue({ id: 'op2', username: 'bela', role: 'support' })
+    const { POST } = await import('@/app/api/admin/staff/route')
+    const res = await POST(
+      new Request('http://localhost/api/admin/staff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'bela', password: 'longenough1', role: 'support' }),
+      })
+    )
+    expect(res.status).toBe(200)
+    const data = await res.json()
+    expect(data.sessionUpgraded).toBe(false)
+    expect(data.masterSessionPreserved).toBe(true)
+    expect(createAdminOperator).toHaveBeenCalled()
+  })
+
+  it('rejects creating an operator with owner role', async () => {
+    requireAdminPermission.mockResolvedValue({ ok: true, actor: masterActor })
     const { POST } = await import('@/app/api/admin/staff/route')
     const res = await POST(
       new Request('http://localhost/api/admin/staff', {
@@ -98,11 +119,26 @@ describe('GET/POST /api/admin/staff', () => {
         body: JSON.stringify({ username: 'bela', password: 'longenough1', role: 'owner' }),
       })
     )
-    expect(res.status).toBe(200)
+    expect(res.status).toBe(400)
     const data = await res.json()
-    expect(data.sessionUpgraded).toBe(false)
-    expect(data.masterSessionPreserved).toBe(true)
-    expect(createAdminOperator).toHaveBeenCalled()
+    expect(data.code).toBe('owner_role_forbidden')
+    expect(createAdminOperator).not.toHaveBeenCalled()
+  })
+
+  it('rejects promoting an operator to owner', async () => {
+    requireAdminPermission.mockResolvedValue({ ok: true, actor: masterActor })
+    const { PATCH } = await import('@/app/api/admin/staff/route')
+    const res = await PATCH(
+      new Request('http://localhost/api/admin/staff', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: 'op2', role: 'owner' }),
+      })
+    )
+    expect(res.status).toBe(400)
+    const data = await res.json()
+    expect(data.code).toBe('owner_role_forbidden')
+    expect(updateAdminOperator).not.toHaveBeenCalled()
   })
 
   it('deletes an operator via POST action=delete', async () => {

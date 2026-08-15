@@ -1,11 +1,19 @@
 /**
  * Admin RBAC – least privilege.
- * Szerepek: viewer | catalog | support | owner.
- * Amíg nincs operátor a DB-ben, a JWT `sub=admin` bootstrap owner (API-kulcs fallback).
+ * Belső szerepek: viewer | catalog | support | owner.
+ * A staff UI / API csak operátori szerepeket adhat (OPERATOR_ROLES) —
+ * `owner` kizárólag a gyári ADMIN_API_KEY + 2FA bootstrap session.
  */
 
 export const ADMIN_ROLES = ['viewer', 'catalog', 'support', 'owner'] as const
 export type AdminRole = (typeof ADMIN_ROLES)[number]
+
+/**
+ * Másodlagos operátoroknak adható szerepek a felületről.
+ * Owner / főadmin SOHA nem szerepelhet itt.
+ */
+export const OPERATOR_ROLES = ['viewer', 'catalog', 'support'] as const
+export type OperatorRole = (typeof OPERATOR_ROLES)[number]
 
 export const ADMIN_PERMISSIONS = [
   'dashboard:read',
@@ -73,6 +81,11 @@ export function isAdminRole(value: unknown): value is AdminRole {
   return typeof value === 'string' && (ADMIN_ROLES as readonly string[]).includes(value)
 }
 
+/** Staff UI / create-update: csak operátori szerep (nem owner). */
+export function isOperatorRole(value: unknown): value is OperatorRole {
+  return typeof value === 'string' && (OPERATOR_ROLES as readonly string[]).includes(value)
+}
+
 export function roleHasPermission(role: AdminRole, permission: AdminPermission): boolean {
   return ROLE_PERMISSIONS[role].includes(permission)
 }
@@ -121,8 +134,8 @@ export const ADMIN_ROLE_LIMITATIONS: Record<AdminRole, readonly string[]> = {
     'Tömeges törlés / módosítás (>10): PENDING, főadmin jóváhagyás 5 percen belül.',
   ],
   owner: [
-    'Teljes körű jogosultság — ezt más operátor soha nem kaphatja meg a főadmin útvonalon kívül.',
-    'Csak a főadmin belépés (/admin/login vagy rejtett slug) garantálja az unbreakable fallback-et.',
+    'Nem adható ki operátornak — csak a gyári ADMIN_API_KEY + 2FA főadmin útvonal.',
+    'A staff felületen owner szerep nem választható és nem hozható létre.',
   ],
 }
 

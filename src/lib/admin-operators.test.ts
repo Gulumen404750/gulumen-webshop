@@ -120,12 +120,53 @@ describe('admin operators fallback', () => {
     expect(bad).toEqual({ ok: false, code: 'invalid_input' })
   })
 
-  it('first operator create must be owner', async () => {
+  it('rejects creating an operator with owner role', async () => {
     mockCounts(0, 0)
     const { createAdminOperator } = await import('./admin-operators')
     await expect(
+      createAdminOperator({ username: 'bela', password: 'password12', role: 'owner' })
+    ).rejects.toMatchObject({ name: 'OWNER_ROLE_FORBIDDEN' })
+    expect(create).not.toHaveBeenCalled()
+  })
+
+  it('allows creating the first operator as support (no DB owner required)', async () => {
+    mockCounts(0, 0)
+    create.mockResolvedValue({
+      id: 'op2',
+      username: 'bela',
+      role: 'support',
+      active: true,
+    })
+    const { createAdminOperator } = await import('./admin-operators')
+    await expect(
       createAdminOperator({ username: 'bela', password: 'password12', role: 'support' })
-    ).rejects.toMatchObject({ name: 'FIRST_MUST_BE_OWNER' })
+    ).resolves.toEqual(expect.objectContaining({ role: 'support' }))
+    expect(create).toHaveBeenCalled()
+  })
+
+  it('rejects promoting an operator to owner', async () => {
+    findUnique.mockResolvedValue({
+      id: 'op2',
+      username: 'bela',
+      role: 'support',
+      active: true,
+      passwordHash: 'x',
+    })
+    const { updateAdminOperator } = await import('./admin-operators')
+    await expect(updateAdminOperator('op2', { role: 'owner' })).rejects.toMatchObject({
+      name: 'OWNER_ROLE_FORBIDDEN',
+    })
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  it('owner path rejects username+password even on empty table (no DB owner create)', async () => {
+    mockCounts(0, 0)
+    const { resolveOwnerLoginActor } = await import('./admin-operators')
+    const result = await resolveOwnerLoginActor({
+      username: 'anna',
+      password: 'password12',
+    })
+    expect(result).toEqual({ ok: false, code: 'invalid_credentials' })
     expect(create).not.toHaveBeenCalled()
   })
 

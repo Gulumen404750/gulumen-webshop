@@ -93,19 +93,6 @@ async function verifyOperatorPassword(username: string, password: string): Promi
   return toActor(row)
 }
 
-async function createFirstOwner(username: string, password: string): Promise<AdminActor | null> {
-  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS)
-  try {
-    const row = await prisma.adminOperator.create({
-      data: { username, passwordHash, role: 'owner', active: true },
-    })
-    return toActor(row)
-  } catch (err) {
-    logger.warn({ err, username }, 'first owner create failed; trying authenticate')
-    return verifyOperatorPassword(username, password)
-  }
-}
-
 export type ResolveLoginResult =
   | { ok: true; actor: AdminActor }
   | { ok: false; code: 'requiresOperator' | 'invalid_credentials' | 'invalid_input' }
@@ -114,34 +101,22 @@ export type ResolveLoginResult =
  * Owner belépési path (`/admin/login` / `/api/admin/login`):
  * API-kulcs után mindig bootstrap owner – akkor is, ha van aktív owner a DB-ben.
  * Operátor username+jelszó NEM fogadható el ezen az útvonalon (külön `/operator/login`).
- * Üres táblán az opcionális username+jelszó létrehozhatja az első owner fiókot.
+ * DB owner fiók soha nem jön létre erről az útvonalról.
  */
 export async function resolveOwnerLoginActor(input: {
   username?: unknown
   password?: unknown
 } = {}): Promise<ResolveLoginResult> {
-  const totalCount = await countAdminOperators()
   const rawUser = typeof input.username === 'string' ? input.username : ''
   const rawPass = typeof input.password === 'string' ? input.password : ''
   const hasOperatorFields = Boolean(rawUser.trim() || rawPass)
 
-  if (!hasOperatorFields) {
-    return { ok: true, actor: BOOTSTRAP_ADMIN_ACTOR }
-  }
-
-  // Operátorok már léteznek → a főadmin útvonal nem fogad el username+jelszót.
-  if (totalCount > 0) {
+  // Főadmin path: csak API-kulcs → bootstrap. Username+jelszó / DB owner create tiltva.
+  if (hasOperatorFields) {
     return { ok: false, code: 'invalid_credentials' }
   }
 
-  const username = parseAdminUsername(rawUser)
-  const password = parseAdminPassword(rawPass)
-  if (!username || !password) {
-    return { ok: false, code: 'invalid_input' }
-  }
-  const actor = await createFirstOwner(username, password)
-  if (!actor) return { ok: false, code: 'invalid_credentials' }
-  return { ok: true, actor }
+  return { ok: true, actor: BOOTSTRAP_ADMIN_ACTOR }
 }
 
 /**
@@ -176,7 +151,6 @@ export async function resolveAdminLoginActor(input: {
   password?: unknown
 }): Promise<ResolveLoginResult> {
   const ownerCount = await countActiveOwners()
-  const totalCount = await countAdminOperators()
   const rawUser = typeof input.username === 'string' ? input.username : ''
   const rawPass = typeof input.password === 'string' ? input.password : ''
   const hasOperatorFields = Boolean(rawUser.trim() || rawPass)
@@ -185,22 +159,7 @@ export async function resolveAdminLoginActor(input: {
     if (!hasOperatorFields) {
       return { ok: true, actor: BOOTSTRAP_ADMIN_ACTOR }
     }
-    const username = parseAdminUsername(rawUser)
-    const password = parseAdminPassword(rawPass)
-    if (!username || !password) {
-      return { ok: false, code: 'invalid_input' }
-    }
-    if (totalCount === 0) {
-      const actor = await createFirstOwner(username, password)
-      if (!actor) return { ok: false, code: 'invalid_credentials' }
-      return { ok: true, actor }
-    }
-    try {
-      const actor = await verifyOperatorPassword(username, rawPass)
-      if (actor) return { ok: true, actor }
-    } catch (err) {
-      logger.error({ err }, 'operator password verify failed (no-owner path)')
-    }
+    // DB owner create tiltva — csak bootstrap (API-kulcs) a főadmin.
     return { ok: false, code: 'invalid_credentials' }
   }
 
@@ -234,10 +193,9 @@ export async function createAdminOperator(input: {
   password: string
   role: AdminRole
 }): Promise<AdminActor> {
-  const owners = await countActiveOwners()
-  if (owners === 0 && input.role !== 'owner') {
-    const err = new Error('FIRST_MUST_BE_OWNER')
-    err.name = 'FIRST_MUST_BE_OWNER'
+  if (input.role === 'owner') {
+    const err = new Error('OWNER_ROLE_FORBIDDEN')
+    err.name = 'OWNER_ROLE_FORBIDDEN'
     throw err
   }
   const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS)
@@ -269,6 +227,12 @@ export async function updateAdminOperator(
 ): Promise<AdminActor | null> {
   const existing = await prisma.adminOperator.findUnique({ where: { id } })
   if (!existing) return null
+
+  if (patch.role === 'owner') {
+    const err = new Error('OWNER_ROLE_FORBIDDEN')
+    err.name = 'OWNER_ROLE_FORBIDDEN'
+    throw err
+  }
 
   const nextRole = patch.role ?? (isAdminRole(existing.role) ? existing.role : null)
   const nextActive = patch.active ?? existing.active

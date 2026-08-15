@@ -4,13 +4,14 @@ import { isMasterAdminActor, requireAdminPermission } from '@/lib/admin-auth'
 import { isDbConfigured } from '@/lib/prisma'
 import { logAdminAction } from '@/lib/admin-audit'
 import {
-  ADMIN_ROLES,
+  OPERATOR_ROLES,
   describeRoleAccess,
-  isAdminRole,
+  isOperatorRole,
   parseAdminPassword,
   parseAdminUsername,
   type AdminActor,
   type AdminRole,
+  type OperatorRole,
 } from '@/lib/admin-rbac'
 import {
   countActiveOwners,
@@ -20,8 +21,8 @@ import {
   updateAdminOperator,
 } from '@/lib/admin-operators'
 
-function parseRole(raw: unknown): AdminRole | null {
-  return isAdminRole(raw) ? raw : null
+function parseOperatorAssignableRole(raw: unknown): OperatorRole | null {
+  return isOperatorRole(raw) ? raw : null
 }
 
 async function deleteStaffOperator(
@@ -45,7 +46,7 @@ async function deleteStaffOperator(
       return NextResponse.json(
         {
           error:
-            'Az utolsó aktív owner nem törölhető. Hozz létre másik owner fiókot, vagy lépj be a főadmin API-kulcs + 2FA útvonalon (/admin/login).',
+            'Az utolsó aktív owner nem törölhető ebből a sessionből. Lépj be a főadmin API-kulcs + 2FA útvonalon (/admin/login).',
           code: 'last_owner',
         },
         { status: 400 }
@@ -86,24 +87,24 @@ export async function GET() {
   const masterSession = isMasterAdminActor(gate.actor)
   return NextResponse.json({
     operators,
-    roles: ADMIN_ROLES,
-    requireFirstOwner: ownerCount === 0,
+    /** Csak operátori szerepek — owner soha nem adható a felületről. */
+    roles: OPERATOR_ROLES,
+    requireFirstOwner: false,
     ownerCount,
     /** ADMIN_API_KEY + 2FA bootstrap: last-owner korlát felülírható. */
     masterSession,
     /** Szerepkör → tételes engedély / korlátozás katalógus a staff UI-hoz. */
     roleAccess: Object.fromEntries(
-      ADMIN_ROLES.map((role) => [role, describeRoleAccess(role)])
+      OPERATOR_ROLES.map((role) => [role, describeRoleAccess(role)])
     ),
   })
 }
 
 /**
  * POST /api/admin/staff
- * Body create: { username, password, role }
+ * Body create: { username, password, role } — role: viewer|catalog|support (soha owner)
  * Body delete: { action: 'delete', id }  — CSRF-biztos (a querystringes DELETE helyett)
- * Első operátor kötelezően owner. A gyári főadmin (ADMIN_API_KEY) session
- * soha nem íródik át DB-owner JWT-re — master jog megmarad.
+ * A gyári főadmin (ADMIN_API_KEY) session soha nem íródik át DB-owner JWT-re.
  */
 export async function POST(request: Request) {
   const gate = await requireAdminPermission('staff:write')
@@ -122,12 +123,13 @@ export async function POST(request: Request) {
 
   const username = parseAdminUsername(body.username)
   const password = parseAdminPassword(body.password)
-  const role = parseRole(body.role)
+  const role = parseOperatorAssignableRole(body.role)
   if (!username || !password || !role) {
     return NextResponse.json(
       {
         error:
-          'Érvénytelen adat. Felhasználónév: 3–32 (a–z 0–9 ._-), jelszó min. 10 karakter, szerep: owner|support|catalog|viewer.',
+          'Érvénytelen adat. Felhasználónév: 3–32 (a–z 0–9 ._-), jelszó min. 10 karakter, szerep: support|catalog|viewer. Owner / főadmin nem adható operátornak.',
+        code: body.role === 'owner' ? 'owner_role_forbidden' : undefined,
       },
       { status: 400 }
     )
@@ -152,11 +154,12 @@ export async function POST(request: Request) {
       masterSessionPreserved: isMasterAdminActor(gate.actor),
     })
   } catch (err) {
-    if (err instanceof Error && err.name === 'FIRST_MUST_BE_OWNER') {
+    if (err instanceof Error && err.name === 'OWNER_ROLE_FORBIDDEN') {
       return NextResponse.json(
         {
           error:
-            'Az első operátor legyen owner (a te fiókod). Support/catalog csak utána hozható létre — különben kizárod magad az API-kulcsos belépésből.',
+            'Owner / főadmin szerep nem adható operátornak. A főadmin kizárólag az ADMIN_API_KEY + 2FA útvonal.',
+          code: 'owner_role_forbidden',
         },
         { status: 400 }
       )
@@ -192,8 +195,23 @@ export async function PATCH(request: Request) {
 
   const patch: { role?: AdminRole; active?: boolean; password?: string } = {}
   if (body.role !== undefined) {
-    const role = parseRole(body.role)
-    if (!role) return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
+    if (body.role === 'owner') {
+      return NextResponse.json(
+        {
+          error:
+            'Owner / főadmin szerep nem adható operátornak. A főadmin kizárólag az ADMIN_API_KEY + 2FA útvonal.',
+          code: 'owner_role_forbidden',
+        },
+        { status: 400 }
+      )
+    }
+    const role = parseOperatorAssignableRole(body.role)
+    if (!role) {
+      return NextResponse.json(
+        { error: 'Érvénytelen szerep. Választható: support, catalog, viewer.' },
+        { status: 400 }
+      )
+    }
     patch.role = role
   }
   if (body.active !== undefined) {
@@ -230,6 +248,16 @@ export async function PATCH(request: Request) {
     })
     return NextResponse.json({ ok: true, operator: actor })
   } catch (err) {
+    if (err instanceof Error && err.name === 'OWNER_ROLE_FORBIDDEN') {
+      return NextResponse.json(
+        {
+          error:
+            'Owner / főadmin szerep nem adható operátornak. A főadmin kizárólag az ADMIN_API_KEY + 2FA útvonal.',
+          code: 'owner_role_forbidden',
+        },
+        { status: 400 }
+      )
+    }
     if (err instanceof Error && err.name === 'LAST_OWNER') {
       return NextResponse.json(
         {

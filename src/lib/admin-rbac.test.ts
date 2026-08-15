@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   BOOTSTRAP_ADMIN_ACTOR,
+  OPERATOR_ROLES,
   describeRoleAccess,
   isAdminRole,
+  isOperatorRole,
   navPermissionForHref,
   parseAdminPassword,
   parseAdminUsername,
@@ -38,6 +40,13 @@ describe('admin RBAC', () => {
     expect(isAdminRole('owner')).toBe(true)
     expect(isAdminRole('admin')).toBe(false)
     expect(isAdminRole('support')).toBe(true)
+  })
+
+  it('OPERATOR_ROLES never includes owner', () => {
+    expect(OPERATOR_ROLES).toEqual(['viewer', 'catalog', 'support'])
+    expect(OPERATOR_ROLES).not.toContain('owner')
+    expect(isOperatorRole('support')).toBe(true)
+    expect(isOperatorRole('owner')).toBe(false)
   })
 
   it('filters nav by permission', () => {
