@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 import { useLocale } from '@/context/LocaleContext'
+import { ContactForm } from '@/components/ContactForm'
 
 const FROG_SIZE = 64
 const FROG_SPEED = 1.2
@@ -15,7 +16,11 @@ function getGroundY() {
   return window.innerHeight - BOTTOM_OFFSET - FROG_SIZE / 2
 }
 
-const DATA_PROTECTION_EMAIL = 'info@gulumen.hu'
+/** Publikus kapcsolat e-mail (NEXT_PUBLIC_* – build-time). Beérkező: ADMIN_EMAIL / ORDER_SUPPORT_EMAIL a szerveren. */
+const DATA_PROTECTION_EMAIL =
+  process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() ||
+  process.env.NEXT_PUBLIC_LEGAL_EMAIL?.trim() ||
+  'info@gulumen.hu'
 
 export default function ContactPage() {
   const { t } = useLocale()
@@ -180,6 +185,8 @@ export default function ContactPage() {
             {t('pages.contact.emailLabel')}{' '}
             <a href={`mailto:${DATA_PROTECTION_EMAIL}`} className="text-accent hover:underline font-medium">{DATA_PROTECTION_EMAIL}</a>
           </p>
+
+          <ContactForm supportEmail={DATA_PROTECTION_EMAIL} />
 
           <section id="telefonos-adatkezeles" className="mt-12 pt-8 border-t border-white/30">
             <h2 className="font-heading text-xl font-bold text-white mb-4 drop-shadow-lg">
