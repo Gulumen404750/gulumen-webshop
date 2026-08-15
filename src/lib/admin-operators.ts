@@ -12,7 +12,6 @@ import {
   type AdminRole,
   BOOTSTRAP_ADMIN_ACTOR,
   isAdminRole,
-  parseAdminPassword,
   parseAdminUsername,
 } from '@/lib/admin-rbac'
 
