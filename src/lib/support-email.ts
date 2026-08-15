@@ -1,8 +1,11 @@
 /**
  * Ügyfélszolgálati postafiók feloldása.
  *
- * Beérkező levelek (Reply-To, kapcsolat űrlap): postmaster@gulumen.com (éles inbox).
- * Felülírható: ORDER_SUPPORT_EMAIL / ADMIN_EMAIL / NEXT_PUBLIC_SUPPORT_EMAIL.
+ * Beérkező levelek (Reply-To, kapcsolat űrlap, admin rendelés-értesítő):
+ * postmaster@gulumen.com (éles inbox).
+ *
+ * Prioritás: explicit support → publikus support → ADMIN_EMAIL → default.
+ * (ADMIN_EMAIL ne írja felül a postmastert, ha nincs ORDER_SUPPORT_EMAIL.)
  */
 
 export const DEFAULT_SUPPORT_INBOX = 'postmaster@gulumen.com'
@@ -16,24 +19,22 @@ function firstEmail(...candidates: Array<string | undefined | null>): string | n
 }
 
 /**
- * Beérkező ügyfélszolgálat: rendelés Reply-To, kapcsolat űrlap címzettje.
- * Prioritás: explicit support → ADMIN_EMAIL → publikus env → postmaster@gulumen.com.
+ * Beérkező ügyfélszolgálat: rendelés Reply-To, kapcsolat űrlap, admin paid értesítő.
  */
 export function getSupportInboxEmail(): string {
   return (
     firstEmail(
       process.env.ORDER_SUPPORT_EMAIL,
       process.env.SUPPORT_INBOX_EMAIL,
-      process.env.ADMIN_EMAIL,
       process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
-      process.env.NEXT_PUBLIC_LEGAL_EMAIL
+      process.env.NEXT_PUBLIC_LEGAL_EMAIL,
+      process.env.ADMIN_EMAIL
     ) || DEFAULT_SUPPORT_INBOX
   )
 }
 
 /**
  * Weben megjelenő kapcsolat e-mail (mailto).
- * Ne tegye ki az ADMIN_EMAIL-t, ha van külön publikus cím.
  */
 export function getPublicSupportEmail(): string {
   return (
@@ -61,6 +62,6 @@ export function warnIfSupportInboxUnreliable(email: string, context: string): vo
   if (!isUnreliableInboundDomain(email)) return
   console.warn(
     `[support-email] ${context}: "${email}" nem fogad levelet – ` +
-      `használj ${DEFAULT_SUPPORT_INBOX}-ot (ORDER_SUPPORT_EMAIL / ADMIN_EMAIL).`
+      `használj ${DEFAULT_SUPPORT_INBOX}-ot (ORDER_SUPPORT_EMAIL).`
   )
 }

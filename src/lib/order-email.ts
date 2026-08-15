@@ -441,36 +441,112 @@ async function sendViaResend(params: {
 }): Promise<SendOrderConfirmationResult> {
   const result = await sendMail(params)
   if (!result.ok) return { ok: false, error: result.error }
-  return { ok: true }
+  if (result.skipped) {
+    return { ok: true, skipped: true, error: 'RESEND_API_KEY hiányzik – e-mail nem ment ki' }
+  }
+  return { ok: true, sent: true, id: result.id }
 }
 
-export type SendOrderConfirmationResult = { ok: true } | { ok: false; error: string }
+export type SendOrderConfirmationResult =
+  | { ok: true; sent?: boolean; skipped?: boolean; id?: string; error?: string }
+  | { ok: false; error: string }
+
+/** Admin / postmaster másolat sikeres fizetésről. */
+async function sendAdminPaidNotification(
+  orders: Order[],
+  customerEmail: string,
+  groupLabel: string
+): Promise<void> {
+  const adminTo = getOrderSupportEmail()
+  if (!adminTo || adminTo.toLowerCase() === customerEmail.toLowerCase()) return
+
+  const subjectRef = orders.length === 1 ? orders[0]!.id : groupLabel
+  const total = orders.reduce((sum, o) => sum + o.totalHuf, 0)
+  const addressOrder = pickCustomerAddressOrder(orders)
+  const ship = [
+    addressOrder.customerName,
+    [addressOrder.shippingStreet, addressOrder.shippingHouseNumber].filter(Boolean).join(' '),
+    [addressOrder.shippingPostalCode, addressOrder.shippingCity].filter(Boolean).join(' '),
+    addressOrder.customerPhone ? `Tel: ${addressOrder.customerPhone}` : null,
+  ]
+    .filter(Boolean)
+    .join(', ')
+
+  const items = orders
+    .flatMap((o) => o.items.map((i) => `- ${i.name || i.productId}: ${i.qty} db`))
+    .join('\n')
+
+  const text = [
+    'Új sikeres rendelés',
+    `Rendelés: ${subjectRef}`,
+    `Vásárló: ${customerEmail}`,
+    `Összeg: ${total.toLocaleString('hu-HU')} Ft`,
+    `Szállítás: ${ship || '–'}`,
+    '',
+    'Tételek:',
+    items,
+  ].join('\n')
+
+  const result = await sendMail({
+    to: adminTo,
+    subject: `[Gulumen] Új rendelés – ${subjectRef}`,
+    html: `<pre style="font-family:sans-serif;white-space:pre-wrap">${escapeHtml(text)}</pre>`,
+    text,
+    replyTo: customerEmail,
+  })
+  if (!result.ok) {
+    console.error('[order-email] Admin paid notification failed:', result.error)
+  } else if (result.skipped) {
+    console.warn('[order-email] Admin paid notification skipped (no RESEND_API_KEY)')
+  } else {
+    console.info('[order-email] Admin paid notification sent to', adminTo, result.id ?? '')
+  }
+}
 
 export async function sendOrderGroupConfirmationEmail(
   orders: Order[],
   customerEmail: string | null,
   groupLabel?: string
 ): Promise<SendOrderConfirmationResult> {
-  if (orders.length === 0) return { ok: true }
+  if (orders.length === 0) return { ok: true, skipped: true }
 
   const label = groupLabel ?? orders[0]!.orderGroupId ?? orders[0]!.id
   const html = buildOrderGroupConfirmationHtml(orders, label)
   const text = buildOrderGroupConfirmationText(orders, label)
   const subjectOrderRef = orders.length === 1 ? orders[0]!.id : label
   const subject = `Rendelés megerősítés – ${subjectOrderRef}`
+  const replyTo = getOrderSupportEmail()
 
   if (!customerEmail) {
-    console.warn('[order-email] No customer email – skipping send. Group:', label)
-    return { ok: true }
+    console.warn('[order-email] No customer email – not marking sent. Group:', label)
+    return { ok: false, error: 'Nincs vásárlói e-mail a visszaigazoláshoz' }
   }
 
-  return sendViaResend({
+  console.info('[order-email] Sending confirmation', {
+    to: customerEmail,
+    replyTo,
+    subject,
+    orderIds: orders.map((o) => o.id),
+  })
+
+  const result = await sendViaResend({
     to: customerEmail,
     subject,
     html,
     text,
-    replyTo: getOrderSupportEmail(),
+    replyTo,
   })
+
+  if (result.ok && result.sent) {
+    // Másolat a postmaster / support inboxnak (nem a vásárlónak).
+    try {
+      await sendAdminPaidNotification(orders, customerEmail, label)
+    } catch (err) {
+      console.error('[order-email] Admin notification error (customer mail already sent):', err)
+    }
+  }
+
+  return result
 }
 
 /**
@@ -545,8 +621,13 @@ export async function maybeSendOrderGroupConfirmationEmail(
     customerEmail,
     triggerOrder.orderGroupId ?? undefined
   )
-  if (result.ok) {
+  // Csak tényleges sikeres küldés után jelöljük elküldöttnek (skipped/fail → újrapróbálható).
+  if (result.ok && result.sent) {
     await markConfirmationEmailSent(groupId)
+  } else if (!result.ok) {
+    console.error('[order-email] Confirmation not sent – will retry on next webhook/checkout:', result.error)
+  } else if (result.skipped) {
+    console.warn('[order-email] Confirmation skipped (Resend not configured) – not marking sent')
   }
   return result
 }
