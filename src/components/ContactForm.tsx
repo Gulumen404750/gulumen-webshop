@@ -20,12 +20,14 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
     const params = new URLSearchParams(window.location.search)
     const rendeles = params.get('rendeles')?.trim()
     const tipus = params.get('tipus')?.trim()
-    if (rendeles) setOrderRef(rendeles)
-    if (tipus === 'modositas') {
-      setMessage(
-        `A(z) ${rendeles || '…'} azonosítójú rendelésem adatain szeretnék módosítani, mielőtt elkezdenék csomagolni.\n\nKért módosítás:\n`
+    // Régi e-mail linkek: kapcsolat?tipus=modositas → valódi szerkesztő oldal
+    if (tipus === 'modositas' && rendeles) {
+      window.location.replace(
+        `/rendelesek/${encodeURIComponent(rendeles)}/modositas`
       )
+      return
     }
+    if (rendeles) setOrderRef(rendeles)
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {

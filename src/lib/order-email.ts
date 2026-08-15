@@ -6,7 +6,7 @@
  */
 
 import type { Order } from './orders'
-import { getOrderById, getOrdersByGroupId } from './orders'
+import { getOrderById, getOrdersByGroupId, ensureShippingEditToken } from './orders'
 import { prisma, isDbConfigured } from './prisma'
 import { FREE_SHIPPING_THRESHOLD } from './checkout'
 import { sendMail } from './mail'
@@ -135,7 +135,7 @@ export function buildOrderChangeMailto(orderRef: string): string {
   return `mailto:${support}?subject=${subject}&body=${body}`
 }
 
-function buildCustomerDetailsSection(order: Order, orderRef: string): string {
+function buildCustomerDetailsSection(order: Order, shippingEditUrl: string): string {
   const shippingLines = formatAddressLines({
     name: order.customerName,
     phone: order.customerPhone,
@@ -172,25 +172,20 @@ function buildCustomerDetailsSection(order: Order, orderRef: string): string {
       ? `<p><strong>Szállítási megjegyzés:</strong> ${escapeHtml(order.deliveryNotes.trim())}</p>`
       : ''
 
-  // CTA: önkiszolgáló oldal (nem mailto / kapcsolat űrlap).
-  const editOrderId = order.id || orderRef
-  const shippingEditUrl = buildOrderShippingEditUrl(editOrderId)
-
   return `
   <div style="border: 1px solid #fde68a; background: #fffbeb; border-radius: 8px; padding: 16px; margin: 24px 0;">
     <h2 style="margin-top: 0; color: #92400e;">Kérjük, ellenőrizd az adataidat!</h2>
     <p style="color: #78350f;">
-      A csomagolás megkezdése előtt ellenőrizd a szállítási és számlázási adatokat.
-      Ha módosítani szeretnél, használd az alábbi gombot — amíg nem adjuk fel a csomagot, tudsz változtatni.
+      A csomagolás megkezdése előtt ellenőrizd a szállítási adatokat.
+      Ha módosítani szeretnél, nyisd meg az alábbi oldalt — ott azonnal átírhatod a címet (nem kell üzenetet írnod).
     </p>
     <p>
-      <a href="${shippingEditUrl}" style="display: inline-block; background: #92400e; color: #fff; text-decoration: none; padding: 10px 16px; border-radius: 6px; font-weight: 600;">
+      <a href="${shippingEditUrl}" style="display: inline-block; background: #92400e; color: #fff; text-decoration: none; padding: 12px 18px; border-radius: 6px; font-weight: 600;">
         Szállítási adatok módosítása
       </a>
     </p>
-    <p style="font-size: 14px; color: #78350f;">
-      Bejelentkezés után a weboldalon azonnal elmentheted az új címet.
-      · <a href="${CONTACT_URL}">Kapcsolat</a>
+    <p style="font-size: 13px; color: #78350f;">
+      A gomb a rendelés szerkesztő oldalára visz (név, telefon, cím mezők). Amíg nem adjuk fel a csomagot, menthetsz.
     </p>
     <h3>Szállítási cím</h3>
     <ul style="list-style: none; padding-left: 0;">${shippingHtml}</ul>
@@ -201,7 +196,7 @@ function buildCustomerDetailsSection(order: Order, orderRef: string): string {
 `.trim()
 }
 
-function buildCustomerDetailsText(order: Order, orderRef: string): string {
+function buildCustomerDetailsText(order: Order, shippingEditUrl: string): string {
   const shippingLines = formatAddressLines({
     name: order.customerName,
     phone: order.customerPhone,
@@ -221,17 +216,12 @@ function buildCustomerDetailsText(order: Order, orderRef: string): string {
         houseNumber: order.billingHouseNumber,
       })
 
-  const editOrderId = order.id || orderRef
-  const shippingEditUrl = buildOrderShippingEditUrl(editOrderId)
-
   return [
     '',
     '---',
     'Kérjük, ellenőrizd az adataidat!',
-    'A csomagolás megkezdése előtt ellenőrizd a szállítási és számlázási adatokat.',
-    'Ha módosításra van szükség, használd a weboldalt — amíg nem adjuk fel a csomagot, tudsz változtatni.',
+    'Ha módosítani szeretnél, nyisd meg ezt az oldalt (szerkeszthető űrlap, nem kapcsolat űrlap):',
     `Szállítási adatok módosítása: ${shippingEditUrl}`,
-    `Kapcsolat: ${CONTACT_URL}`,
     '',
     'Szállítási cím:',
     ...(shippingLines.length > 0 ? shippingLines.map((l) => `- ${l}`) : ['- Nincs megadva']),
@@ -292,7 +282,11 @@ function buildOrderBlockHtml(order: Order): string {
 }
 
 /** HTML sablon – tesztekhez exportálva. */
-export function buildOrderGroupConfirmationHtml(orders: Order[], groupLabel: string): string {
+export function buildOrderGroupConfirmationHtml(
+  orders: Order[],
+  groupLabel: string,
+  shippingEditUrl?: string
+): string {
   const blocks = orders.map(buildOrderBlockHtml).join('\n')
   const grandTotal = orders.reduce((sum, o) => sum + o.totalHuf, 0)
   const groupLine =
@@ -300,7 +294,9 @@ export function buildOrderGroupConfirmationHtml(orders: Order[], groupLabel: str
       ? `<p><strong>Rendelés csoport azonosító:</strong> ${escapeHtml(groupLabel)}</p>`
       : ''
   const addressOrder = pickCustomerAddressOrder(orders)
-  const orderRef = orders.length === 1 ? orders[0]!.id : groupLabel
+  const editUrl =
+    shippingEditUrl ||
+    buildOrderShippingEditUrl(addressOrder.id, { token: addressOrder.shippingEditToken })
 
   return `
 <!DOCTYPE html>
@@ -312,7 +308,7 @@ export function buildOrderGroupConfirmationHtml(orders: Order[], groupLabel: str
   ${groupLine}
   ${orders.length > 1 ? `<p><strong>Összesen fizetve:</strong> ${formatHuf(grandTotal)}</p>` : ''}
   ${blocks}
-  ${buildCustomerDetailsSection(addressOrder, orderRef)}
+  ${buildCustomerDetailsSection(addressOrder, editUrl)}
   ${buildShippingInfoSection()}
   <p style="margin-top: 24px;"><a href="${RETURNS_URL}">Visszaküldési feltételek</a></p>
   <p>Kérdés esetén: <a href="${CONTACT_URL}">Kapcsolat</a></p>
@@ -324,7 +320,11 @@ export function buildOrderGroupConfirmationHtml(orders: Order[], groupLabel: str
 }
 
 /** Plain text sablon – tesztekhez exportálva. */
-export function buildOrderGroupConfirmationText(orders: Order[], groupLabel: string): string {
+export function buildOrderGroupConfirmationText(
+  orders: Order[],
+  groupLabel: string,
+  shippingEditUrl?: string
+): string {
   const blocks = orders.map((order) => {
     const shipping = orderShippingHuf(order)
     const items = order.items
@@ -359,8 +359,10 @@ export function buildOrderGroupConfirmationText(orders: Order[], groupLabel: str
     .join('\n')
 
   const addressOrder = pickCustomerAddressOrder(orders)
-  const orderRef = orders.length === 1 ? orders[0]!.id : groupLabel
-  const customerDetails = buildCustomerDetailsText(addressOrder, orderRef)
+  const editUrl =
+    shippingEditUrl ||
+    buildOrderShippingEditUrl(addressOrder.id, { token: addressOrder.shippingEditToken })
+  const customerDetails = buildCustomerDetailsText(addressOrder, editUrl)
 
   const shippingInfo = [
     '',
@@ -592,11 +594,15 @@ export async function sendOrderGroupConfirmationEmail(
   if (orders.length === 0) return { ok: true, skipped: true }
 
   const label = groupLabel ?? orders[0]!.orderGroupId ?? orders[0]!.id
-  const html = buildOrderGroupConfirmationHtml(orders, label)
-  const text = buildOrderGroupConfirmationText(orders, label)
+  const addressOrder = pickCustomerAddressOrder(orders)
+  const token = await ensureShippingEditToken(addressOrder.id)
+  const shippingEditUrl = buildOrderShippingEditUrl(addressOrder.id, { token })
+
+  const html = buildOrderGroupConfirmationHtml(orders, label, shippingEditUrl)
+  const text = buildOrderGroupConfirmationText(orders, label, shippingEditUrl)
   const subjectOrderRef = orders.length === 1 ? orders[0]!.id : label
   const subject = `Rendelés megerősítés – ${subjectOrderRef}`
-  const replyTo = getOrderSupportEmail()
+  const replyTo = DEFAULT_SUPPORT_INBOX
 
   if (!customerEmail) {
     console.warn('[order-email] No customer email – not marking sent. Group:', label)
@@ -607,6 +613,7 @@ export async function sendOrderGroupConfirmationEmail(
     to: customerEmail,
     replyTo,
     subject,
+    shippingEditUrl,
     orderIds: orders.map((o) => o.id),
   })
 
@@ -619,7 +626,7 @@ export async function sendOrderGroupConfirmationEmail(
   })
 
   if (result.ok && result.sent) {
-    // Másolat a postmaster / support inboxnak (nem a vásárlónak).
+    // Másolat a postmasternek (nem a vásárlónak).
     try {
       await sendAdminPaidNotification(orders, customerEmail, label)
     } catch (err) {

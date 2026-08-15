@@ -1,13 +1,17 @@
 /**
  * Ügyfélszolgálati postafiók feloldása.
  *
- * - Publikus megjelenítés: postmaster@gulumen.com
- * - Beérkező (Reply-To, kapcsolat): ha van megbízható ADMIN_EMAIL (pl. Gmail), azt használjuk,
- *   mert a gulumen.com-nak jelenleg nincs MX → a postmasterre küldött levelek elveszhetnek.
- * - Admin értesítők (új rendelés / címmódosítás): postmaster + megbízható ADMIN_EMAIL (külön küldés).
+ * Admin értesítők (új rendelés / címmódosítás): KIZÁRÓLAG postmaster@gulumen.com.
+ * (1.dani@gmail.com és egyéb ADMIN_EMAIL címek szándékosan kihagyva.)
  */
 
 export const DEFAULT_SUPPORT_INBOX = 'postmaster@gulumen.com'
+
+/** Soha ne kapjon automatikus admin / rendelés értesítőt. */
+const BLOCKED_ADMIN_NOTIFY_EMAILS = new Set([
+  '1.dani@gmail.com',
+  'dani@gmail.com',
+])
 
 function firstEmail(...candidates: Array<string | undefined | null>): string | null {
   for (const raw of candidates) {
@@ -32,69 +36,43 @@ export function isUnreliableInboundDomain(email: string): boolean {
   return domain === 'gulumen.hu' || domain === 'gulumen.com'
 }
 
+export function isBlockedAdminNotifyEmail(email: string): boolean {
+  return BLOCKED_ADMIN_NOTIFY_EMAILS.has(email.trim().toLowerCase())
+}
+
 /**
  * Beérkező ügyfélszolgálat: kapcsolat űrlap Reply-To, vásárlói válaszok.
- * Előnyben a megbízható inbox (ADMIN_EMAIL / Gmail); gulumen.* kihagyva MX nélkül.
+ * Preferáld a postmastert; megbízható Gmail csak ha nem tiltott.
  */
 export function getSupportInboxEmail(): string {
   const candidates = [
     process.env.ORDER_SUPPORT_EMAIL,
     process.env.SUPPORT_INBOX_EMAIL,
-    process.env.ADMIN_EMAIL,
     process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
     process.env.NEXT_PUBLIC_LEGAL_EMAIL,
+    DEFAULT_SUPPORT_INBOX,
   ]
   for (const raw of candidates) {
     const v = raw?.trim()
-    if (v && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) && !isUnreliableInboundDomain(v)) {
-      return v
-    }
+    if (!v || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) continue
+    if (isBlockedAdminNotifyEmail(v)) continue
+    // Prefer explicit postmaster / ORDER_SUPPORT even on gulumen.com
+    if (v.toLowerCase() === DEFAULT_SUPPORT_INBOX) return v
+    if (!isUnreliableInboundDomain(v)) return v
   }
-  const fallback = firstEmail(process.env.ADMIN_EMAIL) || DEFAULT_SUPPORT_INBOX
-  warnIfSupportInboxUnreliable(fallback, 'getSupportInboxEmail fallback')
-  return fallback
+  return DEFAULT_SUPPORT_INBOX
 }
 
 /**
- * Admin értesítő címzettek (új rendelés másolat, címmódosítás figyelmeztetés, kapcsolat).
- * Mindig tartalmazza a postmaster@gulumen.com-ot (üzleti elvárás),
- * plusz minden megbízható ADMIN / ORDER_SUPPORT címet (MX nélküli domainek mellett is megérkezzen).
+ * Admin értesítő címzettek (új rendelés, címmódosítás).
+ * Kizárólag postmaster@gulumen.com – ADMIN_EMAIL / 1.dani@gmail.com NEM.
  */
 export function getAdminNotificationEmails(): string[] {
-  const seen = new Set<string>()
-  const out: string[] = []
-
-  const push = (raw: string | undefined | null) => {
-    const email = normalizeEmail(raw)
-    if (!email || seen.has(email)) return
-    seen.add(email)
-    out.push(email)
-  }
-
-  // Üzleti elvárás: admin másolat a postmasterre.
-  push(DEFAULT_SUPPORT_INBOX)
-  push(process.env.ORDER_SUPPORT_EMAIL)
-  push(process.env.SUPPORT_INBOX_EMAIL)
-  push(process.env.ADMIN_EMAIL)
-
-  // Ha csak unreliable címek vannak, legalább a postmaster menjen ki (log + Resend attempt).
-  if (out.length === 0) push(DEFAULT_SUPPORT_INBOX)
-
-  const reliable = out.filter((e) => !isUnreliableInboundDomain(e))
-  if (reliable.length === 0) {
-    console.warn(
-      '[support-email] getAdminNotificationEmails: csak gulumen.* címzettek – ' +
-        'állítsd az ADMIN_EMAIL-t Gmailre, amíg a gulumen.com MX nincs beállítva. Címzettek:',
-      out.join(', ')
-    )
-  }
-
-  return out
+  return [DEFAULT_SUPPORT_INBOX]
 }
 
 /**
  * Weben megjelenő kapcsolat e-mail (mailto megjelenítés).
- * Megjelenhet postmaster – de a tényleges kézbesítés getSupportInboxEmail() / getAdminNotificationEmails().
  */
 export function getPublicSupportEmail(): string {
   return (
@@ -111,12 +89,12 @@ export function warnIfSupportInboxUnreliable(email: string, context: string): vo
   if (!isUnreliableInboundDomain(email)) return
   console.warn(
     `[support-email] ${context}: "${email}" domainnek NINCS MX rekordja – ` +
-      'a levelek nem érkeznek meg. Állítsd az ADMIN_EMAIL / ORDER_SUPPORT_EMAIL változót ' +
-      'egy valódi fogadó címre (pl. Gmail), amíg a gulumen.com MX nincs beállítva.'
+      'a levelek nem érkezhetnek meg fogadó MX nélkül. ' +
+      'Resend küldés postmaster@gulumen.com-ra továbbra is megy (küldő oldalon).'
   )
 }
 
-/** Kapcsolat űrlap URL rendelésszámmal (e-mail CTA – legacy). */
+/** Legacy kapcsolat űrlap URL – ne használd új CTA-hoz. */
 export function buildOrderChangeContactUrl(contactUrl: string, orderRef: string): string {
   const sep = contactUrl.includes('?') ? '&' : '?'
   return `${contactUrl}${sep}rendeles=${encodeURIComponent(orderRef)}&tipus=modositas`
@@ -124,13 +102,21 @@ export function buildOrderChangeContactUrl(contactUrl: string, orderRef: string)
 
 /**
  * Önkiszolgáló szállítási cím módosító URL (visszaigazoló e-mail CTA).
- * Pl. https://www.gulumen.com/rendelesek/ord_xxx/modositas
+ * Tokenes link: bejelentkezés nélkül is szerkeszthető.
+ * Pl. https://www.gulumen.com/rendelesek/ord_xxx/modositas?t=TOKEN
  */
-export function buildOrderShippingEditUrl(orderId: string, appUrl?: string): string {
-  const base = (appUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://www.gulumen.com').replace(
-    /\/$/,
-    ''
-  )
+export function buildOrderShippingEditUrl(
+  orderId: string,
+  options?: { appUrl?: string; token?: string | null }
+): string {
+  const base = (
+    options?.appUrl ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    'https://www.gulumen.com'
+  ).replace(/\/$/, '')
   const id = orderId.trim()
-  return `${base}/rendelesek/${encodeURIComponent(id)}/modositas`
+  const url = `${base}/rendelesek/${encodeURIComponent(id)}/modositas`
+  const token = options?.token?.trim()
+  if (!token) return url
+  return `${url}?t=${encodeURIComponent(token)}`
 }

@@ -5,6 +5,7 @@ import {
   getSupportInboxEmail,
   getAdminNotificationEmails,
   isUnreliableInboundDomain,
+  isBlockedAdminNotifyEmail,
   buildOrderChangeContactUrl,
   buildOrderShippingEditUrl,
 } from './support-email'
@@ -30,27 +31,23 @@ describe('support-email', () => {
     restore('NEXT_PUBLIC_LEGAL_EMAIL', prev.legal)
   })
 
-  it('skips gulumen.com postmaster (no MX) and uses ADMIN_EMAIL Gmail for Reply-To', () => {
-    process.env.ORDER_SUPPORT_EMAIL = 'postmaster@gulumen.com'
-    process.env.NEXT_PUBLIC_SUPPORT_EMAIL = 'postmaster@gulumen.com'
-    process.env.ADMIN_EMAIL = 'ops@gmail.com'
-    expect(isUnreliableInboundDomain('postmaster@gulumen.com')).toBe(true)
-    expect(getSupportInboxEmail()).toBe('ops@gmail.com')
+  it('blocks 1.dani@gmail.com from admin notify list', () => {
+    expect(isBlockedAdminNotifyEmail('1.dani@gmail.com')).toBe(true)
+    process.env.ADMIN_EMAIL = '1.dani@gmail.com'
+    expect(getAdminNotificationEmails()).toEqual([DEFAULT_SUPPORT_INBOX])
+    expect(getAdminNotificationEmails()).not.toContain('1.dani@gmail.com')
   })
 
-  it('admin notifications always include postmaster plus reliable ADMIN_EMAIL', () => {
+  it('admin notifications are postmaster only (no ADMIN_EMAIL)', () => {
     process.env.ORDER_SUPPORT_EMAIL = 'postmaster@gulumen.com'
     process.env.ADMIN_EMAIL = 'ops@gmail.com'
-    const emails = getAdminNotificationEmails()
-    expect(emails).toContain(DEFAULT_SUPPORT_INBOX)
-    expect(emails).toContain('ops@gmail.com')
-    expect(emails.length).toBe(2)
+    expect(getAdminNotificationEmails()).toEqual(['postmaster@gulumen.com'])
   })
 
-  it('uses ORDER_SUPPORT_EMAIL when it is a real inbox', () => {
-    process.env.ORDER_SUPPORT_EMAIL = 'shop@gmail.com'
-    process.env.ADMIN_EMAIL = 'ops@gmail.com'
-    expect(getSupportInboxEmail()).toBe('shop@gmail.com')
+  it('prefers postmaster for support inbox', () => {
+    process.env.ORDER_SUPPORT_EMAIL = 'postmaster@gulumen.com'
+    process.env.ADMIN_EMAIL = '1.dani@gmail.com'
+    expect(getSupportInboxEmail()).toBe('postmaster@gulumen.com')
   })
 
   it('public mailto can still show postmaster for branding', () => {
@@ -64,19 +61,16 @@ describe('support-email', () => {
     )
   })
 
-  it('builds self-service shipping edit URL', () => {
-    expect(buildOrderShippingEditUrl('ord_abc', 'https://www.gulumen.com')).toBe(
-      'https://www.gulumen.com/rendelesek/ord_abc/modositas'
-    )
+  it('builds tokenized self-service shipping edit URL', () => {
+    expect(
+      buildOrderShippingEditUrl('ord_abc', {
+        appUrl: 'https://www.gulumen.com',
+        token: 'tok_secret',
+      })
+    ).toBe('https://www.gulumen.com/rendelesek/ord_abc/modositas?t=tok_secret')
   })
 
-  it('defaults when nothing reliable is set', () => {
-    delete process.env.ORDER_SUPPORT_EMAIL
-    delete process.env.SUPPORT_INBOX_EMAIL
-    delete process.env.ADMIN_EMAIL
-    delete process.env.NEXT_PUBLIC_SUPPORT_EMAIL
-    delete process.env.NEXT_PUBLIC_LEGAL_EMAIL
-    expect(getSupportInboxEmail()).toBe(DEFAULT_SUPPORT_INBOX)
-    expect(getAdminNotificationEmails()).toEqual([DEFAULT_SUPPORT_INBOX])
+  it('marks gulumen.com as unreliable inbound domain', () => {
+    expect(isUnreliableInboundDomain('postmaster@gulumen.com')).toBe(true)
   })
 })

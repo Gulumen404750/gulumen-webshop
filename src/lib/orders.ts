@@ -2,6 +2,7 @@
  * Rendelés tárolás. PROD (DATABASE_URL): Prisma + Postgres. DEV (nincs URL): JSON fallback (data/orders.json).
  */
 
+import { randomBytes } from 'crypto'
 import { logger } from '@/lib/logger'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { decrementStockAtomic, OutOfStockException } from '@/lib/inventory'
@@ -98,6 +99,8 @@ export type Order = {
   originalCustomerPhone?: string
   /** Vásárlói címmódosítás időpontja (ISO). */
   shippingAddressChangedAt?: string
+  /** E-mail CTA token (bejelentkezés nélküli szerkesztés). */
+  shippingEditToken?: string
 }
 
 const COUPON_PERCENT = 0.05
@@ -150,6 +153,55 @@ function generateOrderId(): string {
   return `ord_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
 }
 
+function generateShippingEditToken(): string {
+  return randomBytes(24).toString('base64url')
+}
+
+/**
+ * Címmódosító e-mail token – ha nincs, létrehozza (idempotens).
+ */
+export async function ensureShippingEditToken(orderId: string): Promise<string | null> {
+  const order = await getOrderById(orderId)
+  if (!order) return null
+  if (order.shippingEditToken) return order.shippingEditToken
+
+  const token = generateShippingEditToken()
+  if (isDbConfigured()) {
+    try {
+      await prisma.order.update({
+        where: { id: orderId },
+        data: { shippingEditToken: token },
+      })
+      return token
+    } catch (err) {
+      // Race: másik példány már beírta
+      const again = await getOrderById(orderId)
+      if (again?.shippingEditToken) return again.shippingEditToken
+      logger.error({ err, orderId }, 'ensureShippingEditToken failed')
+      return null
+    }
+  }
+  const orders = loadOrders()
+  const idx = orders.findIndex((o) => o.id === orderId)
+  if (idx < 0) return null
+  orders[idx]!.shippingEditToken = token
+  memoryStore = orders
+  saveOrders()
+  return token
+}
+
+export async function getOrderByShippingEditToken(
+  orderId: string,
+  token: string
+): Promise<Order | null> {
+  const trimmed = token.trim()
+  if (!trimmed) return null
+  const order = await getOrderById(orderId)
+  if (!order?.shippingEditToken) return null
+  if (order.shippingEditToken !== trimmed) return null
+  return order
+}
+
 function dbOrderToOrder(row: {
   id: string
   status: string
@@ -199,6 +251,7 @@ function dbOrderToOrder(row: {
   originalCustomerName?: string | null
   originalCustomerPhone?: string | null
   shippingAddressChangedAt?: Date | null
+  shippingEditToken?: string | null
   items: { productId: string; qty: number; fulfillmentType: string; priceHuf: number; name: string | null }[]
 }): Order {
   const appliedCoupons = Array.isArray(row.appliedCoupons)
@@ -243,6 +296,7 @@ function dbOrderToOrder(row: {
     originalCustomerName: row.originalCustomerName ?? undefined,
     originalCustomerPhone: row.originalCustomerPhone ?? undefined,
     shippingAddressChangedAt: row.shippingAddressChangedAt?.toISOString(),
+    shippingEditToken: row.shippingEditToken ?? undefined,
     stripeSessionId: row.stripeSessionId ?? undefined,
     paymentIntentId: row.paymentIntentId ?? undefined,
     amountPaid: row.amountPaid ?? undefined,
@@ -601,6 +655,7 @@ export async function createCheckoutOrders(params: {
           tx
         )
         const id = generateOrderId()
+        const shippingEditToken = generateShippingEditToken()
         await tx.order.create({
           data: {
             id,
@@ -616,6 +671,7 @@ export async function createCheckoutOrders(params: {
             couponId: params.couponId ?? null,
             appliedCoupons,
             currency,
+            shippingEditToken,
             ...customerFields,
             items: {
               create: params.inStock.items.map((i) => ({
@@ -644,6 +700,7 @@ export async function createCheckoutOrders(params: {
           appliedCoupons,
           currency,
           createdAt: new Date().toISOString(),
+          shippingEditToken,
           customerEmail: params.customer?.email,
           customerName: params.customer?.name,
           customerPhone: params.customer?.phone,
@@ -662,6 +719,7 @@ export async function createCheckoutOrders(params: {
       }
       if (params.sourcing && params.sourcing.items.length > 0) {
         const id = generateOrderId()
+        const shippingEditToken = generateShippingEditToken()
         await tx.order.create({
           data: {
             id,
@@ -677,6 +735,7 @@ export async function createCheckoutOrders(params: {
             couponId: params.couponId ?? null,
             appliedCoupons,
             currency,
+            shippingEditToken,
             ...customerFields,
             items: {
               create: params.sourcing.items.map((i) => ({
@@ -705,6 +764,7 @@ export async function createCheckoutOrders(params: {
           appliedCoupons,
           currency,
           createdAt: new Date().toISOString(),
+          shippingEditToken,
           customerEmail: params.customer?.email,
           customerName: params.customer?.name,
           customerPhone: params.customer?.phone,
@@ -738,6 +798,7 @@ export async function createCheckoutOrders(params: {
       totalHuf: params.inStock.totalHuf,
       couponId: params.couponId,
       currency,
+      shippingEditToken: generateShippingEditToken(),
       createdAt: new Date().toISOString(),
       customerEmail: params.customer?.email,
       customerName: params.customer?.name,
@@ -770,6 +831,7 @@ export async function createCheckoutOrders(params: {
       couponId: params.couponId,
       currency,
       createdAt: new Date().toISOString(),
+      shippingEditToken: generateShippingEditToken(),
       customerEmail: params.customer?.email,
       customerName: params.customer?.name,
       customerPhone: params.customer?.phone,
@@ -980,32 +1042,23 @@ export async function updateOrderCustomerDetails(
   return order
 }
 
-/**
- * Vásárlói szállítási cím módosítás.
- * Első módosításkor az aktuális cím az original* mezőkbe kerül; a shipping* frissül.
- */
-export async function updateOrderShippingByCustomer(
-  orderId: string,
-  userId: string,
-  patch: {
-    customerName?: string | null
-    customerPhone?: string | null
-    shippingPostalCode: string
-    shippingCity: string
-    shippingStreet: string
-    shippingHouseNumber: string
-    deliveryNotes?: string | null
-  }
+type ShippingPatch = {
+  customerName?: string | null
+  customerPhone?: string | null
+  shippingPostalCode: string
+  shippingCity: string
+  shippingStreet: string
+  shippingHouseNumber: string
+  deliveryNotes?: string | null
+}
+
+async function applyCustomerShippingPatch(
+  existing: Order,
+  patch: ShippingPatch
 ): Promise<{ ok: true; order: Order } | { ok: false; error: string; status: number }> {
   const { canCustomerEditShippingAddress, shippingFieldsEqual } = await import(
     './order-shipping-edit'
   )
-
-  const existing = await getOrderById(orderId)
-  if (!existing) return { ok: false, error: 'Order not found', status: 404 }
-  if (!existing.userId || existing.userId !== userId) {
-    return { ok: false, error: 'Forbidden', status: 403 }
-  }
 
   const gate = canCustomerEditShippingAddress(existing)
   if (!gate.ok) return { ok: false, error: gate.reason, status: 409 }
@@ -1066,7 +1119,7 @@ export async function updateOrderShippingByCustomer(
 
   if (isDbConfigured()) {
     await prisma.order.update({
-      where: { id: orderId },
+      where: { id: existing.id },
       data: {
         ...originalSnapshot,
         customerName: next.customerName?.trim() || null,
@@ -1079,13 +1132,13 @@ export async function updateOrderShippingByCustomer(
         shippingAddressChangedAt: changedAt,
       },
     })
-    const order = await getOrderById(orderId)
+    const order = await getOrderById(existing.id)
     if (!order) return { ok: false, error: 'Order not found', status: 404 }
     return { ok: true, order }
   }
 
   const orders = loadOrders()
-  const idx = orders.findIndex((o) => o.id === orderId)
+  const idx = orders.findIndex((o) => o.id === existing.id)
   if (idx < 0) return { ok: false, error: 'Order not found', status: 404 }
   const order = orders[idx]!
   if (!alreadyHasOriginal) {
@@ -1107,6 +1160,35 @@ export async function updateOrderShippingByCustomer(
   memoryStore = orders
   saveOrders()
   return { ok: true, order }
+}
+
+/**
+ * Bejelentkezett vásárló szállítási cím módosítása (saját rendelés).
+ */
+export async function updateOrderShippingByCustomer(
+  orderId: string,
+  userId: string,
+  patch: ShippingPatch
+): Promise<{ ok: true; order: Order } | { ok: false; error: string; status: number }> {
+  const existing = await getOrderById(orderId)
+  if (!existing) return { ok: false, error: 'Order not found', status: 404 }
+  if (!existing.userId || existing.userId !== userId) {
+    return { ok: false, error: 'Forbidden', status: 403 }
+  }
+  return applyCustomerShippingPatch(existing, patch)
+}
+
+/**
+ * Tokenes (e-mail CTA) szállítási cím módosítás – bejelentkezés nélkül.
+ */
+export async function updateOrderShippingByToken(
+  orderId: string,
+  token: string,
+  patch: ShippingPatch
+): Promise<{ ok: true; order: Order } | { ok: false; error: string; status: number }> {
+  const existing = await getOrderByShippingEditToken(orderId, token)
+  if (!existing) return { ok: false, error: 'Érvénytelen vagy lejárt módosító link.', status: 403 }
+  return applyCustomerShippingPatch(existing, patch)
 }
 
 export async function setOrderCustomerEmail(orderId: string, email: string): Promise<Order | null> {
