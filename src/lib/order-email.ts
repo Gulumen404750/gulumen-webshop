@@ -10,17 +10,25 @@ import { getOrderById, getOrdersByGroupId } from './orders'
 import { prisma, isDbConfigured } from './prisma'
 import { FREE_SHIPPING_THRESHOLD } from './checkout'
 import { sendMail } from './mail'
+import {
+  getSupportInboxEmail,
+  warnIfSupportInboxUnreliable,
+} from './support-email'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://gulumen.hu'
 const CONTACT_URL = `${APP_URL}/kapcsolat`
 const RETURNS_URL = `${APP_URL}/visszakuldes`
 const SHIPPING_URL = `${APP_URL}/szallitas`
 
-/** Ügyfélszolgálat – módosítási kérésekhez (válasz / mailto). */
-export const ORDER_SUPPORT_EMAIL =
-  process.env.NEXT_PUBLIC_LEGAL_EMAIL?.trim() ||
-  process.env.ORDER_SUPPORT_EMAIL?.trim() ||
-  'info@gulumen.hu'
+/** Ügyfélszolgálat – módosítási kérésekhez (válasz / mailto). Futásidőben feloldva. */
+export function getOrderSupportEmail(): string {
+  const email = getSupportInboxEmail()
+  warnIfSupportInboxUnreliable(email, 'order confirmation Reply-To')
+  return email
+}
+
+/** Futásidőben feloldott support cím – tesztekhez / kompatibilitáshoz. */
+export { getOrderSupportEmail as ORDER_SUPPORT_EMAIL_FN }
 
 const SENT_EMAIL_KEY_PREFIX = 'order_confirmation_sent:'
 const SENT_EMAILS_FILE = 'data/sent-order-emails.json'
@@ -115,11 +123,12 @@ export function pickCustomerAddressOrder(orders: Order[]): Order {
 }
 
 export function buildOrderChangeMailto(orderRef: string): string {
+  const support = getOrderSupportEmail()
   const subject = encodeURIComponent(`Rendelés módosítás – ${orderRef}`)
   const body = encodeURIComponent(
     `Kedves Gulumen!\n\nA(z) ${orderRef} azonosítójú rendelésem adatain szeretnék módosítani, mielőtt elkezdenék csomagolni.\n\nKért módosítás:\n`
   )
-  return `mailto:${ORDER_SUPPORT_EMAIL}?subject=${subject}&body=${body}`
+  return `mailto:${support}?subject=${subject}&body=${body}`
 }
 
 function buildCustomerDetailsSection(order: Order, orderRef: string): string {
@@ -160,6 +169,7 @@ function buildCustomerDetailsSection(order: Order, orderRef: string): string {
       : ''
 
   const mailto = buildOrderChangeMailto(orderRef)
+  const support = getOrderSupportEmail()
 
   return `
   <div style="border: 1px solid #fde68a; background: #fffbeb; border-radius: 8px; padding: 16px; margin: 24px 0;">
@@ -174,7 +184,7 @@ function buildCustomerDetailsSection(order: Order, orderRef: string): string {
       </a>
     </p>
     <p style="font-size: 14px; color: #78350f;">
-      Vagy írj a <a href="${mailto}">${escapeHtml(ORDER_SUPPORT_EMAIL)}</a> címre,
+      Vagy írj a <a href="${mailto}">${escapeHtml(support)}</a> címre,
       illetve használd a <a href="${CONTACT_URL}">kapcsolati űrlapot</a>.
     </p>
     <h3>Szállítási cím</h3>
@@ -187,6 +197,7 @@ function buildCustomerDetailsSection(order: Order, orderRef: string): string {
 }
 
 function buildCustomerDetailsText(order: Order, orderRef: string): string {
+  const support = getOrderSupportEmail()
   const shippingLines = formatAddressLines({
     name: order.customerName,
     phone: order.customerPhone,
@@ -212,7 +223,7 @@ function buildCustomerDetailsText(order: Order, orderRef: string): string {
     'Kérjük, ellenőrizd az adataidat!',
     'A csomagolás megkezdése előtt ellenőrizd a szállítási és számlázási adatokat.',
     'Ha módosításra van szükség, jelezd mielőbb — amíg nem kezdjük el a csomagolást, tudunk segíteni.',
-    `Módosítás jelzése: ${ORDER_SUPPORT_EMAIL} (válaszolj erre az e-mailre, vagy nyisd meg: ${buildOrderChangeMailto(orderRef)})`,
+    `Módosítás jelzése: ${support} (válaszolj erre az e-mailre, vagy nyisd meg: ${buildOrderChangeMailto(orderRef)})`,
     `Kapcsolat: ${CONTACT_URL}`,
     '',
     'Szállítási cím:',
@@ -458,7 +469,7 @@ export async function sendOrderGroupConfirmationEmail(
     subject,
     html,
     text,
-    replyTo: ORDER_SUPPORT_EMAIL,
+    replyTo: getOrderSupportEmail(),
   })
 }
 

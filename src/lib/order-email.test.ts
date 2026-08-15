@@ -24,7 +24,7 @@ vi.mock('./prisma', () => ({
 }))
 
 import {
-  ORDER_SUPPORT_EMAIL,
+  getOrderSupportEmail,
   buildOrderChangeMailto,
   buildOrderGroupConfirmationHtml,
   buildOrderGroupConfirmationText,
@@ -108,7 +108,7 @@ describe('order confirmation email content', () => {
     const html = buildOrderGroupConfirmationHtml([order], order.id)
     const mailto = buildOrderChangeMailto(order.id)
 
-    expect(mailto).toContain(`mailto:${ORDER_SUPPORT_EMAIL}`)
+    expect(mailto).toContain(`mailto:${getOrderSupportEmail()}`)
     expect(mailto).toContain(encodeURIComponent(`Rendelés módosítás – ${order.id}`))
     expect(html).toContain('Módosítás jelzése e-mailben')
     expect(html).toContain(mailto)
@@ -158,7 +158,7 @@ describe('maybeSendOrderGroupConfirmationEmail payment gate', () => {
       expect.objectContaining({
         to: 'vasarlo@example.com',
         subject: `Rendelés megerősítés – ${order.id}`,
-        replyTo: ORDER_SUPPORT_EMAIL,
+        replyTo: getOrderSupportEmail(),
       })
     )
     const payload = sendMail.mock.calls[0]![0] as { html: string; text: string }
