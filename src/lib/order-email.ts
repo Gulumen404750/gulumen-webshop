@@ -13,6 +13,7 @@ import { sendMail } from './mail'
 import {
   getSupportInboxEmail,
   warnIfSupportInboxUnreliable,
+  buildOrderChangeContactUrl,
 } from './support-email'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://gulumen.hu'
@@ -123,7 +124,8 @@ export function pickCustomerAddressOrder(orders: Order[]): Order {
 }
 
 export function buildOrderChangeMailto(orderRef: string): string {
-  const support = getOrderSupportEmail()
+  // Beérkező cím: működő inbox (ADMIN_EMAIL / Gmail), ne a MX nélküli postmaster.
+  const support = getSupportInboxEmail()
   const subject = encodeURIComponent(`Rendelés módosítás – ${orderRef}`)
   const body = encodeURIComponent(
     `Kedves Gulumen!\n\nA(z) ${orderRef} azonosítójú rendelésem adatain szeretnék módosítani, mielőtt elkezdenék csomagolni.\n\nKért módosítás:\n`
@@ -169,7 +171,8 @@ function buildCustomerDetailsSection(order: Order, orderRef: string): string {
       : ''
 
   const mailto = buildOrderChangeMailto(orderRef)
-  const support = getOrderSupportEmail()
+  const support = getSupportInboxEmail()
+  const contactChangeUrl = buildOrderChangeContactUrl(CONTACT_URL, orderRef)
 
   return `
   <div style="border: 1px solid #fde68a; background: #fffbeb; border-radius: 8px; padding: 16px; margin: 24px 0;">
@@ -179,13 +182,13 @@ function buildCustomerDetailsSection(order: Order, orderRef: string): string {
       Ha valamit módosítani szeretnél, jelezd nekünk mielőbb — amíg nem kezdjük el a csomagolást, tudunk segíteni.
     </p>
     <p>
-      <a href="${mailto}" style="display: inline-block; background: #92400e; color: #fff; text-decoration: none; padding: 10px 16px; border-radius: 6px; font-weight: 600;">
-        Módosítás jelzése e-mailben
+      <a href="${contactChangeUrl}" style="display: inline-block; background: #92400e; color: #fff; text-decoration: none; padding: 10px 16px; border-radius: 6px; font-weight: 600;">
+        Módosítás jelzése az oldalon
       </a>
     </p>
     <p style="font-size: 14px; color: #78350f;">
-      Vagy írj a <a href="${mailto}">${escapeHtml(support)}</a> címre,
-      illetve használd a <a href="${CONTACT_URL}">kapcsolati űrlapot</a>.
+      Vagy válaszolj erre az e-mailre / írj ide: <a href="${mailto}">${escapeHtml(support)}</a>
+      · <a href="${CONTACT_URL}">Kapcsolat</a>
     </p>
     <h3>Szállítási cím</h3>
     <ul style="list-style: none; padding-left: 0;">${shippingHtml}</ul>
@@ -223,7 +226,8 @@ function buildCustomerDetailsText(order: Order, orderRef: string): string {
     'Kérjük, ellenőrizd az adataidat!',
     'A csomagolás megkezdése előtt ellenőrizd a szállítási és számlázási adatokat.',
     'Ha módosításra van szükség, jelezd mielőbb — amíg nem kezdjük el a csomagolást, tudunk segíteni.',
-    `Módosítás jelzése: ${support} (válaszolj erre az e-mailre, vagy nyisd meg: ${buildOrderChangeMailto(orderRef)})`,
+    `Módosítás jelzése az oldalon: ${buildOrderChangeContactUrl(CONTACT_URL, orderRef)}`,
+    `Vagy e-mail: ${support}`,
     `Kapcsolat: ${CONTACT_URL}`,
     '',
     'Szállítási cím:',

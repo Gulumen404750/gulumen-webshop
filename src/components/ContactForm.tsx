@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 type ContactFormProps = {
   supportEmail: string
@@ -14,6 +14,19 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const rendeles = params.get('rendeles')?.trim()
+    const tipus = params.get('tipus')?.trim()
+    if (rendeles) setOrderRef(rendeles)
+    if (tipus === 'modositas') {
+      setMessage(
+        `A(z) ${rendeles || '…'} azonosítójú rendelésem adatain szeretnék módosítani, mielőtt elkezdenék csomagolni.\n\nKért módosítás:\n`
+      )
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -54,7 +67,8 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
         Írj nekünk
       </h2>
       <p className="text-gray-200 text-sm mb-4 drop-shadow">
-        Az üzeneted közvetlenül az ügyfélszolgálatra érkezik. Válaszolhatsz e-mailben is:{' '}
+        Az üzeneted a webshop rendszerén keresztül érkezik az ügyfélszolgálatra (nem a
+        postmaster@gulumen.com MX-ére támaszkodik). Megjelenített cím:{' '}
         <a href={`mailto:${supportEmail}`} className="text-accent hover:underline font-medium">
           {supportEmail}
         </a>

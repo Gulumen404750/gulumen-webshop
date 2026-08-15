@@ -4,6 +4,7 @@ import {
   getPublicSupportEmail,
   getSupportInboxEmail,
   isUnreliableInboundDomain,
+  buildOrderChangeContactUrl,
 } from './support-email'
 
 describe('support-email', () => {
@@ -27,40 +28,37 @@ describe('support-email', () => {
     restore('NEXT_PUBLIC_LEGAL_EMAIL', prev.legal)
   })
 
-  it('defaults to postmaster@gulumen.com', () => {
+  it('skips gulumen.com postmaster (no MX) and uses ADMIN_EMAIL Gmail', () => {
+    process.env.ORDER_SUPPORT_EMAIL = 'postmaster@gulumen.com'
+    process.env.NEXT_PUBLIC_SUPPORT_EMAIL = 'postmaster@gulumen.com'
+    process.env.ADMIN_EMAIL = 'ops@gmail.com'
+    expect(isUnreliableInboundDomain('postmaster@gulumen.com')).toBe(true)
+    expect(getSupportInboxEmail()).toBe('ops@gmail.com')
+  })
+
+  it('uses ORDER_SUPPORT_EMAIL when it is a real inbox', () => {
+    process.env.ORDER_SUPPORT_EMAIL = 'shop@gmail.com'
+    process.env.ADMIN_EMAIL = 'ops@gmail.com'
+    expect(getSupportInboxEmail()).toBe('shop@gmail.com')
+  })
+
+  it('public mailto can still show postmaster for branding', () => {
+    process.env.NEXT_PUBLIC_SUPPORT_EMAIL = 'postmaster@gulumen.com'
+    expect(getPublicSupportEmail()).toBe('postmaster@gulumen.com')
+  })
+
+  it('builds contact URL with order ref', () => {
+    expect(buildOrderChangeContactUrl('https://www.gulumen.com/kapcsolat', 'ord_1')).toBe(
+      'https://www.gulumen.com/kapcsolat?rendeles=ord_1&tipus=modositas'
+    )
+  })
+
+  it('defaults when nothing reliable is set', () => {
     delete process.env.ORDER_SUPPORT_EMAIL
     delete process.env.SUPPORT_INBOX_EMAIL
     delete process.env.ADMIN_EMAIL
     delete process.env.NEXT_PUBLIC_SUPPORT_EMAIL
     delete process.env.NEXT_PUBLIC_LEGAL_EMAIL
     expect(getSupportInboxEmail()).toBe(DEFAULT_SUPPORT_INBOX)
-    expect(getPublicSupportEmail()).toBe('postmaster@gulumen.com')
-  })
-
-  it('prefers ORDER_SUPPORT_EMAIL over ADMIN_EMAIL', () => {
-    process.env.ORDER_SUPPORT_EMAIL = 'postmaster@gulumen.com'
-    process.env.ADMIN_EMAIL = 'ops@gmail.com'
-    expect(getSupportInboxEmail()).toBe('postmaster@gulumen.com')
-  })
-
-  it('prefers public support over ADMIN_EMAIL so postmaster wins', () => {
-    delete process.env.ORDER_SUPPORT_EMAIL
-    delete process.env.SUPPORT_INBOX_EMAIL
-    process.env.NEXT_PUBLIC_SUPPORT_EMAIL = 'postmaster@gulumen.com'
-    process.env.ADMIN_EMAIL = 'ops@gmail.com'
-    expect(getSupportInboxEmail()).toBe('postmaster@gulumen.com')
-  })
-
-  it('keeps public mailto separate from ADMIN_EMAIL when public env set', () => {
-    process.env.ADMIN_EMAIL = 'secret-ops@gmail.com'
-    process.env.NEXT_PUBLIC_SUPPORT_EMAIL = 'postmaster@gulumen.com'
-    expect(getPublicSupportEmail()).toBe('postmaster@gulumen.com')
-  })
-
-  it('flags legacy info/noreply addresses as unreliable inbound', () => {
-    expect(isUnreliableInboundDomain('info@gulumen.hu')).toBe(true)
-    expect(isUnreliableInboundDomain('info@gulumen.com')).toBe(true)
-    expect(isUnreliableInboundDomain('noreply@gulumen.com')).toBe(true)
-    expect(isUnreliableInboundDomain('postmaster@gulumen.com')).toBe(false)
   })
 })

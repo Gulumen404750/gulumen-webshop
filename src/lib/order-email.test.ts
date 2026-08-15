@@ -110,7 +110,8 @@ describe('order confirmation email content', () => {
 
     expect(mailto).toContain(`mailto:${getOrderSupportEmail()}`)
     expect(mailto).toContain(encodeURIComponent(`Rendelés módosítás – ${order.id}`))
-    expect(html).toContain('Módosítás jelzése e-mailben')
+    expect(html).toContain('Módosítás jelzése az oldalon')
+    expect(html).toContain('/kapcsolat?rendeles=')
     expect(html).toContain(mailto)
     expect(html).toContain('/kapcsolat')
   })
