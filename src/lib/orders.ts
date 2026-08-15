@@ -89,6 +89,15 @@ export type Order = {
   rewardsFinalized?: boolean
   /** Admin címkenyomtatás időpontja (ISO). */
   printedAt?: string
+  /** Fizetéskor rögzített szállítási cím (vásárlói módosítás előtt). */
+  originalShippingPostalCode?: string
+  originalShippingCity?: string
+  originalShippingStreet?: string
+  originalShippingHouseNumber?: string
+  originalCustomerName?: string
+  originalCustomerPhone?: string
+  /** Vásárlói címmódosítás időpontja (ISO). */
+  shippingAddressChangedAt?: string
 }
 
 const COUPON_PERCENT = 0.05
@@ -183,6 +192,13 @@ function dbOrderToOrder(row: {
   appliedCoupons?: unknown
   rewardsFinalized?: boolean
   printedAt?: Date | null
+  originalShippingPostalCode?: string | null
+  originalShippingCity?: string | null
+  originalShippingStreet?: string | null
+  originalShippingHouseNumber?: string | null
+  originalCustomerName?: string | null
+  originalCustomerPhone?: string | null
+  shippingAddressChangedAt?: Date | null
   items: { productId: string; qty: number; fulfillmentType: string; priceHuf: number; name: string | null }[]
 }): Order {
   const appliedCoupons = Array.isArray(row.appliedCoupons)
@@ -220,6 +236,13 @@ function dbOrderToOrder(row: {
     appliedCoupons,
     rewardsFinalized: row.rewardsFinalized,
     printedAt: row.printedAt?.toISOString(),
+    originalShippingPostalCode: row.originalShippingPostalCode ?? undefined,
+    originalShippingCity: row.originalShippingCity ?? undefined,
+    originalShippingStreet: row.originalShippingStreet ?? undefined,
+    originalShippingHouseNumber: row.originalShippingHouseNumber ?? undefined,
+    originalCustomerName: row.originalCustomerName ?? undefined,
+    originalCustomerPhone: row.originalCustomerPhone ?? undefined,
+    shippingAddressChangedAt: row.shippingAddressChangedAt?.toISOString(),
     stripeSessionId: row.stripeSessionId ?? undefined,
     paymentIntentId: row.paymentIntentId ?? undefined,
     amountPaid: row.amountPaid ?? undefined,
@@ -955,6 +978,135 @@ export async function updateOrderCustomerDetails(
   memoryStore = orders
   saveOrders()
   return order
+}
+
+/**
+ * Vásárlói szállítási cím módosítás.
+ * Első módosításkor az aktuális cím az original* mezőkbe kerül; a shipping* frissül.
+ */
+export async function updateOrderShippingByCustomer(
+  orderId: string,
+  userId: string,
+  patch: {
+    customerName?: string | null
+    customerPhone?: string | null
+    shippingPostalCode: string
+    shippingCity: string
+    shippingStreet: string
+    shippingHouseNumber: string
+    deliveryNotes?: string | null
+  }
+): Promise<{ ok: true; order: Order } | { ok: false; error: string; status: number }> {
+  const { canCustomerEditShippingAddress, shippingFieldsEqual } = await import(
+    './order-shipping-edit'
+  )
+
+  const existing = await getOrderById(orderId)
+  if (!existing) return { ok: false, error: 'Order not found', status: 404 }
+  if (!existing.userId || existing.userId !== userId) {
+    return { ok: false, error: 'Forbidden', status: 403 }
+  }
+
+  const gate = canCustomerEditShippingAddress(existing)
+  if (!gate.ok) return { ok: false, error: gate.reason, status: 409 }
+
+  const next = {
+    customerName: patch.customerName !== undefined ? patch.customerName : existing.customerName,
+    customerPhone: patch.customerPhone !== undefined ? patch.customerPhone : existing.customerPhone,
+    shippingPostalCode: patch.shippingPostalCode.trim(),
+    shippingCity: patch.shippingCity.trim(),
+    shippingStreet: patch.shippingStreet.trim(),
+    shippingHouseNumber: patch.shippingHouseNumber.trim(),
+    deliveryNotes:
+      patch.deliveryNotes !== undefined ? patch.deliveryNotes : existing.deliveryNotes ?? null,
+  }
+
+  if (
+    !next.shippingPostalCode ||
+    !next.shippingCity ||
+    !next.shippingStreet ||
+    !next.shippingHouseNumber
+  ) {
+    return { ok: false, error: 'A szállítási cím minden mezője kötelező.', status: 400 }
+  }
+
+  if (
+    shippingFieldsEqual(existing, {
+      customerName: next.customerName,
+      customerPhone: next.customerPhone,
+      shippingPostalCode: next.shippingPostalCode,
+      shippingCity: next.shippingCity,
+      shippingStreet: next.shippingStreet,
+      shippingHouseNumber: next.shippingHouseNumber,
+      deliveryNotes: next.deliveryNotes,
+    })
+  ) {
+    return { ok: false, error: 'Nincs változás a szállítási adatokban.', status: 400 }
+  }
+
+  const changedAt = new Date()
+  const alreadyHasOriginal = !!(
+    existing.originalShippingPostalCode ||
+    existing.originalShippingCity ||
+    existing.originalShippingStreet ||
+    existing.originalShippingHouseNumber ||
+    existing.originalCustomerName
+  )
+
+  const originalSnapshot = alreadyHasOriginal
+    ? {}
+    : {
+        originalShippingPostalCode: existing.shippingPostalCode ?? null,
+        originalShippingCity: existing.shippingCity ?? null,
+        originalShippingStreet: existing.shippingStreet ?? null,
+        originalShippingHouseNumber: existing.shippingHouseNumber ?? null,
+        originalCustomerName: existing.customerName ?? null,
+        originalCustomerPhone: existing.customerPhone ?? null,
+      }
+
+  if (isDbConfigured()) {
+    await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        ...originalSnapshot,
+        customerName: next.customerName?.trim() || null,
+        customerPhone: next.customerPhone?.trim() || null,
+        shippingPostalCode: next.shippingPostalCode,
+        shippingCity: next.shippingCity,
+        shippingStreet: next.shippingStreet,
+        shippingHouseNumber: next.shippingHouseNumber,
+        deliveryNotes: next.deliveryNotes?.trim() || null,
+        shippingAddressChangedAt: changedAt,
+      },
+    })
+    const order = await getOrderById(orderId)
+    if (!order) return { ok: false, error: 'Order not found', status: 404 }
+    return { ok: true, order }
+  }
+
+  const orders = loadOrders()
+  const idx = orders.findIndex((o) => o.id === orderId)
+  if (idx < 0) return { ok: false, error: 'Order not found', status: 404 }
+  const order = orders[idx]!
+  if (!alreadyHasOriginal) {
+    order.originalShippingPostalCode = existing.shippingPostalCode
+    order.originalShippingCity = existing.shippingCity
+    order.originalShippingStreet = existing.shippingStreet
+    order.originalShippingHouseNumber = existing.shippingHouseNumber
+    order.originalCustomerName = existing.customerName
+    order.originalCustomerPhone = existing.customerPhone
+  }
+  order.customerName = next.customerName?.trim() || undefined
+  order.customerPhone = next.customerPhone?.trim() || undefined
+  order.shippingPostalCode = next.shippingPostalCode
+  order.shippingCity = next.shippingCity
+  order.shippingStreet = next.shippingStreet
+  order.shippingHouseNumber = next.shippingHouseNumber
+  order.deliveryNotes = next.deliveryNotes?.trim() || undefined
+  order.shippingAddressChangedAt = changedAt.toISOString()
+  memoryStore = orders
+  saveOrders()
+  return { ok: true, order }
 }
 
 export async function setOrderCustomerEmail(orderId: string, email: string): Promise<Order | null> {

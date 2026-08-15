@@ -528,8 +528,10 @@ export async function sendAdminAddressChangeNotification(params: {
   before: Order
   after: Order
   changedFields: string[]
+  /** Ki módosított: customer | admin */
+  source?: 'customer' | 'admin'
 }): Promise<void> {
-  const { orderId, before, after, changedFields } = params
+  const { orderId, before, after, changedFields, source = 'admin' } = params
   if (changedFields.length === 0) return
 
   const recipients = getAdminNotificationEmails()
@@ -546,18 +548,27 @@ export async function sendAdminAddressChangeNotification(params: {
       .filter(Boolean)
       .join(', ') || '–'
 
+  const who = source === 'customer' ? 'Vásárlói címmódosítás' : 'Admin címmódosítás'
   const text = [
-    'Admin címmódosítás',
+    who,
     `Rendelés: ${orderId}`,
     `Módosított mezők: ${changedFields.join(', ')}`,
     '',
     `Előtte: ${fmtAddr(before)}`,
     `Utána: ${fmtAddr(after)}`,
     '',
+    source === 'customer'
+      ? 'Figyelem: a futár / címke felé a MÓDOSÍTOTT címet használd.'
+      : null,
     `Másolat: ${DEFAULT_SUPPORT_INBOX}`,
-  ].join('\n')
+  ]
+    .filter((line) => line !== null)
+    .join('\n')
 
-  const subject = `[Gulumen] Címmódosítás – ${orderId}`
+  const subject =
+    source === 'customer'
+      ? `[Gulumen] 🔥 Vásárló címet módosított – ${orderId}`
+      : `[Gulumen] Címmódosítás – ${orderId}`
   const html = `<pre style="font-family:sans-serif;white-space:pre-wrap">${escapeHtml(text)}</pre>`
 
   for (const to of recipients) {

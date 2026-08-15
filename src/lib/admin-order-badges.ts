@@ -9,6 +9,12 @@ export function isOrderPrinted(printedAt: string | Date | null | undefined): boo
   return printedAt != null && printedAt !== ''
 }
 
+export function hasShippingAddressChanged(
+  shippingAddressChangedAt: string | Date | null | undefined
+): boolean {
+  return shippingAddressChangedAt != null && shippingAddressChangedAt !== ''
+}
+
 /**
  * Teljes sávos sorstílus a címkenyomtatási állapot szerint.
  * isPrinted === false → lila; true → zöld.

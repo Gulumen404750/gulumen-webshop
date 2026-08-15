@@ -209,6 +209,12 @@ const PII_ORDER_KEYS = [
   'billingStreet',
   'billingHouseNumber',
   'deliveryNotes',
+  'originalShippingPostalCode',
+  'originalShippingCity',
+  'originalShippingStreet',
+  'originalShippingHouseNumber',
+  'originalCustomerName',
+  'originalCustomerPhone',
 ] as const
 
 export function redactCustomerPii<T extends Record<string, unknown>>(

@@ -18,6 +18,19 @@ describe('isOrderPrinted', () => {
   })
 })
 
+describe('hasShippingAddressChanged', () => {
+  it('is false when unset', async () => {
+    const { hasShippingAddressChanged } = await import('./admin-order-badges')
+    expect(hasShippingAddressChanged(null)).toBe(false)
+    expect(hasShippingAddressChanged(undefined)).toBe(false)
+  })
+
+  it('is true when timestamp set', async () => {
+    const { hasShippingAddressChanged } = await import('./admin-order-badges')
+    expect(hasShippingAddressChanged('2026-08-15T12:00:00.000Z')).toBe(true)
+  })
+})
+
 describe('getOrderPrintRowStyles / badge', () => {
   it('uses purple full-row for unprinted', () => {
     expect(getOrderPrintRowStyles(false)).toMatch(/purple/)
