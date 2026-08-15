@@ -1,8 +1,10 @@
 'use client'
 
 import {
+  ALLOW_CAT_REGISTRATION_STACK,
   MAX_COMBINED_COUPON_PERCENT,
   canToggleCoupon,
+  isCatRegistrationStackBlocked,
   type SelectableCoupon,
   type SelectableCouponId,
 } from '@/lib/coupon-selection'
@@ -34,9 +36,15 @@ export function CouponSelector({
 }: Props) {
   const { t } = useLocale()
   const resolvedTitle = title ?? t('payment.couponSelectorTitle')
-  const resolvedHint = hint ?? t('payment.couponSelectorHint')
+  const defaultHint = ALLOW_CAT_REGISTRATION_STACK
+    ? t('payment.couponSelectorHint')
+    : t('payment.couponSelectorHintNoCatRegStack') || t('payment.couponSelectorHint')
+  const resolvedHint = hint ?? defaultHint
   const resolvedEmpty = emptyText ?? t('payment.couponSelectorEmpty')
   const resolvedCap = capReachedText ?? t('payment.couponCapReached')
+  const stackBlockedText =
+    t('payment.couponCatRegStackBlocked') ||
+    'A macska és a regisztrációs kupon most nem kombinálható – válassz egyet.'
   const selected = new Set(selectedIds)
 
   const toggle = (id: SelectableCouponId) => {
@@ -71,6 +79,10 @@ export function CouponSelector({
           const checked = selected.has(coupon.id)
           const wouldExceed =
             !checked && !canToggleCoupon(coupons, selected, coupon.id, true)
+          const nextForStack = new Set(selected)
+          nextForStack.add(coupon.id)
+          const blockedByStack =
+            !checked && wouldExceed && isCatRegistrationStackBlocked(nextForStack)
           return (
             <li key={coupon.id}>
               <label
@@ -101,7 +113,7 @@ export function CouponSelector({
                   )}
                   {wouldExceed && (
                     <span className="block text-xs text-amber-600 dark:text-amber-400 mt-1">
-                      {resolvedCap}
+                      {blockedByStack ? stackBlockedText : resolvedCap}
                     </span>
                   )}
                 </span>

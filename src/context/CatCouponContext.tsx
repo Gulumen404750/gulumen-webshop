@@ -6,6 +6,11 @@ import {
   clearGoogleAuthPending,
   readGoogleAuthPending,
 } from '@/lib/google-auth-pending'
+import {
+  clearCatCouponPending,
+  consumeCatCouponPending,
+  hasCatCouponPending,
+} from '@/lib/cat-coupon-pending'
 
 const STORAGE_PREFIX_CAT = 'gulumen-cat-coupon-'
 const STORAGE_PREFIX_REG = 'gulumen-registration-coupon-'
@@ -197,6 +202,16 @@ export function CatCouponProvider({ children }: { children: ReactNode }) {
     if (!userId || !authChecked) return
     void (async () => {
       await syncPromoCouponsFromServer(userId)
+      // Cica pop-up → regisztráció/belépés: igényeljük a 5%-ot (a 10% külön, acceptOffers alapján).
+      if (hasCatCouponPending()) {
+        const cat = readCat(userId)
+        if (!cat?.status) {
+          const payload: StoredCoupon = { status: 'claimed', percent: CAT_COUPON_PERCENT * 100 }
+          localStorage.setItem(getCatKey(userId), JSON.stringify(payload))
+          await claimPromoOnServer('cat')
+        }
+        consumeCatCouponPending()
+      }
       const cat = readCat(userId)
       const reg = readReg(userId)
       if (cat?.status === 'claimed') await claimPromoOnServer('cat')
@@ -215,6 +230,7 @@ export function CatCouponProvider({ children }: { children: ReactNode }) {
     if (cat?.status) return false
     const payload: StoredCoupon = { status: 'claimed', percent: CAT_COUPON_PERCENT * 100 }
     localStorage.setItem(getCatKey(userId), JSON.stringify(payload))
+    clearCatCouponPending()
     void claimPromoOnServer('cat')
     refresh(userId)
     return true

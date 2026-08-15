@@ -14,7 +14,12 @@ import {
 } from '@/lib/payment-transactions'
 import { getPaymentProvider } from '@/lib/payment-provider'
 import { getLoyaltyByEmail } from '@/lib/loyalty'
-import { capCombinedCouponPercent, CAT_COUPON_PERCENT, REGISTRATION_COUPON_PERCENT } from '@/lib/coupon-config'
+import {
+  capCombinedCouponPercent,
+  CAT_COUPON_PERCENT,
+  REGISTRATION_COUPON_PERCENT,
+  isCatRegistrationStackBlocked,
+} from '@/lib/coupon-config'
 import { rateLimit } from '@/lib/rate-limit'
 import {
   getIdempotencyKey,
@@ -225,6 +230,15 @@ export async function POST(request: Request) {
   if (selectedCoupons.has('cat') || selectedCoupons.has('registration')) {
     if (!checkoutUserId) {
       return NextResponse.json({ error: 'Login required for promo coupon' }, { status: 401 })
+    }
+    if (isCatRegistrationStackBlocked(selectedCoupons)) {
+      return NextResponse.json(
+        {
+          code: 'promo_coupon_stack_disabled',
+          error: 'Cat and registration coupons cannot be combined',
+        },
+        { status: 400 }
+      )
     }
     const state = await getUserPromoCouponState(checkoutUserId)
     if (selectedCoupons.has('cat')) {

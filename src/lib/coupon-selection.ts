@@ -4,13 +4,17 @@
  */
 
 import {
+  ALLOW_CAT_REGISTRATION_STACK,
   BIRTHDAY_COUPON_PERCENT,
   CAT_COUPON_PERCENT,
   MAX_COMBINED_COUPON_PERCENT,
   REGISTRATION_COUPON_PERCENT,
   WELCOME_CHECKOUT_COUPON_PERCENT,
   capCombinedCouponPercent,
+  isCatRegistrationStackBlocked,
 } from '@/lib/coupon-config'
+
+export { ALLOW_CAT_REGISTRATION_STACK, isCatRegistrationStackBlocked }
 
 export type SelectableCouponId =
   | 'cat'
@@ -73,6 +77,7 @@ export function calculateSelectedCouponPercent(
 
 /**
  * Új kupon kijelölése: ha átlépné a 20%-ot, nem engedjük (false).
+ * Ha ALLOW_CAT_REGISTRATION_STACK=false, a macska + regisztráció együtt tilos.
  * A leválasztás (deselect) mindig engedélyezett.
  */
 export function canToggleCoupon(
@@ -85,6 +90,7 @@ export function canToggleCoupon(
   if (selectedIds.has(toggleId)) return true
   const next = new Set(selectedIds)
   next.add(toggleId)
+  if (isCatRegistrationStackBlocked(next)) return false
   const raw = coupons
     .filter((c) => next.has(c.id))
     .reduce((s, c) => s + c.percent, 0)

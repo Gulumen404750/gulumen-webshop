@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { useCatCoupon } from '@/context/CatCouponContext'
 import { useLocale } from '@/context/LocaleContext'
+import { markCatCouponPending } from '@/lib/cat-coupon-pending'
 
 const CURSOR_NEAR_PX = 80
 const WAND_CURSOR = 'url(/img/cursor-wand.svg) 16 0, pointer'
@@ -32,12 +33,14 @@ export function HeroCat() {
     setTriggered(true)
     setZigzagStopped(true)
     setActivatedJustNow(false)
+    // Vendég: regisztráció/belépés után a context automatikusan igényli a 5%-ot.
+    if (!isLoggedIn) markCatCouponPending()
     setShowModal(true)
     setTimeout(() => {
       setZigzagStopped(false)
       setTriggered(false)
     }, EFFECT_DURATION_MS)
-  }, [triggered])
+  }, [triggered, isLoggedIn])
 
   const closeModal = useCallback(() => {
     setShowModal(false)

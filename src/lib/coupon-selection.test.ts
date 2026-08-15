@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import {
   buildPromoCoupons,
   calculateSelectedCouponPercent,
@@ -30,10 +30,12 @@ describe('coupon selection + 20% cap', () => {
     )
   })
 
-  it('allows cat + registration (15%)', () => {
+  it('allows cat + registration (15%) in launch stacking mode', () => {
     const result = calculateSelectedCouponPercent(coupons, ['cat', 'registration'])
     expect(result.finalPercent).toBeCloseTo(0.15)
     expect(result.capped).toBe(false)
+    expect(result.useCat).toBe(true)
+    expect(result.useRegistration).toBe(true)
   })
 
   it('caps birthday + registration (25% → 20%)', () => {
@@ -50,5 +52,42 @@ describe('coupon selection + 20% cap', () => {
     expect(canToggleCoupon(coupons, withBirthday, 'cat', true)).toBe(true) // 20%
     expect(canToggleCoupon(coupons, withBirthday, 'registration', true)).toBe(false) // 25%
     expect(canToggleCoupon(coupons, selected, 'cat', false)).toBe(true) // deselect always ok
+  })
+
+  it('allows toggling cat onto registration when stacking is enabled (default)', async () => {
+    const withReg = new Set(['registration'] as const)
+    expect(canToggleCoupon(coupons, withReg, 'cat', true)).toBe(true)
+  })
+})
+
+describe('cat + registration stack flag off', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    vi.stubEnv('ALLOW_CAT_REGISTRATION_STACK', '0')
+    vi.stubEnv('NEXT_PUBLIC_ALLOW_CAT_REGISTRATION_STACK', '0')
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.resetModules()
+  })
+
+  it('blocks selecting cat together with registration', async () => {
+    const { canToggleCoupon: canToggle, buildPromoCoupons: build } = await import(
+      '@/lib/coupon-selection'
+    )
+    const { ALLOW_CAT_REGISTRATION_STACK: allow } = await import('@/lib/coupon-config')
+    expect(allow).toBe(false)
+
+    const coupons = build({
+      catClaimed: true,
+      registrationClaimed: true,
+      labels,
+    })
+    const withReg = new Set(['registration'] as const)
+    const withCat = new Set(['cat'] as const)
+    expect(canToggle(coupons, withReg, 'cat', true)).toBe(false)
+    expect(canToggle(coupons, withCat, 'registration', true)).toBe(false)
+    expect(canToggle(coupons, withReg, 'cat', false)).toBe(true)
   })
 })
