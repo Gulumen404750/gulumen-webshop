@@ -265,6 +265,13 @@ export default function AdminProductsPage() {
   const handleBulkPrice = async () => {
     setBulkFormError(null)
 
+    if (selectedIds.size > 10) {
+      const ok = window.confirm(
+        `${selectedIds.size} termék ármódosítása. Ha nem owner vagy, owner jóváhagyás kell (5 perc). Folytatod?`
+      )
+      if (!ok) return
+    }
+
     const body: {
       productIds: string[]
       mode: PriceMode
@@ -292,6 +299,7 @@ export default function AdminProductsPage() {
     }
 
     setBulkSaving(true)
+    setBulkDeleteMsg(null)
     try {
       const res = await fetch('/api/admin/products/bulk-price', {
         method: 'PATCH',
@@ -300,6 +308,15 @@ export default function AdminProductsPage() {
         body: JSON.stringify(body),
       })
       const data = await res.json().catch(() => ({}))
+      if (res.status === 202 && data.status === 'PENDING_APPROVAL') {
+        setPriceModalOpen(false)
+        setSelectedIds(new Set())
+        setBulkDeleteMsg(
+          data.message ||
+            `Ármódosítás jóváhagyásra vár (${data.secondsRemaining ?? 300} mp). Az owner dashboardon jelenik meg.`
+        )
+        return
+      }
       if (!res.ok) {
         setBulkFormError(data.error ?? 'Ármódosítás sikertelen.')
         return

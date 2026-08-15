@@ -141,6 +141,7 @@ export function AdminShell({
         <div className="p-2 border-t border-[var(--border)]">
           <AdminLogoutButton
             loginHref={publicAdminUiPathFromBase('/admin/login', publicBase)}
+            dashboardHref={dashboardHref}
             className="block w-full text-left px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-white/10 hover:text-white"
           />
           <Link

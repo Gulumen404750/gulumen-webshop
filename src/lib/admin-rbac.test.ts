@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   BOOTSTRAP_ADMIN_ACTOR,
+  describeRoleAccess,
   isAdminRole,
   navPermissionForHref,
   parseAdminPassword,
@@ -8,6 +9,7 @@ import {
   permissionsForRole,
   redactCustomerPii,
   roleHasPermission,
+  rolePermissionCatalog,
 } from './admin-rbac'
 
 describe('admin RBAC', () => {
@@ -72,5 +74,20 @@ describe('admin RBAC', () => {
   it('keeps bootstrap actor as owner', () => {
     expect(BOOTSTRAP_ADMIN_ACTOR.role).toBe('owner')
     expect(BOOTSTRAP_ADMIN_ACTOR.bootstrap).toBe(true)
+  })
+
+  it('exposes a full permission catalog with granted flags per role', () => {
+    const catalog = rolePermissionCatalog('catalog')
+    expect(catalog.length).toBeGreaterThan(5)
+    expect(catalog.find((e) => e.permission === 'products:write')?.granted).toBe(true)
+    expect(catalog.find((e) => e.permission === 'customers:pii')?.granted).toBe(false)
+    expect(catalog.find((e) => e.permission === 'staff:write')?.granted).toBe(false)
+
+    const support = describeRoleAccess('support')
+    expect(support.permissions.find((e) => e.permission === 'customers:pii')?.granted).toBe(true)
+    expect(support.limitations.length).toBeGreaterThan(0)
+
+    const owner = rolePermissionCatalog('owner')
+    expect(owner.every((e) => e.granted)).toBe(true)
   })
 })

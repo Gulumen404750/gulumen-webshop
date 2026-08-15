@@ -1,7 +1,12 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { ADMIN_ROLES, type AdminRole } from '@/lib/admin-rbac'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import '@/lib/admin-fetch'
+import {
+  ADMIN_ROLES,
+  describeRoleAccess,
+  type AdminRole,
+} from '@/lib/admin-rbac'
 
 type OperatorRow = {
   id: string
@@ -13,10 +18,57 @@ type OperatorRow = {
 }
 
 const ROLE_LABEL: Record<AdminRole, string> = {
-  owner: 'Owner (minden)',
+  owner: 'Owner (főadmin – minden)',
   support: 'Support (PII, rendelés – nincs ár/törlés/export)',
   catalog: 'Katalógus (termék, ár – nincs PII)',
   viewer: 'Megtekintő',
+}
+
+function RolePermissionPreview({ role }: { role: AdminRole }) {
+  const access = useMemo(() => describeRoleAccess(role), [role])
+  return (
+    <div className="rounded-lg border border-[var(--border)] bg-[var(--card-bg)]/40 p-3 space-y-3">
+      <div>
+        <h3 className="text-sm font-semibold">
+          Jogosultságok — {ROLE_LABEL[role]}
+        </h3>
+        <p className="text-xs text-muted mt-0.5">
+          A kiválasztott szerepkör pontosan ezeket a funkciókat éri el. A főadmin
+          (`owner` / API-kulcs útvonal) jogosultságait más soha nem kaphatja meg.
+        </p>
+      </div>
+      <ul className="grid gap-1.5 sm:grid-cols-2 text-sm">
+        {access.permissions.map((entry) => (
+          <li
+            key={entry.permission}
+            className={`flex gap-2 items-start rounded px-2 py-1 ${
+              entry.granted
+                ? 'bg-green-500/10 text-foreground'
+                : 'bg-transparent text-muted line-through decoration-muted/60'
+            }`}
+          >
+            <span className="shrink-0 font-mono text-xs mt-0.5" aria-hidden>
+              {entry.granted ? '✓' : '✗'}
+            </span>
+            <span>
+              <span className="font-medium">{entry.label}</span>
+              <span className="block text-[11px] font-mono opacity-70">{entry.permission}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+      <div>
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-muted mb-1">
+          Korlátozások
+        </h4>
+        <ul className="list-disc pl-5 text-sm text-muted space-y-1">
+          {access.limitations.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  )
 }
 
 export default function StaffSettings() {
@@ -28,8 +80,10 @@ export default function StaffSettings() {
   const [password, setPassword] = useState('')
   const [role, setRole] = useState<AdminRole>('owner')
   const [requireFirstOwner, setRequireFirstOwner] = useState(true)
+  const [ownerCount, setOwnerCount] = useState(0)
   const [busy, setBusy] = useState(false)
   const [forbidden, setForbidden] = useState(false)
+  const [previewRole, setPreviewRole] = useState<AdminRole>('owner')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -47,8 +101,13 @@ export default function StaffSettings() {
       }
       setForbidden(false)
       setOperators(Array.isArray(data.operators) ? data.operators : [])
-      setRequireFirstOwner(Boolean(data.requireFirstOwner))
-      if (data.requireFirstOwner) setRole('owner')
+      const needOwner = Boolean(data.requireFirstOwner)
+      setRequireFirstOwner(needOwner)
+      setOwnerCount(typeof data.ownerCount === 'number' ? data.ownerCount : 0)
+      if (needOwner) {
+        setRole('owner')
+        setPreviewRole('owner')
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Ismeretlen hiba')
     } finally {
@@ -59,6 +118,11 @@ export default function StaffSettings() {
   useEffect(() => {
     void load()
   }, [load])
+
+  function canDeleteOperator(op: OperatorRow): boolean {
+    if (op.role === 'owner' && op.active && ownerCount <= 1) return false
+    return true
+  }
 
   async function createOperator(e: React.FormEvent) {
     e.preventDefault()
@@ -78,11 +142,11 @@ export default function StaffSettings() {
       setPassword('')
       if (data.sessionUpgraded) {
         setMessage(
-          'Owner operátor létrehozva — a sessionod erre a fiókra váltott (nem záródtál ki). Írd fel a jelszót. További (support/catalog) operátorokhoz: inkognitó ablakban tesztelj, vagy a belépés parkolja az owner sessiont.'
+          'Owner operátor létrehozva — a sessionod erre a fiókra váltott (nem záródtál ki). Írd fel a jelszót. További (support/catalog) operátorokhoz: inkognitó ablakban tesztelj; az operátor belépés külön sütibe kerül, az owner session megmarad.'
         )
       } else {
         setMessage(
-          'Operátor létrehozva. Teszteléshez használd inkognitó ablakot — ugyanebben a böngészőben a belépés parkolja az owner sessiont (visszaállítható).'
+          'Operátor létrehozva. Teszteléshez használd az /operator/login oldalt (külön süti) — az owner session nem íródik felül.'
         )
       }
       await load()
@@ -106,6 +170,10 @@ export default function StaffSettings() {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || 'Mentés sikertelen')
+      if (typeof body.role === 'string') {
+        setPreviewRole(body.role as AdminRole)
+      }
+      setMessage('Operátor frissítve.')
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Hiba')
@@ -114,17 +182,34 @@ export default function StaffSettings() {
     }
   }
 
-  async function removeOperator(id: string) {
-    if (!confirm('Törlöd ezt az operátort?')) return
+  async function removeOperator(op: OperatorRow) {
+    if (!canDeleteOperator(op)) {
+      setError(
+        'Az utolsó aktív owner nem törölhető. Hozz létre másik owner fiókot előbb, vagy hagyd meg ezt a fiókot.'
+      )
+      setMessage(null)
+      return
+    }
+    if (!confirm(`Biztosan törlöd az operátort: ${op.username}?`)) return
     setBusy(true)
     setError(null)
+    setMessage(null)
     try {
-      const res = await fetch(`/api/admin/staff?id=${encodeURIComponent(id)}`, {
-        method: 'DELETE',
+      // POST + JSON body — a querystringes DELETE CSRF/rewrite alatt nem mindig futott le.
+      const res = await fetch('/api/admin/staff', {
+        method: 'POST',
         credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', id: op.id }),
       })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data.error || 'Törlés sikertelen')
+      if (!res.ok) {
+        throw new Error(
+          typeof data.error === 'string' ? data.error : 'Törlés sikertelen'
+        )
+      }
+      setOperators((prev) => prev.filter((row) => row.id !== op.id))
+      setMessage(`Operátor törölve: ${op.username}`)
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Hiba')
@@ -142,9 +227,9 @@ export default function StaffSettings() {
         <p className="text-sm text-muted mt-1">
           Amíg nincs aktív <strong>owner</strong> operátor, az API kulcs + 2FA elég (bootstrap).
           Az első létrehozott operátor kötelezően owner. A főadmin belépés (
-          <code>/admin/login</code>, API kulcs + 2FA) mindig működik — unbreakable fallback, SQL
-          nélkül. Másodlagos fiókok: <code>/operator/login</code> (felhasználónév + jelszó) — külön
-          süti, nem írja felül az owner sessiont.
+          <code>/admin/login</code> vagy rejtett slug, API kulcs + 2FA) mindig működik —
+          unbreakable fallback. Másodlagos fiókok: <code>/operator/login</code> (felhasználónév +
+          jelszó) — külön süti, nem írja felül az owner sessiont; párhuzamosan is bent lehetnek.
         </p>
         {requireFirstOwner && (
           <p className="text-sm text-amber-700 dark:text-amber-300 mt-2">
@@ -153,6 +238,20 @@ export default function StaffSettings() {
           </p>
         )}
       </div>
+
+      {error && (
+        <p
+          className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300"
+          role="alert"
+        >
+          {error}
+        </p>
+      )}
+      {message && (
+        <p className="rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-800 dark:text-green-300">
+          {message}
+        </p>
+      )}
 
       {loading ? (
         <p className="text-sm text-muted">Betöltés…</p>
@@ -175,45 +274,68 @@ export default function StaffSettings() {
                   </td>
                 </tr>
               ) : (
-                operators.map((op) => (
-                  <tr key={op.id} className="border-b border-[var(--border)]/60">
-                    <td className="py-2 pr-3 font-mono">{op.username}</td>
-                    <td className="py-2 pr-3">
-                      <select
-                        value={op.role}
-                        disabled={busy}
-                        onChange={(e) => patchOperator(op.id, { role: e.target.value })}
-                        className="rounded border border-[var(--border)] bg-background px-2 py-1"
-                      >
-                        {ADMIN_ROLES.map((r) => (
-                          <option key={r} value={r}>
-                            {r}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="py-2 pr-3">
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => patchOperator(op.id, { active: !op.active })}
-                        className="text-sm underline"
-                      >
-                        {op.active ? 'igen' : 'nem'}
-                      </button>
-                    </td>
-                    <td className="py-2">
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => removeOperator(op.id)}
-                        className="text-sm text-red-600 dark:text-red-400"
-                      >
-                        Törlés
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                operators.map((op) => {
+                  const deletable = canDeleteOperator(op)
+                  return (
+                    <tr key={op.id} className="border-b border-[var(--border)]/60">
+                      <td className="py-2 pr-3 font-mono">{op.username}</td>
+                      <td className="py-2 pr-3">
+                        <select
+                          value={op.role}
+                          disabled={busy}
+                          onChange={(e) => {
+                            const next = e.target.value as AdminRole
+                            setPreviewRole(next)
+                            void patchOperator(op.id, { role: next })
+                          }}
+                          onFocus={() => setPreviewRole(op.role)}
+                          className="rounded border border-[var(--border)] bg-background px-2 py-1"
+                        >
+                          {ADMIN_ROLES.map((r) => (
+                            <option key={r} value={r}>
+                              {r}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="py-2 pr-3">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => patchOperator(op.id, { active: !op.active })}
+                          className="text-sm underline"
+                        >
+                          {op.active ? 'igen' : 'nem'}
+                        </button>
+                      </td>
+                      <td className="py-2">
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => {
+                            setPreviewRole(op.role)
+                          }}
+                          className="text-sm underline mr-3"
+                        >
+                          Jogok
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busy || !deletable}
+                          title={
+                            deletable
+                              ? `Törlés: ${op.username}`
+                              : 'Az utolsó aktív owner nem törölhető'
+                          }
+                          onClick={() => void removeOperator(op)}
+                          className="text-sm text-red-600 dark:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          Törlés
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })
               )}
             </tbody>
           </table>
@@ -256,7 +378,11 @@ export default function StaffSettings() {
           <select
             id="staff-role"
             value={role}
-            onChange={(e) => setRole(e.target.value as AdminRole)}
+            onChange={(e) => {
+              const next = e.target.value as AdminRole
+              setRole(next)
+              setPreviewRole(next)
+            }}
             className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-background"
           >
             {ADMIN_ROLES.filter((r) => !requireFirstOwner || r === 'owner').map((r) => (
@@ -277,8 +403,7 @@ export default function StaffSettings() {
         </div>
       </form>
 
-      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-      {message && <p className="text-sm text-green-700 dark:text-green-400">{message}</p>}
+      <RolePermissionPreview role={previewRole} />
     </section>
   )
 }
