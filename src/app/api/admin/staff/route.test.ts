@@ -59,6 +59,12 @@ describe('GET/POST /api/admin/staff', () => {
     expect(res.status).toBe(200)
     const data = await res.json()
     expect(data.operators[0].username).toBe('anna')
+    expect(data.roleAccess.catalog.permissions.length).toBeGreaterThan(0)
+    expect(
+      data.roleAccess.catalog.permissions.find(
+        (p: { permission: string }) => p.permission === 'customers:pii'
+      )?.granted
+    ).toBe(false)
   })
 
   it('forbids support from staff:write', async () => {
