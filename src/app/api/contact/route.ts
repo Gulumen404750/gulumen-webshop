@@ -3,6 +3,7 @@ import { rateLimit } from '@/lib/rate-limit'
 import { isResendConfigured, sendMailRequired } from '@/lib/mail'
 import {
   getSupportInboxEmail,
+  isUnreliableInboundDomain,
   warnIfSupportInboxUnreliable,
 } from '@/lib/support-email'
 
@@ -66,9 +67,31 @@ export async function POST(request: Request) {
       )
     }
 
-    const to = getSupportInboxEmail()
-    warnIfSupportInboxUnreliable(to, 'contact form')
+    const primary = getSupportInboxEmail()
+    warnIfSupportInboxUnreliable(primary, 'contact form')
+    const admin = process.env.ADMIN_EMAIL?.trim()
+    const recipients = [primary]
+    if (
+      admin &&
+      admin.toLowerCase() !== primary.toLowerCase() &&
+      !isUnreliableInboundDomain(admin)
+    ) {
+      recipients.push(admin)
+    }
+    if (recipients.every((r) => isUnreliableInboundDomain(r))) {
+      console.error(
+        '[contact] Nincs fogadó inbox – állítsd az ADMIN_EMAIL-t Gmail címre (gulumen.com-nak nincs MX)'
+      )
+      return NextResponse.json(
+        {
+          error:
+            'Az ügyfélszolgálati postafiók nincs fogadásra állítva. Próbáld később, vagy írj közvetlenül a webshop üzemeltetőjének.',
+        },
+        { status: 503 }
+      )
+    }
 
+    const to = recipients
     const subjectParts = ['[Gulumen] Kapcsolat']
     if (orderRef) subjectParts.push(`– ${orderRef}`)
     subjectParts.push(`– ${name}`)
