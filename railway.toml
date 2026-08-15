@@ -7,7 +7,7 @@
 #   npm run deploy:railway
 #
 # Vagy GitHub Actions: állítsd be a RAILWAY_TOKEN secretet (Railway → gulumen-webshop → Settings → Tokens).
-# Redeploy trigger: operator roles no-owner 2026-08-15T00:43.
+# Redeploy trigger: wishlist counter sync 2026-08-15T01:13.
 
 [build]
 builder = "nixpacks"
