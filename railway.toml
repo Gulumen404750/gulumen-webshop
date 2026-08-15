@@ -7,7 +7,7 @@
 #   npm run deploy:railway
 #
 # Vagy GitHub Actions: állítsd be a RAILWAY_TOKEN secretet (Railway → gulumen-webshop → Settings → Tokens).
-# Redeploy trigger: admin lockout bypass 2026-08-14T23:45.
+# Redeploy trigger: operator master session isolation 2026-08-15T00:33.
 
 [build]
 builder = "nixpacks"
