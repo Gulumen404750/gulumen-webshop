@@ -27,13 +27,13 @@ export default function RegistrationPage() {
     if (isLoggedIn) router.replace('/profil')
   }, [isLoggedIn, router])
 
-  const handleGoogleRegister = () => {
+  const handleGoogleRegister = async () => {
     setError(null)
     if (!acceptPrivacy) {
       setError(t('register.errorPrivacy') || 'A regisztrációhoz fogadd el az ÁSZF-et és az adatkezelési tájékoztatót.')
       return
     }
-    loginWithGoogle({
+    await loginWithGoogle({
       acceptPrivacy: true,
       ...(acceptOffers ? { acceptOffers: true } : {}),
       callbackUrl: typeof window !== 'undefined' ? `${window.location.origin}/termekek` : '/termekek',

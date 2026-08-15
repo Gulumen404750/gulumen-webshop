@@ -1,5 +1,7 @@
 'use client'
 
+import { useState } from 'react'
+
 function GoogleIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" aria-hidden>
@@ -13,24 +15,48 @@ function GoogleIcon({ className }: { className?: string }) {
 
 type GoogleSignInButtonProps = {
   label: string
-  onClick: () => void
+  onClick: () => void | Promise<void>
   disabled?: boolean
   className?: string
+  /** Átirányítás közbeni felirat (opcionális). */
+  pendingLabel?: string
 }
 
-export function GoogleSignInButton({ label, onClick, disabled, className }: GoogleSignInButtonProps) {
+export function GoogleSignInButton({
+  label,
+  onClick,
+  disabled,
+  className,
+  pendingLabel = 'Átirányítás a Google-hez…',
+}: GoogleSignInButtonProps) {
+  const [pending, setPending] = useState(false)
+
+  const handleClick = async () => {
+    if (pending || disabled) return
+    setPending(true)
+    try {
+      await onClick()
+      // Navigáció (form.submit) nélkül visszatért: pl. hiányzó ÁSZF pipa.
+      setPending(false)
+    } catch (err) {
+      console.error('[GoogleSignInButton] click failed', err)
+      setPending(false)
+    }
+  }
+
   return (
     <button
       type="button"
-      onClick={onClick}
-      disabled={disabled}
+      onClick={handleClick}
+      disabled={disabled || pending}
+      aria-busy={pending}
       className={
         className ??
         'w-full py-3 px-4 border-2 border-[var(--border)] bg-background text-foreground font-heading font-semibold rounded-lg hover:bg-[var(--border)]/30 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed'
       }
     >
       <GoogleIcon className="w-5 h-5" />
-      {label}
+      {pending ? pendingLabel : label}
     </button>
   )
 }

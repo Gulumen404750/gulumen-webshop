@@ -3,6 +3,7 @@ import NextAuth from 'next-auth'
 import { NextRequest, NextResponse } from 'next/server'
 import { bootstrapAuthEnv, resolveNextAuthUrl } from '@/lib/bootstrap-auth-env'
 import { getAuthOptions } from '@/lib/auth-options'
+import { CSP_NONCE_HEADER } from '@/lib/admin-security-headers'
 
 /** Never statically prerender – auth must read runtime Railway env. */
 export const dynamic = 'force-dynamic'
@@ -24,6 +25,9 @@ function handleProviderSignInGet(req: NextRequest): NextResponse | null {
   const callbackUrl = url.searchParams.get('callbackUrl') ?? `${authOrigin}/profil`
   const postAction = `${authOrigin}/api/auth/signin/${providerId}`
   const csrfUrl = `${authOrigin}/api/auth/csrf`
+  // Middleware állítja az x-nonce-t; production CSP tiltja az unsafe-inline scriptet.
+  const nonce = req.headers.get(CSP_NONCE_HEADER)?.trim()
+  const nonceAttr = nonce ? ` nonce="${nonce.replace(/"/g, '')}"` : ''
 
   const html = `<!DOCTYPE html>
 <html lang="hu">
@@ -33,7 +37,7 @@ function handleProviderSignInGet(req: NextRequest): NextResponse | null {
 </head>
 <body>
   <p>Átirányítás a Google bejelentkezéshez…</p>
-  <script>
+  <script${nonceAttr}>
     (async function () {
       try {
         const csrfRes = await fetch(${JSON.stringify(csrfUrl)}, { credentials: 'include' });

@@ -20,6 +20,7 @@ describe('buildContentSecurityPolicy', () => {
     expect(csp).toContain('https://www.recaptcha.net')
     expect(csp).toContain('https://www.googletagmanager.com')
     expect(csp).toContain("frame-src 'self' https://www.google.com https://www.recaptcha.net")
+    expect(csp).toContain("form-action 'self' https://accounts.google.com")
     expect(csp).toContain("object-src 'none'")
     expect(csp).toContain('upgrade-insecure-requests')
   })

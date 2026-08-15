@@ -24,7 +24,7 @@ type AuthContextValue = {
   /** Google első belépés ebben a sessionben (új fiók). Meglévő usernél mindig false. */
   isNewUser: boolean
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>
-  loginWithGoogle: (options?: GoogleAuthOptions) => void
+  loginWithGoogle: (options?: GoogleAuthOptions) => Promise<void>
   register: (
     email: string,
     password: string,
@@ -123,8 +123,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const loginWithGoogle = useCallback(async (options?: GoogleAuthOptions) => {
-    const base = getCanonicalAppOrigin()
-    const callback = options?.callbackUrl ?? `${base}/profil`
+    const pageOrigin = typeof window !== 'undefined' ? window.location.origin : ''
+    const canonical = getCanonicalAppOrigin()
+    // Same-origin relatív path: a CSRF cookie és a form POST ugyanarra a hostora menjen.
+    // Csak akkor használunk abszolút kanonikus URL-t, ha a lap origin eltér (pl. apex → www).
+    const authBase = canonical && pageOrigin && pageOrigin !== canonical ? canonical : ''
+    const callback =
+      options?.callbackUrl ??
+      `${pageOrigin || canonical || ''}/profil`
 
     // Meglévő fiók belépés: ne vigyünk át régi kupon-pendinget.
     // Új regisztráció: mentsük a hozzájárulásokat OAuth előtt.
@@ -138,27 +144,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const csrfRes = await fetch(`${base}/api/auth/csrf`, { credentials: 'include' })
+      const csrfRes = await fetch(`${authBase}/api/auth/csrf`, { credentials: 'include' })
       if (!csrfRes.ok) throw new Error(`CSRF ${csrfRes.status}`)
-      const { csrfToken } = (await csrfRes.json()) as { csrfToken: string }
+      const { csrfToken } = (await csrfRes.json()) as { csrfToken?: string }
+      if (!csrfToken) throw new Error('CSRF token missing')
+
       const form = document.createElement('form')
       form.method = 'POST'
-      form.action = `${base}/api/auth/signin/google`
+      form.action = `${authBase}/api/auth/signin/google`
       form.style.display = 'none'
+
       const csrfInput = document.createElement('input')
       csrfInput.type = 'hidden'
       csrfInput.name = 'csrfToken'
       csrfInput.value = csrfToken
       form.appendChild(csrfInput)
+
       const cbInput = document.createElement('input')
       cbInput.type = 'hidden'
       cbInput.name = 'callbackUrl'
       cbInput.value = callback
       form.appendChild(cbInput)
+
       document.body.appendChild(form)
       form.submit()
-    } catch {
-      window.location.href = `${base}/profil?authError=google`
+    } catch (err) {
+      console.error('[auth] Google sign-in start failed', err)
+      const errorBase = authBase || pageOrigin || canonical
+      window.location.href = `${errorBase}/profil?authError=google`
     }
   }, [])
 

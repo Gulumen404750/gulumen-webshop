@@ -261,8 +261,8 @@ export default function ProfilePage() {
   }
 
   /** Meglévő fiók: azonnali Google belépés, hozzájárulás / kupon nélkül. */
-  const handleGoogleLogin = () => {
-    loginWithGoogle({
+  const handleGoogleLogin = async () => {
+    await loginWithGoogle({
       callbackUrl:
         typeof window !== 'undefined' ? `${window.location.origin}/profil` : '/profil',
     })

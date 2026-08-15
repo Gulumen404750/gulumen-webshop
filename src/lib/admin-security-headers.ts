@@ -8,6 +8,8 @@ export const CSP_NONCE_HEADER = 'x-nonce'
 
 const RECAPTCHA_SCRIPT_HOSTS = 'https://www.google.com https://www.gstatic.com https://www.recaptcha.net'
 const SCRIPT_HOSTS = `https://ajax.googleapis.com ${RECAPTCHA_SCRIPT_HOSTS} https://www.googletagmanager.com`
+/** NextAuth Google OAuth: form POST → 302 accounts.google.com (form-action ellenőrzi a redirect célját). */
+const GOOGLE_OAUTH_FORM_ACTION = 'https://accounts.google.com'
 
 /** Per-request CSP nonce (Edge-safe). */
 export function generateCspNonce(): string {
@@ -44,7 +46,7 @@ export function buildContentSecurityPolicy(
     "frame-src 'self' https://www.google.com https://www.recaptcha.net",
     "frame-ancestors 'none'",
     "base-uri 'self'",
-    "form-action 'self'",
+    `form-action 'self' ${GOOGLE_OAUTH_FORM_ACTION}`,
     "object-src 'none'",
     ...(!isDev ? ['upgrade-insecure-requests'] : []),
   ].join('; ')
