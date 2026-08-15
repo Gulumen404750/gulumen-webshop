@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server'
 import { getOrdersByGroupId } from '@/lib/orders'
+import { getSession, resolveSessionUserId } from '@/lib/auth'
+import { toPublicOrderViews } from '@/lib/order-public'
 
 /**
  * GET /api/orders/by-group?order_group_id=grp_xxx
  * Új checkout flow: csoport alapján visszaadja a rendeléseket (1 vagy 2).
+ * Nyilvánosan csak összefoglaló mezők; PII + shippingEditToken csak a bejelentkezett tulajdonosnak.
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -16,5 +19,16 @@ export async function GET(request: Request) {
   }
 
   const orders = await getOrdersByGroupId(orderGroupId)
-  return NextResponse.json(orders)
+  if (!orders.length) {
+    return NextResponse.json([])
+  }
+
+  const session = await getSession(request)
+  const sessionUserId = session ? await resolveSessionUserId(session) : null
+
+  const views = toPublicOrderViews(orders, {
+    isOwner: (order) => Boolean(sessionUserId && order.userId && order.userId === sessionUserId),
+  })
+
+  return NextResponse.json(views)
 }

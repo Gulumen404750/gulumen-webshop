@@ -98,11 +98,14 @@ export default function PaymentSuccessPage() {
     )
     if (!actionable.length) return
     didFinalizeRewardsRef.current = true
+    // Státuszemeléshez Stripe session kell; orderGroupId/orderId önmagában csak reward finalize.
     const body: Record<string, string> = {}
-    const groupId = actionable[0]?.orderGroupId ?? orderGroupId
-    if (groupId) body.orderGroupId = groupId
-    else if (sessionId) body.sessionId = sessionId
-    else if (actionable[0]?.id) body.orderId = actionable[0].id
+    if (sessionId) body.sessionId = sessionId
+    else {
+      const groupId = actionable[0]?.orderGroupId ?? orderGroupId
+      if (groupId) body.orderGroupId = groupId
+      else if (actionable[0]?.id) body.orderId = actionable[0].id
+    }
     if (!Object.keys(body).length) {
       didFinalizeRewardsRef.current = false
       return
