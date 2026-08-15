@@ -1,6 +1,7 @@
 /**
  * Manuális kuponválasztás + 20% plafon.
  * A checkout NEM alkalmaz automatikusan kupont – a vásárló jelöli ki.
+ * Macska + regisztráció: ALLOW_CAT_REGISTRATION_STACK (kezdeti időszak: együtt 15%).
  */
 
 import {
