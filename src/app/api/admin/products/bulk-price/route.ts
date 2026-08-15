@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { requireAdminPermission } from '@/lib/admin-auth'
-import { prisma, isDbConfigured } from '@/lib/prisma'
+import { isOwnerActor, requireAdminPermission } from '@/lib/admin-auth'
+import { isDbConfigured } from '@/lib/prisma'
+import {
+  createBulkPriceApproval,
+  needsBulkMutationApproval,
+  BULK_DELETE_APPROVAL_THRESHOLD,
+} from '@/lib/admin-approval'
+import { executeBulkPrice } from '@/lib/admin-bulk-price'
 import { logAdminAction } from '@/lib/admin-audit'
-import { alertAdminAnomalySafe } from '@/lib/admin-anomaly-alert'
 
 const bulkPriceSchema = z
   .object({
@@ -29,27 +34,10 @@ const bulkPriceSchema = z
     }
   })
 
-function computeNewPrices(
-  currentHuf: number,
-  currentEur: number,
-  mode: 'fixed' | 'percent',
-  priceHuf?: number,
-  percentChange?: number
-): { priceHuf: number; priceEur: number } {
-  let newHuf: number
-  if (mode === 'fixed') {
-    newHuf = priceHuf!
-  } else {
-    newHuf = Math.max(0, Math.round(currentHuf * (1 + percentChange! / 100)))
-  }
-  const ratio = currentHuf > 0 ? currentEur / currentHuf : 0
-  const newEur = Math.max(0, Math.round(newHuf * ratio))
-  return { priceHuf: newHuf, priceEur: newEur }
-}
-
 /**
  * PATCH /api/admin/products/bulk-price
  * Tömeges ármódosítás: fix ár vagy százalékos emelés/csökkentés.
+ * Non-owner + >10 id → PENDING_APPROVAL (5 perc owner ablak); owner / ≤10 → azonnali.
  */
 export async function PATCH(request: Request) {
   const gate = await requireAdminPermission('products:write')
@@ -74,50 +62,62 @@ export async function PATCH(request: Request) {
   }
 
   const { productIds, mode, priceHuf, percentChange } = parsed.data
+  const ids = [...new Set(productIds)]
 
-  const products = await prisma.product.findMany({
-    where: { id: { in: productIds } },
-    select: { id: true, priceHuf: true, priceEur: true },
+  if (needsBulkMutationApproval(gate.actor, ids.length)) {
+    const approval = await createBulkPriceApproval({
+      actor: gate.actor,
+      ids,
+      mode,
+      priceHuf,
+      percentChange,
+      request,
+    })
+    return NextResponse.json(
+      {
+        ok: false,
+        status: 'PENDING_APPROVAL',
+        approvalId: approval.id,
+        expiresAt: approval.expiresAt,
+        secondsRemaining: approval.secondsRemaining,
+        count: ids.length,
+        threshold: BULK_DELETE_APPROVAL_THRESHOLD,
+        message: `Több mint ${BULK_DELETE_APPROVAL_THRESHOLD} termék ármódosítása owner jóváhagyást igényel (5 perc).`,
+      },
+      { status: 202 }
+    )
+  }
+
+  const result = await executeBulkPrice({
+    ids,
+    mode,
+    priceHuf,
+    percentChange,
+    actor: gate.actor,
+    request,
   })
 
-  if (products.length === 0) {
+  if (result.updated === 0) {
     return NextResponse.json({ error: 'No matching products found' }, { status: 404 })
   }
 
-  const foundIds = new Set(products.map((p) => p.id))
-  const missingIds = productIds.filter((id) => !foundIds.has(id))
-
-  await prisma.$transaction(
-    products.map((product) => {
-      const prices = computeNewPrices(
-        product.priceHuf,
-        product.priceEur,
-        mode,
-        priceHuf,
-        percentChange
-      )
-      return prisma.product.update({
-        where: { id: product.id },
-        data: prices,
-      })
-    })
-  )
-
   await logAdminAction({
-    action: 'product_bulk_price',
+    action: 'product_bulk_price_immediate',
     success: true,
     request,
-    details: { updated: products.length, missingIds, mode, percentChange, priceHuf },
+    actor: gate.actor,
+    details: {
+      ...result,
+      ownerBypass: isOwnerActor(gate.actor),
+      count: ids.length,
+    },
   })
-  await alertAdminAnomalySafe({
-    kind: 'bulk_price',
-    count: products.length,
-    request,
-    details: { mode, percentChange, priceHuf },
-  })
+
   return NextResponse.json({
-    updated: products.length,
-    missingIds,
-    mode,
+    ok: true,
+    status: 'UPDATED',
+    updated: result.updated,
+    missingIds: result.missingIds,
+    mode: result.mode,
   })
 }

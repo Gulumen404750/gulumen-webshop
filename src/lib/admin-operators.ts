@@ -113,10 +113,8 @@ export type ResolveLoginResult =
 /**
  * Owner belépési path (`/admin/login` / `/api/admin/login`):
  * API-kulcs után mindig bootstrap owner – akkor is, ha van aktív owner a DB-ben.
- * Így nincs szükség `DELETE FROM "AdminOperator"`-ra vagy emergency env-re a lockout ellen.
- * Opcionális username+jelszó: első owner létrehozása üres táblán, vagy meglévő operátor
- * hitelesítése (legacy együttes form); az owner cookie izoláció miatt a dedikált
- * `/operator/login` az ajánlott másodlagos belépés.
+ * Operátor username+jelszó NEM fogadható el ezen az útvonalon (külön `/operator/login`).
+ * Üres táblán az opcionális username+jelszó létrehozhatja az első owner fiókot.
  */
 export async function resolveOwnerLoginActor(input: {
   username?: unknown
@@ -131,23 +129,19 @@ export async function resolveOwnerLoginActor(input: {
     return { ok: true, actor: BOOTSTRAP_ADMIN_ACTOR }
   }
 
+  // Operátorok már léteznek → a főadmin útvonal nem fogad el username+jelszót.
+  if (totalCount > 0) {
+    return { ok: false, code: 'invalid_credentials' }
+  }
+
   const username = parseAdminUsername(rawUser)
   const password = parseAdminPassword(rawPass)
   if (!username || !password) {
     return { ok: false, code: 'invalid_input' }
   }
-  if (totalCount === 0) {
-    const actor = await createFirstOwner(username, password)
-    if (!actor) return { ok: false, code: 'invalid_credentials' }
-    return { ok: true, actor }
-  }
-  try {
-    const actor = await verifyOperatorPassword(username, rawPass)
-    if (actor) return { ok: true, actor }
-  } catch (err) {
-    logger.error({ err }, 'operator password verify failed (owner path)')
-  }
-  return { ok: false, code: 'invalid_credentials' }
+  const actor = await createFirstOwner(username, password)
+  if (!actor) return { ok: false, code: 'invalid_credentials' }
+  return { ok: true, actor }
 }
 
 /**

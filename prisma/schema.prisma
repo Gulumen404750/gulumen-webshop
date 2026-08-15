@@ -371,11 +371,11 @@ model AdminOperator {
 /// Tömeges törlés (és hasonló) jóváhagyási kérelmek – non-owner → PENDING_APPROVAL.
 model AdminPendingApproval {
   id                   String    @id @default(cuid())
-  /// pl. bulk_delete_products | bulk_delete_users | bulk_delete_coupons
+  /// pl. bulk_delete_products | bulk_price_products | bulk_delete_users
   type                 String
   /// PENDING_APPROVAL | APPROVED | REJECTED | EXPIRED
   status               String
-  /// { resource, ids: string[] }
+  /// { kind, resource, ids[, mode, priceHuf, percentChange] }
   payload              Json
   requestedById        String?
   requestedByUsername  String?

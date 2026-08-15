@@ -12,10 +12,10 @@ Ez a dokumentum **kötelező** mindenki számára, aki admin kulcsot, Railway Va
 ## 1. Ki léphet be
 
 - Csak a webshop üzemeltetői. Nincs külön „vendég admin”, demo kulcs vagy megosztott jelszó chatben.
-- **Owner belépés:** `/admin/login` — **`ADMIN_API_KEY` + 2FA**. Ez a főadmin útvonal **mindig** elérhető (unbreakable fallback), akkor is, ha van aktív owner az `AdminOperator` táblában, ha `mustChangeKey` aktív, vagy ha van `Admin.passwordHash`. Nincs szükség `DELETE FROM "AdminOperator"`-ra vagy emergency env-re a lockout ellen. Sikeres 2FA után a `mustChangeKey` flag törlődik.
-- **Operátor belépés:** `/operator/login` — felhasználónév + jelszó. Session az `operator_authorized` sütibe kerül; **nem írja felül** az owner `admin_authorized` sessiont.
+- **Owner belépés:** `/admin/login` (vagy `/{ADMIN_URL_SLUG}/login`) — **`ADMIN_API_KEY` + 2FA**. Ez a főadmin útvonal **mindig** elérhető (unbreakable fallback), akkor is, ha van aktív owner az `AdminOperator` táblában, ha `mustChangeKey` aktív, vagy ha van `Admin.passwordHash`. Operátor username+jelszó **nem** fogadható el ezen az útvonalon.
+- **Operátor belépés:** `/operator/login` — felhasználónév + jelszó. Session az `operator_authorized` sütibe kerül; **nem írja felül** az owner `admin_authorized` sessiont. Párhuzamos session: admin és operátor egyszerre bent lehet; operátor kijelentkezés (`scope=active`) nem lépteti ki az owner-t.
 - Belépési titok (owner): a Railway / env **`ADMIN_API_KEY`** — ezt **ne** tedd gitbe, screenshotba, ticketbe.
-- **Név szerinti operátorok (RBAC):** owner / support / catalog / viewer. Catalog törölhet terméket; **>10 bulk törlés** non-owner esetén `PENDING_APPROVAL` (owner 5 perc ablak).
+- **Név szerinti operátorok (RBAC):** owner / support / catalog / viewer. A staff UI tételesen mutatja a szerep engedélyeit és korlátait. Catalog törölhet / módosíthat terméket; **>10 bulk törlés vagy tömeges ármódosítás** non-owner esetén `PENDING_APPROVAL` + e-mail vészjelzés a főadminnak (owner 5 perc ablak).
 - **Opcionális admin jelszó** (`/admin/reset`): a kulcs mellett extra faktor a bootstrap/owner belépésnél.
 - Legacy: `ADMIN_EMERGENCY_API_KEY_LOGIN=1` továbbra is támogatott, de a `/admin/login` path env nélkül is bootstrapol.
 - Élesben a kulcs legalább **32 véletlen karakter** (`openssl rand -hex 32`). A nyers kulcs soha nem jelenhet meg a dashboardon.

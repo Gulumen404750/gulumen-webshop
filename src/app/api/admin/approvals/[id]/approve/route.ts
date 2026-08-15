@@ -3,11 +3,12 @@ import { requireOwner } from '@/lib/admin-auth'
 import { isDbConfigured } from '@/lib/prisma'
 import { markApprovalResolved } from '@/lib/admin-approval'
 import { executeBulkDelete } from '@/lib/admin-bulk-delete'
+import { executeBulkPriceFromPayload } from '@/lib/admin-bulk-price'
 import { logAdminAction } from '@/lib/admin-audit'
 
 /**
  * POST /api/admin/approvals/[id]/approve
- * Owner jóváhagyás → törlés végrehajtása (ha még PENDING és nem járt le).
+ * Owner jóváhagyás → törlés / tömeges módosítás végrehajtása (ha még PENDING és nem járt le).
  */
 export async function POST(
   request: Request,
@@ -40,6 +41,31 @@ export async function POST(
       },
       { status }
     )
+  }
+
+  if (resolved.payload.kind === 'bulk_price') {
+    const result = await executeBulkPriceFromPayload({
+      payload: resolved.payload,
+      actor: gate.actor,
+      request,
+    })
+    await logAdminAction({
+      action: 'bulk_price_approved',
+      success: true,
+      request,
+      actor: gate.actor,
+      details: {
+        approvalId: id,
+        resource: resolved.payload.resource,
+        ...result,
+      },
+    })
+    return NextResponse.json({
+      ok: true,
+      status: 'APPROVED',
+      approval: resolved.approval,
+      ...result,
+    })
   }
 
   const result = await executeBulkDelete({

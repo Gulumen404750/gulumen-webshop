@@ -81,6 +81,79 @@ export function permissionsForRole(role: AdminRole): AdminPermission[] {
   return [...ROLE_PERMISSIONS[role]]
 }
 
+/** Emberi olvasható címkék a staff UI tételes listájához. */
+export const ADMIN_PERMISSION_LABELS: Record<AdminPermission, string> = {
+  'dashboard:read': 'Dashboard megtekintése',
+  'products:read': 'Termékek megtekintése',
+  'products:write': 'Termékek létrehozása / szerkesztése (ár, készlet)',
+  'products:delete': 'Termékek törlése',
+  'uploads:write': 'Képfeltöltés',
+  'orders:read': 'Rendelések megtekintése',
+  'orders:write': 'Rendelés státusz módosítása',
+  'orders:export': 'Rendelés-export (CSV, PII)',
+  'customers:pii': 'Vásárlói személyes adatok (név, cím, e-mail, telefon)',
+  'support:write': 'Ügyfélszolgálat / elhagyott kosár / hívások',
+  'coupons:write': 'Kuponok kezelése',
+  'users:write': 'Felhasználók kezelése / törlése',
+  'sourcing:capture': 'Sourcing automata (gép–gép)',
+  'settings:write': 'Rendszerbeállítások',
+  'staff:write': 'Operátorok / RBAC kezelése (csak főadmin)',
+}
+
+/** Korlátozások szerepkörönként – a staff UI-ban a „mit NEM érhet el” lista. */
+export const ADMIN_ROLE_LIMITATIONS: Record<AdminRole, readonly string[]> = {
+  viewer: [
+    'Nem módosíthat és nem törölhet adatot.',
+    'Nem lát vásárlói személyes adatokat (PII).',
+    'Nem kezelhet operátorokat vagy beállításokat.',
+    'Tömeges művelet (>10) tilos / jóváhagyásköteles — nincs írási jog.',
+  ],
+  catalog: [
+    'Nem lát vásárlói személyes adatokat (PII).',
+    'Nem módosíthat rendelést, kuponokat vagy felhasználókat.',
+    'Nem érheti el a beállításokat és az operátor-kezelést.',
+    'Több mint 10 termék törlése / tömeges ármódosítás: PENDING, főadmin jóváhagyás 5 percen belül.',
+  ],
+  support: [
+    'Nem módosíthat / törölhet termékeket és árakat.',
+    'Nem exportálhat rendelés-CSV-t.',
+    'Nem kezelhet kuponokat, beállításokat vagy operátorokat.',
+    'Tömeges törlés / módosítás (>10): PENDING, főadmin jóváhagyás 5 percen belül.',
+  ],
+  owner: [
+    'Teljes körű jogosultság — ezt más operátor soha nem kaphatja meg a főadmin útvonalon kívül.',
+    'Csak a főadmin belépés (/admin/login vagy rejtett slug) garantálja az unbreakable fallback-et.',
+  ],
+}
+
+export type RolePermissionCatalogEntry = {
+  permission: AdminPermission
+  label: string
+  granted: boolean
+}
+
+/** Tételes lista: minden ismert permission granted/denied a szerephez. */
+export function rolePermissionCatalog(role: AdminRole): RolePermissionCatalogEntry[] {
+  const granted = new Set(permissionsForRole(role))
+  return ADMIN_PERMISSIONS.map((permission) => ({
+    permission,
+    label: ADMIN_PERMISSION_LABELS[permission],
+    granted: granted.has(permission),
+  }))
+}
+
+export function describeRoleAccess(role: AdminRole): {
+  role: AdminRole
+  permissions: RolePermissionCatalogEntry[]
+  limitations: string[]
+} {
+  return {
+    role,
+    permissions: rolePermissionCatalog(role),
+    limitations: [...ADMIN_ROLE_LIMITATIONS[role]],
+  }
+}
+
 export function navPermissionForHref(href: string): AdminPermission | null {
   if (href.startsWith('/admin/dashboard/products')) return 'products:read'
   if (href.startsWith('/admin/dashboard/orders')) return 'orders:read'

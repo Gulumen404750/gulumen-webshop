@@ -5,6 +5,7 @@ import { isDbConfigured } from '@/lib/prisma'
 import { logAdminAction } from '@/lib/admin-audit'
 import {
   ADMIN_ROLES,
+  describeRoleAccess,
   isAdminRole,
   parseAdminPassword,
   parseAdminUsername,
@@ -48,6 +49,10 @@ export async function GET() {
     operators,
     roles: ADMIN_ROLES,
     requireFirstOwner: ownerCount === 0,
+    /** Szerepkör → tételes engedély / korlátozás katalógus a staff UI-hoz. */
+    roleAccess: Object.fromEntries(
+      ADMIN_ROLES.map((role) => [role, describeRoleAccess(role)])
+    ),
   })
 }
 

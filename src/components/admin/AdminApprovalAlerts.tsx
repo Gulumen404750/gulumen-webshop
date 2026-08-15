@@ -7,15 +7,28 @@ type PendingApproval = {
   id: string
   type: string
   status: string
-  payload: { resource: string; ids: string[] }
+  payload: {
+    kind?: 'bulk_delete' | 'bulk_price'
+    resource: string
+    ids: string[]
+    mode?: string
+  }
   requestedByUsername: string | null
   requestedByRole: string | null
   expiresAt: string
   secondsRemaining: number
 }
 
+function actionLabel(a: PendingApproval): string {
+  if (a.payload.kind === 'bulk_price' || a.type.startsWith('bulk_price')) {
+    const mode = a.payload.mode === 'fixed' ? 'fix ár' : 'százalék'
+    return `tömeges ármódosítás (${mode})`
+  }
+  return 'tömeges törlés'
+}
+
 /**
- * Owner dashboard alert: függő bulk-delete kérelmek (5 perc ablak).
+ * Owner dashboard alert: függő bulk-delete / bulk-price kérelmek (5 perc ablak).
  */
 export function AdminApprovalAlerts({ enabled }: { enabled: boolean }) {
   const [approvals, setApprovals] = useState<PendingApproval[]>([])
@@ -80,7 +93,7 @@ export function AdminApprovalAlerts({ enabled }: { enabled: boolean }) {
         >
           <div>
             <p className="font-medium text-red-800 dark:text-red-200">
-              Sürgős: tömeges törlés jóváhagyás ({a.payload.ids.length} {a.payload.resource})
+              Sürgős: {actionLabel(a)} jóváhagyás ({a.payload.ids.length} {a.payload.resource})
             </p>
             <p className="text-muted mt-0.5">
               Kérte: {a.requestedByUsername || '—'}

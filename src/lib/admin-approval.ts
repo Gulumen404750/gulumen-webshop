@@ -1,5 +1,5 @@
 /**
- * Bulk törlés approval workflow (non-owner, >10 rekord).
+ * Bulk törlés / módosítás approval workflow (non-owner, >10 rekord).
  * Status: PENDING_APPROVAL → APPROVED | REJECTED | EXPIRED (5 perc).
  */
 import { prisma, isDbConfigured } from '@/lib/prisma'
@@ -10,6 +10,7 @@ import {
   BULK_DELETE_APPROVAL_TIMEOUT_MS,
 } from '@/lib/admin-session-constants'
 import { logAdminAction } from '@/lib/admin-audit'
+import { alertPendingApprovalSafe } from '@/lib/admin-approval-alert'
 
 export const APPROVAL_STATUS = {
   PENDING: 'PENDING_APPROVAL',
@@ -23,15 +24,27 @@ export type ApprovalStatus = (typeof APPROVAL_STATUS)[keyof typeof APPROVAL_STAT
 export type BulkDeleteResource = 'products' | 'users' | 'coupons'
 
 export type BulkDeletePayload = {
+  kind: 'bulk_delete'
   resource: BulkDeleteResource
   ids: string[]
 }
+
+export type BulkPricePayload = {
+  kind: 'bulk_price'
+  resource: 'products'
+  ids: string[]
+  mode: 'fixed' | 'percent'
+  priceHuf?: number
+  percentChange?: number
+}
+
+export type ApprovalPayload = BulkDeletePayload | BulkPricePayload
 
 export type PendingApprovalRow = {
   id: string
   type: string
   status: string
-  payload: BulkDeletePayload
+  payload: ApprovalPayload
   requestedById: string | null
   requestedByUsername: string | null
   requestedByRole: string | null
@@ -40,21 +53,65 @@ export type PendingApprovalRow = {
   secondsRemaining: number
 }
 
-function parsePayload(raw: unknown): BulkDeletePayload | null {
-  if (!raw || typeof raw !== 'object') return null
-  const obj = raw as Record<string, unknown>
-  const resource = obj.resource
-  if (resource !== 'products' && resource !== 'users' && resource !== 'coupons') return null
-  const ids = obj.ids
-  if (!Array.isArray(ids) || !ids.every((id) => typeof id === 'string' && id.length > 0)) {
+function parseIds(raw: unknown): string[] | null {
+  if (!Array.isArray(raw) || !raw.every((id) => typeof id === 'string' && id.length > 0)) {
     return null
   }
-  return { resource, ids: [...new Set(ids)] }
+  return [...new Set(raw as string[])]
 }
 
-export function needsBulkDeleteApproval(actor: AdminActor, idCount: number): boolean {
+function parsePayload(raw: unknown): ApprovalPayload | null {
+  if (!raw || typeof raw !== 'object') return null
+  const obj = raw as Record<string, unknown>
+  const ids = parseIds(obj.ids)
+  if (!ids) return null
+
+  const kind = obj.kind
+  if (kind === 'bulk_price' || obj.mode === 'fixed' || obj.mode === 'percent') {
+    const mode = obj.mode
+    if (mode !== 'fixed' && mode !== 'percent') return null
+    const priceHuf = typeof obj.priceHuf === 'number' ? obj.priceHuf : undefined
+    const percentChange =
+      typeof obj.percentChange === 'number' ? obj.percentChange : undefined
+    if (mode === 'fixed' && (priceHuf === undefined || !Number.isInteger(priceHuf) || priceHuf < 0)) {
+      return null
+    }
+    if (
+      mode === 'percent' &&
+      (percentChange === undefined || percentChange < -99 || percentChange > 1000)
+    ) {
+      return null
+    }
+    return {
+      kind: 'bulk_price',
+      resource: 'products',
+      ids,
+      mode,
+      priceHuf,
+      percentChange,
+    }
+  }
+
+  // Legacy { resource, ids } = bulk_delete
+  const resource = obj.resource
+  if (resource !== 'products' && resource !== 'users' && resource !== 'coupons') return null
+  return { kind: 'bulk_delete', resource, ids }
+}
+
+/** Non-owner + >threshold → approval kell (törlés és módosítás). */
+export function needsBulkMutationApproval(actor: AdminActor, idCount: number): boolean {
   if (actor.role === 'owner' || actor.bootstrap) return false
   return idCount > BULK_DELETE_APPROVAL_THRESHOLD
+}
+
+/** @deprecated Use needsBulkMutationApproval */
+export function needsBulkDeleteApproval(actor: AdminActor, idCount: number): boolean {
+  return needsBulkMutationApproval(actor, idCount)
+}
+
+export function approvalTypeForPayload(payload: ApprovalPayload): string {
+  if (payload.kind === 'bulk_price') return 'bulk_price_products'
+  return `bulk_delete_${payload.resource}`
 }
 
 export function approvalTypeForResource(resource: BulkDeleteResource): string {
@@ -110,24 +167,22 @@ function toRow(row: {
   }
 }
 
-export async function createBulkDeleteApproval(opts: {
+async function createPendingApproval(opts: {
   actor: AdminActor
-  resource: BulkDeleteResource
-  ids: string[]
+  payload: ApprovalPayload
   request?: Request
+  auditAction: string
 }): Promise<PendingApprovalRow> {
   if (!isDbConfigured()) {
     throw new Error('Database not configured')
   }
-  const ids = [...new Set(opts.ids.filter(Boolean))]
   const expiresAt = new Date(Date.now() + BULK_DELETE_APPROVAL_TIMEOUT_MS)
-  const type = approvalTypeForResource(opts.resource)
-  const payload: BulkDeletePayload = { resource: opts.resource, ids }
+  const type = approvalTypeForPayload(opts.payload)
   const row = await prisma.adminPendingApproval.create({
     data: {
       type,
       status: APPROVAL_STATUS.PENDING,
-      payload,
+      payload: opts.payload,
       requestedById: opts.actor.id,
       requestedByUsername: opts.actor.username,
       requestedByRole: opts.actor.role,
@@ -135,21 +190,71 @@ export async function createBulkDeleteApproval(opts: {
     },
   })
   await logAdminAction({
-    action: 'bulk_delete_pending_approval',
+    action: opts.auditAction,
     success: true,
     request: opts.request,
     actor: opts.actor,
     details: {
       approvalId: row.id,
-      resource: opts.resource,
-      count: ids.length,
+      type,
+      kind: opts.payload.kind,
+      resource: opts.payload.resource,
+      count: opts.payload.ids.length,
       expiresAt: expiresAt.toISOString(),
       status: APPROVAL_STATUS.PENDING,
     },
   })
+  await alertPendingApprovalSafe({
+    approvalId: row.id,
+    kind: opts.payload.kind,
+    resource: opts.payload.resource,
+    count: opts.payload.ids.length,
+    expiresAt,
+    actor: opts.actor,
+    request: opts.request,
+  })
   const mapped = toRow(row)
   if (!mapped) throw new Error('invalid approval payload')
   return mapped
+}
+
+export async function createBulkDeleteApproval(opts: {
+  actor: AdminActor
+  resource: BulkDeleteResource
+  ids: string[]
+  request?: Request
+}): Promise<PendingApprovalRow> {
+  const ids = [...new Set(opts.ids.filter(Boolean))]
+  return createPendingApproval({
+    actor: opts.actor,
+    payload: { kind: 'bulk_delete', resource: opts.resource, ids },
+    request: opts.request,
+    auditAction: 'bulk_delete_pending_approval',
+  })
+}
+
+export async function createBulkPriceApproval(opts: {
+  actor: AdminActor
+  ids: string[]
+  mode: 'fixed' | 'percent'
+  priceHuf?: number
+  percentChange?: number
+  request?: Request
+}): Promise<PendingApprovalRow> {
+  const ids = [...new Set(opts.ids.filter(Boolean))]
+  return createPendingApproval({
+    actor: opts.actor,
+    payload: {
+      kind: 'bulk_price',
+      resource: 'products',
+      ids,
+      mode: opts.mode,
+      priceHuf: opts.priceHuf,
+      percentChange: opts.percentChange,
+    },
+    request: opts.request,
+    auditAction: 'bulk_price_pending_approval',
+  })
 }
 
 export async function listPendingApprovals(): Promise<PendingApprovalRow[]> {
@@ -178,7 +283,7 @@ export async function getApprovalById(id: string): Promise<PendingApprovalRow | 
 }
 
 export type ResolveApprovalResult =
-  | { ok: true; approval: PendingApprovalRow; payload: BulkDeletePayload }
+  | { ok: true; approval: PendingApprovalRow; payload: ApprovalPayload }
   | { ok: false; code: 'not_found' | 'not_pending' | 'expired' | 'invalid_payload' }
 
 export async function markApprovalResolved(opts: {

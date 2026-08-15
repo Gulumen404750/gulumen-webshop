@@ -99,6 +99,16 @@ describe('admin operators fallback', () => {
     })
   })
 
+  it('owner path rejects operator username+password once operators exist', async () => {
+    mockCounts(1, 2)
+    const { resolveOwnerLoginActor } = await import('./admin-operators')
+    const result = await resolveOwnerLoginActor({
+      username: 'bela',
+      password: 'password12',
+    })
+    expect(result).toEqual({ ok: false, code: 'invalid_credentials' })
+  })
+
   it('operator path requires username+password', async () => {
     mockCounts(1, 1)
     const { resolveOperatorLoginActor } = await import('./admin-operators')
