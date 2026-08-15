@@ -16,11 +16,11 @@ function getGroundY() {
   return window.innerHeight - BOTTOM_OFFSET - FROG_SIZE / 2
 }
 
-/** Publikus kapcsolat e-mail (NEXT_PUBLIC_* – build-time). Beérkező: ADMIN_EMAIL / ORDER_SUPPORT_EMAIL a szerveren. */
+/** Publikus kapcsolat e-mail (NEXT_PUBLIC_* – build-time). Beérkező: postmaster@gulumen.com / ORDER_SUPPORT_EMAIL. */
 const DATA_PROTECTION_EMAIL =
   process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() ||
   process.env.NEXT_PUBLIC_LEGAL_EMAIL?.trim() ||
-  'info@gulumen.hu'
+  'postmaster@gulumen.com'
 
 export default function ContactPage() {
   const { t } = useLocale()

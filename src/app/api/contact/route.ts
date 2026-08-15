@@ -20,7 +20,7 @@ function escapeHtml(s: string): string {
 
 /**
  * Kapcsolat űrlap → Resend → ügyfélszolgálati inbox (ADMIN_EMAIL / ORDER_SUPPORT_EMAIL).
- * Így a vásárlói üzenetek megérkeznek akkor is, ha az info@gulumen.hu-nak nincs MX-e.
+ * Így a vásárlói üzenetek a postmaster@gulumen.com (ORDER_SUPPORT_EMAIL) inboxba érkeznek.
  */
 export async function POST(request: Request) {
   const limit = await rateLimit(request, { maxPerWindow: 8, windowMs: 60_000 })
