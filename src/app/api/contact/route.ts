@@ -5,6 +5,7 @@ import {
   getSupportInboxEmail,
   getAdminNotificationEmails,
   isUnreliableInboundDomain,
+  isBlockedAdminNotifyEmail,
   warnIfSupportInboxUnreliable,
 } from '@/lib/support-email'
 
@@ -70,20 +71,16 @@ export async function POST(request: Request) {
 
     const primary = getSupportInboxEmail()
     warnIfSupportInboxUnreliable(primary, 'contact form')
-    const to = getAdminNotificationEmails()
-    // Legalább egy megbízható inbox kell (Gmail), különben a módosítási figyelmeztetés elveszne.
-    if (to.length === 0 || to.every((r) => isUnreliableInboundDomain(r))) {
-      console.error(
-        '[contact] Nincs fogadó inbox – állítsd az ADMIN_EMAIL-t Gmail címre (gulumen.com-nak nincs MX)'
-      )
+    const to = getAdminNotificationEmails().filter((e) => !isBlockedAdminNotifyEmail(e))
+    if (to.length === 0) {
+      console.error('[contact] Nincs admin címzett')
       return NextResponse.json(
-        {
-          error:
-            'Az ügyfélszolgálati postafiók nincs fogadásra állítva. Próbáld később, vagy írj közvetlenül a webshop üzemeltetőjének.',
-        },
+        { error: 'Az ügyfélszolgálati postafiók nincs beállítva.' },
         { status: 503 }
       )
     }
+    // postmaster@gulumen.com a hivatalos cél – Resend küldi (MX hiányában is megkíséreljük).
+    for (const r of to) warnIfSupportInboxUnreliable(r, 'contact recipient')
 
     const subjectParts = ['[Gulumen] Kapcsolat']
     if (orderRef) subjectParts.push(`– ${orderRef}`)

@@ -256,6 +256,8 @@ model Order {
   originalCustomerPhone      String?
   /// Vásárló utólagos címmódosításának időpontja (null = nem módosított).
   shippingAddressChangedAt   DateTime?
+  /// Biztonságos token a visszaigazoló e-mail címmódosító linkhez (bejelentkezés nélkül).
+  shippingEditToken          String?  @unique
   items             OrderItem[]
   paymentTransactions PaymentTransaction[]
 

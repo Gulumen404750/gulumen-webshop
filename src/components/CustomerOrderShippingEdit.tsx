@@ -18,6 +18,8 @@ type Props = {
   initial: ShippingForm
   /** inline: gombbal nyílik; page: azonnal szerkesztő űrlap */
   mode?: 'inline' | 'page'
+  /** E-mail CTA token – ha van, tokenes API-t használ (bejelentkezés nélkül). */
+  editToken?: string | null
   labels: {
     title: string
     hint: string
@@ -55,6 +57,7 @@ export function CustomerOrderShippingEdit({
   labels,
   onSaved,
   mode = 'inline',
+  editToken = null,
 }: Props) {
   const [open, setOpen] = useState(mode === 'page')
   const [form, setForm] = useState(initial)
@@ -76,11 +79,14 @@ export function CustomerOrderShippingEdit({
     setError(null)
     setOk(false)
     try {
-      const res = await fetch(`/api/me/orders/${encodeURIComponent(orderId)}/shipping`, {
+      const endpoint = editToken
+        ? `/api/orders/${encodeURIComponent(orderId)}/shipping-edit`
+        : `/api/me/orders/${encodeURIComponent(orderId)}/shipping`
+      const res = await fetch(endpoint, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(form),
+        body: JSON.stringify(editToken ? { ...form, t: editToken } : form),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {

@@ -7,7 +7,7 @@
 #   npm run deploy:railway
 #
 # Vagy GitHub Actions: állítsd be a RAILWAY_TOKEN secretet (Railway → gulumen-webshop → Settings → Tokens).
-# Redeploy trigger: email CTA → /rendelesek/[id]/modositas self-service 2026-08-15T13:25.
+# Redeploy trigger: tokenized shipping edit self-service + postmaster-only notify 2026-08-15T13:40.
 
 [build]
 builder = "nixpacks"
