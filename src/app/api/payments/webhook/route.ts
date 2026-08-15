@@ -4,7 +4,7 @@ import {
   getPaymentTransactionById,
   claimPaymentTransactionStatus,
 } from '@/lib/payment-transactions'
-import { getOrderById, setOrderStatus } from '@/lib/orders'
+import { getOrderById, setOrderStatus, attachOrderPaymentDetails } from '@/lib/orders'
 import { markReservationsPaidByOrderId } from '@/lib/reservations'
 import { maybeSendOrderGroupConfirmationEmail } from '@/lib/order-email'
 import { finalizeOrderRewards } from '@/lib/checkout-rewards'
@@ -51,7 +51,13 @@ async function applyTransactionOutcome(
   transactionId: string,
   newTxStatus: PaymentTransactionStatus,
   providerRef?: string,
-  customerEmail?: string | null
+  customerEmail?: string | null,
+  paymentMeta?: {
+    stripeSessionId?: string
+    amountPaid?: number
+    currencyPaid?: string
+    webhookEventId?: string
+  }
 ): Promise<void> {
   const claim = await claimPaymentTransactionStatus(transactionId, newTxStatus, providerRef)
   if (!claim.tx) {
@@ -67,6 +73,25 @@ async function applyTransactionOutcome(
       current: claim.tx.status,
       alreadyInStatus: claim.alreadyInStatus,
     })
+    // Ha már succeeded, próbáljuk újra az e-mailt (pl. korábbi Resend hiba után).
+    if (newTxStatus === 'succeeded' && claim.alreadyInStatus) {
+      try {
+        const emailResult = await maybeSendOrderGroupConfirmationEmail(
+          claim.tx.orderId,
+          customerEmail ?? null
+        )
+        if (!emailResult.ok) {
+          console.error(
+            '[payments/webhook] Order confirmation retry failed:',
+            emailResult.error
+          )
+        } else if (emailResult.sent) {
+          console.info('[payments/webhook] Order confirmation sent on retry', claim.tx.orderId)
+        }
+      } catch (emailErr) {
+        console.error('[payments/webhook] Order confirmation retry error:', emailErr)
+      }
+    }
     return
   }
 
@@ -80,11 +105,25 @@ async function applyTransactionOutcome(
   if (newTxStatus === 'succeeded') {
     if (tx.mode === 'capture') {
       await setOrderStatus(order.id, 'paid')
-      console.debug('[payments/webhook] Order marked paid (capture)', order.id)
+      console.info('[payments/webhook] Order marked paid (capture)', order.id)
     } else {
       await setOrderStatus(order.id, 'sourcing_pending')
-      console.debug('[payments/webhook] Order marked sourcing_pending (authorize)', order.id)
+      console.info('[payments/webhook] Order marked sourcing_pending (authorize)', order.id)
     }
+
+    try {
+      await attachOrderPaymentDetails(order.id, {
+        stripeSessionId: paymentMeta?.stripeSessionId,
+        paymentIntentId: providerRef,
+        amountPaid: paymentMeta?.amountPaid,
+        currencyPaid: paymentMeta?.currencyPaid,
+        customerEmail: customerEmail ?? order.customerEmail,
+        webhookEventId: paymentMeta?.webhookEventId,
+      })
+    } catch (err) {
+      console.error('[payments/webhook] attachOrderPaymentDetails failed', order.id, err)
+    }
+
     await markReservationsPaidByOrderId(order.id)
 
     // Kuponok érvénytelenítése + pontlevonás (capture és authorize esetén is)
@@ -105,6 +144,10 @@ async function applyTransactionOutcome(
       )
       if (!emailResult.ok) {
         console.error('[payments/webhook] Order confirmation email failed:', emailResult.error)
+      } else if (emailResult.skipped) {
+        console.warn('[payments/webhook] Order confirmation skipped (Resend not configured)')
+      } else if (emailResult.sent) {
+        console.info('[payments/webhook] Order confirmation email sent', order.id)
       }
     } catch (emailErr) {
       console.error('[payments/webhook] Order confirmation email error (webhook still 200):', emailErr)
@@ -216,7 +259,12 @@ async function handleStripeWebhook(request: Request, signature: string): Promise
     const customerEmail =
       session.customer_details?.email ?? session.customer_email ?? null
 
-    await applyTransactionOutcome(transactionId, 'succeeded', paymentIntentId, customerEmail)
+    await applyTransactionOutcome(transactionId, 'succeeded', paymentIntentId, customerEmail, {
+      stripeSessionId: session.id,
+      amountPaid: amountTotal,
+      currencyPaid: currency,
+      webhookEventId: event.id,
+    })
     return NextResponse.json({ received: true })
   }
 

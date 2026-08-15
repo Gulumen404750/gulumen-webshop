@@ -152,13 +152,21 @@ describe('maybeSendOrderGroupConfirmationEmail payment gate', () => {
     })
     getOrderById.mockResolvedValue(order)
     const result = await maybeSendOrderGroupConfirmationEmail(order.id, order.customerEmail)
-    expect(result).toEqual({ ok: true })
-    expect(sendMail).toHaveBeenCalledTimes(1)
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.sent).toBe(true)
+    expect(sendMail).toHaveBeenCalled()
     expect(sendMail).toHaveBeenCalledWith(
       expect.objectContaining({
         to: 'vasarlo@example.com',
         subject: `Rendelés megerősítés – ${order.id}`,
         replyTo: getOrderSupportEmail(),
+      })
+    )
+    // Admin / postmaster másolat
+    expect(sendMail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: getOrderSupportEmail(),
+        subject: expect.stringContaining('[Gulumen] Új rendelés'),
       })
     )
     const payload = sendMail.mock.calls[0]![0] as { html: string; text: string }

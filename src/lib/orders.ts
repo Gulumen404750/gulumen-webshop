@@ -826,6 +826,137 @@ export async function setOrderStatus(orderId: string, status: OrderStatus): Prom
   return orders[idx]
 }
 
+/** Payments webhook: Stripe session / PI / email mentése paid státusz mellett. */
+export async function attachOrderPaymentDetails(
+  orderId: string,
+  details: {
+    stripeSessionId?: string
+    paymentIntentId?: string
+    amountPaid?: number
+    currencyPaid?: string
+    customerEmail?: string | null
+    webhookEventId?: string
+  }
+): Promise<Order | null> {
+  if (isDbConfigured()) {
+    await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        ...(details.stripeSessionId ? { stripeSessionId: details.stripeSessionId } : {}),
+        ...(details.paymentIntentId ? { paymentIntentId: details.paymentIntentId } : {}),
+        ...(details.amountPaid != null ? { amountPaid: details.amountPaid } : {}),
+        ...(details.currencyPaid ? { currencyPaid: details.currencyPaid } : {}),
+        ...(details.customerEmail?.trim()
+          ? { customerEmail: details.customerEmail.trim().toLowerCase() }
+          : {}),
+        ...(details.webhookEventId ? { paidWebhookEventId: details.webhookEventId } : {}),
+      },
+    })
+    return getOrderById(orderId)
+  }
+  const orders = loadOrders()
+  const idx = orders.findIndex((o) => o.id === orderId)
+  if (idx < 0) return null
+  const order = orders[idx]!
+  if (details.stripeSessionId) order.stripeSessionId = details.stripeSessionId
+  if (details.paymentIntentId) order.paymentIntentId = details.paymentIntentId
+  if (details.amountPaid != null) order.amountPaid = details.amountPaid
+  if (details.currencyPaid) order.currencyPaid = details.currencyPaid
+  if (details.customerEmail?.trim()) order.customerEmail = details.customerEmail.trim().toLowerCase()
+  if (details.webhookEventId) order.paidWebhookEventId = details.webhookEventId
+  memoryStore = orders
+  saveOrders()
+  return order
+}
+
+/** Admin: vevő / szállítási adatok frissítése csomagolás előtt. */
+export async function updateOrderCustomerDetails(
+  orderId: string,
+  patch: {
+    customerName?: string | null
+    customerPhone?: string | null
+    customerEmail?: string | null
+    shippingPostalCode?: string | null
+    shippingCity?: string | null
+    shippingStreet?: string | null
+    shippingHouseNumber?: string | null
+    billingSameAsShipping?: boolean
+    billingPostalCode?: string | null
+    billingCity?: string | null
+    billingStreet?: string | null
+    billingHouseNumber?: string | null
+    deliveryNotes?: string | null
+  }
+): Promise<Order | null> {
+  if (isDbConfigured()) {
+    const existing = await prisma.order.findUnique({ where: { id: orderId } })
+    if (!existing) return null
+    await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        ...(patch.customerName !== undefined ? { customerName: patch.customerName } : {}),
+        ...(patch.customerPhone !== undefined ? { customerPhone: patch.customerPhone } : {}),
+        ...(patch.customerEmail !== undefined
+          ? { customerEmail: patch.customerEmail?.trim().toLowerCase() || null }
+          : {}),
+        ...(patch.shippingPostalCode !== undefined
+          ? { shippingPostalCode: patch.shippingPostalCode }
+          : {}),
+        ...(patch.shippingCity !== undefined ? { shippingCity: patch.shippingCity } : {}),
+        ...(patch.shippingStreet !== undefined ? { shippingStreet: patch.shippingStreet } : {}),
+        ...(patch.shippingHouseNumber !== undefined
+          ? { shippingHouseNumber: patch.shippingHouseNumber }
+          : {}),
+        ...(patch.billingSameAsShipping !== undefined
+          ? { billingSameAsShipping: patch.billingSameAsShipping }
+          : {}),
+        ...(patch.billingPostalCode !== undefined
+          ? { billingPostalCode: patch.billingPostalCode }
+          : {}),
+        ...(patch.billingCity !== undefined ? { billingCity: patch.billingCity } : {}),
+        ...(patch.billingStreet !== undefined ? { billingStreet: patch.billingStreet } : {}),
+        ...(patch.billingHouseNumber !== undefined
+          ? { billingHouseNumber: patch.billingHouseNumber }
+          : {}),
+        ...(patch.deliveryNotes !== undefined ? { deliveryNotes: patch.deliveryNotes } : {}),
+      },
+    })
+    return getOrderById(orderId)
+  }
+  const orders = loadOrders()
+  const idx = orders.findIndex((o) => o.id === orderId)
+  if (idx < 0) return null
+  const order = orders[idx]!
+  if (patch.customerName !== undefined) order.customerName = patch.customerName ?? undefined
+  if (patch.customerPhone !== undefined) order.customerPhone = patch.customerPhone ?? undefined
+  if (patch.customerEmail !== undefined) {
+    order.customerEmail = patch.customerEmail?.trim().toLowerCase() || undefined
+  }
+  if (patch.shippingPostalCode !== undefined) {
+    order.shippingPostalCode = patch.shippingPostalCode ?? undefined
+  }
+  if (patch.shippingCity !== undefined) order.shippingCity = patch.shippingCity ?? undefined
+  if (patch.shippingStreet !== undefined) order.shippingStreet = patch.shippingStreet ?? undefined
+  if (patch.shippingHouseNumber !== undefined) {
+    order.shippingHouseNumber = patch.shippingHouseNumber ?? undefined
+  }
+  if (patch.billingSameAsShipping !== undefined) {
+    order.billingSameAsShipping = patch.billingSameAsShipping
+  }
+  if (patch.billingPostalCode !== undefined) {
+    order.billingPostalCode = patch.billingPostalCode ?? undefined
+  }
+  if (patch.billingCity !== undefined) order.billingCity = patch.billingCity ?? undefined
+  if (patch.billingStreet !== undefined) order.billingStreet = patch.billingStreet ?? undefined
+  if (patch.billingHouseNumber !== undefined) {
+    order.billingHouseNumber = patch.billingHouseNumber ?? undefined
+  }
+  if (patch.deliveryNotes !== undefined) order.deliveryNotes = patch.deliveryNotes ?? undefined
+  memoryStore = orders
+  saveOrders()
+  return order
+}
+
 export async function setOrderCustomerEmail(orderId: string, email: string): Promise<Order | null> {
   if (isDbConfigured()) {
     await prisma.order.update({ where: { id: orderId }, data: { customerEmail: email } })

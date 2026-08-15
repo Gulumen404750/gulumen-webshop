@@ -37,19 +37,18 @@ describe('support-email', () => {
     expect(getPublicSupportEmail()).toBe('postmaster@gulumen.com')
   })
 
-  it('prefers ORDER_SUPPORT_EMAIL when set', () => {
+  it('prefers ORDER_SUPPORT_EMAIL over ADMIN_EMAIL', () => {
     process.env.ORDER_SUPPORT_EMAIL = 'postmaster@gulumen.com'
     process.env.ADMIN_EMAIL = 'ops@gmail.com'
     expect(getSupportInboxEmail()).toBe('postmaster@gulumen.com')
   })
 
-  it('falls back to ADMIN_EMAIL before default', () => {
+  it('prefers public support over ADMIN_EMAIL so postmaster wins', () => {
     delete process.env.ORDER_SUPPORT_EMAIL
     delete process.env.SUPPORT_INBOX_EMAIL
-    delete process.env.NEXT_PUBLIC_SUPPORT_EMAIL
-    delete process.env.NEXT_PUBLIC_LEGAL_EMAIL
+    process.env.NEXT_PUBLIC_SUPPORT_EMAIL = 'postmaster@gulumen.com'
     process.env.ADMIN_EMAIL = 'ops@gmail.com'
-    expect(getSupportInboxEmail()).toBe('ops@gmail.com')
+    expect(getSupportInboxEmail()).toBe('postmaster@gulumen.com')
   })
 
   it('keeps public mailto separate from ADMIN_EMAIL when public env set', () => {

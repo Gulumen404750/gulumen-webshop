@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { AdminOrderDetailActions } from './AdminOrderDetailActions'
 import { AdminOrderLabelPrint } from './AdminOrderLabelPrint'
+import { AdminOrderCustomerEditForm } from './AdminOrderCustomerEditForm'
 import { AdminOrderStatusBadge } from '@/components/admin/AdminOrderStatusBadge'
 import { adminOrderKindClasses, getAdminOrderVisualKind } from '@/lib/admin-order-badges'
 import { formatAddressTypeLabel } from '@/lib/checkout-customer'
@@ -105,6 +106,24 @@ export default async function AdminOrderDetailPage({ params }: Props) {
             <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{order.deliveryNotes.trim()}</p>
           </div>
         )}
+        <AdminOrderCustomerEditForm
+          orderId={order.id}
+          initial={{
+            customerName: order.customerName ?? '',
+            customerPhone: order.customerPhone ?? '',
+            customerEmail: order.customerEmail ?? '',
+            shippingPostalCode: order.shippingPostalCode ?? '',
+            shippingCity: order.shippingCity ?? '',
+            shippingStreet: order.shippingStreet ?? '',
+            shippingHouseNumber: order.shippingHouseNumber ?? '',
+            billingSameAsShipping: order.billingSameAsShipping !== false,
+            billingPostalCode: order.billingPostalCode ?? '',
+            billingCity: order.billingCity ?? '',
+            billingStreet: order.billingStreet ?? '',
+            billingHouseNumber: order.billingHouseNumber ?? '',
+            deliveryNotes: order.deliveryNotes ?? '',
+          }}
+        />
       </div>
 
       <div className="print:hidden">
