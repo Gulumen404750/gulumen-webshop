@@ -247,6 +247,15 @@ model Order {
   rewardsFinalized   Boolean  @default(false)
   /// Admin címkenyomtatás időpontja (null = még nem nyomtatva).
   printedAt          DateTime?
+  /// Fizetéskor rögzített szállítási cím (vásárlói módosítás előtt).
+  originalShippingPostalCode String?
+  originalShippingCity       String?
+  originalShippingStreet     String?
+  originalShippingHouseNumber String?
+  originalCustomerName       String?
+  originalCustomerPhone      String?
+  /// Vásárló utólagos címmódosításának időpontja (null = nem módosított).
+  shippingAddressChangedAt   DateTime?
   items             OrderItem[]
   paymentTransactions PaymentTransaction[]
 
@@ -256,6 +265,7 @@ model Order {
   @@index([stripeSessionId])
   @@index([paymentIntentId])
   @@index([printedAt])
+  @@index([shippingAddressChangedAt])
 }
 
 model OrderItem {

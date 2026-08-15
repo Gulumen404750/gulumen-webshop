@@ -34,11 +34,12 @@ Ezeket a változókat állítsd be a **Railway → Project → Variables** felü
 | Változó | Használat |
 |--------|-----------|
 | RESEND_API_KEY | Email küldés (rendelés, newsletter, callback, voice summary) |
-| ADMIN_EMAIL | Címzett a callback/voice emailnek, a gyanús belépés / fiókzárolás riasztásnak, az admin anomália-riasztásnak (nagy CSV-export ≥100 sor, tömeges ár ≥10 termék, ≥5 törlés / 10 perc), az új admin eszköz / szokatlan ország riasztásnak, **és** az admin jelszó-reset linknek (a nyers `ADMIN_API_KEY` soha nem megy e-mailben) |
+| ADMIN_EMAIL | Címzett a callback/voice emailnek, a gyanús belépés / fiókzárolás riasztásnak, az admin anomália-riasztásnak (nagy CSV-export ≥100 sor, tömeges ár ≥10 termék, ≥5 törlés / 10 perc), az új admin eszköz / szokatlan ország riasztásnak, az admin jelszó-reset linknek, **és** a rendelés/címmódosítás admin értesítőknek (Gmail ajánlott – gulumen.com-nak nincs MX) |
 | ADMIN_ANOMALY_CSV_MIN | CSV-export riasztási küszöb (alap 100 sor). A művelet nem blokkolódik. |
 | EMAIL_FROM / RESEND_FROM | Feladó cím (alap: `Gulumen <noreply@gulumen.com>`) |
-| ORDER_SUPPORT_EMAIL | Beérkező ügyfélszolgálat (rendelés Reply-To + kapcsolat űrlap). Alap / ajánlott: `postmaster@gulumen.com`. |
+| ORDER_SUPPORT_EMAIL | Beérkező ügyfélszolgálat (Reply-To). Megbízható inbox (Gmail) ha MX nincs; a postmaster másolatot a rendszer külön is elküldi. |
 | NEXT_PUBLIC_SUPPORT_EMAIL | Weben megjelenő kapcsolat e-mail. Alap: `postmaster@gulumen.com` |
+| STRIPE_WEBHOOK_SECRET | Stripe webhook aláírás. Endpoint: `POST /api/payments/webhook` (legacy: `/api/stripe/webhook`) |
 | OPENAI_API_KEY | AI chat / voice asszisztens |
 | VOICE_AGENT_WEBHOOK_SECRET | Voice agent webhook biztonság |
 | CALLBACK_WEBHOOK_URL | Callback kérés külső webhook URL |

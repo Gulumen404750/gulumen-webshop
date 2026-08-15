@@ -3,9 +3,10 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2 } from 'lucide-react'
+import { Flame, Loader2 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useLocale } from '@/context/LocaleContext'
+import { CustomerOrderShippingEdit } from '@/components/CustomerOrderShippingEdit'
 
 type OrderRow = {
   id: string
@@ -22,6 +23,7 @@ type OrderRow = {
     street: string
     houseNumber: string
   } | null
+  deliveryNotes: string | null
   items: Array<{
     productId: string
     name: string | null
@@ -30,6 +32,10 @@ type OrderRow = {
     fulfillmentType: string
   }>
   paidAt: string | null
+  printedAt: string | null
+  shippingAddressChangedAt: string | null
+  addressChanged: boolean
+  canEditShipping: boolean
 }
 
 function statusLabel(status: string, t: (key: string) => string): string {
@@ -169,7 +175,62 @@ export default function MyOrdersPage() {
                     {order.shipping.street} {order.shipping.houseNumber}
                   </p>
                 )}
+                {order.addressChanged && (
+                  <p className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300">
+                    <Flame className="h-3.5 w-3.5" aria-hidden />
+                    {t('orders.addressChangedBadge')}
+                  </p>
+                )}
               </div>
+            )}
+
+            {order.canEditShipping && (
+              <CustomerOrderShippingEdit
+                orderId={order.id}
+                initial={{
+                  customerName: order.customerName ?? '',
+                  customerPhone: order.customerPhone ?? '',
+                  shippingPostalCode: order.shipping?.postalCode ?? '',
+                  shippingCity: order.shipping?.city ?? '',
+                  shippingStreet: order.shipping?.street ?? '',
+                  shippingHouseNumber: order.shipping?.houseNumber ?? '',
+                  deliveryNotes: order.deliveryNotes ?? '',
+                }}
+                labels={{
+                  title: t('orders.editShippingTitle'),
+                  hint: t('orders.editShippingHint'),
+                  name: t('orders.editName'),
+                  phone: t('orders.editPhone'),
+                  postalCode: t('orders.editPostalCode'),
+                  city: t('orders.editCity'),
+                  street: t('orders.editStreet'),
+                  houseNumber: t('orders.editHouseNumber'),
+                  notes: t('orders.editNotes'),
+                  save: t('orders.editSave'),
+                  saving: t('orders.editSaving'),
+                  cancel: t('orders.editCancel'),
+                  success: t('orders.editSuccess'),
+                  open: t('orders.editShippingOpen'),
+                }}
+                onSaved={(next) => {
+                  setOrders((prev) =>
+                    prev.map((o) =>
+                      o.id === order.id
+                        ? {
+                            ...o,
+                            customerName: next.customerName,
+                            customerPhone: next.customerPhone,
+                            shipping: next.shipping,
+                            deliveryNotes: next.deliveryNotes,
+                            shippingAddressChangedAt: next.shippingAddressChangedAt,
+                            addressChanged: true,
+                            canEditShipping: next.canEditShipping,
+                          }
+                        : o
+                    )
+                  )
+                }}
+              />
             )}
           </li>
         ))}

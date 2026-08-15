@@ -12,8 +12,10 @@ import { FREE_SHIPPING_THRESHOLD } from './checkout'
 import { sendMail } from './mail'
 import {
   getSupportInboxEmail,
+  getAdminNotificationEmails,
   warnIfSupportInboxUnreliable,
-  buildOrderChangeContactUrl,
+  buildOrderShippingEditUrl,
+  DEFAULT_SUPPORT_INBOX,
 } from './support-email'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://gulumen.hu'
@@ -170,24 +172,24 @@ function buildCustomerDetailsSection(order: Order, orderRef: string): string {
       ? `<p><strong>Szállítási megjegyzés:</strong> ${escapeHtml(order.deliveryNotes.trim())}</p>`
       : ''
 
-  const mailto = buildOrderChangeMailto(orderRef)
-  const support = getSupportInboxEmail()
-  const contactChangeUrl = buildOrderChangeContactUrl(CONTACT_URL, orderRef)
+  // CTA: önkiszolgáló oldal (nem mailto / kapcsolat űrlap).
+  const editOrderId = order.id || orderRef
+  const shippingEditUrl = buildOrderShippingEditUrl(editOrderId)
 
   return `
   <div style="border: 1px solid #fde68a; background: #fffbeb; border-radius: 8px; padding: 16px; margin: 24px 0;">
     <h2 style="margin-top: 0; color: #92400e;">Kérjük, ellenőrizd az adataidat!</h2>
     <p style="color: #78350f;">
       A csomagolás megkezdése előtt ellenőrizd a szállítási és számlázási adatokat.
-      Ha valamit módosítani szeretnél, jelezd nekünk mielőbb — amíg nem kezdjük el a csomagolást, tudunk segíteni.
+      Ha módosítani szeretnél, használd az alábbi gombot — amíg nem adjuk fel a csomagot, tudsz változtatni.
     </p>
     <p>
-      <a href="${contactChangeUrl}" style="display: inline-block; background: #92400e; color: #fff; text-decoration: none; padding: 10px 16px; border-radius: 6px; font-weight: 600;">
-        Módosítás jelzése az oldalon
+      <a href="${shippingEditUrl}" style="display: inline-block; background: #92400e; color: #fff; text-decoration: none; padding: 10px 16px; border-radius: 6px; font-weight: 600;">
+        Szállítási adatok módosítása
       </a>
     </p>
     <p style="font-size: 14px; color: #78350f;">
-      Vagy válaszolj erre az e-mailre / írj ide: <a href="${mailto}">${escapeHtml(support)}</a>
+      Bejelentkezés után a weboldalon azonnal elmentheted az új címet.
       · <a href="${CONTACT_URL}">Kapcsolat</a>
     </p>
     <h3>Szállítási cím</h3>
@@ -200,7 +202,6 @@ function buildCustomerDetailsSection(order: Order, orderRef: string): string {
 }
 
 function buildCustomerDetailsText(order: Order, orderRef: string): string {
-  const support = getOrderSupportEmail()
   const shippingLines = formatAddressLines({
     name: order.customerName,
     phone: order.customerPhone,
@@ -220,14 +221,16 @@ function buildCustomerDetailsText(order: Order, orderRef: string): string {
         houseNumber: order.billingHouseNumber,
       })
 
+  const editOrderId = order.id || orderRef
+  const shippingEditUrl = buildOrderShippingEditUrl(editOrderId)
+
   return [
     '',
     '---',
     'Kérjük, ellenőrizd az adataidat!',
     'A csomagolás megkezdése előtt ellenőrizd a szállítási és számlázási adatokat.',
-    'Ha módosításra van szükség, jelezd mielőbb — amíg nem kezdjük el a csomagolást, tudunk segíteni.',
-    `Módosítás jelzése az oldalon: ${buildOrderChangeContactUrl(CONTACT_URL, orderRef)}`,
-    `Vagy e-mail: ${support}`,
+    'Ha módosításra van szükség, használd a weboldalt — amíg nem adjuk fel a csomagot, tudsz változtatni.',
+    `Szállítási adatok módosítása: ${shippingEditUrl}`,
     `Kapcsolat: ${CONTACT_URL}`,
     '',
     'Szállítási cím:',
@@ -455,14 +458,19 @@ export type SendOrderConfirmationResult =
   | { ok: true; sent?: boolean; skipped?: boolean; id?: string; error?: string }
   | { ok: false; error: string }
 
-/** Admin / postmaster másolat sikeres fizetésről. */
+/** Admin / postmaster másolat sikeres fizetésről (címzettenként külön – MX hibák ne buktassák a többit). */
 async function sendAdminPaidNotification(
   orders: Order[],
   customerEmail: string,
   groupLabel: string
 ): Promise<void> {
-  const adminTo = getOrderSupportEmail()
-  if (!adminTo || adminTo.toLowerCase() === customerEmail.toLowerCase()) return
+  const recipients = getAdminNotificationEmails().filter(
+    (to) => to.toLowerCase() !== customerEmail.toLowerCase()
+  )
+  if (recipients.length === 0) {
+    console.warn('[order-email] No admin recipients for paid notification')
+    return
+  }
 
   const subjectRef = orders.length === 1 ? orders[0]!.id : groupLabel
   const total = orders.reduce((sum, o) => sum + o.totalHuf, 0)
@@ -491,19 +499,88 @@ async function sendAdminPaidNotification(
     items,
   ].join('\n')
 
-  const result = await sendMail({
-    to: adminTo,
-    subject: `[Gulumen] Új rendelés – ${subjectRef}`,
-    html: `<pre style="font-family:sans-serif;white-space:pre-wrap">${escapeHtml(text)}</pre>`,
-    text,
-    replyTo: customerEmail,
-  })
-  if (!result.ok) {
-    console.error('[order-email] Admin paid notification failed:', result.error)
-  } else if (result.skipped) {
-    console.warn('[order-email] Admin paid notification skipped (no RESEND_API_KEY)')
-  } else {
-    console.info('[order-email] Admin paid notification sent to', adminTo, result.id ?? '')
+  const subject = `[Gulumen] Új rendelés – ${subjectRef}`
+  const html = `<pre style="font-family:sans-serif;white-space:pre-wrap">${escapeHtml(text)}</pre>`
+
+  for (const adminTo of recipients) {
+    const result = await sendMail({
+      to: adminTo,
+      subject,
+      html,
+      text,
+      replyTo: customerEmail,
+    })
+    if (!result.ok) {
+      console.error('[order-email] Admin paid notification failed:', adminTo, result.error)
+    } else if (result.skipped) {
+      console.warn('[order-email] Admin paid notification skipped (no RESEND_API_KEY):', adminTo)
+    } else {
+      console.info('[order-email] Admin paid notification sent to', adminTo, result.id ?? '')
+    }
+  }
+}
+
+/**
+ * Admin címmódosítás figyelmeztetés (postmaster + ADMIN_EMAIL).
+ * A mentés után hívjuk – e-mail hiba nem gördíti vissza a DB írást.
+ */
+export async function sendAdminAddressChangeNotification(params: {
+  orderId: string
+  before: Order
+  after: Order
+  changedFields: string[]
+  /** Ki módosított: customer | admin */
+  source?: 'customer' | 'admin'
+}): Promise<void> {
+  const { orderId, before, after, changedFields, source = 'admin' } = params
+  if (changedFields.length === 0) return
+
+  const recipients = getAdminNotificationEmails()
+  if (recipients.length === 0) return
+
+  const fmtAddr = (o: Order) =>
+    [
+      o.customerName,
+      [o.shippingStreet, o.shippingHouseNumber].filter(Boolean).join(' '),
+      [o.shippingPostalCode, o.shippingCity].filter(Boolean).join(' '),
+      o.customerPhone ? `Tel: ${o.customerPhone}` : null,
+      o.customerEmail,
+    ]
+      .filter(Boolean)
+      .join(', ') || '–'
+
+  const who = source === 'customer' ? 'Vásárlói címmódosítás' : 'Admin címmódosítás'
+  const text = [
+    who,
+    `Rendelés: ${orderId}`,
+    `Módosított mezők: ${changedFields.join(', ')}`,
+    '',
+    `Előtte: ${fmtAddr(before)}`,
+    `Utána: ${fmtAddr(after)}`,
+    '',
+    source === 'customer'
+      ? 'Figyelem: a futár / címke felé a MÓDOSÍTOTT címet használd.'
+      : null,
+    `Másolat: ${DEFAULT_SUPPORT_INBOX}`,
+  ]
+    .filter((line) => line !== null)
+    .join('\n')
+
+  const subject =
+    source === 'customer'
+      ? `[Gulumen] 🔥 Vásárló címet módosított – ${orderId}`
+      : `[Gulumen] Címmódosítás – ${orderId}`
+  const html = `<pre style="font-family:sans-serif;white-space:pre-wrap">${escapeHtml(text)}</pre>`
+
+  for (const to of recipients) {
+    const result = await sendMail({ to, subject, html, text })
+    if (!result.ok) {
+      console.error('[order-email] Address-change notify failed:', to, result.error)
+    } else if (result.skipped) {
+      console.warn('[order-email] Address-change notify skipped (no RESEND_API_KEY):', to)
+    } else {
+      console.info('[order-email] Address-change notify sent to', to, result.id ?? '')
+    }
   }
 }
 

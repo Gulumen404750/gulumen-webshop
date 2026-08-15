@@ -26,6 +26,7 @@ type Order = {
   addressType: string | null
   paidAt: string | null
   printedAt: string | null
+  shippingAddressChangedAt: string | null
   amountPaid: number | null
   items: { productId: string; qty: number; name: string | null; priceHuf: number }[]
 }
@@ -229,7 +230,11 @@ export default function AdminOrdersPage() {
                     </td>
                     <td className="p-3 font-mono text-xs sm:text-sm">{o.id}</td>
                     <td className="p-3">
-                      <AdminOrderStatusBadge status={o.status} printedAt={o.printedAt} />
+                      <AdminOrderStatusBadge
+                        status={o.status}
+                        printedAt={o.printedAt}
+                        shippingAddressChangedAt={o.shippingAddressChangedAt}
+                      />
                     </td>
                     <td className="p-3">
                       <div className="font-medium">{o.customerName ?? '–'}</div>

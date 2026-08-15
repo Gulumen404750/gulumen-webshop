@@ -1,20 +1,25 @@
 import {
   formatAdminOrderStatusLabel,
   getOrderPrintBadgeStyles,
+  hasShippingAddressChanged,
   isOrderPrinted,
 } from '@/lib/admin-order-badges'
+import { Flame } from 'lucide-react'
 
 export function AdminOrderStatusBadge({
   status,
   printedAt,
+  shippingAddressChangedAt,
   showStatusText = true,
 }: {
   status: string
   printedAt?: string | Date | null
+  shippingAddressChangedAt?: string | Date | null
   showStatusText?: boolean
 }) {
   const printed = isOrderPrinted(printedAt)
   const printBadge = getOrderPrintBadgeStyles(printed)
+  const addressChanged = hasShippingAddressChanged(shippingAddressChangedAt)
 
   return (
     <span className="inline-flex flex-wrap items-center gap-1.5">
@@ -28,6 +33,15 @@ export function AdminOrderStatusBadge({
       >
         {printBadge.label}
       </span>
+      {addressChanged && (
+        <span
+          className="inline-flex items-center gap-1 rounded-full border border-amber-500/50 bg-amber-500/15 px-2 py-1 text-xs font-semibold text-amber-200"
+          title="A vásárló módosította a szállítási címet"
+        >
+          <Flame className="h-3.5 w-3.5" aria-hidden />
+          Cím módosítva
+        </span>
+      )}
     </span>
   )
 }

@@ -3,6 +3,7 @@ import { isDbConfigured } from '@/lib/prisma'
 import { requireAdminPermission } from '@/lib/admin-auth'
 import { logAdminAction } from '@/lib/admin-audit'
 import { getOrderById, updateOrderCustomerDetails } from '@/lib/orders'
+import { sendAdminAddressChangeNotification } from '@/lib/order-email'
 import { logger } from '@/lib/logger'
 
 function optionalString(value: unknown, max = 200): string | null | undefined {
@@ -29,6 +30,10 @@ export async function PATCH(
   }
 
   const { id } = await params
+  if (!id?.trim()) {
+    return NextResponse.json({ error: 'Order id required' }, { status: 400 })
+  }
+
   const existing = await getOrderById(id)
   if (!existing) {
     return NextResponse.json({ error: 'Order not found' }, { status: 404 })
@@ -67,8 +72,10 @@ export async function PATCH(
     deliveryNotes: optionalString(o.deliveryNotes, 1000),
   }
 
-  const hasAny = Object.values(patch).some((v) => v !== undefined)
-  if (!hasAny) {
+  const changedFields = Object.keys(patch).filter(
+    (k) => (patch as Record<string, unknown>)[k] !== undefined
+  )
+  if (changedFields.length === 0) {
     return NextResponse.json({ error: 'Nincs módosítható mező' }, { status: 400 })
   }
 
@@ -82,11 +89,22 @@ export async function PATCH(
       orderId: id,
       success: true,
       request,
-      details: {
-        fields: Object.keys(patch).filter((k) => (patch as Record<string, unknown>)[k] !== undefined),
-      },
+      details: { fields: changedFields },
     })
-    logger.info({ orderId: id }, 'admin/orders PATCH customer details')
+    logger.info({ orderId: id, fields: changedFields }, 'admin/orders PATCH customer details')
+
+    // Figyelmeztetés postmaster + ADMIN_EMAIL – mentés után, hiba nem buktatja a válasz.
+    try {
+      await sendAdminAddressChangeNotification({
+        orderId: id,
+        before: existing,
+        after: updated,
+        changedFields,
+      })
+    } catch (notifyErr) {
+      logger.error({ err: notifyErr, orderId: id }, 'admin/orders address-change notify failed')
+    }
+
     return NextResponse.json({ ok: true, order: updated })
   } catch (err) {
     logger.error({ err, orderId: id }, 'admin/orders PATCH failed')

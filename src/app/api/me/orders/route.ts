@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSession, resolveSessionUserId } from '@/lib/auth'
 import { getOrdersByUserId } from '@/lib/orders'
+import { canCustomerEditShippingAddress, hasShippingAddressChanged } from '@/lib/order-shipping-edit'
 import { rateLimit } from '@/lib/rate-limit'
 import { isDbConfigured } from '@/lib/prisma'
 
@@ -58,6 +59,7 @@ export async function GET(request: Request) {
             houseNumber: order.shippingHouseNumber ?? '',
           }
         : null,
+      deliveryNotes: order.deliveryNotes ?? null,
       billingSameAsShipping: order.billingSameAsShipping ?? true,
       billing:
         order.billingSameAsShipping === false && order.billingCity
@@ -76,6 +78,10 @@ export async function GET(request: Request) {
         fulfillmentType: item.fulfillmentType,
       })),
       paidAt: order.paidAt ?? null,
+      printedAt: order.printedAt ?? null,
+      shippingAddressChangedAt: order.shippingAddressChangedAt ?? null,
+      addressChanged: hasShippingAddressChanged(order.shippingAddressChangedAt),
+      canEditShipping: canCustomerEditShippingAddress(order).ok,
     })),
   })
 }

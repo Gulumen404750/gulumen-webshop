@@ -1,11 +1,16 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { Flame } from 'lucide-react'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { AdminOrderDetailActions } from './AdminOrderDetailActions'
 import { AdminOrderLabelPrint } from './AdminOrderLabelPrint'
 import { AdminOrderCustomerEditForm } from './AdminOrderCustomerEditForm'
 import { AdminOrderStatusBadge } from '@/components/admin/AdminOrderStatusBadge'
-import { adminOrderKindClasses, getAdminOrderVisualKind } from '@/lib/admin-order-badges'
+import {
+  adminOrderKindClasses,
+  getAdminOrderVisualKind,
+  hasShippingAddressChanged,
+} from '@/lib/admin-order-badges'
 import { formatAddressTypeLabel } from '@/lib/checkout-customer'
 
 export const dynamic = 'force-dynamic'
@@ -38,11 +43,18 @@ export default async function AdminOrderDetailPage({ params }: Props) {
   const kind = getAdminOrderVisualKind(order.status, order.printedAt)
   const kindClasses = adminOrderKindClasses(kind)
   const billingSame = order.billingSameAsShipping !== false
+  const addressChanged = hasShippingAddressChanged(order.shippingAddressChangedAt)
   const shippingAddress = formatHuAddress({
     postalCode: order.shippingPostalCode,
     city: order.shippingCity,
     street: order.shippingStreet,
     houseNumber: order.shippingHouseNumber,
+  })
+  const originalShippingAddress = formatHuAddress({
+    postalCode: order.originalShippingPostalCode,
+    city: order.originalShippingCity,
+    street: order.originalShippingStreet,
+    houseNumber: order.originalShippingHouseNumber,
   })
   const billingAddress = formatHuAddress({
     postalCode: order.billingPostalCode,
@@ -58,7 +70,11 @@ export default async function AdminOrderDetailPage({ params }: Props) {
           ← Rendelések
         </Link>
         <h1 className="text-2xl font-heading font-bold text-foreground">Rendelés: {order.id}</h1>
-        <AdminOrderStatusBadge status={order.status} printedAt={order.printedAt} />
+        <AdminOrderStatusBadge
+          status={order.status}
+          printedAt={order.printedAt}
+          shippingAddressChangedAt={order.shippingAddressChangedAt}
+        />
       </div>
 
       <div className={`rounded-xl border border-[var(--border)] p-4 space-y-2 ${kindClasses.row}`}>
@@ -70,7 +86,43 @@ export default async function AdminOrderDetailPage({ params }: Props) {
         <p><span className="font-medium">Email:</span> {order.customerEmail ?? '–'}</p>
         <p><span className="font-medium">Címke:</span> {order.printedAt ? `kinyomtatva (${new Date(order.printedAt).toLocaleString('hu-HU')})` : 'még nincs nyomtatva'}</p>
         <p><span className="font-medium">Létrehozva:</span> {order.createdAt.toLocaleString('hu-HU')}</p>
+        {addressChanged && order.shippingAddressChangedAt && (
+          <p className="font-medium text-amber-200">
+            Cím módosítva: {new Date(order.shippingAddressChangedAt).toLocaleString('hu-HU')}
+          </p>
+        )}
       </div>
+
+      {addressChanged && (
+        <div className="rounded-xl border-2 border-amber-500/60 bg-amber-950/25 p-4 space-y-4 print:hidden">
+          <div className="flex items-center gap-2 text-amber-100">
+            <Flame className="h-5 w-5" aria-hidden />
+            <h2 className="text-lg font-semibold">Cím módosítva a vásárló által</h2>
+          </div>
+          <p className="text-sm text-amber-100/90">
+            A futár / címke felé a <strong>módosított</strong> címet használd. Az eredeti cím csak
+            referencia.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-lg border border-white/10 bg-black/20 p-3 space-y-1">
+              <p className="text-sm font-semibold text-muted">Eredeti szállítási cím (fizetéskor)</p>
+              <p className="text-sm">{order.originalCustomerName ?? '–'}</p>
+              <p className="text-sm">{originalShippingAddress}</p>
+              {order.originalCustomerPhone && (
+                <p className="text-sm text-muted">Tel: {order.originalCustomerPhone}</p>
+              )}
+            </div>
+            <div className="rounded-lg border border-amber-400/40 bg-amber-500/10 p-3 space-y-1">
+              <p className="text-sm font-semibold text-amber-100">Módosított szállítási cím (aktuális)</p>
+              <p className="text-sm font-medium">{order.customerName ?? '–'}</p>
+              <p className="text-sm font-medium">{shippingAddress}</p>
+              {order.customerPhone && (
+                <p className="text-sm text-muted">Tel: {order.customerPhone}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-xl border border-[var(--border)] p-4 space-y-3 print:hidden">
         <h2 className="text-lg font-semibold">Vevő és szállítás</h2>
@@ -82,7 +134,9 @@ export default async function AdminOrderDetailPage({ params }: Props) {
             <p><span className="font-medium">Email:</span> {order.customerEmail ?? '–'}</p>
           </div>
           <div className="space-y-1">
-            <p className="text-sm font-medium text-muted">Szállítási cím</p>
+            <p className="text-sm font-medium text-muted">
+              {addressChanged ? 'Aktuális szállítási cím' : 'Szállítási cím'}
+            </p>
             <p>
               <span className="font-medium">Típus:</span> {formatAddressTypeLabel(order.addressType)}
             </p>
