@@ -123,7 +123,7 @@ export async function POST(request: Request) {
     if (adminKey) await recordAdminKeyAccepted(adminKey)
     await recordAdminLoginFingerprintSafe(request)
     const cookieName =
-      actor.bootstrap || actor.role === 'owner' ? ADMIN_COOKIE_NAME : OPERATOR_COOKIE_NAME
+      actor.bootstrap || actor.id === 'admin' ? ADMIN_COOKIE_NAME : OPERATOR_COOKIE_NAME
     res.cookies.set(cookieName, token, getAdminCookieOptions())
     res.cookies.set(ADMIN_CSRF_COOKIE, generateCsrfToken(), getAdminCsrfCookieOptions())
     clearPendingCookie(res)

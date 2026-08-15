@@ -94,11 +94,13 @@ export function getAdminCookieOptions(maxAge = ADMIN_SESSION_MAX_AGE_SEC) {
   }
 }
 
-/** Owner session → admin_authorized; operátor → operator_authorized (izoláció). */
+/** Owner / bootstrap session → admin_authorized; minden DB-operátor → operator_authorized. */
 export function sessionCookieNameForActor(
   actor: AdminActor
 ): typeof ADMIN_COOKIE_NAME | typeof OPERATOR_COOKIE_NAME {
-  if (actor.bootstrap || actor.id === 'admin' || actor.role === 'owner') {
+  // Csak a gyári főadmin (ADMIN_API_KEY bootstrap) használja az owner sütit.
+  // DB `role=owner` operátorok is az operator_authorized sütibe tartoznak.
+  if (actor.bootstrap || actor.id === 'admin') {
     return ADMIN_COOKIE_NAME
   }
   return OPERATOR_COOKIE_NAME

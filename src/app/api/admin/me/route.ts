@@ -49,11 +49,25 @@ export async function GET() {
       ? parkedActor?.username ?? null
       : null
 
+  // Scope a belépési sütihez kötve: operátor cookie aktív → 'operator' (még DB-owner szerepnél is).
+  const activeFromOperatorCookie = Boolean(
+    operatorCookie &&
+      !operatorCookie.bootstrap &&
+      operatorCookie.id !== 'admin' &&
+      actor.id === operatorCookie.id
+  )
+  const scope = activeFromOperatorCookie
+    ? 'operator'
+    : actor.bootstrap || actor.role === 'owner'
+      ? 'owner'
+      : 'operator'
+
   return NextResponse.json({
     id: actor.id,
     username: actor.username,
     role: actor.role,
     bootstrap: Boolean(actor.bootstrap),
+    masterSession: Boolean(actor.bootstrap) || actor.id === 'admin',
     permissions: permissionsForRole(actor.role),
     operatorCount,
     ownerCount,
@@ -61,6 +75,6 @@ export async function GET() {
     operatorsRequired: false,
     hasParkedOwnerSession,
     parkedUsername,
-    scope: actor.bootstrap || actor.role === 'owner' ? 'owner' : 'operator',
+    scope,
   })
 }

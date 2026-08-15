@@ -122,4 +122,12 @@ describe('requireAdmin / unbreakable owner fallback', () => {
     expect(gate.ok).toBe(false)
     if (!gate.ok) expect(gate.response.status).toBe(403)
   })
+
+  it('isMasterAdminActor is true only for bootstrap / factory admin', async () => {
+    const { isMasterAdminActor } = await import('./admin-auth')
+    expect(isMasterAdminActor(BOOTSTRAP_ADMIN_ACTOR)).toBe(true)
+    expect(isMasterAdminActor({ id: 'admin', username: 'admin', role: 'owner' })).toBe(true)
+    expect(isMasterAdminActor({ id: 'op1', username: 'anna', role: 'owner' })).toBe(false)
+    expect(isMasterAdminActor({ id: 'op2', username: 'bela', role: 'support' })).toBe(false)
+  })
 })

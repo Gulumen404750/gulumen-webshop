@@ -254,16 +254,25 @@ export async function createAdminOperator(input: {
   return actor
 }
 
+export type AdminOperatorMutationOptions = {
+  /**
+   * Gyári főadmin (ADMIN_API_KEY bootstrap): az utolsó aktív owner is
+   * módosítható / törölhető — a főadmin session nem DB-owner függő.
+   */
+  allowLastOwnerOverride?: boolean
+}
+
 export async function updateAdminOperator(
   id: string,
-  patch: { role?: AdminRole; active?: boolean; password?: string }
+  patch: { role?: AdminRole; active?: boolean; password?: string },
+  options: AdminOperatorMutationOptions = {}
 ): Promise<AdminActor | null> {
   const existing = await prisma.adminOperator.findUnique({ where: { id } })
   if (!existing) return null
 
   const nextRole = patch.role ?? (isAdminRole(existing.role) ? existing.role : null)
   const nextActive = patch.active ?? existing.active
-  if (existing.role === 'owner' && existing.active) {
+  if (existing.role === 'owner' && existing.active && !options.allowLastOwnerOverride) {
     const owners = await countActiveOwners()
     const demoting = nextRole !== 'owner' || nextActive === false
     if (demoting && owners <= 1) {
@@ -282,10 +291,17 @@ export async function updateAdminOperator(
   return toActor(row)
 }
 
-export async function deleteAdminOperator(id: string): Promise<'ok' | 'not_found' | 'last_owner'> {
+export async function deleteAdminOperator(
+  id: string,
+  options: AdminOperatorMutationOptions = {}
+): Promise<'ok' | 'not_found' | 'last_owner'> {
   const existing = await prisma.adminOperator.findUnique({ where: { id } })
   if (!existing) return 'not_found'
-  if (existing.role === 'owner' && existing.active) {
+  if (
+    existing.role === 'owner' &&
+    existing.active &&
+    !options.allowLastOwnerOverride
+  ) {
     const owners = await countActiveOwners()
     if (owners <= 1) return 'last_owner'
   }

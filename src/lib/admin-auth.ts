@@ -116,3 +116,11 @@ export function getAdminApiKey(): string | undefined {
 export function isOwnerActor(actor: AdminActor): boolean {
   return actor.role === 'owner' || Boolean(actor.bootstrap)
 }
+
+/**
+ * Gyári főadmin (ADMIN_API_KEY + 2FA bootstrap): minden DB-szabály felett áll.
+ * Másodlagos / DB owner soha nem master — last-owner korlát rájuk érvényes marad.
+ */
+export function isMasterAdminActor(actor: AdminActor): boolean {
+  return Boolean(actor.bootstrap) || actor.id === 'admin'
+}

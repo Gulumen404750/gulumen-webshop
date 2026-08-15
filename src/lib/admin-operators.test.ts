@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const count = vi.fn()
 const findUnique = vi.fn()
 const create = vi.fn()
+const update = vi.fn()
+const remove = vi.fn()
 const isDbConfigured = vi.fn()
 
 vi.mock('@/lib/prisma', () => ({
@@ -12,6 +14,8 @@ vi.mock('@/lib/prisma', () => ({
       count: (...args: unknown[]) => count(...args),
       findUnique: (...args: unknown[]) => findUnique(...args),
       create: (...args: unknown[]) => create(...args),
+      update: (...args: unknown[]) => update(...args),
+      delete: (...args: unknown[]) => remove(...args),
     },
   },
 }))
@@ -123,5 +127,58 @@ describe('admin operators fallback', () => {
       createAdminOperator({ username: 'bela', password: 'password12', role: 'support' })
     ).rejects.toMatchObject({ name: 'FIRST_MUST_BE_OWNER' })
     expect(create).not.toHaveBeenCalled()
+  })
+
+  it('blocks deleting the last owner without override', async () => {
+    mockCounts(1, 1)
+    findUnique.mockResolvedValue({
+      id: 'op1',
+      username: 'anna',
+      role: 'owner',
+      active: true,
+      passwordHash: 'x',
+    })
+    const { deleteAdminOperator } = await import('./admin-operators')
+    await expect(deleteAdminOperator('op1')).resolves.toBe('last_owner')
+    expect(remove).not.toHaveBeenCalled()
+  })
+
+  it('master override deletes the last owner', async () => {
+    mockCounts(1, 1)
+    findUnique.mockResolvedValue({
+      id: 'op1',
+      username: 'anna',
+      role: 'owner',
+      active: true,
+      passwordHash: 'x',
+    })
+    remove.mockResolvedValue({})
+    const { deleteAdminOperator } = await import('./admin-operators')
+    await expect(
+      deleteAdminOperator('op1', { allowLastOwnerOverride: true })
+    ).resolves.toBe('ok')
+    expect(remove).toHaveBeenCalledWith({ where: { id: 'op1' } })
+  })
+
+  it('master override demotes the last owner', async () => {
+    mockCounts(1, 1)
+    findUnique.mockResolvedValue({
+      id: 'op1',
+      username: 'anna',
+      role: 'owner',
+      active: true,
+      passwordHash: 'x',
+    })
+    update.mockResolvedValue({
+      id: 'op1',
+      username: 'anna',
+      role: 'support',
+      active: true,
+    })
+    const { updateAdminOperator } = await import('./admin-operators')
+    await expect(
+      updateAdminOperator('op1', { role: 'support' }, { allowLastOwnerOverride: true })
+    ).resolves.toEqual(expect.objectContaining({ role: 'support' }))
+    expect(update).toHaveBeenCalled()
   })
 })

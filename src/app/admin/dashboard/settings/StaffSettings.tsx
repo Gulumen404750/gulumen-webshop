@@ -81,6 +81,7 @@ export default function StaffSettings() {
   const [role, setRole] = useState<AdminRole>('owner')
   const [requireFirstOwner, setRequireFirstOwner] = useState(true)
   const [ownerCount, setOwnerCount] = useState(0)
+  const [masterSession, setMasterSession] = useState(false)
   const [busy, setBusy] = useState(false)
   const [forbidden, setForbidden] = useState(false)
   const [previewRole, setPreviewRole] = useState<AdminRole>('owner')
@@ -104,6 +105,7 @@ export default function StaffSettings() {
       const needOwner = Boolean(data.requireFirstOwner)
       setRequireFirstOwner(needOwner)
       setOwnerCount(typeof data.ownerCount === 'number' ? data.ownerCount : 0)
+      setMasterSession(Boolean(data.masterSession))
       if (needOwner) {
         setRole('owner')
         setPreviewRole('owner')
@@ -120,6 +122,8 @@ export default function StaffSettings() {
   }, [load])
 
   function canDeleteOperator(op: OperatorRow): boolean {
+    // Gyári főadmin (ADMIN_API_KEY + 2FA): bármely operátor törölhető, last-owner sem blokkol.
+    if (masterSession) return true
     if (op.role === 'owner' && op.active && ownerCount <= 1) return false
     return true
   }
@@ -140,9 +144,9 @@ export default function StaffSettings() {
       if (!res.ok) throw new Error(data.error || 'Létrehozás sikertelen')
       setUsername('')
       setPassword('')
-      if (data.sessionUpgraded) {
+      if (data.masterSessionPreserved || masterSession) {
         setMessage(
-          'Owner operátor létrehozva — a sessionod erre a fiókra váltott (nem záródtál ki). Írd fel a jelszót. További (support/catalog) operátorokhoz: inkognitó ablakban tesztelj; az operátor belépés külön sütibe kerül, az owner session megmarad.'
+          'Operátor létrehozva. A főadmin (API-kulcs) sessioned érintetlen maradt. Tesztelés: /operator/login — külön süti, párhuzamos session.'
         )
       } else {
         setMessage(
@@ -185,7 +189,7 @@ export default function StaffSettings() {
   async function removeOperator(op: OperatorRow) {
     if (!canDeleteOperator(op)) {
       setError(
-        'Az utolsó aktív owner nem törölhető. Hozz létre másik owner fiókot előbb, vagy hagyd meg ezt a fiókot.'
+        'Az utolsó aktív owner nem törölhető ebből a sessionből. Lépj be a főadmin API-kulcs + 2FA útvonalon (/admin/login), vagy hozz létre másik owner fiókot előbb.'
       )
       setMessage(null)
       return
@@ -208,11 +212,16 @@ export default function StaffSettings() {
           typeof data.error === 'string' ? data.error : 'Törlés sikertelen'
         )
       }
+      // Azonnali UI: lista frissítés a DB törlés után, majd szerver-lista egyeztetés.
       setOperators((prev) => prev.filter((row) => row.id !== op.id))
+      if (op.role === 'owner' && op.active) {
+        setOwnerCount((c) => Math.max(0, c - 1))
+      }
       setMessage(`Operátor törölve: ${op.username}`)
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Hiba')
+      await load()
     } finally {
       setBusy(false)
     }
@@ -228,8 +237,16 @@ export default function StaffSettings() {
           Amíg nincs aktív <strong>owner</strong> operátor, az API kulcs + 2FA elég (bootstrap).
           Az első létrehozott operátor kötelezően owner. A főadmin belépés (
           <code>/admin/login</code> vagy rejtett slug, API kulcs + 2FA) mindig működik —
-          unbreakable fallback. Másodlagos fiókok: <code>/operator/login</code> (felhasználónév +
-          jelszó) — külön süti, nem írja felül az owner sessiont; párhuzamosan is bent lehetnek.
+          unbreakable master jog, és soha nem íródik át DB-operátor sessionre. Másodlagos
+          fiókok: <code>/operator/login</code> (felhasználónév + jelszó) — külön süti, nem írja
+          felül az owner sessiont; párhuzamosan is bent lehetnek.
+          {masterSession && (
+            <>
+              {' '}
+              Most <strong>master session</strong>ben vagy: bármely operátor (az utolsó owner is)
+              azonnal módosítható / törölhető.
+            </>
+          )}
         </p>
         {requireFirstOwner && (
           <p className="text-sm text-amber-700 dark:text-amber-300 mt-2">
@@ -325,7 +342,7 @@ export default function StaffSettings() {
                           title={
                             deletable
                               ? `Törlés: ${op.username}`
-                              : 'Az utolsó aktív owner nem törölhető'
+                              : 'Az utolsó aktív owner csak a főadmin API-kulcs sessionből törölhető'
                           }
                           onClick={() => void removeOperator(op)}
                           className="text-sm text-red-600 dark:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed"

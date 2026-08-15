@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
-import { requireAdminPermission } from '@/lib/admin-auth'
+import { isMasterAdminActor, requireAdminPermission } from '@/lib/admin-auth'
 import { isDbConfigured } from '@/lib/prisma'
 import { logAdminAction } from '@/lib/admin-audit'
 import {
@@ -19,16 +19,6 @@ import {
   listAdminOperators,
   updateAdminOperator,
 } from '@/lib/admin-operators'
-import {
-  ADMIN_COOKIE_NAME,
-  createAdminSessionToken,
-  getAdminCookieOptions,
-} from '@/lib/admin-session'
-import {
-  ADMIN_CSRF_COOKIE,
-  generateCsrfToken,
-  getAdminCsrfCookieOptions,
-} from '@/lib/admin-csrf'
 
 function parseRole(raw: unknown): AdminRole | null {
   return isAdminRole(raw) ? raw : null
@@ -44,8 +34,10 @@ async function deleteStaffOperator(
     return NextResponse.json({ error: 'id required' }, { status: 400 })
   }
 
+  const allowLastOwnerOverride = isMasterAdminActor(actor)
+
   try {
-    const result = await deleteAdminOperator(id)
+    const result = await deleteAdminOperator(id, { allowLastOwnerOverride })
     if (result === 'not_found') {
       return NextResponse.json({ error: 'Az operátor nem található.' }, { status: 404 })
     }
@@ -53,7 +45,7 @@ async function deleteStaffOperator(
       return NextResponse.json(
         {
           error:
-            'Az utolsó aktív owner nem törölhető. Hozz létre másik owner fiókot, vagy használd a főadmin API-kulcs belépést.',
+            'Az utolsó aktív owner nem törölhető. Hozz létre másik owner fiókot, vagy lépj be a főadmin API-kulcs + 2FA útvonalon (/admin/login).',
           code: 'last_owner',
         },
         { status: 400 }
@@ -64,7 +56,7 @@ async function deleteStaffOperator(
       success: true,
       request,
       actor,
-      details: { id },
+      details: { id, masterOverride: allowLastOwnerOverride },
     })
     return NextResponse.json({ ok: true, deletedId: id })
   } catch (err) {
@@ -91,11 +83,14 @@ export async function GET() {
   }
   const operators = await listAdminOperators()
   const ownerCount = await countActiveOwners()
+  const masterSession = isMasterAdminActor(gate.actor)
   return NextResponse.json({
     operators,
     roles: ADMIN_ROLES,
     requireFirstOwner: ownerCount === 0,
     ownerCount,
+    /** ADMIN_API_KEY + 2FA bootstrap: last-owner korlát felülírható. */
+    masterSession,
     /** Szerepkör → tételes engedély / korlátozás katalógus a staff UI-hoz. */
     roleAccess: Object.fromEntries(
       ADMIN_ROLES.map((role) => [role, describeRoleAccess(role)])
@@ -107,8 +102,8 @@ export async function GET() {
  * POST /api/admin/staff
  * Body create: { username, password, role }
  * Body delete: { action: 'delete', id }  — CSRF-biztos (a querystringes DELETE helyett)
- * Első operátor kötelezően owner. Bootstrap sessionből owner létrehozásakor
- * új JWT-t adunk (különben a következő kérés kizárna).
+ * Első operátor kötelezően owner. A gyári főadmin (ADMIN_API_KEY) session
+ * soha nem íródik át DB-owner JWT-re — master jog megmarad.
  */
 export async function POST(request: Request) {
   const gate = await requireAdminPermission('staff:write')
@@ -148,19 +143,14 @@ export async function POST(request: Request) {
       details: { username: actor.username, role: actor.role, id: actor.id },
     })
 
-    const res = NextResponse.json({
+    // A gyári főadmin (ADMIN_API_KEY) session soha nem íródik át DB-ownerre —
+    // master jog megmarad; az új fiók /operator/login-nel lép be.
+    return NextResponse.json({
       ok: true,
       operator: actor,
-      sessionUpgraded: Boolean(gate.actor.bootstrap && actor.role === 'owner'),
+      sessionUpgraded: false,
+      masterSessionPreserved: isMasterAdminActor(gate.actor),
     })
-
-    // Bootstrap → első owner: session átírása erre az ownerre (ne zárjon ki).
-    if (gate.actor.bootstrap && actor.role === 'owner') {
-      const token = await createAdminSessionToken(actor)
-      res.cookies.set(ADMIN_COOKIE_NAME, token, getAdminCookieOptions())
-      res.cookies.set(ADMIN_CSRF_COOKIE, generateCsrfToken(), getAdminCsrfCookieOptions())
-    }
-    return res
   } catch (err) {
     if (err instanceof Error && err.name === 'FIRST_MUST_BE_OWNER') {
       return NextResponse.json(
@@ -220,21 +210,33 @@ export async function PATCH(request: Request) {
     patch.password = password
   }
 
+  const allowLastOwnerOverride = isMasterAdminActor(gate.actor)
+
   try {
-    const actor = await updateAdminOperator(id, patch)
+    const actor = await updateAdminOperator(id, patch, { allowLastOwnerOverride })
     if (!actor) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     await logAdminAction({
       action: 'staff_update',
       success: true,
       request,
       actor: gate.actor,
-      details: { id, role: actor.role, active: patch.active, passwordChanged: Boolean(patch.password) },
+      details: {
+        id,
+        role: actor.role,
+        active: patch.active,
+        passwordChanged: Boolean(patch.password),
+        masterOverride: allowLastOwnerOverride,
+      },
     })
     return NextResponse.json({ ok: true, operator: actor })
   } catch (err) {
     if (err instanceof Error && err.name === 'LAST_OWNER') {
       return NextResponse.json(
-        { error: 'Az utolsó owner nem minősíthető le és nem tiltható le.' },
+        {
+          error:
+            'Az utolsó owner nem minősíthető le és nem tiltható le. A főadmin API-kulcs + 2FA session felülírhatja.',
+          code: 'last_owner',
+        },
         { status: 400 }
       )
     }
