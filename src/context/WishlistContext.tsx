@@ -34,6 +34,9 @@ type WishlistContextValue = {
   syncFavorites: () => void
   /** Azonnali UI frissítés like/unlike kattintáskor – szerver sync csak POST után. */
   applyOptimisticToggle: (product: Product, liked: boolean) => void
+  /** In-flight like: syncFromServer ne írja felül a folyamatban lévő togglet. */
+  beginPendingToggle: (productId: string, liked: boolean) => void
+  endPendingToggle: (productId: string) => void
   toggleFavorite: (product: Product, liked: boolean) => void
 }
 
@@ -87,12 +90,37 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false)
   const fetchGenRef = useRef(0)
   const hydratedUserRef = useRef<string | null>(null)
+  /** productId → intended liked – megvédi az optimistic állapotot a párhuzamos GET-től. */
+  const pendingToggleRef = useRef<Map<string, boolean>>(new Map())
+
+  const beginPendingToggle = useCallback((productId: string, liked: boolean) => {
+    if (!productId) return
+    pendingToggleRef.current.set(productId, liked)
+  }, [])
+
+  const endPendingToggle = useCallback((productId: string) => {
+    if (!productId) return
+    pendingToggleRef.current.delete(productId)
+  }, [])
+
+  const applyPendingOverlay = useCallback((ids: string[]): string[] => {
+    let next = ids
+    for (const [id, liked] of pendingToggleRef.current) {
+      if (liked) {
+        if (!next.includes(id)) next = [...next, id]
+      } else if (next.includes(id)) {
+        next = next.filter((x) => x !== id)
+      }
+    }
+    return next
+  }, [])
 
   // Kijelentkezés: azonnali memory reset (storage-t a runLogoutCleanup törli)
   useEffect(() => {
     return onLogoutCleanup(() => {
       hydratedUserRef.current = null
       fetchGenRef.current += 1
+      pendingToggleRef.current.clear()
       setProductIds([])
       setProducts([])
       setIsLoading(false)
@@ -146,7 +174,8 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
         if (data == null) return
 
         const ids = Array.isArray(data?.productIds) ? data.productIds : []
-        const nextIds = ids.filter((id: unknown): id is string => typeof id === 'string')
+        const serverIds = ids.filter((id: unknown): id is string => typeof id === 'string')
+        const nextIds = applyPendingOverlay(serverIds)
         setProductIds(nextIds)
         writeStoredFavoriteIds(userId, nextIds)
 
@@ -170,13 +199,13 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
         // Hiba esetén megtartjuk a meglévő / localStorage listát
         const stored = readStoredFavoriteIds(userId)
         if (stored.length > 0) {
-          setProductIds((prev) => (prev.length > 0 ? prev : stored))
+          setProductIds((prev) => applyPendingOverlay(prev.length > 0 ? prev : stored))
         }
       })
       .finally(() => {
         if (gen === fetchGenRef.current) setIsLoading(false)
       })
-  }, [userId, authChecked])
+  }, [userId, authChecked, applyPendingOverlay])
 
   useEffect(() => {
     fetchWishlist()
@@ -194,12 +223,15 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
       setProductIds([])
       return
     }
+    // In-flight like alatt ne mergeljünk / ne GET-eljünk – elkerüli a számláló ugrálást.
+    if (pendingToggleRef.current.size > 0) return
+
     const now = Date.now()
     if (now - lastSyncAtRef.current < 1500) {
-      // Gyors egymás utáni focus/pageshow: csak localStorage refresh
+      // Gyors egymás utáni focus/pageshow: csak localStorage refresh (unió nélkül – ne duzzadjon)
       const stored = readStoredFavoriteIds(userId)
       if (stored.length > 0) {
-        setProductIds((prev) => Array.from(new Set([...stored, ...prev])))
+        setProductIds((prev) => (prev.length >= stored.length ? prev : stored))
       }
       return
     }
@@ -207,7 +239,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     // Először localStorage (azonnali UI), majd szerver
     const stored = readStoredFavoriteIds(userId)
     if (stored.length > 0) {
-      setProductIds((prev) => Array.from(new Set([...stored, ...prev])))
+      setProductIds((prev) => (prev.length > 0 ? prev : stored))
     }
     fetchWishlist()
   }, [authChecked, userId, fetchWishlist])
@@ -268,6 +300,8 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     syncFromServer,
     syncFavorites,
     applyOptimisticToggle,
+    beginPendingToggle,
+    endPendingToggle,
     toggleFavorite: applyOptimisticToggle,
   }
 

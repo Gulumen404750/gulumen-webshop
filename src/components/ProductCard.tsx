@@ -12,6 +12,7 @@ import { SaleCountdown } from '@/components/SaleCountdown'
 import { SoldImpactOverlay } from '@/components/SoldImpactOverlay'
 import { getSaleDiscountPercent } from '@/lib/storefront-config'
 import { useSaleActive } from '@/hooks/useSaleActive'
+import { useProductLikeToggle, likeFetchOpts } from '@/hooks/useProductLikeToggle'
 import { useLocale } from '@/context/LocaleContext'
 import { useEuroRate } from '@/context/EuroRateContext'
 import { useAuth } from '@/context/AuthContext'
@@ -64,8 +65,6 @@ const showLikesForProduct = (product: Product): boolean => {
   return type === 'stock' || type === 'sourcing_deal'
 }
 
-const likeFetchOpts: RequestInit = { credentials: 'include' }
-
 export function ProductCard({
   product,
   sourcingListMode,
@@ -91,7 +90,7 @@ export function ProductCard({
   const { hufToEur, formatEur } = useEuroRate()
   const { userId } = useAuth()
   const { toast } = useToast()
-  const { isInWishlist, syncFromServer, applyOptimisticToggle } = useWishlist()
+  const { isInWishlist, applyOptimisticToggle } = useWishlist()
 
   /** Szív állapot: globális wishlist – nem helyi useState (Vissza gomb / remount után is helyes). */
   const isFavorite = isInWishlist(product.id)
@@ -107,78 +106,55 @@ export function ProductCard({
     availableStock > 0 &&
     availableStock < 10
 
+  const onUnauthorized = useCallback(() => {
+    toast(t('wishlist.loginRequired') || 'Jelentkezz be a kedveléshez.')
+  }, [toast, t])
+
+  const { toggle, isToggling, shouldIgnoreExternalCount } = useProductLikeToggle({
+    product,
+    userId,
+    isFavorite,
+    likesCount,
+    setLikesCount,
+    onUnauthorized,
+    onPointLimit: setPointLimitReached,
+  })
+
   // Publikus likesCount + pontlimit API-ból; liked státusz a globális store-ból jön
   useEffect(() => {
     if (!showLikes) return
+    let cancelled = false
     fetch(`/api/products/${product.id}/like`, likeFetchOpts)
       .then((r) => r.ok && r.json())
       .then((data) => {
-        if (data?.likesCount != null) setLikesCount(data.likesCount)
+        if (cancelled || !data) return
+        // Ne írjuk felül a számlálót, ha épp toggle POST fut (mobil race).
+        if (!shouldIgnoreExternalCount() && typeof data.likesCount === 'number' && Number.isFinite(data.likesCount)) {
+          setLikesCount(Math.max(0, Math.floor(data.likesCount)))
+        }
         // Ha a szerver liked=true, de a store még nem tudja (hideg betöltés), szinkronizálunk
-        if (data?.liked === true && !isInWishlist(product.id)) {
+        if (data?.liked === true && !isInWishlist(product.id) && !shouldIgnoreExternalCount()) {
           applyOptimisticToggle(product, true)
         }
         if (typeof data?.pointLimitReached === 'boolean') setPointLimitReached(data.pointLimitReached)
       })
       .catch(() => {})
+    return () => {
+      cancelled = true
+    }
     // favoriteIds változásakor ne spammeljük az API-t – csak termékváltáskor
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product.id, showLikes])
 
   const onWishlistLikeClick = useCallback(
-    (e: React.MouseEvent) => {
+    (e: React.MouseEvent | React.PointerEvent) => {
       e.preventDefault()
       e.stopPropagation()
       setLikePulse(true)
       setTimeout(() => setLikePulse(false), 400)
-
-      if (!userId) {
-        toast(t('wishlist.loginRequired') || 'Jelentkezz be a kedveléshez.')
-        return
-      }
-
-      const prevLiked = isFavorite
-      const prevCount = likesCount
-      setLikesCount((c) => (prevLiked ? Math.max(0, c - 1) : c + 1))
-      applyOptimisticToggle(product, !prevLiked)
-
-      fetch(`/api/products/${product.id}/like`, {
-        method: 'POST',
-        ...likeFetchOpts,
-      })
-        .then((r) => {
-          if (r.status === 401) {
-            setLikesCount(prevCount)
-            applyOptimisticToggle(product, prevLiked)
-            toast(t('wishlist.loginRequired') || 'Jelentkezz be a kedveléshez.')
-            return null
-          }
-          return r.json()
-        })
-        .then((data) => {
-          if (data?.likesCount != null) setLikesCount(data.likesCount)
-          if (typeof data?.liked === 'boolean') {
-            applyOptimisticToggle(product, data.liked)
-          }
-          if (typeof data?.pointLimitReached === 'boolean') setPointLimitReached(data.pointLimitReached)
-          syncFromServer?.()
-        })
-        .catch(() => {
-          setLikesCount(prevCount)
-          applyOptimisticToggle(product, prevLiked)
-          syncFromServer?.()
-        })
+      toggle(e)
     },
-    [
-      product,
-      userId,
-      isFavorite,
-      likesCount,
-      toast,
-      t,
-      syncFromServer,
-      applyOptimisticToggle,
-    ]
+    [toggle]
   )
 
   const saleActive = useSaleActive(product)
@@ -213,7 +189,9 @@ export function ProductCard({
             <button
               type="button"
               onClick={onWishlistLikeClick}
-              className={`relative flex items-center gap-1 px-2 py-1.5 rounded-full bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 transition-shadow duration-200 ${likePulse ? 'product-like-pulse' : ''} ${showLikes ? likesGlow : ''}`}
+              disabled={isToggling}
+              aria-busy={isToggling}
+              className={`relative flex items-center gap-1 px-2 py-1.5 rounded-full bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 transition-shadow duration-200 disabled:opacity-80 ${likePulse ? 'product-like-pulse' : ''} ${showLikes ? likesGlow : ''}`}
               aria-label={isFavorite ? (t('wishlist.remove') || 'Eltávolítás a kedvencekből') : (t('wishlist.add') || 'Kedvencekhez')}
               title={
                 pointLimitReached && userId && !isFavorite

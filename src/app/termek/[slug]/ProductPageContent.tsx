@@ -53,6 +53,7 @@ import { useToast } from '@/context/ToastContext'
 import { trackAddToCart } from '@/lib/analytics'
 import { SaleCountdown } from '@/components/SaleCountdown'
 import { useSaleActive } from '@/hooks/useSaleActive'
+import { useProductLikeToggle } from '@/hooks/useProductLikeToggle'
 import type { Product } from '@/lib/data'
 
 const RECENTLY_VIEWED_KEY = 'gulumen-recently-viewed'
@@ -100,10 +101,10 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
   const searchParams = useSearchParams()
   const { items, addItem, itemCount } = useCart()
   const { userId } = useAuth()
-  const { isInWishlist, syncFromServer, applyOptimisticToggle } = useWishlist()
+  const { isInWishlist, applyOptimisticToggle } = useWishlist()
   const { toast } = useToast()
   const isFavorite = isInWishlist(product.id)
-  const [likesCount, setLikesCount] = useState<number | null>(null)
+  const [likesCount, setLikesCount] = useState(() => Math.max(0, product.likesCount ?? 0))
   const [pointLimitReached, setPointLimitReached] = useState(false)
   const { hufToEur, formatEur } = useEuroRate()
   useRecentlyViewed(product.id, product.slug)
@@ -227,22 +228,49 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
   }
 
   const showLikes = showLikesForProduct(product.type)
+
+  const onUnauthorizedLike = useCallback(() => {
+    toast(t('wishlist.loginRequired') || 'Jelentkezz be a kedveléshez.')
+  }, [toast, t])
+
+  const { toggle: toggleLike, isToggling: isLikeToggling, shouldIgnoreExternalCount } =
+    useProductLikeToggle({
+      product,
+      userId,
+      isFavorite,
+      likesCount,
+      setLikesCount,
+      onUnauthorized: onUnauthorizedLike,
+      onPointLimit: setPointLimitReached,
+    })
+
   useEffect(() => {
     if (!showLikes) return
+    let cancelled = false
     fetch(`/api/products/${product.id}/like`, { credentials: 'include', cache: 'no-store' })
       .then((r) => r.ok && r.json())
       .then((data) => {
-        if (data?.likesCount != null) setLikesCount(data.likesCount)
-        if (data?.liked === true && !isInWishlist(product.id)) {
+        if (cancelled || !data) return
+        if (
+          !shouldIgnoreExternalCount() &&
+          typeof data.likesCount === 'number' &&
+          Number.isFinite(data.likesCount)
+        ) {
+          setLikesCount(Math.max(0, Math.floor(data.likesCount)))
+        }
+        if (data?.liked === true && !isInWishlist(product.id) && !shouldIgnoreExternalCount()) {
           applyOptimisticToggle(product, true)
         }
         if (typeof data?.pointLimitReached === 'boolean') setPointLimitReached(data.pointLimitReached)
       })
       .catch(() => {})
+    return () => {
+      cancelled = true
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product.id, showLikes, userId])
 
-  const displayLikes = likesCount ?? product.likesCount ?? 0
+  const displayLikes = likesCount
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -482,40 +510,10 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
             )}
             <button
               type="button"
-              onClick={() => {
-                if (!userId) {
-                  toast(t('wishlist.loginRequired') || 'Jelentkezz be a kedveléshez.')
-                  return
-                }
-                const prevLiked = isFavorite
-                const prevCount = likesCount ?? displayLikes
-                setLikesCount((c) => (prevLiked ? Math.max(0, (c ?? 0) - 1) : (c ?? 0) + 1))
-                applyOptimisticToggle(product, !prevLiked)
-                fetch(`/api/products/${product.id}/like`, { method: 'POST', credentials: 'include' })
-                  .then((r) => {
-                    if (r.status === 401) {
-                      setLikesCount(prevCount)
-                      applyOptimisticToggle(product, prevLiked)
-                      toast(t('wishlist.loginRequired') || 'Jelentkezz be a kedveléshez.')
-                      return null
-                    }
-                    return r.json()
-                  })
-                  .then((d) => {
-                    if (d?.likesCount != null) setLikesCount(d.likesCount)
-                    if (typeof d?.liked === 'boolean') {
-                      applyOptimisticToggle(product, d.liked)
-                    }
-                    if (typeof d?.pointLimitReached === 'boolean') setPointLimitReached(d.pointLimitReached)
-                    syncFromServer?.()
-                  })
-                  .catch(() => {
-                    setLikesCount(prevCount)
-                    applyOptimisticToggle(product, prevLiked)
-                    syncFromServer?.()
-                  })
-              }}
-              className="text-sm font-medium text-accent hover:underline"
+              onClick={() => toggleLike()}
+              disabled={isLikeToggling}
+              aria-busy={isLikeToggling}
+              className="text-sm font-medium text-accent hover:underline disabled:opacity-70"
               aria-label={isFavorite ? (t('wishlist.remove') || 'Eltávolítás a kedvencekből') : (t('wishlist.add') || 'Kedvencekhez')}
             >
               {isFavorite ? (t('wishlist.remove') || 'Eltávolítás a kedvencekből') : (t('wishlist.add') || 'Kedvencekhez')}
