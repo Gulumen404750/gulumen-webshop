@@ -1,11 +1,11 @@
 /**
  * Ügyfélszolgálati postafiók feloldása.
  *
- * Fontos: a gulumen.hu / gulumen.com domainnek jelenleg NINCS MX rekordja,
- * ezért az info@gulumen.hu címre küldött / Reply-To válaszok NEM érkeznek meg.
- * Beérkező levelekhez használd az ADMIN_EMAIL / ORDER_SUPPORT_EMAIL értékét
- * (pl. Gmail), amit ténylegesen olvasol.
+ * Beérkező levelek (Reply-To, kapcsolat űrlap): postmaster@gulumen.com (éles inbox).
+ * Felülírható: ORDER_SUPPORT_EMAIL / ADMIN_EMAIL / NEXT_PUBLIC_SUPPORT_EMAIL.
  */
+
+export const DEFAULT_SUPPORT_INBOX = 'postmaster@gulumen.com'
 
 function firstEmail(...candidates: Array<string | undefined | null>): string | null {
   for (const raw of candidates) {
@@ -17,7 +17,7 @@ function firstEmail(...candidates: Array<string | undefined | null>): string | n
 
 /**
  * Beérkező ügyfélszolgálat: rendelés Reply-To, kapcsolat űrlap címzettje.
- * Prioritás: explicit support → ADMIN_EMAIL (működő inbox) → publikus env → fallback.
+ * Prioritás: explicit support → ADMIN_EMAIL → publikus env → postmaster@gulumen.com.
  */
 export function getSupportInboxEmail(): string {
   return (
@@ -27,7 +27,7 @@ export function getSupportInboxEmail(): string {
       process.env.ADMIN_EMAIL,
       process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
       process.env.NEXT_PUBLIC_LEGAL_EMAIL
-    ) || 'info@gulumen.hu'
+    ) || DEFAULT_SUPPORT_INBOX
   )
 }
 
@@ -42,20 +42,25 @@ export function getPublicSupportEmail(): string {
       process.env.NEXT_PUBLIC_LEGAL_EMAIL,
       process.env.ORDER_SUPPORT_EMAIL,
       process.env.SUPPORT_INBOX_EMAIL
-    ) || 'info@gulumen.hu'
+    ) || DEFAULT_SUPPORT_INBOX
   )
 }
 
-/** Domainek, ahol jelenleg nincs megbízható bejövő MX (Resend csak küld). */
+/** Régi, nem fogadó címek – ne ezeket használd beérkezőnek. */
 export function isUnreliableInboundDomain(email: string): boolean {
-  const domain = email.split('@')[1]?.toLowerCase() ?? ''
-  return domain === 'gulumen.hu' || domain === 'gulumen.com'
+  const normalized = email.trim().toLowerCase()
+  return (
+    normalized === 'info@gulumen.hu' ||
+    normalized === 'info@gulumen.com' ||
+    normalized === 'noreply@gulumen.com' ||
+    normalized === 'noreply@gulumen.hu'
+  )
 }
 
 export function warnIfSupportInboxUnreliable(email: string, context: string): void {
   if (!isUnreliableInboundDomain(email)) return
   console.warn(
-    `[support-email] ${context}: "${email}" domainnek nincs megbízható bejövő MX – ` +
-      'állítsd be az ORDER_SUPPORT_EMAIL vagy ADMIN_EMAIL változót egy olvasott postafiókra (pl. Gmail).'
+    `[support-email] ${context}: "${email}" nem fogad levelet – ` +
+      `használj ${DEFAULT_SUPPORT_INBOX}-ot (ORDER_SUPPORT_EMAIL / ADMIN_EMAIL).`
   )
 }

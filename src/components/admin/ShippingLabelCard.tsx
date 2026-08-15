@@ -45,7 +45,7 @@ export function ShippingLabelCard({ order }: { order: ShippingLabelOrder }) {
         <p className="text-[10px] uppercase tracking-wide text-neutral-600">Feladó</p>
         <p className="text-base font-bold">Gulumen</p>
         <p>gulumen.hu</p>
-        <p>info@gulumen.hu</p>
+        <p>postmaster@gulumen.com</p>
       </div>
 
       <div className="mb-4">

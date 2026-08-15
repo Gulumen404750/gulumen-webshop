@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useLocale } from '@/context/LocaleContext'
 
-const LEGAL_EMAIL = process.env.NEXT_PUBLIC_LEGAL_EMAIL || 'info@gulumen.hu'
+const LEGAL_EMAIL = process.env.NEXT_PUBLIC_LEGAL_EMAIL || 'postmaster@gulumen.com'
 const LEGAL_PHONE = process.env.NEXT_PUBLIC_SUPPORT_PHONE || '+36301234567'
 const LEGAL_NAME = process.env.NEXT_PUBLIC_LEGAL_NAME || 'Gulumen'
 const LEGAL_ADDRESS = process.env.NEXT_PUBLIC_LEGAL_ADDRESS || ''
