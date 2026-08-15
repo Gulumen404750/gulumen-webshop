@@ -116,8 +116,21 @@ export function warnIfSupportInboxUnreliable(email: string, context: string): vo
   )
 }
 
-/** Kapcsolat űrlap URL rendelésszámmal (e-mail CTA). */
+/** Kapcsolat űrlap URL rendelésszámmal (e-mail CTA – legacy). */
 export function buildOrderChangeContactUrl(contactUrl: string, orderRef: string): string {
   const sep = contactUrl.includes('?') ? '&' : '?'
   return `${contactUrl}${sep}rendeles=${encodeURIComponent(orderRef)}&tipus=modositas`
+}
+
+/**
+ * Önkiszolgáló szállítási cím módosító URL (visszaigazoló e-mail CTA).
+ * Pl. https://www.gulumen.com/rendelesek/ord_xxx/modositas
+ */
+export function buildOrderShippingEditUrl(orderId: string, appUrl?: string): string {
+  const base = (appUrl || process.env.NEXT_PUBLIC_APP_URL || 'https://www.gulumen.com').replace(
+    /\/$/,
+    ''
+  )
+  const id = orderId.trim()
+  return `${base}/rendelesek/${encodeURIComponent(id)}/modositas`
 }

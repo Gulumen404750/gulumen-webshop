@@ -214,7 +214,7 @@ function BirthDateProfileSection() {
 
 export default function ProfilePage() {
   const { t } = useLocale()
-  const { isLoggedIn, userId, login, loginWithGoogle, logout } = useAuth()
+  const { isLoggedIn, userId, login, loginWithGoogle, logout, authChecked } = useAuth()
   const { registrationStatus } = useCatCoupon()
   const { refresh: refreshWallet } = usePointWallet(isLoggedIn)
   const router = useRouter()
@@ -256,17 +256,41 @@ export default function ProfilePage() {
     setLoginError(null)
     if (!email.trim()) return
     const result = await login(email.trim(), password)
-    if (result.ok) router.push('/')
-    else setLoginError(result.error ?? t('profile.loginFailed'))
+    if (result.ok) {
+      const params = new URLSearchParams(window.location.search)
+      const nextRaw = params.get('next')
+      const next =
+        nextRaw && nextRaw.startsWith('/') && !nextRaw.startsWith('//') ? nextRaw : '/'
+      router.push(next)
+    } else setLoginError(result.error ?? t('profile.loginFailed'))
   }
 
   /** Meglévő fiók: azonnali Google belépés, hozzájárulás / kupon nélkül. */
   const handleGoogleLogin = async () => {
+    const params = new URLSearchParams(
+      typeof window !== 'undefined' ? window.location.search : ''
+    )
+    const nextRaw = params.get('next')
+    const nextPath =
+      nextRaw && nextRaw.startsWith('/') && !nextRaw.startsWith('//')
+        ? nextRaw
+        : '/profil'
     await loginWithGoogle({
       callbackUrl:
-        typeof window !== 'undefined' ? `${window.location.origin}/profil` : '/profil',
+        typeof window !== 'undefined'
+          ? `${window.location.origin}${nextPath}`
+          : nextPath,
     })
   }
+
+  // Ha már be van jelentkezve és van ?next=, irányítsuk oda (pl. e-mail CTA).
+  useEffect(() => {
+    if (!authChecked || !isLoggedIn) return
+    const params = new URLSearchParams(window.location.search)
+    const nextRaw = params.get('next')
+    if (!nextRaw || !nextRaw.startsWith('/') || nextRaw.startsWith('//')) return
+    router.replace(nextRaw)
+  }, [authChecked, isLoggedIn, router])
 
   if (isLoggedIn) {
     return (

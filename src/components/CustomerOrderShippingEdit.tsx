@@ -16,6 +16,8 @@ type ShippingForm = {
 type Props = {
   orderId: string
   initial: ShippingForm
+  /** inline: gombbal nyílik; page: azonnal szerkesztő űrlap */
+  mode?: 'inline' | 'page'
   labels: {
     title: string
     hint: string
@@ -47,8 +49,14 @@ type Props = {
   }) => void
 }
 
-export function CustomerOrderShippingEdit({ orderId, initial, labels, onSaved }: Props) {
-  const [open, setOpen] = useState(false)
+export function CustomerOrderShippingEdit({
+  orderId,
+  initial,
+  labels,
+  onSaved,
+  mode = 'inline',
+}: Props) {
+  const [open, setOpen] = useState(mode === 'page')
   const [form, setForm] = useState(initial)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -93,7 +101,7 @@ export function CustomerOrderShippingEdit({ orderId, initial, labels, onSaved }:
         shippingAddressChangedAt: data.order?.shippingAddressChangedAt ?? new Date().toISOString(),
         canEditShipping: data.order?.canEditShipping ?? true,
       })
-      setOpen(false)
+      if (mode === 'inline') setOpen(false)
     } catch {
       setError('Hálózati hiba')
     } finally {
@@ -124,14 +132,25 @@ export function CustomerOrderShippingEdit({ orderId, initial, labels, onSaved }:
   return (
     <form
       onSubmit={handleSubmit}
-      className="mt-3 space-y-3 border-t border-[var(--border)] pt-3"
+      className={
+        mode === 'page'
+          ? 'space-y-4'
+          : 'mt-3 space-y-3 border-t border-[var(--border)] pt-3'
+      }
     >
       <div>
-        <h3 className="text-sm font-semibold text-foreground">{labels.title}</h3>
-        <p className="mt-1 text-xs text-muted">{labels.hint}</p>
+        <h3 className={mode === 'page' ? 'text-lg font-semibold text-foreground' : 'text-sm font-semibold text-foreground'}>
+          {labels.title}
+        </h3>
+        <p className="mt-1 text-xs text-muted sm:text-sm">{labels.hint}</p>
       </div>
+      {ok && mode === 'page' && (
+        <p className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-200" role="status">
+          {labels.success}
+        </p>
+      )}
       <div className="grid gap-2 sm:grid-cols-2">
-        <label className="text-xs">
+        <label className="text-xs sm:text-sm">
           {labels.name}
           <input
             className="mt-1 w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-sm"
@@ -140,7 +159,7 @@ export function CustomerOrderShippingEdit({ orderId, initial, labels, onSaved }:
             autoComplete="name"
           />
         </label>
-        <label className="text-xs">
+        <label className="text-xs sm:text-sm">
           {labels.phone}
           <input
             className="mt-1 w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-sm"
@@ -149,7 +168,7 @@ export function CustomerOrderShippingEdit({ orderId, initial, labels, onSaved }:
             autoComplete="tel"
           />
         </label>
-        <label className="text-xs">
+        <label className="text-xs sm:text-sm">
           {labels.postalCode}
           <input
             className="mt-1 w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-sm"
@@ -159,7 +178,7 @@ export function CustomerOrderShippingEdit({ orderId, initial, labels, onSaved }:
             autoComplete="postal-code"
           />
         </label>
-        <label className="text-xs">
+        <label className="text-xs sm:text-sm">
           {labels.city}
           <input
             className="mt-1 w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-sm"
@@ -169,7 +188,7 @@ export function CustomerOrderShippingEdit({ orderId, initial, labels, onSaved }:
             autoComplete="address-level2"
           />
         </label>
-        <label className="text-xs">
+        <label className="text-xs sm:text-sm">
           {labels.street}
           <input
             className="mt-1 w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-sm"
@@ -179,7 +198,7 @@ export function CustomerOrderShippingEdit({ orderId, initial, labels, onSaved }:
             autoComplete="address-line1"
           />
         </label>
-        <label className="text-xs">
+        <label className="text-xs sm:text-sm">
           {labels.houseNumber}
           <input
             className="mt-1 w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-sm"
@@ -189,7 +208,7 @@ export function CustomerOrderShippingEdit({ orderId, initial, labels, onSaved }:
           />
         </label>
       </div>
-      <label className="block text-xs">
+      <label className="block text-xs sm:text-sm">
         {labels.notes}
         <textarea
           className="mt-1 w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-sm"
@@ -212,14 +231,16 @@ export function CustomerOrderShippingEdit({ orderId, initial, labels, onSaved }:
           {pending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
           {pending ? labels.saving : labels.save}
         </button>
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => setOpen(false)}
-          className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm text-foreground hover:bg-[var(--border)]/30"
-        >
-          {labels.cancel}
-        </button>
+        {mode === 'inline' && (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => setOpen(false)}
+            className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm text-foreground hover:bg-[var(--border)]/30"
+          >
+            {labels.cancel}
+          </button>
+        )}
       </div>
     </form>
   )

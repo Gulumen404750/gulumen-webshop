@@ -6,6 +6,7 @@ import {
   getAdminNotificationEmails,
   isUnreliableInboundDomain,
   buildOrderChangeContactUrl,
+  buildOrderShippingEditUrl,
 } from './support-email'
 
 describe('support-email', () => {
@@ -60,6 +61,12 @@ describe('support-email', () => {
   it('builds contact URL with order ref', () => {
     expect(buildOrderChangeContactUrl('https://www.gulumen.com/kapcsolat', 'ord_1')).toBe(
       'https://www.gulumen.com/kapcsolat?rendeles=ord_1&tipus=modositas'
+    )
+  })
+
+  it('builds self-service shipping edit URL', () => {
+    expect(buildOrderShippingEditUrl('ord_abc', 'https://www.gulumen.com')).toBe(
+      'https://www.gulumen.com/rendelesek/ord_abc/modositas'
     )
   })
 

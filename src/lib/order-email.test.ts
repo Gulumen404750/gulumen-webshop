@@ -31,6 +31,7 @@ import {
   maybeSendOrderGroupConfirmationEmail,
   pickCustomerAddressOrder,
 } from './order-email'
+import { buildOrderShippingEditUrl } from './support-email'
 
 function makeOrder(overrides: Partial<Order> = {}): Order {
   return {
@@ -103,17 +104,23 @@ describe('order confirmation email content', () => {
     expect(html).toContain('Megegyezik a szállítási címmel')
   })
 
-  it('includes mailto CTA for order changes before packing', () => {
+  it('includes web CTA to shipping edit page (not mailto)', () => {
     const order = makeOrder()
     const html = buildOrderGroupConfirmationHtml([order], order.id)
-    const mailto = buildOrderChangeMailto(order.id)
+    const text = buildOrderGroupConfirmationText([order], order.id)
+    const editUrl = buildOrderShippingEditUrl(order.id)
 
+    expect(html).toContain('Szállítási adatok módosítása')
+    expect(html).toContain(editUrl)
+    expect(html).toContain(`/rendelesek/${order.id}/modositas`)
+    expect(html).not.toContain('Módosítás jelzése az oldalon')
+    expect(html).not.toContain('mailto:')
+    expect(text).toContain('Szállítási adatok módosítása:')
+    expect(text).toContain(editUrl)
+
+    // Legacy mailto helper still works for other callers
+    const mailto = buildOrderChangeMailto(order.id)
     expect(mailto).toContain(`mailto:${getOrderSupportEmail()}`)
-    expect(mailto).toContain(encodeURIComponent(`Rendelés módosítás – ${order.id}`))
-    expect(html).toContain('Módosítás jelzése az oldalon')
-    expect(html).toContain('/kapcsolat?rendeles=')
-    expect(html).toContain(mailto)
-    expect(html).toContain('/kapcsolat')
   })
 
   it('pickCustomerAddressOrder prefers order with address data', () => {

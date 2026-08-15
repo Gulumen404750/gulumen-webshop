@@ -7,7 +7,7 @@
 #   npm run deploy:railway
 #
 # Vagy GitHub Actions: állítsd be a RAILWAY_TOKEN secretet (Railway → gulumen-webshop → Settings → Tokens).
-# Redeploy trigger: customer shipping address change + admin flame badge 2026-08-15T13:20.
+# Redeploy trigger: email CTA → /rendelesek/[id]/modositas self-service 2026-08-15T13:25.
 
 [build]
 builder = "nixpacks"

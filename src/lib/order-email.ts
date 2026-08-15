@@ -14,7 +14,7 @@ import {
   getSupportInboxEmail,
   getAdminNotificationEmails,
   warnIfSupportInboxUnreliable,
-  buildOrderChangeContactUrl,
+  buildOrderShippingEditUrl,
   DEFAULT_SUPPORT_INBOX,
 } from './support-email'
 
@@ -172,24 +172,24 @@ function buildCustomerDetailsSection(order: Order, orderRef: string): string {
       ? `<p><strong>Szállítási megjegyzés:</strong> ${escapeHtml(order.deliveryNotes.trim())}</p>`
       : ''
 
-  const mailto = buildOrderChangeMailto(orderRef)
-  const support = getSupportInboxEmail()
-  const contactChangeUrl = buildOrderChangeContactUrl(CONTACT_URL, orderRef)
+  // CTA: önkiszolgáló oldal (nem mailto / kapcsolat űrlap).
+  const editOrderId = order.id || orderRef
+  const shippingEditUrl = buildOrderShippingEditUrl(editOrderId)
 
   return `
   <div style="border: 1px solid #fde68a; background: #fffbeb; border-radius: 8px; padding: 16px; margin: 24px 0;">
     <h2 style="margin-top: 0; color: #92400e;">Kérjük, ellenőrizd az adataidat!</h2>
     <p style="color: #78350f;">
       A csomagolás megkezdése előtt ellenőrizd a szállítási és számlázási adatokat.
-      Ha valamit módosítani szeretnél, jelezd nekünk mielőbb — amíg nem kezdjük el a csomagolást, tudunk segíteni.
+      Ha módosítani szeretnél, használd az alábbi gombot — amíg nem adjuk fel a csomagot, tudsz változtatni.
     </p>
     <p>
-      <a href="${contactChangeUrl}" style="display: inline-block; background: #92400e; color: #fff; text-decoration: none; padding: 10px 16px; border-radius: 6px; font-weight: 600;">
-        Módosítás jelzése az oldalon
+      <a href="${shippingEditUrl}" style="display: inline-block; background: #92400e; color: #fff; text-decoration: none; padding: 10px 16px; border-radius: 6px; font-weight: 600;">
+        Szállítási adatok módosítása
       </a>
     </p>
     <p style="font-size: 14px; color: #78350f;">
-      Vagy válaszolj erre az e-mailre / írj ide: <a href="${mailto}">${escapeHtml(support)}</a>
+      Bejelentkezés után a weboldalon azonnal elmentheted az új címet.
       · <a href="${CONTACT_URL}">Kapcsolat</a>
     </p>
     <h3>Szállítási cím</h3>
@@ -202,7 +202,6 @@ function buildCustomerDetailsSection(order: Order, orderRef: string): string {
 }
 
 function buildCustomerDetailsText(order: Order, orderRef: string): string {
-  const support = getOrderSupportEmail()
   const shippingLines = formatAddressLines({
     name: order.customerName,
     phone: order.customerPhone,
@@ -222,14 +221,16 @@ function buildCustomerDetailsText(order: Order, orderRef: string): string {
         houseNumber: order.billingHouseNumber,
       })
 
+  const editOrderId = order.id || orderRef
+  const shippingEditUrl = buildOrderShippingEditUrl(editOrderId)
+
   return [
     '',
     '---',
     'Kérjük, ellenőrizd az adataidat!',
     'A csomagolás megkezdése előtt ellenőrizd a szállítási és számlázási adatokat.',
-    'Ha módosításra van szükség, jelezd mielőbb — amíg nem kezdjük el a csomagolást, tudunk segíteni.',
-    `Módosítás jelzése az oldalon: ${buildOrderChangeContactUrl(CONTACT_URL, orderRef)}`,
-    `Vagy e-mail: ${support}`,
+    'Ha módosításra van szükség, használd a weboldalt — amíg nem adjuk fel a csomagot, tudsz változtatni.',
+    `Szállítási adatok módosítása: ${shippingEditUrl}`,
     `Kapcsolat: ${CONTACT_URL}`,
     '',
     'Szállítási cím:',

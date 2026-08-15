@@ -434,6 +434,11 @@
     "editSaving": "Se salvează…",
     "editCancel": "Anulează",
     "editSuccess": "Adresa de livrare a fost actualizată.",
+    "editPageTitle": "Modifică datele de livrare",
+    "editPageLoadError": "Comanda nu a putut fi încărcată.",
+    "editPageNotFound": "ID comandă invalid.",
+    "editPageLocked": "Această comandă nu mai poate fi modificată (deja expediată/închisă).",
+    "editPageAdminNotified": "Echipa a fost notificată. Înapoi la comenzi:",
     "type": {
       "in_stock": "Stoc",
       "sourcing": "Aprovizionare"

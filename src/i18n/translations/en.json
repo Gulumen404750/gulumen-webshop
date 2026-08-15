@@ -449,6 +449,11 @@
     "editSaving": "Saving…",
     "editCancel": "Cancel",
     "editSuccess": "Shipping address updated.",
+    "editPageTitle": "Update shipping details",
+    "editPageLoadError": "Could not load this order.",
+    "editPageNotFound": "Invalid order id.",
+    "editPageLocked": "This order can no longer be changed (already shipped or closed).",
+    "editPageAdminNotified": "Our team was notified. Back to your orders:",
     "type": {
       "in_stock": "In-stock order",
       "sourcing": "Sourcing order"
