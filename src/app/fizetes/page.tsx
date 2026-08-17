@@ -360,11 +360,6 @@ export default function PaymentPage() {
               <span>{t('product.color')}: {item.options.colorName}</span>
             </p>
           )}
-          {item.options?.materialName && (
-            <p className="text-xs text-muted mt-0.5">
-              <span>{t('product.material')}: {item.options.materialName}</span>
-            </p>
-          )}
         </div>
         <span className="shrink-0 text-right text-muted tabular-nums">
           {showPromoPrice ? (

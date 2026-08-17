@@ -190,7 +190,7 @@ describe('resolveCartLines', () => {
     expect(lines[0]?.priceHuf).toBe(12_000)
   })
 
-  it('passes cart color/material options through as production parameters', () => {
+  it('uses admin material and ignores guest cart material', () => {
     const map = new Map<string, Product>([
       ['p1', product({ id: 'p1', priceHuf: 2000, materials: ['PLA', 'PETG'] })],
     ])
@@ -202,9 +202,20 @@ describe('resolveCartLines', () => {
       expect.objectContaining({
         productId: 'p1',
         qty: 2,
-        parameters: { colorName: 'Kék', colorHex: '#0000ff', materialName: 'PETG' },
+        parameters: { colorName: 'Kék', colorHex: '#0000ff', materialName: 'PLA' },
       })
     )
+  })
+
+  it('does not let the guest spoof a material the product is not set to', () => {
+    const map = new Map<string, Product>([
+      ['p1', product({ id: 'p1', priceHuf: 2000, materials: ['PLA'] })],
+    ])
+    const lines = resolveCartLines(
+      [{ productId: 'p1', qty: 1, options: { materialName: 'PETG' } }],
+      map
+    )
+    expect(lines[0]?.parameters).toEqual({ materialName: 'PLA' })
   })
 
   it('fills default PLA and base color when cart options are missing', () => {

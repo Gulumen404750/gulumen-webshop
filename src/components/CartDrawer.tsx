@@ -179,11 +179,6 @@ export function CartDrawer({ isOpen, onClose }: Props) {
                           <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>
                         </p>
                       )}
-                      {item.options?.materialName && (
-                        <p className="text-foreground text-xs">
-                          <span>{t('product.material') || 'Anyag'}: {item.options.materialName}</span>
-                        </p>
-                      )}
                       <p className="text-muted text-xs mt-0.5">
                         {showPromoPrice ? (
                           <>
