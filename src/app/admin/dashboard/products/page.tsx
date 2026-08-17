@@ -9,6 +9,7 @@ type Product = {
   id: string
   slug: string
   name: string
+  sku: string | null
   category: string
   type: string
   active: boolean
@@ -443,7 +444,7 @@ export default function AdminProductsPage() {
       <div className="flex flex-wrap gap-4">
         <input
           type="text"
-          placeholder="Keresés (név, slug…)"
+          placeholder="Keresés (név, slug, SKU…)"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground min-w-[200px]"
@@ -549,6 +550,7 @@ export default function AdminProductsPage() {
                   />
                 </th>
                 <th className="p-3 font-medium">Név</th>
+                <th className="p-3 font-medium">SKU</th>
                 <th className="p-3 font-medium">Slug</th>
                 <th className="p-3 font-medium">Kategória</th>
                 <th className="p-3 font-medium">Típus</th>
@@ -581,6 +583,7 @@ export default function AdminProductsPage() {
                       />
                     </td>
                     <td className="p-3 font-medium">{p.name}</td>
+                    <td className="p-3 font-mono text-xs text-muted">{p.sku || '—'}</td>
                     <td className="p-3 text-muted">{p.slug}</td>
                     <td className="p-3">{p.category}</td>
                     <td className="p-3">

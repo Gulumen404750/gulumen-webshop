@@ -189,6 +189,23 @@ describe('resolveCartLines', () => {
     const lines = resolveCartLines([{ productId: 'future-sale', qty: 1 }], map)
     expect(lines[0]?.priceHuf).toBe(12_000)
   })
+
+  it('passes cart color/material options through as production parameters', () => {
+    const map = new Map<string, Product>([
+      ['p1', product({ id: 'p1', priceHuf: 2000 })],
+    ])
+    const lines = resolveCartLines(
+      [{ productId: 'p1', qty: 2, options: { colorName: 'Kék', colorHex: '#0000ff' } }],
+      map
+    )
+    expect(lines[0]).toEqual(
+      expect.objectContaining({
+        productId: 'p1',
+        qty: 2,
+        parameters: { colorName: 'Kék', colorHex: '#0000ff' },
+      })
+    )
+  })
 })
 
 describe('computeCheckoutTotals', () => {

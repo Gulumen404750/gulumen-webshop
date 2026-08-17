@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const requireAdminPermission = vi.fn()
 const isDbConfigured = vi.fn()
 const findUnique = vi.fn()
+const findMany = vi.fn()
 const create = vi.fn()
 const logAdminAction = vi.fn()
 const ingestRemoteImageUrl = vi.fn()
@@ -16,6 +17,7 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     product: {
       findUnique: (...args: unknown[]) => findUnique(...args),
+      findMany: (...args: unknown[]) => findMany(...args),
       create: (...args: unknown[]) => create(...args),
     },
   },
@@ -46,6 +48,7 @@ describe('POST /api/admin/products image ingest', () => {
     })
     isDbConfigured.mockReturnValue(true)
     findUnique.mockResolvedValue(null)
+    findMany.mockResolvedValue([])
     logAdminAction.mockResolvedValue(undefined)
     create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({
       id: 'new-id',
@@ -75,10 +78,11 @@ describe('POST /api/admin/products image ingest', () => {
     )
     expect(res.status).toBe(200)
     expect(ingestRemoteImageUrl).toHaveBeenCalled()
-    const payload = create.mock.calls[0][0] as { data: { image: string; images: string[] } }
+    const payload = create.mock.calls[0][0] as { data: { image: string; images: string[]; sku?: string } }
     expect(payload.data.image).toMatch(/^https:\/\/gulumen\.b-cdn\.net\//)
     expect(payload.data.images.every((u) => u.startsWith('https://gulumen.b-cdn.net/'))).toBe(true)
     expect(payload.data.image).not.toContain('supplier.example')
+    expect(payload.data.sku).toBe('GUL-0000000001')
   })
 
   it('returns 400 and does not create the product when ingest fails', async () => {

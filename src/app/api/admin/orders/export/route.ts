@@ -3,6 +3,7 @@ import { requireAdminPermission } from '@/lib/admin-auth'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { logAdminAction } from '@/lib/admin-audit'
 import { alertAdminAnomalySafe } from '@/lib/admin-anomaly-alert'
+import { buildProductionJobPayload } from '@/lib/production-payload'
 
 function escapeCsvField(value: string): string {
   if (/[",\n\r]/.test(value)) {
@@ -39,8 +40,9 @@ function buildOrdersCsv(
 }
 
 /**
- * GET /api/admin/orders/export?format=csv
- * Query: format=csv, status (opcionális szűrő).
+ * GET /api/admin/orders/export?format=csv|production
+ * Query: format, status (opcionális szűrő).
+ * production: JSON gyártási csomag (SKU, qty, paraméterek) a 3D farm / AI számára.
  */
 export async function GET(request: Request) {
   const gate = await requireAdminPermission('orders:export')
@@ -51,13 +53,55 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url)
   const format = searchParams.get('format')?.trim().toLowerCase()
-  if (format !== 'csv') {
-    return NextResponse.json({ error: 'Unsupported format. Use format=csv' }, { status: 400 })
+  if (format !== 'csv' && format !== 'production') {
+    return NextResponse.json(
+      { error: 'Unsupported format. Use format=csv or format=production' },
+      { status: 400 }
+    )
   }
 
   const status = searchParams.get('status')?.trim() || ''
   const where: Record<string, unknown> = {}
   if (status) where.status = status
+
+  if (format === 'production') {
+    const orders = await prisma.order.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: 5000,
+      include: { items: true },
+    })
+    const jobs = orders.map((order) =>
+      buildProductionJobPayload({
+        orderId: order.id,
+        orderGroupId: order.orderGroupId,
+        status: order.status,
+        paidAt: order.paidAt?.toISOString() ?? null,
+        items: order.items,
+      })
+    )
+    const filename = `gyartas-${new Date().toISOString().slice(0, 10)}.json`
+
+    await logAdminAction({
+      action: 'orders_production_export',
+      success: true,
+      request,
+      details: { count: jobs.length, status: status || null, filename, capped: jobs.length >= 5000 },
+    })
+    await alertAdminAnomalySafe({
+      kind: 'csv_export',
+      count: jobs.length,
+      request,
+      details: { filename, status: status || null },
+    })
+
+    return new NextResponse(JSON.stringify({ jobs }, null, 2), {
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+      },
+    })
+  }
 
   const orders = await prisma.order.findMany({
     where,

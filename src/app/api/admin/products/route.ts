@@ -12,6 +12,8 @@ import { RemoteImageIngestError } from '@/lib/ingest-remote-image'
 import { revalidateShopProducts } from '@/lib/revalidate-shop'
 import { logAdminAction } from '@/lib/admin-audit'
 import { z } from 'zod'
+import { isValidProductSku, normalizeProductSku, skuZodMessage } from '@/lib/product-sku'
+import { allocateNextProductSku, isSkuUniqueConstraintError } from '@/lib/product-sku-db'
 
 async function uniqueProductSlug(base: string): Promise<string> {
   const root = slugifyProduct(base)
@@ -67,6 +69,7 @@ export async function GET(request: Request) {
       { name: { contains: search, mode: 'insensitive' } },
       { slug: { contains: search, mode: 'insensitive' } },
       { nameEn: { contains: search, mode: 'insensitive' } },
+      { sku: { contains: search, mode: 'insensitive' } },
     ]
   }
 
@@ -140,6 +143,7 @@ const createProductSchema = z.object({
   previewFrom: z.string().datetime().optional(),
   maxOrders: z.number().int().min(0).optional(),
   sortOrder: z.number().int().optional().nullable(),
+  sku: z.string().max(50).optional().nullable(),
 })
 
 /**
@@ -164,6 +168,11 @@ export async function POST(request: Request) {
 
   const d = parsed.data
   const slug = await uniqueProductSlug(d.slug || d.name)
+
+  const normalizedSku = d.sku != null ? normalizeProductSku(d.sku) : null
+  if (normalizedSku && !isValidProductSku(normalizedSku)) {
+    return NextResponse.json({ error: skuZodMessage() }, { status: 400 })
+  }
 
   const images = sanitizeProductImageFields({
     image: d.image,
@@ -206,47 +215,62 @@ export async function POST(request: Request) {
         ? (ingested.colorImages as Prisma.InputJsonValue)
         : undefined
 
-  const product = await prisma.product.create({
-    data: {
-      slug,
-      name: d.name,
-      nameEn: d.nameEn ?? null,
-      nameDe: d.nameDe ?? null,
-      nameRo: d.nameRo ?? null,
-      description_hu: d.description_hu ?? '',
-      description_en: d.description_en ?? '',
-      description_de: d.description_de ?? '',
-      description_ro: d.description_ro ?? '',
-      aiKnowledgeBase: d.aiKnowledgeBase?.trim() ? d.aiKnowledgeBase.trim() : null,
-      condition: d.condition ?? 'Új',
-      category: d.category,
-      image: ingested.image ?? images.image,
-      images: ingested.images ?? images.images,
-      images360: ingested.images360 ?? images.images360,
-      colorImages,
-      modelUrl: d.modelUrl ?? null,
-      priceHuf: d.priceHuf,
-      priceEur: d.priceEur,
-      discountPriceHuf: d.discountPriceHuf ?? null,
-      discountPriceEur: d.discountPriceEur ?? null,
-      stock: d.stock === undefined ? -1 : d.stock,
-      variants: d.variants === null ? Prisma.JsonNull : (d.variants ?? undefined),
-      isNew: d.isNew ?? false,
-      onSale: d.onSale ?? false,
-      saleStartAt: d.saleStartAt ? new Date(d.saleStartAt) : null,
-      saleEndAt: d.saleEndAt ? new Date(d.saleEndAt) : null,
-      active: d.active ?? true,
-      archived: d.archived ?? false,
-      isColorable: d.isColorable ?? false,
-      type: d.type ?? 'stock',
-      sourcingEnabled: d.sourcingEnabled ?? false,
-      dealStartAt: d.dealStartAt ? new Date(d.dealStartAt) : null,
-      dealEndAt: d.dealEndAt ? new Date(d.dealEndAt) : null,
-      previewFrom: d.previewFrom ? new Date(d.previewFrom) : null,
-      maxOrders: d.maxOrders ?? null,
-      sortOrder: d.sortOrder ?? null,
-    },
-  })
+  const autoSku = !normalizedSku
+  let sku = normalizedSku ?? (await allocateNextProductSku())
+
+  const createData = {
+    slug,
+    name: d.name,
+    nameEn: d.nameEn ?? null,
+    nameDe: d.nameDe ?? null,
+    nameRo: d.nameRo ?? null,
+    description_hu: d.description_hu ?? '',
+    description_en: d.description_en ?? '',
+    description_de: d.description_de ?? '',
+    description_ro: d.description_ro ?? '',
+    aiKnowledgeBase: d.aiKnowledgeBase?.trim() ? d.aiKnowledgeBase.trim() : null,
+    condition: d.condition ?? 'Új',
+    category: d.category,
+    image: ingested.image ?? images.image,
+    images: ingested.images ?? images.images,
+    images360: ingested.images360 ?? images.images360,
+    colorImages,
+    modelUrl: d.modelUrl ?? null,
+    priceHuf: d.priceHuf,
+    priceEur: d.priceEur,
+    discountPriceHuf: d.discountPriceHuf ?? null,
+    discountPriceEur: d.discountPriceEur ?? null,
+    stock: d.stock === undefined ? -1 : d.stock,
+    variants: d.variants === null ? Prisma.JsonNull : (d.variants ?? undefined),
+    isNew: d.isNew ?? false,
+    onSale: d.onSale ?? false,
+    saleStartAt: d.saleStartAt ? new Date(d.saleStartAt) : null,
+    saleEndAt: d.saleEndAt ? new Date(d.saleEndAt) : null,
+    active: d.active ?? true,
+    archived: d.archived ?? false,
+    isColorable: d.isColorable ?? false,
+    type: d.type ?? 'stock',
+    sourcingEnabled: d.sourcingEnabled ?? false,
+    dealStartAt: d.dealStartAt ? new Date(d.dealStartAt) : null,
+    dealEndAt: d.dealEndAt ? new Date(d.dealEndAt) : null,
+    previewFrom: d.previewFrom ? new Date(d.previewFrom) : null,
+    maxOrders: d.maxOrders ?? null,
+    sortOrder: d.sortOrder ?? null,
+  }
+
+  let product
+  try {
+    product = await prisma.product.create({ data: { ...createData, sku } })
+  } catch (err) {
+    if (isSkuUniqueConstraintError(err) && autoSku) {
+      sku = await allocateNextProductSku()
+      product = await prisma.product.create({ data: { ...createData, sku } })
+    } else if (isSkuUniqueConstraintError(err)) {
+      return NextResponse.json({ error: 'Ez a SKU / termékkód már foglalt.' }, { status: 409 })
+    } else {
+      throw err
+    }
+  }
 
   revalidateShopProducts(product.slug)
   await logAdminAction({
@@ -257,6 +281,7 @@ export async function POST(request: Request) {
       id: product.id,
       slug: product.slug,
       name: product.name,
+      sku: product.sku,
       ingestedImages: ingested.ingestedCount,
     },
   })

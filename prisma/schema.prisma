@@ -17,6 +17,8 @@ datasource db {
 model Product {
   id               String   @id @default(cuid())
   slug             String   @unique
+  /// Belső termékkód / SKU (pl. GUL-0000001454). Adminban szerkeszthető, a webshop frontenden rejtett.
+  sku              String?  @unique @db.VarChar(50)
   name             String
   nameEn           String?
   nameDe           String?
@@ -279,9 +281,14 @@ model OrderItem {
   fulfillmentType String
   priceHuf        Int
   name            String?
+  /// Fizetéskori SKU pillanatkép (a termék sku mezőjéből).
+  sku             String?  @db.VarChar(50)
+  /// Egyedi gyártási paraméterek (szín, anyag, stb.) a 3D farm / AI számára.
+  parameters      Json?
 
   @@index([productId])
   @@index([orderId])
+  @@index([sku])
 }
 
 model PaymentTransaction {

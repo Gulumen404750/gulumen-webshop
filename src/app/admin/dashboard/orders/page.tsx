@@ -35,6 +35,7 @@ export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
+  const [exportingProduction, setExportingProduction] = useState(false)
   const [statusFilter, setStatusFilter] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkPrinting, setBulkPrinting] = useState(false)
@@ -103,6 +104,31 @@ export default function AdminOrdersPage() {
     }
   }
 
+  const handleExportProduction = async () => {
+    setExportingProduction(true)
+    try {
+      const params = new URLSearchParams({ format: 'production' })
+      if (statusFilter) params.set('status', statusFilter)
+      const res = await fetch(`/api/admin/orders/export?${params}`)
+      if (!res.ok) throw new Error('Export sikertelen')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const disposition = res.headers.get('Content-Disposition')
+      const match = disposition?.match(/filename="([^"]+)"/)
+      a.download = match?.[1] ?? `gyartas-${new Date().toISOString().slice(0, 10)}.json`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      alert('Gyártási JSON export sikertelen.')
+    } finally {
+      setExportingProduction(false)
+    }
+  }
+
   const handleBulkPrint = async () => {
     if (selectedOrders.length === 0) return
     setBulkPrinting(true)
@@ -161,6 +187,14 @@ export default function AdminOrdersPage() {
           className="rounded-lg border border-[var(--border)] bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-[var(--border)]/30 disabled:opacity-60"
         >
           {exporting ? 'Exportálás…' : 'Export CSV'}
+        </button>
+        <button
+          type="button"
+          onClick={handleExportProduction}
+          disabled={exportingProduction}
+          className="rounded-lg border border-[var(--border)] bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-[var(--border)]/30 disabled:opacity-60"
+        >
+          {exportingProduction ? 'Exportálás…' : 'Gyártási JSON'}
         </button>
         <button
           type="button"

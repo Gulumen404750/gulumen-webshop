@@ -183,14 +183,35 @@ export default async function AdminOrderDetailPage({ params }: Props) {
       <div className="print:hidden">
         <h2 className="text-lg font-semibold mb-2">Tételek</h2>
         <ul className="space-y-1">
-          {order.items.map((i) => (
-            <li key={i.id} className="flex gap-4">
-              <span>{i.name ?? i.productId}</span>
-              <span>{i.qty} db</span>
-              <span>{i.priceHuf.toLocaleString('hu-HU')} Ft</span>
-            </li>
-          ))}
+          {order.items.map((i) => {
+            const params = i.parameters as
+              | { colorName?: string; colorHex?: string; materialName?: string }
+              | null
+              | undefined
+            const paramParts = [
+              params?.colorName,
+              params?.colorHex,
+              params?.materialName,
+            ].filter(Boolean)
+            return (
+              <li key={i.id} className="flex flex-wrap gap-4">
+                <span>{i.name ?? i.productId}</span>
+                <span className="font-mono text-sm text-muted">{i.sku || 'nincs SKU'}</span>
+                <span>{i.qty} db</span>
+                <span>{i.priceHuf.toLocaleString('hu-HU')} Ft</span>
+                {paramParts.length > 0 && (
+                  <span className="text-sm text-muted">{paramParts.join(' · ')}</span>
+                )}
+              </li>
+            )
+          })}
         </ul>
+        <a
+          href={`/api/admin/orders/${order.id}/production`}
+          className="inline-block mt-3 text-sm text-accent hover:underline print:hidden"
+        >
+          Gyártási JSON (SKU, darabszám, paraméterek)
+        </a>
       </div>
 
       <div className="space-y-2">
