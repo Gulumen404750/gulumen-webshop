@@ -117,7 +117,7 @@ export async function GET(request: Request) {
     details: { filename, status: status || null, orderCount: orders.length },
   })
 
-  return new NextResponse(encodeCsvUtf8Bom(csv), {
+  return new NextResponse(Buffer.from(encodeCsvUtf8Bom(csv)), {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
       'Content-Disposition': `attachment; filename="${filename}"`,
