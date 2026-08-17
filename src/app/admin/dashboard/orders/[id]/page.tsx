@@ -5,6 +5,7 @@ import { prisma, isDbConfigured } from '@/lib/prisma'
 import { AdminOrderDetailActions } from './AdminOrderDetailActions'
 import { AdminOrderLabelPrint } from './AdminOrderLabelPrint'
 import { AdminOrderCustomerEditForm } from './AdminOrderCustomerEditForm'
+import { AdminOrderProductionJson } from './AdminOrderProductionJson'
 import { AdminOrderStatusBadge } from '@/components/admin/AdminOrderStatusBadge'
 import {
   adminOrderKindClasses,
@@ -12,6 +13,7 @@ import {
   hasShippingAddressChanged,
 } from '@/lib/admin-order-badges'
 import { formatAddressTypeLabel } from '@/lib/checkout-customer'
+import { buildProductionJobPayload, orderItemSpecForAdmin } from '@/lib/production-payload'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,6 +41,14 @@ export default async function AdminOrderDetailPage({ params }: Props) {
     include: { items: true },
   })
   if (!order) notFound()
+
+  const production = buildProductionJobPayload({
+    orderId: order.id,
+    orderGroupId: order.orderGroupId,
+    status: order.status,
+    paidAt: order.paidAt?.toISOString() ?? null,
+    items: order.items,
+  })
 
   const kind = getAdminOrderVisualKind(order.status, order.printedAt)
   const kindClasses = adminOrderKindClasses(kind)
@@ -181,36 +191,56 @@ export default async function AdminOrderDetailPage({ params }: Props) {
       </div>
 
       <div className="print:hidden">
-        <h2 className="text-lg font-semibold mb-2">Tételek</h2>
-        <ul className="space-y-1">
-          {order.items.map((i) => {
-            const params = i.parameters as
-              | { colorName?: string; colorHex?: string; materialName?: string }
-              | null
-              | undefined
-            const paramParts = [
-              params?.colorName,
-              params?.colorHex,
-              params?.materialName,
-            ].filter(Boolean)
-            return (
-              <li key={i.id} className="flex flex-wrap gap-4">
-                <span>{i.name ?? i.productId}</span>
-                <span className="font-mono text-sm text-muted">{i.sku || 'nincs SKU'}</span>
-                <span>{i.qty} db</span>
-                <span>{i.priceHuf.toLocaleString('hu-HU')} Ft</span>
-                {paramParts.length > 0 && (
-                  <span className="text-sm text-muted">{paramParts.join(' · ')}</span>
-                )}
-              </li>
-            )
-          })}
-        </ul>
+        <h2 className="text-lg font-semibold mb-2">Tételek (gyártási adatok)</h2>
+        <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[var(--border)] bg-[var(--border)]/30 text-left">
+                <th className="p-3 font-medium">Termék neve</th>
+                <th className="p-3 font-medium">SKU</th>
+                <th className="p-3 font-medium">Anyag</th>
+                <th className="p-3 font-medium">Szín</th>
+                <th className="p-3 font-medium text-right">Darabszám</th>
+              </tr>
+            </thead>
+            <tbody>
+              {order.items.map((item) => {
+                const spec = orderItemSpecForAdmin(item)
+                return (
+                  <tr key={item.id} className="border-b border-[var(--border)] last:border-0">
+                    <td className="p-3 font-medium">{spec.nev || item.productId}</td>
+                    <td className="p-3 font-mono text-xs">{spec.sku || 'nincs SKU'}</td>
+                    <td className="p-3">{spec.anyag || '—'}</td>
+                    <td className="p-3">{spec.szin || '—'}</td>
+                    <td className="p-3 text-right tabular-nums">{spec.darabszam}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <h2 className="text-lg font-semibold mt-6 mb-2">Gyártási recept (JSON / AI)</h2>
+        <p className="text-xs text-muted mb-2">
+          Strukturált adat a Bambu Lab P1S farm és az automatika számára. A vásárlói webshopon nem
+          jelenik meg.
+        </p>
+        <AdminOrderProductionJson
+          json={
+            production.receptek.length === 1
+              ? production.receptek[0]
+              : {
+                  rendeles_azonosito: production.rendeles_azonosito,
+                  termekek: production.termekek,
+                }
+          }
+          filename={`gyartas-${order.id}.json`}
+        />
         <a
           href={`/api/admin/orders/${order.id}/production`}
           className="inline-block mt-3 text-sm text-accent hover:underline print:hidden"
         >
-          Gyártási JSON (SKU, darabszám, paraméterek)
+          Gyártási JSON API
         </a>
       </div>
 

@@ -15,6 +15,7 @@ import { alertBulkDeleteIfAnomalousSafe } from '@/lib/admin-anomaly-alert'
 import { z } from 'zod'
 import { isValidProductSku, normalizeProductSku, skuZodMessage } from '@/lib/product-sku'
 import { isSkuUniqueConstraintError } from '@/lib/product-sku-db'
+import { resolveProductMaterials } from '@/lib/filamentMaterials'
 
 async function uniqueProductSlug(base: string, excludeId: string): Promise<string> {
   const root = slugifyProduct(base)
@@ -89,6 +90,7 @@ const updateProductSchema = z.object({
   maxOrders: z.number().int().min(0).optional().nullable(),
   sortOrder: z.number().int().optional().nullable(),
   sku: z.string().max(50).optional().nullable(),
+  materials: z.array(z.string()).optional(),
 })
 
 export async function GET(
@@ -150,7 +152,7 @@ export async function PATCH(
 
   const existing = await prisma.product.findUnique({
     where: { id },
-    select: { slug: true },
+    select: { slug: true, category: true },
   })
   if (!existing) {
     await logAdminAction({
@@ -242,6 +244,11 @@ export async function PATCH(
       ...(d.maxOrders !== undefined && { maxOrders: d.maxOrders }),
       ...(d.sortOrder !== undefined && { sortOrder: d.sortOrder }),
       ...(nextSku !== undefined && { sku: nextSku }),
+      ...(d.materials !== undefined && {
+        materials: resolveProductMaterials(d.materials, {
+          requireAtLeastOne: (d.category ?? existing.category).startsWith('3d-'),
+        }),
+      }),
     },
   })
   } catch (err) {

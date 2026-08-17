@@ -37,6 +37,7 @@ function dbProductToProduct(row: {
   discountPriceEur: number | null
   stock: number
   variants: unknown
+  materials?: string[]
   isNew: boolean
   onSale: boolean
   active: boolean
@@ -105,6 +106,9 @@ function dbProductToProduct(row: {
     maxOrders: row.maxOrders ?? undefined,
     likesCount: row.likesCount,
     isColorable: row.isColorable,
+    materials: Array.isArray(row.materials)
+      ? row.materials.filter((m): m is string => typeof m === 'string' && m.trim().length > 0)
+      : undefined,
   }
 }
 

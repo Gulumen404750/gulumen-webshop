@@ -291,6 +291,11 @@ export default function CartPage() {
                         <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>
                       </p>
                     )}
+                    {item.options?.materialName && (
+                      <p className="text-foreground text-sm mt-0.5">
+                        <span>{t('product.material') || 'Anyag'}: {item.options.materialName}</span>
+                      </p>
+                    )}
                     <p className="text-foreground text-sm font-medium mt-1">{t('cart.availableUpTo', { count: maxAllowedInCart })}</p>
                   </div>
                   <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
@@ -355,6 +360,11 @@ export default function CartPage() {
                         <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>
                       </p>
                     )}
+                    {item.options?.materialName && (
+                      <p className="text-foreground text-sm mt-0.5">
+                        <span>{t('product.material') || 'Anyag'}: {item.options.materialName}</span>
+                      </p>
+                    )}
                     <p className="text-foreground text-sm font-medium mt-1">{t('cart.availableUpTo', { count: maxAllowedInCart })}</p>
                   </div>
                   <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
@@ -416,6 +426,11 @@ export default function CartPage() {
                     {item.options?.colorName && (
                       <p className="text-foreground text-sm mt-0.5">
                         <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>
+                      </p>
+                    )}
+                    {item.options?.materialName && (
+                      <p className="text-foreground text-sm mt-0.5">
+                        <span>{t('product.material') || 'Anyag'}: {item.options.materialName}</span>
                       </p>
                     )}
                     <p className="text-foreground text-sm font-medium mt-1">{t('cart.availableUpTo', { count: maxAllowedInCart })}</p>
@@ -603,6 +618,11 @@ function CartLineRow({
         {item.options?.colorName && (
           <p className="text-foreground text-sm mt-0.5">
             <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>
+          </p>
+        )}
+        {item.options?.materialName && (
+          <p className="text-foreground text-sm mt-0.5">
+            <span>{t('product.material') || 'Anyag'}: {item.options.materialName}</span>
           </p>
         )}
         <p className="text-foreground text-sm font-medium mt-1">{t('cart.availableUpTo', { count: maxAllowedInCart })}</p>

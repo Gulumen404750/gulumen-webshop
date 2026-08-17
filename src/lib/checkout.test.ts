@@ -192,19 +192,39 @@ describe('resolveCartLines', () => {
 
   it('passes cart color/material options through as production parameters', () => {
     const map = new Map<string, Product>([
-      ['p1', product({ id: 'p1', priceHuf: 2000 })],
+      ['p1', product({ id: 'p1', priceHuf: 2000, materials: ['PLA', 'PETG'] })],
     ])
     const lines = resolveCartLines(
-      [{ productId: 'p1', qty: 2, options: { colorName: 'Kék', colorHex: '#0000ff' } }],
+      [{ productId: 'p1', qty: 2, options: { colorName: 'Kék', colorHex: '#0000ff', materialName: 'PETG' } }],
       map
     )
     expect(lines[0]).toEqual(
       expect.objectContaining({
         productId: 'p1',
         qty: 2,
-        parameters: { colorName: 'Kék', colorHex: '#0000ff' },
+        parameters: { colorName: 'Kék', colorHex: '#0000ff', materialName: 'PETG' },
       })
     )
+  })
+
+  it('fills default PLA and base color when cart options are missing', () => {
+    const map = new Map<string, Product>([
+      [
+        'p1',
+        product({
+          id: 'p1',
+          priceHuf: 2000,
+          materials: ['PLA'],
+          colorImages: [{ id: 'pink', name: 'Rózsaszín', hex: '#ff69b4', images: ['/a.jpg'], isBase: true }],
+        }),
+      ],
+    ])
+    const lines = resolveCartLines([{ productId: 'p1', qty: 2 }], map)
+    expect(lines[0]?.parameters).toEqual({
+      colorName: 'Rózsaszín',
+      colorHex: '#ff69b4',
+      materialName: 'PLA',
+    })
   })
 })
 

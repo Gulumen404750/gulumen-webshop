@@ -19,6 +19,8 @@ model Product {
   slug             String   @unique
   /// Belső termékkód / SKU (pl. GUL-0000001454). Adminban szerkeszthető, a webshop frontenden rejtett.
   sku              String?  @unique @db.VarChar(50)
+  /// Elérhető nyomtatóanyagok a dropdownból: PLA, PETG, TPU (bővíthető).
+  materials        String[] @default([])
   name             String
   nameEn           String?
   nameDe           String?

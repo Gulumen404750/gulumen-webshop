@@ -33,6 +33,7 @@ export const FILAMENT_COLORS: FilamentColor[] = [
   { id: 'white', name: 'Fehér', nameEn: 'White', nameDe: 'Weiß', nameRo: 'Alb', hex: '#FFFFFF' },
   { id: 'black', name: 'Fekete', nameEn: 'Black', nameDe: 'Schwarz', nameRo: 'Negru', hex: '#1a1a1a' },
   { id: 'red', name: 'Piros', nameEn: 'Red', nameDe: 'Rot', nameRo: 'Roșu', hex: '#c41e3a' },
+  { id: 'pink', name: 'Rózsaszín', nameEn: 'Pink', nameDe: 'Rosa', nameRo: 'Roz', hex: '#ff69b4' },
   { id: 'blue', name: 'Kék', nameEn: 'Blue', nameDe: 'Blau', nameRo: 'Albastru', hex: '#2563eb' },
   { id: 'green', name: 'Zöld', nameEn: 'Green', nameDe: 'Grün', nameRo: 'Verde', hex: '#16a34a' },
   { id: 'grey', name: 'Szürke', nameEn: 'Grey', nameDe: 'Grau', nameRo: 'Gri', hex: '#6b7280' },

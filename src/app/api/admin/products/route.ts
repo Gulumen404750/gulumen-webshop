@@ -14,6 +14,7 @@ import { logAdminAction } from '@/lib/admin-audit'
 import { z } from 'zod'
 import { isValidProductSku, normalizeProductSku, skuZodMessage } from '@/lib/product-sku'
 import { allocateNextProductSku, isSkuUniqueConstraintError } from '@/lib/product-sku-db'
+import { resolveProductMaterials } from '@/lib/filamentMaterials'
 
 async function uniqueProductSlug(base: string): Promise<string> {
   const root = slugifyProduct(base)
@@ -144,6 +145,7 @@ const createProductSchema = z.object({
   maxOrders: z.number().int().min(0).optional(),
   sortOrder: z.number().int().optional().nullable(),
   sku: z.string().max(50).optional().nullable(),
+  materials: z.array(z.string()).optional(),
 })
 
 /**
@@ -256,6 +258,9 @@ export async function POST(request: Request) {
     previewFrom: d.previewFrom ? new Date(d.previewFrom) : null,
     maxOrders: d.maxOrders ?? null,
     sortOrder: d.sortOrder ?? null,
+    materials: resolveProductMaterials(d.materials, {
+      requireAtLeastOne: (d.category || '').startsWith('3d-'),
+    }),
   }
 
   let product

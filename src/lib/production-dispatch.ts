@@ -2,6 +2,8 @@ import { logger } from '@/lib/logger'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import {
   buildProductionJobPayload,
+  parseOrderItemParameters,
+  withGyartasiRecept,
   type ProductionJobPayload,
 } from '@/lib/production-payload'
 
@@ -47,32 +49,49 @@ export async function dispatchProductionJobForPaidOrder(
   if (!order) return null
 
   const skuByProductId = await snapshotOrderItemSkusFromProducts(order.items)
-  const updates = order.items.filter((item) => !item.sku && skuByProductId.get(item.productId))
-  if (updates.length > 0) {
+  const itemUpdates = order.items.map((item) => {
+    const sku = item.sku || skuByProductId.get(item.productId) || null
+    const parsed = parseOrderItemParameters(item.parameters)
+    const withRecept = withGyartasiRecept(order.id, {
+      name: item.name,
+      sku,
+      qty: item.qty,
+      parameters: parsed,
+    })
+    const needsSku = !item.sku && !!sku
+    const needsRecept = !parsed?.recept && !!withRecept.parameters?.recept
+    return {
+      id: item.id,
+      sku,
+      productId: item.productId,
+      name: item.name,
+      qty: item.qty,
+      parameters: withRecept.parameters ?? parsed,
+      persist: needsSku || needsRecept,
+    }
+  })
+
+  const persist = itemUpdates.filter((item) => item.persist)
+  if (persist.length > 0) {
     await prisma.$transaction(
-      updates.map((item) =>
+      persist.map((item) =>
         prisma.orderItem.update({
           where: { id: item.id },
-          data: { sku: skuByProductId.get(item.productId) ?? null },
+          data: {
+            sku: item.sku,
+            parameters: item.parameters ?? undefined,
+          },
         })
       )
     )
   }
-
-  const items = order.items.map((item) => ({
-    sku: item.sku || skuByProductId.get(item.productId) || null,
-    productId: item.productId,
-    name: item.name,
-    qty: item.qty,
-    parameters: item.parameters,
-  }))
 
   const payload = buildProductionJobPayload({
     orderId: order.id,
     orderGroupId: order.orderGroupId,
     status: order.status,
     paidAt: order.paidAt?.toISOString() ?? null,
-    items,
+    items: itemUpdates,
   })
 
   logger.info(
@@ -98,7 +117,12 @@ async function postProductionWebhook(payload: ProductionJobPayload): Promise<voi
     const res = await fetch(url, {
       method: 'POST',
       headers,
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        rendeles_azonosito: payload.rendeles_azonosito,
+        termekek: payload.termekek,
+        receptek: payload.receptek,
+        ...(payload.receptek.length === 1 ? { termek: payload.receptek[0]?.termek } : {}),
+      }),
       signal: controller.signal,
     })
     if (!res.ok) {
