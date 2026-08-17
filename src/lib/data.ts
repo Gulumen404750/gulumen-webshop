@@ -68,6 +68,11 @@ export interface Product {
   likesCount?: number
   /** 3D termék színezhető (filament színválasztó megjelenik, kosárba megy a kiválasztott szín). */
   isColorable?: boolean
+  /**
+   * Elérhető nyomtatóanyagok (PLA, PETG, TPU). Üres = nincs anyagválasztó.
+   * A belső SKU ide nem kerül – az csak admin / gyártási JSON.
+   */
+  materials?: string[]
 }
 
 /** Mock mód: egyetlen időpont a sourcing deal saleFrom/saleTo generáláshoz; node folyamat életében stabil (első hívásnál rögzítve). */

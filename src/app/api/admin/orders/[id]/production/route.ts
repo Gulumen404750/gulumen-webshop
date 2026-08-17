@@ -36,7 +36,13 @@ export async function GET(
     paidAt: order.paidAt ?? null,
     items: order.items,
   })
-  return NextResponse.json({ production: payload })
+  return NextResponse.json({
+    production: payload,
+    ...(payload.receptek.length === 1 ? { termek: payload.receptek[0]?.termek } : {}),
+    rendeles_azonosito: payload.rendeles_azonosito,
+    termekek: payload.termekek,
+    receptek: payload.receptek,
+  })
 }
 
 /**
@@ -62,5 +68,12 @@ export async function POST(
   if (!payload) {
     return NextResponse.json({ error: 'Order not found' }, { status: 404 })
   }
-  return NextResponse.json({ ok: true, production: payload })
+  return NextResponse.json({
+    ok: true,
+    production: payload,
+    ...(payload.receptek.length === 1 ? { termek: payload.receptek[0]?.termek } : {}),
+    rendeles_azonosito: payload.rendeles_azonosito,
+    termekek: payload.termekek,
+    receptek: payload.receptek,
+  })
 }

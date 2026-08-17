@@ -8,7 +8,7 @@ import { prisma, isDbConfigured } from '@/lib/prisma'
 import { decrementStockAtomic, OutOfStockException } from '@/lib/inventory'
 import type { OrderCustomerSnapshot } from '@/lib/checkout-customer'
 import type { OrderItemParameters } from '@/lib/production-payload'
-import { parseOrderItemParameters } from '@/lib/production-payload'
+import { parseOrderItemParameters, withGyartasiRecept } from '@/lib/production-payload'
 import { snapshotOrderItemSkusFromProducts } from '@/lib/production-dispatch'
 
 export { OutOfStockException }
@@ -352,6 +352,10 @@ function customerSnapshotFields(customer?: OrderCustomerSnapshot) {
   }
 }
 
+function attachReceptek(orderId: string, items: OrderItem[]): OrderItem[] {
+  return items.map((item) => withGyartasiRecept(orderId, item))
+}
+
 async function withProductSkuSnapshots(items: OrderItem[]): Promise<OrderItem[]> {
   const skuByProductId = await snapshotOrderItemSkusFromProducts(items)
   return items.map((item) => ({
@@ -382,7 +386,7 @@ export async function createOrder(params: {
 }): Promise<Order> {
   if (isDbConfigured()) {
     const id = generateOrderId()
-    const items = await withProductSkuSnapshots(params.items)
+    const items = attachReceptek(id, await withProductSkuSnapshots(params.items))
     await prisma.order.create({
       data: {
         id,
@@ -409,10 +413,11 @@ export async function createOrder(params: {
     }
   }
   const orders = loadOrders()
+  const id = generateOrderId()
   const order: Order = {
-    id: generateOrderId(),
+    id,
     status: 'pending',
-    items: params.items,
+    items: attachReceptek(id, params.items),
     subtotalHuf: params.subtotalHuf,
     discountHuf: params.discountHuf,
     totalHuf: params.totalHuf,
@@ -680,12 +685,15 @@ export async function createCheckoutOrders(params: {
     // Atomi tranzakció: in_stock stock decrement + rendelés létrehozás (oversell védelem).
     await prisma.$transaction(async (tx) => {
       if (params.inStock && params.inStock.items.length > 0) {
-        const inStockItems = await withProductSkuSnapshots(params.inStock.items)
+        const id = generateOrderId()
+        const inStockItems = attachReceptek(
+          id,
+          await withProductSkuSnapshots(params.inStock.items)
+        )
         await decrementStockAtomic(
           inStockItems.map((i) => ({ productId: i.productId, qty: i.qty })),
           tx
         )
-        const id = generateOrderId()
         const shippingEditToken = generateShippingEditToken()
         await tx.order.create({
           data: {
@@ -743,8 +751,11 @@ export async function createCheckoutOrders(params: {
         })
       }
       if (params.sourcing && params.sourcing.items.length > 0) {
-        const sourcingItems = await withProductSkuSnapshots(params.sourcing.items)
         const id = generateOrderId()
+        const sourcingItems = attachReceptek(
+          id,
+          await withProductSkuSnapshots(params.sourcing.items)
+        )
         const shippingEditToken = generateShippingEditToken()
         await tx.order.create({
           data: {
@@ -807,12 +818,14 @@ export async function createCheckoutOrders(params: {
 
   const orders = loadOrders()
   if (params.inStock && params.inStock.items.length > 0) {
+    const id = generateOrderId()
+    const items = attachReceptek(id, params.inStock.items)
     const o: Order = {
-      id: generateOrderId(),
+      id,
       status: 'payment_pending',
       orderGroupId: params.orderGroupId,
       orderType: 'in_stock',
-      items: params.inStock.items,
+      items: items,
       subtotalHuf: params.inStock.subtotalHuf,
       discountHuf: params.inStock.discountHuf,
       totalHuf: params.inStock.totalHuf,
@@ -839,12 +852,14 @@ export async function createCheckoutOrders(params: {
     result.push(o)
   }
   if (params.sourcing && params.sourcing.items.length > 0) {
+    const id = generateOrderId()
+    const items = attachReceptek(id, params.sourcing.items)
     const o: Order = {
-      id: generateOrderId(),
+      id,
       status: 'payment_pending',
       orderGroupId: params.orderGroupId,
       orderType: 'sourcing',
-      items: params.sourcing.items,
+      items,
       subtotalHuf: params.sourcing.subtotalHuf,
       discountHuf: params.sourcing.discountHuf,
       totalHuf: params.sourcing.totalHuf,

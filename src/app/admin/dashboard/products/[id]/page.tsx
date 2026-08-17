@@ -5,12 +5,14 @@ import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { categories, threeDSubcategories } from '@/lib/data'
 import { ProductColorImagesEditor } from '@/components/ProductColorImagesEditor'
+import { ProductMaterialsEditor } from '@/components/ProductMaterialsEditor'
 import {
   getBaseColorVariant,
   normalizeColorVariants,
   serializeColorVariants,
   type ColorVariant,
 } from '@/lib/filamentColors'
+import { normalizeMaterials } from '@/lib/filamentMaterials'
 import { buildProductGallery, normalizeImageUrls, normalizeImageUrl } from '@/lib/product-images'
 import { cleanCdnUrl, cleanCdnUrls } from '@/lib/cdn'
 import { UNLIMITED_STOCK_VALUE } from '@/lib/data'
@@ -57,6 +59,7 @@ type Product = {
   maxOrders: number | null
   sortOrder: number | null
   sku: string | null
+  materials: string[]
 }
 
 export default function AdminProductEditPage() {
@@ -65,7 +68,7 @@ export default function AdminProductEditPage() {
   const id = params?.id as string
   const isNew = id === 'new'
   const [product, setProduct] = useState<Partial<Product> | null>(
-    isNew ? { category: '3d-konyha', slug: '', stock: null, colorImages: [], sku: '' } : null
+    isNew ? { category: '3d-konyha', slug: '', stock: null, colorImages: [], sku: '', materials: ['PLA'] } : null
   )
   /** Készlet mező szöveges értéke (üres = végtelen). */
   const [stockInput, setStockInput] = useState('')
@@ -193,6 +196,7 @@ export default function AdminProductEditPage() {
             maxOrders: product.maxOrders ?? undefined,
             sortOrder: product.sortOrder ?? undefined,
             sku: product.sku?.trim() || undefined,
+            materials: normalizeMaterials(product.materials),
           }
         : {
             ...(product.name && { name: product.name }),
@@ -230,6 +234,7 @@ export default function AdminProductEditPage() {
             maxOrders: product.maxOrders ?? undefined,
             sortOrder: product.sortOrder ?? undefined,
             sku: product.sku?.trim() || null,
+            materials: normalizeMaterials(product.materials),
           }
       const res = await fetch(url, {
         method,
@@ -366,6 +371,12 @@ export default function AdminProductEditPage() {
             Új terméknél üresen hagyva automatikusan létrejön (pl. GUL-0000001454).
           </p>
         </div>
+
+        <ProductMaterialsEditor
+          value={product?.materials}
+          required={(product?.category ?? '').startsWith('3d-')}
+          onChange={(materials) => setProduct((p) => ({ ...p, materials }))}
+        />
 
         <div>
           <label className="block text-sm font-medium mb-1">Név (HU) *</label>

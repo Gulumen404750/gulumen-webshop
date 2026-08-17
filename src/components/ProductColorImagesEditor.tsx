@@ -9,7 +9,6 @@ import {
   normalizeHexColor,
   serializeColorVariants,
   setBaseColorVariant,
-  slugifyColorId,
   type ColorVariant,
 } from '@/lib/filamentColors'
 import { CdnImageManager } from '@/components/CdnImageManager'
@@ -56,8 +55,7 @@ export function ProductColorImagesEditor({ value, productImages, onChange }: Pro
   const [target, setTarget] = useState<ImageUploadTarget>(() =>
     hasColorVariants ? (getBaseColorVariant(variants)?.id ?? variants[0]?.id ?? 'none') : 'none'
   )
-  const [newColorName, setNewColorName] = useState('')
-  const [newColorHex, setNewColorHex] = useState('#888888')
+  const [newColorId, setNewColorId] = useState('')
 
   useEffect(() => {
     if (target === 'none') return
@@ -98,25 +96,10 @@ export function ProductColorImagesEditor({ value, productImages, onChange }: Pro
   const activeVariant =
     target !== 'none' ? variants.find((v) => v.id === target) ?? null : null
 
-  const addCustomVariant = () => {
-    const name = newColorName.trim() || `Szín ${variants.length + 1}`
-    const hex = normalizeHexColor(newColorHex)
-    const id = ensureUniqueId(slugifyColorId(name, hex), variants)
-    const migrateImages =
-      variants.length === 0 && productImages.length > 0 ? cleanCdnUrls(productImages) : []
-    const next: ColorVariant[] = [
-      ...variants,
-      {
-        id,
-        name,
-        hex,
-        images: migrateImages,
-        isBase: variants.length === 0,
-      },
-    ]
-    commitVariants(next)
-    setTarget(id)
-    setNewColorName('')
+  const addPaletteVariant = () => {
+    if (!newColorId) return
+    addFilamentVariant(newColorId)
+    setNewColorId('')
   }
 
   const addFilamentVariant = (filamentId: string) => {
@@ -237,7 +220,7 @@ export function ProductColorImagesEditor({ value, productImages, onChange }: Pro
       </div>
 
       <div className="space-y-3 rounded-lg border border-dashed border-[var(--border)] p-3">
-        <p className="text-xs font-medium text-muted">Új szín hozzáadása</p>
+        <p className="text-xs font-medium text-muted">Új szín hozzáadása (paletta)</p>
         <div className="flex flex-wrap gap-1.5">
           <span className="text-xs text-muted self-center mr-1">Gyors:</span>
           {FILAMENT_COLORS.map((c) => {
@@ -256,32 +239,29 @@ export function ProductColorImagesEditor({ value, productImages, onChange }: Pro
             )
           })}
         </div>
-        <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto] items-end">
+        <div className="grid gap-2 sm:grid-cols-[1fr_auto] items-end">
           <div>
-            <label className="block text-xs font-medium text-muted mb-1">Egyedi szín neve</label>
-            <input
-              value={newColorName}
-              onChange={(e) => setNewColorName(e.target.value)}
-              placeholder="pl. Fehér, Fekete, Piros"
+            <label className="block text-xs font-medium text-muted mb-1">Szín a palettából *</label>
+            <select
+              value={newColorId}
+              onChange={(e) => {
+                setNewColorId(e.target.value)
+              }}
               className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-muted mb-1">HEX</label>
-            <div className="flex gap-2 items-center">
-              <input
-                type="color"
-                value={normalizeHexColor(newColorHex)}
-                onChange={(e) => setNewColorHex(normalizeHexColor(e.target.value))}
-                className="h-10 w-12 rounded border border-[var(--border)] bg-background cursor-pointer"
-                aria-label="Új szín HEX"
-              />
-            </div>
+            >
+              <option value="">Válassz színt…</option>
+              {FILAMENT_COLORS.filter((c) => !variants.some((v) => v.id === c.id)).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
           </div>
           <button
             type="button"
-            onClick={addCustomVariant}
-            className="rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-sm font-medium hover:bg-[var(--border)]/20"
+            onClick={addPaletteVariant}
+            disabled={!newColorId}
+            className="rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-sm font-medium hover:bg-[var(--border)]/20 disabled:opacity-50"
           >
             + Szín hozzáadása
           </button>
@@ -338,25 +318,43 @@ export function ProductColorImagesEditor({ value, productImages, onChange }: Pro
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="block text-xs font-medium text-muted mb-1">Szín neve</label>
-              <input
-                value={activeVariant.name}
+              <label className="block text-xs font-medium text-muted mb-1">Szín a palettából *</label>
+              <select
+                value={
+                  FILAMENT_COLORS.some((c) => c.id === activeVariant.id)
+                    ? activeVariant.id
+                    : FILAMENT_COLORS.find((c) => c.name === activeVariant.name)?.id || ''
+                }
                 onChange={(e) => {
-                  const name = e.target.value
-                  const nextId = ensureUniqueId(
-                    slugifyColorId(name || activeVariant.hex, activeVariant.hex),
-                    variants,
-                    variants.findIndex((v) => v.id === activeVariant.id)
-                  )
+                  const filament = FILAMENT_COLORS.find((c) => c.id === e.target.value)
+                  if (!filament) return
+                  if (variants.some((v) => v.id === filament.id && v.id !== activeVariant.id)) return
+                  const nextId = ensureUniqueId(filament.id, variants, variants.findIndex((v) => v.id === activeVariant.id))
                   updateActive({
-                    name,
-                    id: activeVariant.name ? activeVariant.id : nextId,
+                    id: nextId,
+                    name: filament.name,
+                    nameEn: filament.nameEn,
+                    nameDe: filament.nameDe,
+                    nameRo: filament.nameRo,
+                    hex: normalizeHexColor(filament.hex),
                   })
-                  if (!activeVariant.name) setTarget(nextId)
+                  setTarget(nextId)
                 }}
-                placeholder="pl. Fekete, Fehér, Piros"
                 className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground text-sm"
-              />
+              >
+                {!FILAMENT_COLORS.some((c) => c.id === activeVariant.id || c.name === activeVariant.name) && (
+                  <option value="">{activeVariant.name || 'Egyedi szín'}</option>
+                )}
+                {FILAMENT_COLORS.map((c) => (
+                  <option
+                    key={c.id}
+                    value={c.id}
+                    disabled={variants.some((v) => v.id === c.id && v.id !== activeVariant.id)}
+                  >
+                    {c.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-muted mb-1">HEX színkód</label>

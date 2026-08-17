@@ -573,6 +573,7 @@ function productPayload(p: SeedProduct): Prisma.ProductUncheckedCreateInput {
     isColorable: p.isColorable,
     active: p.active,
     archived: p.archived,
+    materials: p.category.startsWith('3d-') ? ['PLA'] : [],
   }
 }
 
@@ -626,6 +627,9 @@ function buildEmptyFieldPatch(
   }
   if (existing.variants == null && seed.variants != null) {
     patch.variants = seed.variants as Prisma.InputJsonValue
+  }
+  if (isEmptyArray(existing.materials) && Array.isArray(seed.materials) && seed.materials.length > 0) {
+    patch.materials = seed.materials
   }
   if (existing.discountPriceHuf == null && seed.discountPriceHuf != null) {
     patch.discountPriceHuf = seed.discountPriceHuf

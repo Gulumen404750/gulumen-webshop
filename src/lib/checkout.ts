@@ -12,6 +12,16 @@
 import type { Product } from '@/lib/data'
 import type { OrderItem } from '@/lib/orders'
 import { cartOptionsToParameters, type OrderItemParameters } from '@/lib/production-payload'
+import {
+  defaultMaterialForProduct,
+  isFilamentMaterial,
+  normalizeMaterials,
+} from '@/lib/filamentMaterials'
+import {
+  getAvailableColorVariants,
+  getBaseColorVariant,
+  getFilamentColorName,
+} from '@/lib/filamentColors'
 import { isSaleActive } from '@/lib/storefront-config'
 import {
   FREE_SHIPPING_THRESHOLD,
@@ -137,13 +147,39 @@ export function resolveCartLines(
       isSaleActive(product) && product.discountPriceHuf != null
         ? product.discountPriceHuf
         : product.priceHuf
+    const materials = normalizeMaterials(product.materials)
+    const requestedMaterial = options?.materialName?.trim().toUpperCase() || ''
+    let materialName: string | undefined
+    if (materials.length > 0) {
+      materialName = materials.includes(requestedMaterial as (typeof materials)[number])
+        ? requestedMaterial
+        : defaultMaterialForProduct(materials) ?? undefined
+    } else if (isFilamentMaterial(requestedMaterial)) {
+      materialName = requestedMaterial
+    } else if (requestedMaterial) {
+      materialName = requestedMaterial
+    }
+    let colorName = options?.colorName?.trim()
+    let colorHex = options?.colorHex?.trim()
+    if (!colorName && !colorHex) {
+      const colors = getAvailableColorVariants(product.colorImages, !!product.isColorable)
+      const base = getBaseColorVariant(colors) ?? colors[0] ?? null
+      if (base) {
+        colorName = getFilamentColorName(base, 'hu')
+        colorHex = base.hex
+      }
+    }
     lines.push({
       productId,
       qty,
       priceHuf,
       fulfillmentType: product.type === 'sourcing_deal' ? 'procurement' : 'stock',
       name: product.name,
-      parameters: cartOptionsToParameters(options),
+      parameters: cartOptionsToParameters({
+        colorName,
+        colorHex,
+        materialName,
+      }),
     })
   }
   return lines
