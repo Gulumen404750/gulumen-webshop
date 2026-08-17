@@ -18,7 +18,7 @@ const ALLOWED_TYPES = [
 ]
 
 const GUIDE_TEXT =
-  'Húzd ide a képet, vagy illeszd be a Bunny CDN linket. A rendszer automatikusan formázza a CDN elérést.'
+  'Húzd ide a képet, vagy illeszd be a Bunny CDN / külső https linket. Mentéskor a külső képeket a szerver letölti, WebP-re alakítja, és a saját CDN-re (gulumen.b-cdn.net) menti.'
 
 export type CdnImageManagerProps = {
   /** Egy kép (fő kép) – ha multiple=false. */

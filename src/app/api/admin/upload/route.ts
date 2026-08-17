@@ -6,21 +6,16 @@
  */
 import { NextResponse } from 'next/server'
 import { requireAdminPermission } from '@/lib/admin-auth'
-import { writeFile, mkdir } from 'fs/promises'
-import path from 'path'
-import sharp from 'sharp'
-import {
-  cleanCdnUrl,
-  getCdnBaseUrl,
-  isBunnyUploadConfigured,
-} from '@/lib/cdn'
 import { logAdminAction } from '@/lib/admin-audit'
+import {
+  MAX_IMAGE_INPUT_SIZE,
+  optimizeImageToWebp,
+  persistOptimizedWebp,
+} from '@/lib/image-optimize'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const UPLOAD_DIR = 'public/uploads'
-const MAX_INPUT_SIZE = 25 * 1024 * 1024
 const ALLOWED_TYPES = [
   'image/jpeg',
   'image/jpg',
@@ -35,18 +30,6 @@ const ALLOWED_TYPES = [
   'image/heif-sequence',
 ]
 const IMAGE_EXT_RE = /\.(jpe?g|png|webp|gif|avif|heic|heif)$/i
-const MAX_WIDTH = 2000
-const MAX_HEIGHT = 2000
-const WEBP_QUALITY = 85
-
-async function optimizeToWebp(buffer: Buffer): Promise<Buffer> {
-  // rotate() alkalmazza az EXIF orientációt (iPhone fotók ne legyenek fektetve)
-  return sharp(buffer)
-    .rotate()
-    .resize(MAX_WIDTH, MAX_HEIGHT, { fit: 'inside', withoutEnlargement: true })
-    .webp({ quality: WEBP_QUALITY })
-    .toBuffer()
-}
 
 function isAllowedImage(file: File): boolean {
   const mime = (file.type || '').toLowerCase()
@@ -55,36 +38,6 @@ function isAllowedImage(file: File): boolean {
     return IMAGE_EXT_RE.test(file.name || '')
   }
   return false
-}
-
-async function uploadToBunny(filename: string, body: Buffer): Promise<string> {
-  const zone = process.env.BUNNY_STORAGE_ZONE!.trim()
-  const apiKey = process.env.BUNNY_STORAGE_API_KEY!.trim()
-  const region = (process.env.BUNNY_STORAGE_REGION || '').trim()
-  // pl. storage.bunnycdn.com vagy de.storage.bunnycdn.com
-  const storageHost = region
-    ? `${region.replace(/\.$/, '')}.storage.bunnycdn.com`
-    : 'storage.bunnycdn.com'
-  const folder = (process.env.BUNNY_STORAGE_PATH || 'products').replace(/^\/+|\/+$/g, '')
-  const storagePath = `${folder}/${filename}`
-  const putUrl = `https://${storageHost}/${zone}/${storagePath}`
-
-  const res = await fetch(putUrl, {
-    method: 'PUT',
-    headers: {
-      AccessKey: apiKey,
-      'Content-Type': 'image/webp',
-    },
-    body: new Uint8Array(body),
-  })
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(`Bunny feltöltés sikertelen (${res.status}): ${text || res.statusText}`)
-  }
-
-  const cdnUrl = `${getCdnBaseUrl()}/${storagePath}`
-  return cleanCdnUrl(cdnUrl)
 }
 
 export async function POST(request: Request) {
@@ -103,10 +56,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Nincs fájl' }, { status: 400 })
   }
 
-  if (file.size > MAX_INPUT_SIZE) {
+  if (file.size > MAX_IMAGE_INPUT_SIZE) {
     return NextResponse.json(
       {
-        error: `A kép mérete legfeljebb ${Math.round(MAX_INPUT_SIZE / 1024 / 1024)} MB lehet. Használj kisebb fájlt vagy tömörítsd a képet.`,
+        error: `A kép mérete legfeljebb ${Math.round(MAX_IMAGE_INPUT_SIZE / 1024 / 1024)} MB lehet. Használj kisebb fájlt vagy tömörítsd a képet.`,
       },
       { status: 400 }
     )
@@ -129,7 +82,7 @@ export async function POST(request: Request) {
     const buffer = Buffer.from(bytes)
     let optimized: Buffer
     try {
-      optimized = await optimizeToWebp(buffer)
+      optimized = await optimizeImageToWebp(buffer)
     } catch (decodeErr) {
       console.error('Image decode/optimize error:', decodeErr)
       await logAdminAction({
@@ -147,29 +100,14 @@ export async function POST(request: Request) {
       )
     }
 
-    if (isBunnyUploadConfigured()) {
-      const url = await uploadToBunny(filename, optimized)
-      await logAdminAction({
-        action: 'file_upload',
-        success: true,
-        request,
-        details: { filename, storage: 'bunny', originalName: file.name, size: file.size },
-      })
-      return NextResponse.json({ success: true, url, storage: 'bunny' })
-    }
-
-    // Lokális fallback (dev) – productionban állíts be Bunny env-eket
-    const dir = path.join(process.cwd(), UPLOAD_DIR)
-    const filepath = path.join(dir, filename)
-    await mkdir(dir, { recursive: true })
-    await writeFile(filepath, optimized)
+    const stored = await persistOptimizedWebp(filename, optimized, { allowLocalFallback: true })
     await logAdminAction({
       action: 'file_upload',
       success: true,
       request,
-      details: { filename, storage: 'local', originalName: file.name, size: file.size },
+      details: { filename, storage: stored.storage, originalName: file.name, size: file.size },
     })
-    return NextResponse.json({ success: true, url: cleanCdnUrl(`/uploads/${filename}`), storage: 'local' })
+    return NextResponse.json({ success: true, url: stored.url, storage: stored.storage })
   } catch (err) {
     console.error('Upload/optimize error:', err)
     await logAdminAction({

@@ -187,7 +187,7 @@ export type CdnImageSizeOptions = {
   quality?: number
 }
 
-function isBunnyPullZoneUrl(url: string): boolean {
+export function isBunnyPullZoneUrl(url: string): boolean {
   try {
     const parsed = new URL(url)
     const host = parsed.hostname.toLowerCase()
@@ -195,6 +195,12 @@ function isBunnyPullZoneUrl(url: string): boolean {
   } catch {
     return false
   }
+}
+
+/** Saját Bunny Storage host (ne ingestáljuk újra). */
+export function isBunnyStorageHost(hostname: string): boolean {
+  const host = hostname.toLowerCase()
+  return host === 'storage.bunnycdn.com' || host.endsWith('.storage.bunnycdn.com')
 }
 
 /**
