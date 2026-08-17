@@ -11,6 +11,7 @@
 
 import type { Product } from '@/lib/data'
 import type { OrderItem } from '@/lib/orders'
+import { cartOptionsToParameters, type OrderItemParameters } from '@/lib/production-payload'
 import { isSaleActive } from '@/lib/storefront-config'
 import {
   FREE_SHIPPING_THRESHOLD,
@@ -53,6 +54,11 @@ export const ALLOWED_COUPON_PERCENTS = [0, 0.05, 0.1, 0.15, 0.2] as const
 export type CheckoutCartLineInput = {
   productId: string
   qty: number
+  options?: {
+    colorName?: string
+    colorHex?: string
+    materialName?: string
+  }
 }
 
 export type ResolvedCartLine = {
@@ -61,6 +67,7 @@ export type ResolvedCartLine = {
   priceHuf: number
   fulfillmentType: 'stock' | 'procurement'
   name?: string
+  parameters?: OrderItemParameters
 }
 
 export type CouponDiscount = {
@@ -122,7 +129,7 @@ export function resolveCartLines(
   productMap: Map<string, Product>
 ): ResolvedCartLine[] {
   const lines: ResolvedCartLine[] = []
-  for (const { productId, qty } of items) {
+  for (const { productId, qty, options } of items) {
     const product = productMap.get(productId)
     if (!product || qty < 1) continue
     // Csak aktív akcióablakban alkalmazható a discountPriceHuf (különben undercharge).
@@ -136,6 +143,7 @@ export function resolveCartLines(
       priceHuf,
       fulfillmentType: product.type === 'sourcing_deal' ? 'procurement' : 'stock',
       name: product.name,
+      parameters: cartOptionsToParameters(options),
     })
   }
   return lines
@@ -260,6 +268,7 @@ function buildOrderSplit(
     fulfillmentType: l.fulfillmentType,
     priceHuf: l.priceHuf,
     name: l.name,
+    parameters: l.parameters,
   }))
 
   return {

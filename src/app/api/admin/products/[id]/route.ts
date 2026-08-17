@@ -13,6 +13,8 @@ import { revalidateShopProducts } from '@/lib/revalidate-shop'
 import { logAdminAction } from '@/lib/admin-audit'
 import { alertBulkDeleteIfAnomalousSafe } from '@/lib/admin-anomaly-alert'
 import { z } from 'zod'
+import { isValidProductSku, normalizeProductSku, skuZodMessage } from '@/lib/product-sku'
+import { isSkuUniqueConstraintError } from '@/lib/product-sku-db'
 
 async function uniqueProductSlug(base: string, excludeId: string): Promise<string> {
   const root = slugifyProduct(base)
@@ -86,6 +88,7 @@ const updateProductSchema = z.object({
   previewFrom: z.string().datetime().optional().nullable(),
   maxOrders: z.number().int().min(0).optional().nullable(),
   sortOrder: z.number().int().optional().nullable(),
+  sku: z.string().max(50).optional().nullable(),
 })
 
 export async function GET(
@@ -124,6 +127,14 @@ export async function PATCH(
   }
 
   const d = parsed.data
+  let nextSku: string | null | undefined
+  if (d.sku !== undefined) {
+    const normalized = normalizeProductSku(d.sku)
+    if (normalized && !isValidProductSku(normalized)) {
+      return NextResponse.json({ error: skuZodMessage() }, { status: 400 })
+    }
+    nextSku = normalized
+  }
   let nextSlug: string | undefined
   if (d.slug !== undefined) {
     // Csak ha nem URL-safe (ékezet, szóköz, nagybetű): átírjuk. Meglévő tiszta slugot nem bántjuk.
@@ -181,7 +192,9 @@ export async function PATCH(
     throw err
   }
 
-  const product = await prisma.product.update({
+  let product
+  try {
+    product = await prisma.product.update({
     where: { id },
     data: {
       ...(nextSlug !== undefined && { slug: nextSlug }),
@@ -228,8 +241,15 @@ export async function PATCH(
       ...(d.previewFrom !== undefined && { previewFrom: d.previewFrom ? new Date(d.previewFrom) : null }),
       ...(d.maxOrders !== undefined && { maxOrders: d.maxOrders }),
       ...(d.sortOrder !== undefined && { sortOrder: d.sortOrder }),
+      ...(nextSku !== undefined && { sku: nextSku }),
     },
   })
+  } catch (err) {
+    if (isSkuUniqueConstraintError(err)) {
+      return NextResponse.json({ error: 'Ez a SKU / termékkód már foglalt.' }, { status: 409 })
+    }
+    throw err
+  }
 
   revalidateShopProducts(product.slug)
   await logAdminAction({

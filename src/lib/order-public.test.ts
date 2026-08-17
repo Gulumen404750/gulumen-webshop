@@ -50,4 +50,32 @@ describe('toPublicOrderView', () => {
     expect((view as Order).shippingEditToken).toBe('super-secret-token')
     expect((view as Order).customerPhone).toBe('+36301234567')
   })
+
+  it('strips internal SKU and production parameters from customer-facing items', () => {
+    const order = makeOrder({
+      items: [
+        {
+          productId: 'p1',
+          name: 'Teszt',
+          qty: 2,
+          priceHuf: 1000,
+          fulfillmentType: 'stock',
+          sku: 'GUL-0000001454',
+          parameters: { colorName: 'Piros', colorHex: '#ff0000' },
+        },
+      ],
+    })
+    const ownerView = toPublicOrderView(order, { isOwner: true }) as Order
+    const publicView = toPublicOrderView(order, { isOwner: false })
+    expect(ownerView.items[0]).toEqual({
+      productId: 'p1',
+      name: 'Teszt',
+      qty: 2,
+      priceHuf: 1000,
+      fulfillmentType: 'stock',
+    })
+    expect(ownerView.items[0]).not.toHaveProperty('sku')
+    expect((publicView as { items: unknown[] }).items[0]).not.toHaveProperty('sku')
+    expect((publicView as { items: unknown[] }).items[0]).not.toHaveProperty('parameters')
+  })
 })

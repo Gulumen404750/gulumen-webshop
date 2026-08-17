@@ -7,6 +7,9 @@ import { logger } from '@/lib/logger'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { decrementStockAtomic, OutOfStockException } from '@/lib/inventory'
 import type { OrderCustomerSnapshot } from '@/lib/checkout-customer'
+import type { OrderItemParameters } from '@/lib/production-payload'
+import { parseOrderItemParameters } from '@/lib/production-payload'
+import { snapshotOrderItemSkusFromProducts } from '@/lib/production-dispatch'
 
 export { OutOfStockException }
 
@@ -43,6 +46,8 @@ export type OrderItem = {
   fulfillmentType: FulfillmentType
   priceHuf: number
   name?: string
+  sku?: string | null
+  parameters?: OrderItemParameters
 }
 
 export type Order = {
@@ -252,7 +257,15 @@ function dbOrderToOrder(row: {
   originalCustomerPhone?: string | null
   shippingAddressChangedAt?: Date | null
   shippingEditToken?: string | null
-  items: { productId: string; qty: number; fulfillmentType: string; priceHuf: number; name: string | null }[]
+  items: {
+    productId: string
+    qty: number
+    fulfillmentType: string
+    priceHuf: number
+    name: string | null
+    sku?: string | null
+    parameters?: unknown
+  }[]
 }): Order {
   const appliedCoupons = Array.isArray(row.appliedCoupons)
     ? row.appliedCoupons.filter((x): x is string => typeof x === 'string')
@@ -313,6 +326,8 @@ function dbOrderToOrder(row: {
       fulfillmentType: i.fulfillmentType as FulfillmentType,
       priceHuf: i.priceHuf,
       name: i.name ?? undefined,
+      sku: i.sku ?? undefined,
+      parameters: parseOrderItemParameters(i.parameters) ?? undefined,
     })),
   }
 }
@@ -337,6 +352,26 @@ function customerSnapshotFields(customer?: OrderCustomerSnapshot) {
   }
 }
 
+async function withProductSkuSnapshots(items: OrderItem[]): Promise<OrderItem[]> {
+  const skuByProductId = await snapshotOrderItemSkusFromProducts(items)
+  return items.map((item) => ({
+    ...item,
+    sku: item.sku?.trim() || skuByProductId.get(item.productId) || null,
+  }))
+}
+
+function toOrderItemCreateData(item: OrderItem) {
+  return {
+    productId: item.productId,
+    qty: item.qty,
+    fulfillmentType: item.fulfillmentType,
+    priceHuf: item.priceHuf,
+    name: item.name ?? null,
+    sku: item.sku ?? null,
+    parameters: item.parameters ?? undefined,
+  }
+}
+
 /** Új rendelés létrehozása (pending). */
 export async function createOrder(params: {
   items: OrderItem[]
@@ -347,6 +382,7 @@ export async function createOrder(params: {
 }): Promise<Order> {
   if (isDbConfigured()) {
     const id = generateOrderId()
+    const items = await withProductSkuSnapshots(params.items)
     await prisma.order.create({
       data: {
         id,
@@ -356,13 +392,7 @@ export async function createOrder(params: {
         totalHuf: params.totalHuf,
         currency: params.currency ?? 'huf',
         items: {
-          create: params.items.map((i) => ({
-            productId: i.productId,
-            qty: i.qty,
-            fulfillmentType: i.fulfillmentType,
-            priceHuf: i.priceHuf,
-            name: i.name ?? null,
-          })),
+          create: items.map(toOrderItemCreateData),
         },
       },
       include: { items: true },
@@ -370,7 +400,7 @@ export async function createOrder(params: {
     return {
       id,
       status: 'pending',
-      items: params.items,
+      items,
       subtotalHuf: params.subtotalHuf,
       discountHuf: params.discountHuf,
       totalHuf: params.totalHuf,
@@ -650,8 +680,9 @@ export async function createCheckoutOrders(params: {
     // Atomi tranzakció: in_stock stock decrement + rendelés létrehozás (oversell védelem).
     await prisma.$transaction(async (tx) => {
       if (params.inStock && params.inStock.items.length > 0) {
+        const inStockItems = await withProductSkuSnapshots(params.inStock.items)
         await decrementStockAtomic(
-          params.inStock.items.map((i) => ({ productId: i.productId, qty: i.qty })),
+          inStockItems.map((i) => ({ productId: i.productId, qty: i.qty })),
           tx
         )
         const id = generateOrderId()
@@ -674,13 +705,7 @@ export async function createCheckoutOrders(params: {
             shippingEditToken,
             ...customerFields,
             items: {
-              create: params.inStock.items.map((i) => ({
-                productId: i.productId,
-                qty: i.qty,
-                fulfillmentType: i.fulfillmentType,
-                priceHuf: i.priceHuf,
-                name: i.name ?? null,
-              })),
+              create: inStockItems.map(toOrderItemCreateData),
             },
           },
         })
@@ -689,7 +714,7 @@ export async function createCheckoutOrders(params: {
           status: 'payment_pending',
           orderGroupId: params.orderGroupId,
           orderType: 'in_stock',
-          items: params.inStock.items,
+          items: inStockItems,
           subtotalHuf: params.inStock.subtotalHuf,
           discountHuf: params.inStock.discountHuf,
           totalHuf: params.inStock.totalHuf,
@@ -718,6 +743,7 @@ export async function createCheckoutOrders(params: {
         })
       }
       if (params.sourcing && params.sourcing.items.length > 0) {
+        const sourcingItems = await withProductSkuSnapshots(params.sourcing.items)
         const id = generateOrderId()
         const shippingEditToken = generateShippingEditToken()
         await tx.order.create({
@@ -738,13 +764,7 @@ export async function createCheckoutOrders(params: {
             shippingEditToken,
             ...customerFields,
             items: {
-              create: params.sourcing.items.map((i) => ({
-                productId: i.productId,
-                qty: i.qty,
-                fulfillmentType: i.fulfillmentType,
-                priceHuf: i.priceHuf,
-                name: i.name ?? null,
-              })),
+              create: sourcingItems.map(toOrderItemCreateData),
             },
           },
         })
@@ -753,7 +773,7 @@ export async function createCheckoutOrders(params: {
           status: 'payment_pending',
           orderGroupId: params.orderGroupId,
           orderType: 'sourcing',
-          items: params.sourcing.items,
+          items: sourcingItems,
           subtotalHuf: params.sourcing.subtotalHuf,
           discountHuf: params.sourcing.discountHuf,
           totalHuf: params.sourcing.totalHuf,

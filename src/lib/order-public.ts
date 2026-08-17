@@ -1,8 +1,8 @@
 /**
- * Nyilvános (auth nélküli) rendelés-nézet: PII és shipping-edit token kiszűrése.
- * Teljes adat csak a bejelentkezett tulajdonosnak.
+ * Nyilvános (auth nélküli) rendelés-nézet: PII, shipping-edit token és belső SKU kiszűrése.
+ * Teljes vevőadat csak a bejelentkezett tulajdonosnak; SKU / gyártási paraméterek soha.
  */
-import type { Order } from '@/lib/orders'
+import type { Order, OrderItem } from '@/lib/orders'
 
 /** Mezők, amiket a siker oldal / poller használ – biztonságosan kiadhatók. */
 const PUBLIC_ORDER_KEYS = [
@@ -32,16 +32,29 @@ const PUBLIC_ORDER_KEYS = [
 
 export type PublicOrder = Pick<Order, (typeof PUBLIC_ORDER_KEYS)[number]>
 
+function toCustomerOrderItems(items: OrderItem[]): OrderItem[] {
+  return items.map((item) => ({
+    productId: item.productId,
+    qty: item.qty,
+    fulfillmentType: item.fulfillmentType,
+    priceHuf: item.priceHuf,
+    name: item.name,
+  }))
+}
+
 /**
- * Auth nélküli válasz: nincs cím, telefon, e-mail, név, billing, token, belső fizetési ID.
- * Tulajdonosnak a teljes Order visszaadható.
+ * Auth nélküli válasz: nincs cím, telefon, e-mail, név, billing, token, belső fizetési ID, SKU.
+ * Tulajdonosnak a rendelés PII-vel, de SKU / gyártási paraméterek nélkül.
  */
 export function toPublicOrderView(order: Order, opts: { isOwner: boolean }): Order | PublicOrder {
-  if (opts.isOwner) return order
+  const items = toCustomerOrderItems(order.items)
+  if (opts.isOwner) {
+    return { ...order, items }
+  }
 
   const out: Record<string, unknown> = {}
   for (const key of PUBLIC_ORDER_KEYS) {
-    const value = order[key]
+    const value = key === 'items' ? items : order[key]
     if (value !== undefined) out[key] = value
   }
   return out as PublicOrder

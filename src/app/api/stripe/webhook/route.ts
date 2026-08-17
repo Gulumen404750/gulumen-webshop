@@ -13,6 +13,7 @@ import { qualifiesForLoyalty, incrementQualifyingOrder, decrementQualifyingOrder
 import { finalizeOrderRewards } from '@/lib/checkout-rewards'
 import { clearUserCartSnapshot } from '@/lib/cart-snapshot'
 import { logger } from '@/lib/logger'
+import { dispatchProductionJobForPaidOrder } from '@/lib/production-dispatch'
 
 /** Stripe HUF: zero-decimal – amount_total forintban (egész), nem fillér. */
 function expectedAmountTotalHuf(orderTotalHuf: number): number {
@@ -207,6 +208,12 @@ export async function POST(request: Request) {
         }
       } catch (emailErr) {
         logger.error({ err: emailErr }, 'checkout.session.completed: email error (webhook still 200)')
+      }
+
+      try {
+        await dispatchProductionJobForPaidOrder(orderId)
+      } catch (prodErr) {
+        logger.error({ err: prodErr, orderId }, 'checkout.session.completed: production job failed')
       }
 
       return NextResponse.json({ received: true })

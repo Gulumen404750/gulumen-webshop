@@ -12,6 +12,7 @@ import { clearUserCartSnapshot } from '@/lib/cart-snapshot'
 import { cancelPendingOrderWithStockRestore } from '@/lib/stuck-payments'
 import type { PaymentTransactionStatus } from '@/lib/payment-transactions'
 import { secureCompare } from '@/lib/secure-compare'
+import { dispatchProductionJobForPaidOrder } from '@/lib/production-dispatch'
 
 /**
  * Provider-független payment webhook váz + Stripe webhook (checkout.session.completed).
@@ -151,6 +152,12 @@ async function applyTransactionOutcome(
       }
     } catch (emailErr) {
       console.error('[payments/webhook] Order confirmation email error (webhook still 200):', emailErr)
+    }
+
+    try {
+      await dispatchProductionJobForPaidOrder(order.id)
+    } catch (prodErr) {
+      console.error('[payments/webhook] production job failed', order.id, prodErr)
     }
   } else if (newTxStatus === 'failed' || newTxStatus === 'cancelled') {
     // CAS cancel + in_stock restore (capture) / reservation cancel (authorize).

@@ -56,6 +56,7 @@ type Product = {
   previewFrom: string | null
   maxOrders: number | null
   sortOrder: number | null
+  sku: string | null
 }
 
 export default function AdminProductEditPage() {
@@ -64,7 +65,7 @@ export default function AdminProductEditPage() {
   const id = params?.id as string
   const isNew = id === 'new'
   const [product, setProduct] = useState<Partial<Product> | null>(
-    isNew ? { category: '3d-konyha', slug: '', stock: null, colorImages: [] } : null
+    isNew ? { category: '3d-konyha', slug: '', stock: null, colorImages: [], sku: '' } : null
   )
   /** Készlet mező szöveges értéke (üres = végtelen). */
   const [stockInput, setStockInput] = useState('')
@@ -72,6 +73,7 @@ export default function AdminProductEditPage() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'ok' | 'error'; text: string } | null>(null)
   const [slugTouched, setSlugTouched] = useState(false)
+  const [skuGenerating, setSkuGenerating] = useState(false)
 
   useEffect(() => {
     if (isNew) return
@@ -190,6 +192,7 @@ export default function AdminProductEditPage() {
             previewFrom: product.previewFrom || undefined,
             maxOrders: product.maxOrders ?? undefined,
             sortOrder: product.sortOrder ?? undefined,
+            sku: product.sku?.trim() || undefined,
           }
         : {
             ...(product.name && { name: product.name }),
@@ -226,6 +229,7 @@ export default function AdminProductEditPage() {
             previewFrom: product.previewFrom || undefined,
             maxOrders: product.maxOrders ?? undefined,
             sortOrder: product.sortOrder ?? undefined,
+            sku: product.sku?.trim() || null,
           }
       const res = await fetch(url, {
         method,
@@ -320,6 +324,47 @@ export default function AdminProductEditPage() {
               )}
             </div>
           </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">SKU / belső termékkód</label>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <input
+              value={product?.sku ?? ''}
+              onChange={(e) => setProduct((p) => ({ ...p, sku: e.target.value.toUpperCase() }))}
+              maxLength={50}
+              placeholder="GUL-0000001454"
+              className="w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 font-mono text-foreground"
+            />
+            <button
+              type="button"
+              disabled={skuGenerating}
+              onClick={async () => {
+                setSkuGenerating(true)
+                setMessage(null)
+                try {
+                  const res = await fetch('/api/admin/products/next-sku', { credentials: 'include' })
+                  const data = await res.json().catch(() => ({}))
+                  if (!res.ok || typeof data.sku !== 'string') {
+                    setMessage({ type: 'error', text: data?.error || 'SKU generálás sikertelen.' })
+                    return
+                  }
+                  setProduct((p) => ({ ...p, sku: data.sku }))
+                } catch {
+                  setMessage({ type: 'error', text: 'SKU generálás sikertelen.' })
+                } finally {
+                  setSkuGenerating(false)
+                }
+              }}
+              className="shrink-0 rounded-lg border border-[var(--border)] px-3 py-2 text-sm hover:bg-[var(--border)]/40 disabled:opacity-50"
+            >
+              {skuGenerating ? 'Generálás…' : 'Generálás'}
+            </button>
+          </div>
+          <p className="mt-1 text-xs text-muted">
+            Csak az admin és a gyártási / AI háttér látja. A webshop vásárlói oldalain nem jelenik meg.
+            Új terméknél üresen hagyva automatikusan létrejön (pl. GUL-0000001454).
+          </p>
         </div>
 
         <div>
