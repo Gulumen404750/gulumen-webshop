@@ -43,7 +43,7 @@ import {
   normalizeHexColor,
   type ColorVariant,
 } from '@/lib/filamentColors'
-import { defaultMaterialForProduct, normalizeMaterials } from '@/lib/filamentMaterials'
+import { defaultMaterialForProduct } from '@/lib/filamentMaterials'
 import { buildColorableProductShareUrl } from '@/lib/product-share-url'
 import { useLocale } from '@/context/LocaleContext'
 import { useCart } from '@/context/CartContext'
@@ -132,10 +132,6 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
   const [selectedColor, setSelectedColor] = useState<ColorVariant | null>(() =>
     getBaseColorVariant(availableColors) ?? availableColors[0] ?? null
   )
-  const availableMaterials = normalizeMaterials(product.materials)
-  const [selectedMaterial, setSelectedMaterial] = useState<string | null>(
-    () => defaultMaterialForProduct(availableMaterials)
-  )
   const sourcingStatus =
     product.type === 'sourcing_deal'
       ? getSourcingDealStatus(product, new Date(serverNow ?? Date.now()), effectiveOrdersCount)
@@ -162,12 +158,10 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
 
   /** Színválasztó csak több színvariációnál; egyszínű / „Nincs szín” terméknél rejtve. */
   const showColorPicker = shouldShowStorefrontColorPicker(product.colorImages, isColorable)
-  const showMaterialPicker = availableMaterials.length > 0
   const effectiveColor = selectedColor ?? (!showColorPicker ? getBaseColorVariant(availableColors) ?? availableColors[0] ?? null : null)
-  const canAddToCart =
-    (!showColorPicker || selectedColor !== null) &&
-    (!showMaterialPicker || selectedMaterial !== null)
+  const canAddToCart = !showColorPicker || selectedColor !== null
   const canShareConfiguration = showColorPicker && selectedColor !== null
+  const adminMaterial = defaultMaterialForProduct(product.materials)
 
   const availableColorIds = availableColors.map((c) => c.id).join(',')
 
@@ -224,7 +218,7 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
     if (!canAddToCart) return
     const color = effectiveColor
     const options =
-      color || selectedMaterial
+      color || adminMaterial
         ? {
             ...(color
               ? {
@@ -232,7 +226,7 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                   colorHex: color.hex,
                 }
               : {}),
-            ...(selectedMaterial ? { materialName: selectedMaterial } : {}),
+            ...(adminMaterial ? { materialName: adminMaterial } : {}),
           }
         : undefined
     addItem(product.id, safeAddQty, options, product)
@@ -628,37 +622,6 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                   </button>
                 </div>
               )}
-              {showMaterialPicker && (
-                <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-3">
-                  <label htmlFor="product-material" className="block text-sm font-medium text-foreground mb-2">
-                    {t('product.material') || 'Anyag'} *
-                  </label>
-                  <select
-                    id="product-material"
-                    value={selectedMaterial ?? ''}
-                    onChange={(e) => setSelectedMaterial(e.target.value || null)}
-                    className="w-full max-w-xs rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
-                  >
-                    {availableMaterials.length > 1 && (
-                      <option value="">{t('product.selectMaterial') || 'Válassz anyagot…'}</option>
-                    )}
-                    {availableMaterials.map((material) => (
-                      <option key={material} value={material}>
-                        {material}
-                      </option>
-                    ))}
-                  </select>
-                  {selectedMaterial === 'PLA' && (
-                    <p className="mt-2 text-xs text-muted">{t('product.materialPla')}</p>
-                  )}
-                  {selectedMaterial === 'PETG' && (
-                    <p className="mt-2 text-xs text-muted">{t('product.materialPetg')}</p>
-                  )}
-                  {selectedMaterial === 'TPU' && (
-                    <p className="mt-2 text-xs text-muted">{t('product.materialTpu')}</p>
-                  )}
-                </div>
-              )}
               <p className="mt-2 text-sm text-foreground">
                 <strong>{t('product.inStock')}</strong>
                 {unlimitedStock || has3DModel
@@ -680,12 +643,6 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                   {showColorPicker && !selectedColor && (
                     <p className="text-sm text-amber-600 dark:text-amber-400 font-medium w-full">
                       {t('product.selectColorToAdd') || 'Válaszd ki a színt a kosárba tétel előtt.'}
-                    </p>
-                  )}
-                  {showMaterialPicker && !selectedMaterial && (
-                    <p className="text-sm text-amber-600 dark:text-amber-400 font-medium w-full">
-                      {t('product.selectMaterialAndColorToAdd') ||
-                        'Válaszd ki az anyagot a kosárba tétel előtt.'}
                     </p>
                   )}
                   {maxAddable > 0 && canAddToCart && (

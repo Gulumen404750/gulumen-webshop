@@ -1,6 +1,6 @@
 /**
  * 3D nyomtatóanyagok (Bambu Lab P1S farm).
- * Bővíthető lista – az admin és a shop csak ezekből a dropdown értékekből választ.
+ * Bővíthető lista – csak az admin választ ezekből; a webshop vendégei nem látják.
  */
 
 export const FILAMENT_MATERIALS = ['PLA', 'PETG', 'TPU'] as const

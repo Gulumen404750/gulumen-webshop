@@ -12,11 +12,7 @@
 import type { Product } from '@/lib/data'
 import type { OrderItem } from '@/lib/orders'
 import { cartOptionsToParameters, type OrderItemParameters } from '@/lib/production-payload'
-import {
-  defaultMaterialForProduct,
-  isFilamentMaterial,
-  normalizeMaterials,
-} from '@/lib/filamentMaterials'
+import { defaultMaterialForProduct } from '@/lib/filamentMaterials'
 import {
   getAvailableColorVariants,
   getBaseColorVariant,
@@ -147,18 +143,8 @@ export function resolveCartLines(
       isSaleActive(product) && product.discountPriceHuf != null
         ? product.discountPriceHuf
         : product.priceHuf
-    const materials = normalizeMaterials(product.materials)
-    const requestedMaterial = options?.materialName?.trim().toUpperCase() || ''
-    let materialName: string | undefined
-    if (materials.length > 0) {
-      materialName = materials.includes(requestedMaterial as (typeof materials)[number])
-        ? requestedMaterial
-        : defaultMaterialForProduct(materials) ?? undefined
-    } else if (isFilamentMaterial(requestedMaterial)) {
-      materialName = requestedMaterial
-    } else if (requestedMaterial) {
-      materialName = requestedMaterial
-    }
+    // Anyag csak adminban állítható; a vendég kosárértéke nem írhatja felül.
+    const materialName = defaultMaterialForProduct(product.materials) ?? undefined
     let colorName = options?.colorName?.trim()
     let colorHex = options?.colorHex?.trim()
     if (!colorName && !colorHex) {
