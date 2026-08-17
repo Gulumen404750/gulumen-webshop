@@ -1,7 +1,8 @@
 import type { MetadataRoute } from 'next'
 import { getAllProductsAsync, categories } from '@/lib/data'
+import { absoluteFirstPartyProductImages } from '@/lib/product-image-urls'
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://gulumen.hu'
+const BASE_URL = (process.env.NEXT_PUBLIC_APP_URL || 'https://www.gulumen.com').replace(/\/$/, '')
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
@@ -25,12 +26,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let productPages: MetadataRoute.Sitemap = []
   try {
     const products = await getAllProductsAsync()
-    productPages = products.map((p) => ({
-      url: `${BASE_URL}/termek/${p.slug}`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly' as const,
-      priority: 0.8,
-    }))
+    productPages = products.map((p) => {
+      const images = absoluteFirstPartyProductImages(p, 10)
+      return {
+        url: `${BASE_URL}/termek/${p.slug}`,
+        lastModified: new Date(),
+        changeFrequency: 'weekly' as const,
+        priority: 0.8,
+        ...(images.length > 0 ? { images } : {}),
+      }
+    })
   } catch {
     // Build time or no DB: sitemap without product URLs
   }

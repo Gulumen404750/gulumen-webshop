@@ -7,6 +7,8 @@ import {
   sanitizeColorImages,
   sanitizeProductImagePatch,
 } from '@/lib/product-images'
+import { ingestProductImages } from '@/lib/ingest-product-images'
+import { RemoteImageIngestError } from '@/lib/ingest-remote-image'
 import { revalidateShopProducts } from '@/lib/revalidate-shop'
 import { logAdminAction } from '@/lib/admin-audit'
 import { alertBulkDeleteIfAnomalousSafe } from '@/lib/admin-anomaly-alert'
@@ -135,6 +137,50 @@ export async function PATCH(
     images360: d.images360,
   })
 
+  const existing = await prisma.product.findUnique({
+    where: { id },
+    select: { slug: true },
+  })
+  if (!existing) {
+    await logAdminAction({
+      action: 'product_update',
+      success: false,
+      request,
+      details: { id, reason: 'not_found' },
+    })
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
+  const slugForIngest = nextSlug ?? existing.slug
+  const sanitizedColor =
+    d.colorImages === undefined
+      ? undefined
+      : d.colorImages === null
+        ? null
+        : sanitizeColorImages(d.colorImages)
+
+  let ingested
+  try {
+    ingested = await ingestProductImages({
+      slug: slugForIngest,
+      image: imagePatch.image,
+      images: imagePatch.images,
+      images360: imagePatch.images360,
+      colorImages: sanitizedColor,
+    })
+  } catch (err) {
+    if (err instanceof RemoteImageIngestError) {
+      await logAdminAction({
+        action: 'product_update',
+        success: false,
+        request,
+        details: { id, reason: 'image_ingest', code: err.code, sourceUrl: err.sourceUrl },
+      })
+      return NextResponse.json({ error: err.message }, { status: 400 })
+    }
+    throw err
+  }
+
   const product = await prisma.product.update({
     where: { id },
     data: {
@@ -152,14 +198,14 @@ export async function PATCH(
       }),
       ...(d.condition !== undefined && { condition: d.condition }),
       ...(d.category !== undefined && { category: d.category }),
-      ...(imagePatch.image !== undefined && { image: imagePatch.image }),
-      ...(imagePatch.images !== undefined && { images: imagePatch.images }),
-      ...(imagePatch.images360 !== undefined && { images360: imagePatch.images360 }),
+      ...(ingested.image !== undefined && { image: ingested.image }),
+      ...(ingested.images !== undefined && { images: ingested.images }),
+      ...(ingested.images360 !== undefined && { images360: ingested.images360 }),
       ...(d.colorImages !== undefined && {
         colorImages:
           d.colorImages === null
             ? Prisma.JsonNull
-            : (sanitizeColorImages(d.colorImages) as Prisma.InputJsonValue),
+            : (ingested.colorImages as Prisma.InputJsonValue),
       }),
       ...(d.modelUrl !== undefined && { modelUrl: d.modelUrl }),
       ...(d.priceHuf !== undefined && { priceHuf: d.priceHuf }),
@@ -190,7 +236,12 @@ export async function PATCH(
     action: 'product_update',
     success: true,
     request,
-    details: { id: product.id, slug: product.slug, fields: Object.keys(d) },
+    details: {
+      id: product.id,
+      slug: product.slug,
+      fields: Object.keys(d),
+      ingestedImages: ingested.ingestedCount,
+    },
   })
   return NextResponse.json({ product })
 }

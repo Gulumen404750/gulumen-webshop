@@ -7,6 +7,8 @@ import {
   sanitizeColorImages,
   sanitizeProductImageFields,
 } from '@/lib/product-images'
+import { ingestProductImages } from '@/lib/ingest-product-images'
+import { RemoteImageIngestError } from '@/lib/ingest-remote-image'
 import { revalidateShopProducts } from '@/lib/revalidate-shop'
 import { logAdminAction } from '@/lib/admin-audit'
 import { z } from 'zod'
@@ -168,11 +170,40 @@ export async function POST(request: Request) {
     images: d.images,
     images360: d.images360,
   })
-  const colorImages =
+  const sanitizedColor =
     d.colorImages === null
-      ? Prisma.JsonNull
+      ? null
       : d.colorImages !== undefined
-        ? (sanitizeColorImages(d.colorImages) as Prisma.InputJsonValue)
+        ? sanitizeColorImages(d.colorImages)
+        : undefined
+
+  let ingested
+  try {
+    ingested = await ingestProductImages({
+      slug,
+      image: images.image,
+      images: images.images,
+      images360: images.images360,
+      colorImages: sanitizedColor,
+    })
+  } catch (err) {
+    if (err instanceof RemoteImageIngestError) {
+      await logAdminAction({
+        action: 'product_create',
+        success: false,
+        request,
+        details: { reason: 'image_ingest', code: err.code, sourceUrl: err.sourceUrl },
+      })
+      return NextResponse.json({ error: err.message }, { status: 400 })
+    }
+    throw err
+  }
+
+  const colorImages =
+    sanitizedColor === null
+      ? Prisma.JsonNull
+      : ingested.colorImages !== undefined
+        ? (ingested.colorImages as Prisma.InputJsonValue)
         : undefined
 
   const product = await prisma.product.create({
@@ -189,9 +220,9 @@ export async function POST(request: Request) {
       aiKnowledgeBase: d.aiKnowledgeBase?.trim() ? d.aiKnowledgeBase.trim() : null,
       condition: d.condition ?? 'Új',
       category: d.category,
-      image: images.image,
-      images: images.images,
-      images360: images.images360,
+      image: ingested.image ?? images.image,
+      images: ingested.images ?? images.images,
+      images360: ingested.images360 ?? images.images360,
       colorImages,
       modelUrl: d.modelUrl ?? null,
       priceHuf: d.priceHuf,
@@ -222,7 +253,12 @@ export async function POST(request: Request) {
     action: 'product_create',
     success: true,
     request,
-    details: { id: product.id, slug: product.slug, name: product.name },
+    details: {
+      id: product.id,
+      slug: product.slug,
+      name: product.name,
+      ingestedImages: ingested.ingestedCount,
+    },
   })
   return NextResponse.json({ product })
 }
