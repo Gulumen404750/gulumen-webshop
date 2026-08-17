@@ -185,6 +185,7 @@ export default function AdminOrdersPage() {
           onClick={handleExportCsv}
           disabled={exporting}
           className="rounded-lg border border-[var(--border)] bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-[var(--border)]/30 disabled:opacity-60"
+          title="Tételes könyvelési CSV (pontosvessző, UTF-8), Excel / WPS Office-hoz"
         >
           {exporting ? 'Exportálás…' : 'Export CSV'}
         </button>

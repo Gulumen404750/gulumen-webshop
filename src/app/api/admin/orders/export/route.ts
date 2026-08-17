@@ -4,40 +4,7 @@ import { prisma, isDbConfigured } from '@/lib/prisma'
 import { logAdminAction } from '@/lib/admin-audit'
 import { alertAdminAnomalySafe } from '@/lib/admin-anomaly-alert'
 import { buildProductionJobPayload } from '@/lib/production-payload'
-
-function escapeCsvField(value: string): string {
-  if (/[",\n\r]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`
-  }
-  return value
-}
-
-function buildOrdersCsv(
-  rows: {
-    id: string
-    createdAt: Date
-    customerEmail: string | null
-    status: string
-    totalHuf: number
-    orderType: string | null
-  }[]
-): string {
-  const header = ['id', 'dátum', 'email', 'státusz', 'összeg', 'típus']
-  const lines = [
-    header.join(','),
-    ...rows.map((o) =>
-      [
-        escapeCsvField(o.id),
-        escapeCsvField(o.createdAt.toISOString()),
-        escapeCsvField(o.customerEmail ?? ''),
-        escapeCsvField(o.status),
-        escapeCsvField(String(o.totalHuf)),
-        escapeCsvField(o.orderType ?? ''),
-      ].join(',')
-    ),
-  ]
-  return `\uFEFF${lines.join('\r\n')}`
-}
+import { buildOrdersCsv, encodeCsvUtf8Bom } from '@/lib/orders-csv'
 
 /**
  * GET /api/admin/orders/export?format=csv|production
@@ -110,30 +77,47 @@ export async function GET(request: Request) {
     select: {
       id: true,
       createdAt: true,
+      customerName: true,
       customerEmail: true,
       status: true,
-      totalHuf: true,
       orderType: true,
+      items: {
+        select: {
+          name: true,
+          sku: true,
+          qty: true,
+          priceHuf: true,
+          fulfillmentType: true,
+          parameters: true,
+        },
+      },
     },
   })
 
   const csv = buildOrdersCsv(orders)
+  const lineCount = Math.max(0, csv.split('\r\n').length - 1)
   const filename = `rendelesek-${new Date().toISOString().slice(0, 10)}.csv`
 
   await logAdminAction({
     action: 'orders_csv_export',
     success: true,
     request,
-    details: { count: orders.length, status: status || null, filename, capped: orders.length >= 5000 },
+    details: {
+      count: lineCount,
+      orderCount: orders.length,
+      status: status || null,
+      filename,
+      capped: orders.length >= 5000,
+    },
   })
   await alertAdminAnomalySafe({
     kind: 'csv_export',
-    count: orders.length,
+    count: lineCount,
     request,
-    details: { filename, status: status || null },
+    details: { filename, status: status || null, orderCount: orders.length },
   })
 
-  return new NextResponse(csv, {
+  return new NextResponse(encodeCsvUtf8Bom(csv), {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
       'Content-Disposition': `attachment; filename="${filename}"`,
