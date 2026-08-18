@@ -4,6 +4,18 @@
  * azonnal visszaállítjuk az optimista pontlevonást (fetcher + mutate).
  */
 import { mutate } from 'swr'
+import { canRedeemFromBalance, redeemableCouponCount } from '@/lib/gamification/user-coupons'
+
+export type PointWalletCoupon = {
+  id: string
+  code: string
+  discountPercent: number
+  status: 'active' | 'used' | 'expired' | 'inactive'
+  usedCount: number
+  maxUses: number | null
+  createdAt: string
+  validUntil: string | null
+}
 
 export type PointWalletData = {
   balance: number
@@ -11,10 +23,12 @@ export type PointWalletData = {
   lifetimeRedeemed: number
   redeemThreshold: number
   canRedeem: boolean
+  redeemableCount?: number
   hasActiveCoupon: boolean
   activeCouponCode: string | null
   activeCouponPercent?: number | null
   activeCouponValidUntil?: string | null
+  coupons?: PointWalletCoupon[]
   suspended: boolean
   giftPointsAvailable?: number
   giftBalance?: number
@@ -123,8 +137,8 @@ export function withDeductedBalance(
     giftBalance: nextGift,
     activityBalance: nextActivity,
     lifetimeRedeemed: (prev.lifetimeRedeemed ?? 0) + pointsUsed,
-    canRedeem:
-      nextBalance >= prev.redeemThreshold && !prev.suspended && !prev.hasActiveCoupon,
+    canRedeem: canRedeemFromBalance(nextBalance, prev.redeemThreshold, prev.suspended),
+    redeemableCount: redeemableCouponCount(nextBalance, prev.redeemThreshold, prev.suspended),
   }
 }
 
@@ -202,7 +216,8 @@ export async function syncPointWalletAfterPayment(newBalance?: number) {
           ? {
               ...prev,
               balance: bal,
-              canRedeem: bal >= prev.redeemThreshold && !prev.suspended && !prev.hasActiveCoupon,
+              canRedeem: canRedeemFromBalance(bal, prev.redeemThreshold, prev.suspended),
+              redeemableCount: redeemableCouponCount(bal, prev.redeemThreshold, prev.suspended),
             }
           : prev,
       { revalidate: true }

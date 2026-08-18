@@ -22,8 +22,17 @@ describe('withDeductedBalance', () => {
     expect(next.canRedeem).toBe(false)
   })
 
-  it('never goes below zero', () => {
-    const next = withDeductedBalance(wallet(50), 200)
-    expect(next.balance).toBe(0)
+  it('still allows another coupon redeem when one is already unused', () => {
+    const next = withDeductedBalance(
+      {
+        ...wallet(753),
+        hasActiveCoupon: true,
+        activeCouponCode: 'GLM-EXISTING',
+      },
+      50
+    )
+    expect(next.balance).toBe(703)
+    expect(next.canRedeem).toBe(true)
+    expect(next.redeemableCount).toBe(2)
   })
 })

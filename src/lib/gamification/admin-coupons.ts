@@ -3,8 +3,13 @@
  */
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { REDEEM_COUPON_PERCENT } from './constants'
+import {
+  gamificationCouponAdminStatus,
+  type GamificationCouponStatus,
+} from './coupon-status'
 
-export type AdminGamificationCouponStatus = 'active' | 'used' | 'expired' | 'inactive'
+export { gamificationCouponAdminStatus }
+export type AdminGamificationCouponStatus = GamificationCouponStatus
 
 export type AdminGamificationCouponRow = {
   id: string
@@ -20,25 +25,6 @@ export type AdminGamificationCouponRow = {
   createdAt: string
   validFrom: string | null
   validUntil: string | null
-}
-
-export function gamificationCouponAdminStatus(
-  row: {
-    active: boolean
-    usedCount: number
-    maxUses: number | null
-    validUntil: Date | string | null
-  },
-  now: Date = new Date()
-): AdminGamificationCouponStatus {
-  const max = row.maxUses ?? 1
-  if (row.usedCount >= max && max > 0) return 'used'
-  const until = row.validUntil ? new Date(row.validUntil) : null
-  if (until && !Number.isNaN(until.getTime()) && until.getTime() < now.getTime()) {
-    return 'expired'
-  }
-  if (!row.active) return 'inactive'
-  return 'active'
 }
 
 export function summarizeGamificationCouponStats(

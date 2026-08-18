@@ -4,18 +4,41 @@ import { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useLocale } from '@/context/LocaleContext'
 import { usePointWallet } from '@/hooks/usePointWallet'
+import type { PointWalletCoupon } from '@/lib/point-wallet-client'
 
 type Props = {
   className?: string
 }
 
+function couponStatusLabel(
+  status: PointWalletCoupon['status'],
+  t: (key: string) => string
+) {
+  if (status === 'active') return t('gamification.couponStatusActive')
+  if (status === 'used') return t('gamification.couponStatusUsed')
+  if (status === 'expired') return t('gamification.couponStatusExpired')
+  return t('gamification.couponStatusInactive')
+}
+
+function statusClass(status: PointWalletCoupon['status']) {
+  if (status === 'active') {
+    return 'bg-green-600/15 text-green-700 dark:text-green-400'
+  }
+  if (status === 'expired') {
+    return 'bg-amber-600/15 text-amber-700 dark:text-amber-400'
+  }
+  return 'bg-[var(--border)] text-muted'
+}
+
 export function PointsProgress({ className = '' }: Props) {
   const { isLoggedIn } = useAuth()
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   const { wallet, isLoading, refresh } = usePointWallet(isLoggedIn)
   const [redeeming, setRedeeming] = useState(false)
   const [redeemError, setRedeemError] = useState<string | null>(null)
   const [redeemSuccess, setRedeemSuccess] = useState<string | null>(null)
+  const [listOpen, setListOpen] = useState(false)
+  const [copiedCode, setCopiedCode] = useState<string | null>(null)
 
   if (!isLoggedIn) return null
 
@@ -23,6 +46,16 @@ export function PointsProgress({ className = '' }: Props) {
   const threshold = wallet?.redeemThreshold ?? 350
   const progress = Math.min(100, Math.round((balance / threshold) * 100))
   const remaining = Math.max(0, threshold - balance)
+  const coupons = wallet?.coupons ?? []
+  const activeCount = coupons.filter((c) => c.status === 'active').length
+  const redeemableCount = wallet?.redeemableCount ?? (wallet?.canRedeem ? 1 : 0)
+
+  const formatUntil = (iso: string | null) => {
+    if (!iso) return t('gamification.couponNoExpiry')
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return t('gamification.couponNoExpiry')
+    return d.toLocaleDateString(locale)
+  }
 
   const handleRedeem = async () => {
     setRedeemError(null)
@@ -38,14 +71,23 @@ export function PointsProgress({ className = '' }: Props) {
         setRedeemError(data.message || t('gamification.redeemError'))
         return
       }
-      setRedeemSuccess(
-        t('gamification.redeemSuccess').replace('{code}', data.couponCode ?? '')
-      )
+      setRedeemSuccess(t('gamification.redeemSuccess', { code: data.couponCode ?? '' }))
+      setListOpen(true)
       await refresh()
     } catch {
       setRedeemError(t('gamification.redeemError'))
     } finally {
       setRedeeming(false)
+    }
+  }
+
+  const copyCode = async (code: string) => {
+    try {
+      await navigator.clipboard.writeText(code)
+      setCopiedCode(code)
+      window.setTimeout(() => setCopiedCode((prev) => (prev === code ? null : prev)), 2000)
+    } catch {
+      /* ignore */
     }
   }
 
@@ -72,9 +114,15 @@ export function PointsProgress({ className = '' }: Props) {
         />
       </div>
 
-      {remaining > 0 && !wallet?.hasActiveCoupon && (
+      {remaining > 0 && (
         <p className="text-xs text-muted mt-2">
-          {t('gamification.pointsRemaining').replace('{count}', String(remaining))}
+          {t('gamification.pointsRemaining', { count: remaining })}
+        </p>
+      )}
+
+      {redeemableCount > 0 && (
+        <p className="text-xs text-muted mt-2">
+          {t('gamification.redeemableCountHint', { count: redeemableCount })}
         </p>
       )}
 
@@ -88,16 +136,10 @@ export function PointsProgress({ className = '' }: Props) {
         {t('gamification.processingNote')}
       </p>
 
-      {wallet?.hasActiveCoupon && wallet.activeCouponCode && (
-        <p className="text-sm text-accent mt-3">
-          {t('gamification.activeCoupon').replace('{code}', wallet.activeCouponCode)}
-        </p>
-      )}
-
       {wallet?.canRedeem && (
         <button
           type="button"
-          onClick={handleRedeem}
+          onClick={() => void handleRedeem()}
           disabled={redeeming}
           className="mt-4 w-full py-2.5 px-4 bg-accent text-white font-medium rounded-lg hover:opacity-90 disabled:opacity-60"
         >
@@ -107,6 +149,67 @@ export function PointsProgress({ className = '' }: Props) {
 
       {redeemError && <p className="text-sm text-red-600 mt-2">{redeemError}</p>}
       {redeemSuccess && <p className="text-sm text-accent mt-2">{redeemSuccess}</p>}
+
+      {coupons.length > 0 && (
+        <details
+          className="mt-4 rounded-lg border border-[var(--border)] bg-background overflow-hidden group"
+          open={listOpen}
+          onToggle={(e) => setListOpen((e.currentTarget as HTMLDetailsElement).open)}
+        >
+          <summary className="px-3 py-2.5 text-sm font-medium text-foreground cursor-pointer list-none flex items-center justify-between gap-3">
+            <span>
+              {t('gamification.myCouponsTitle', { count: coupons.length })}
+              {activeCount > 0 ? (
+                <span className="text-muted font-normal">
+                  {' '}
+                  · {t('gamification.myCouponsActiveCount', { count: activeCount })}
+                </span>
+              ) : null}
+            </span>
+            <span className="text-muted group-open:rotate-180 transition-transform shrink-0 text-xs">
+              ▼
+            </span>
+          </summary>
+          <ul className="px-3 pb-3 space-y-2">
+            {coupons.map((coupon) => (
+              <li
+                key={coupon.id}
+                className="rounded-lg border border-[var(--border)] px-3 py-2"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-mono text-sm text-foreground break-all">{coupon.code}</p>
+                    <p className="text-xs text-muted mt-0.5">
+                      {t('gamification.couponPercent', { percent: coupon.discountPercent })}
+                      {' · '}
+                      {t('gamification.couponValidUntil', {
+                        date: formatUntil(coupon.validUntil),
+                      })}
+                    </p>
+                  </div>
+                  <span
+                    className={`inline-flex shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full ${statusClass(coupon.status)}`}
+                  >
+                    {couponStatusLabel(coupon.status, t)}
+                  </span>
+                </div>
+                {coupon.status === 'active' && (
+                  <button
+                    type="button"
+                    onClick={() => void copyCode(coupon.code)}
+                    className="mt-2 text-xs font-medium text-accent hover:underline"
+                  >
+                    {copiedCode === coupon.code
+                      ? t('gamification.couponCopied')
+                      : t('gamification.couponCopy')}
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+          <p className="px-3 pb-3 text-xs text-muted">{t('gamification.myCouponsCheckoutHint')}</p>
+        </details>
+      )}
     </div>
   )
 }

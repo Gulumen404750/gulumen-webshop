@@ -6,6 +6,13 @@ import { REDEEM_THRESHOLD_MIN, GIFT_POINT_VALIDITY_DAYS } from '@/lib/gamificati
 import { getAvailableGiftPoints, getSoonestGiftExpiry } from '@/lib/gamification/gift-points'
 import { splitWalletBalances } from '@/lib/gamification/purchase-points'
 import { processPendingPointEvents } from '@/lib/gamification/point-event-queue'
+import {
+  canRedeemFromBalance,
+  mapUserGamificationCoupon,
+  pickActiveCheckoutCoupon,
+  redeemableCouponCount,
+  sortUserGamificationCoupons,
+} from '@/lib/gamification/user-coupons'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -45,31 +52,36 @@ export async function GET(request: Request) {
   try {
     await processPendingPointEvents(10, userId)
 
-    const [wallet, activeCoupon, giftPointsAvailable, giftExpiresAt] = await Promise.all([
+    const [wallet, gamificationCoupons, giftPointsAvailable, giftExpiresAt] = await Promise.all([
       prisma.userPointWallet.findUnique({ where: { userId } }),
-      prisma.coupon.findFirst({
-        where: {
-          userId,
-          source: 'gamification',
+      prisma.coupon.findMany({
+        where: { userId, source: 'gamification' },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+        select: {
+          id: true,
+          code: true,
+          discountType: true,
+          discountValue: true,
           active: true,
-          usedCount: 0,
-          AND: [
-            { OR: [{ validFrom: null }, { validFrom: { lte: new Date() } }] },
-            { OR: [{ validUntil: null }, { validUntil: { gt: new Date() } }] },
-          ],
+          usedCount: true,
+          maxUses: true,
+          createdAt: true,
+          validUntil: true,
         },
-        select: { code: true, validUntil: true, discountType: true, discountValue: true },
       }),
       getAvailableGiftPoints(userId),
       getSoonestGiftExpiry(userId),
     ])
 
+    const coupons = sortUserGamificationCoupons(
+      gamificationCoupons.map((c) => mapUserGamificationCoupon(c))
+    )
+    const checkoutCoupon = pickActiveCheckoutCoupon(coupons)
     const balance = wallet?.balance ?? 0
     const { giftBalance, activityBalance } = splitWalletBalances(balance, giftPointsAvailable)
-    const canRedeem =
-      balance >= REDEEM_THRESHOLD_MIN &&
-      !wallet?.gamificationSuspended &&
-      !activeCoupon
+    const suspended = wallet?.gamificationSuspended ?? false
+    const canRedeem = canRedeemFromBalance(balance, REDEEM_THRESHOLD_MIN, suspended)
 
     return NextResponse.json(
       {
@@ -78,11 +90,13 @@ export async function GET(request: Request) {
         lifetimeRedeemed: wallet?.lifetimeRedeemed ?? 0,
         redeemThreshold: REDEEM_THRESHOLD_MIN,
         canRedeem,
-        hasActiveCoupon: Boolean(activeCoupon),
-        activeCouponCode: activeCoupon?.code ?? null,
-        activeCouponPercent: activeCoupon?.discountValue ?? null,
-        activeCouponValidUntil: activeCoupon?.validUntil?.toISOString() ?? null,
-        suspended: wallet?.gamificationSuspended ?? false,
+        redeemableCount: redeemableCouponCount(balance, REDEEM_THRESHOLD_MIN, suspended),
+        hasActiveCoupon: Boolean(checkoutCoupon),
+        activeCouponCode: checkoutCoupon?.code ?? null,
+        activeCouponPercent: checkoutCoupon?.discountPercent ?? null,
+        activeCouponValidUntil: checkoutCoupon?.validUntil ?? null,
+        coupons,
+        suspended,
         giftPointsAvailable,
         giftBalance,
         activityBalance,

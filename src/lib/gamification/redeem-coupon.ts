@@ -23,13 +23,6 @@ export async function redeemPointsForCoupon(
   userId: string,
   threshold = REDEEM_THRESHOLD_DEFAULT
 ) {
-  const existingActive = await prisma.coupon.findFirst({
-    where: { userId, source: 'gamification', active: true },
-  })
-  if (existingActive) {
-    throw new Error('User already has an active gamification coupon')
-  }
-
   const couponCode = `GLM-${randomUUID().replace(/-/g, '').slice(0, 12).toUpperCase()}`
   const validUntil = new Date()
   validUntil.setDate(validUntil.getDate() + COUPON_VALIDITY_DAYS)

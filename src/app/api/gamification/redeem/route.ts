@@ -55,12 +55,6 @@ export async function POST(request: Request) {
     if (e instanceof GamificationSuspendedError) {
       return NextResponse.json({ error: 'suspended', message: e.message }, { status: 403 })
     }
-    if (e instanceof Error && e.message.includes('active gamification coupon')) {
-      return NextResponse.json(
-        { error: 'active_coupon_exists', message: e.message },
-        { status: 409 }
-      )
-    }
     console.error('[api/gamification/redeem] POST', e)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

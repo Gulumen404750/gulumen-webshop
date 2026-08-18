@@ -85,7 +85,7 @@ model Coupon {
   minOrderHuf  Int?
   maxUses      Int?     // null = unlimited
   usedCount    Int       @default(0)
-  /// Gamification: személyes kupon tulajdonos (egy user = egy aktív gamification kupon)
+  /// Gamification: személyes kupon tulajdonos (több 10%-os GLM kupon is lehet / user)
   userId       String?
   user         User?     @relation("GamificationCoupons", fields: [userId], references: [id], onDelete: SetNull)
   /// gamification | admin | registration | abandoned_cart | birthday

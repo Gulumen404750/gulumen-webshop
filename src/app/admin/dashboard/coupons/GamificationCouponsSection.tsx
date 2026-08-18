@@ -112,7 +112,7 @@ export function AdminGamificationCouponsSection() {
         <h2 className="font-heading font-semibold text-foreground">Pontból váltott 10%-os kuponok</h2>
         <p className="text-sm text-muted mt-1 leading-tight">
           Aktivitási pontokból beváltott személyes kuponok (GLM-kód, jellemzően 10%, 350–400 pont).
-          Egy felhasználónak egyszerre egy aktív gamification kuponja lehet.
+          Egy felhasználó több fel nem használt 10%-os kupont is tarthat; rendelésenként egy érvényes.
         </p>
       </div>
 

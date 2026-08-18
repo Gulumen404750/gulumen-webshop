@@ -23,6 +23,7 @@ import {
 import { canGrantBrowseBonus } from '@/lib/gamification/browse-bonus'
 import { formatGamificationDateKey } from '@/lib/gamification/dates'
 import { getCurrentWeekId } from '@/lib/gamification/lucky-spin'
+import { canRedeemFromBalance, redeemableCouponCount } from '@/lib/gamification/user-coupons'
 import { mockProducts } from '@/lib/data'
 import { isDbConfigured } from '@/lib/prisma'
 import type { HeartbeatResult } from '@/lib/gamification/browse-heartbeat'
@@ -157,19 +158,27 @@ export function devGetWallet(userId: string) {
     lifetimeRedeemed: 0,
     gamificationSuspended: false,
   }
-  const canRedeem =
-    wallet.balance >= REDEEM_THRESHOLD_MIN &&
-    !wallet.gamificationSuspended
+  const canRedeem = canRedeemFromBalance(
+    wallet.balance,
+    REDEEM_THRESHOLD_MIN,
+    wallet.gamificationSuspended
+  )
   return {
     balance: wallet.balance,
     lifetimeEarned: wallet.lifetimeEarned,
     lifetimeRedeemed: wallet.lifetimeRedeemed,
     redeemThreshold: REDEEM_THRESHOLD_MIN,
     canRedeem,
+    redeemableCount: redeemableCouponCount(
+      wallet.balance,
+      REDEEM_THRESHOLD_MIN,
+      wallet.gamificationSuspended
+    ),
     hasActiveCoupon: false,
     activeCouponCode: null,
     activeCouponPercent: null,
     activeCouponValidUntil: null,
+    coupons: [],
     suspended: wallet.gamificationSuspended,
     giftPointsAvailable: 0,
     giftBalance: 0,
