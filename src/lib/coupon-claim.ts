@@ -212,14 +212,18 @@ export async function claimCouponForUser(params: {
   if (blocked) return failClaim(blocked)
 
   try {
-    const outcome = await prisma.$transaction(async (tx) => {
+    type ClaimTxOutcome =
+      | { blocked: CouponClaimErrorCode }
+      | { row: typeof found; created: boolean }
+
+    const outcome: ClaimTxOutcome = await prisma.$transaction(async (tx) => {
       const again = await tx.coupon.findFirst({
         where: { userId, claimedFromCode: code },
       })
-      if (again) return { row: again, created: false as const }
+      if (again) return { row: again, created: false }
 
       const template = await tx.coupon.findUnique({ where: { id: found.id } })
-      if (!template || template.userId) return { blocked: 'coupon_invalid' as const }
+      if (!template || template.userId) return { blocked: 'coupon_invalid' }
 
       const blockedAgain = campaignTemplateBlocksNewClaim(template, now)
       if (blockedAgain) return { blocked: blockedAgain }
@@ -241,7 +245,7 @@ export async function claimCouponForUser(params: {
           claimedFromCode: template.code,
         },
       })
-      return { row, created: true as const }
+      return { row, created: true }
     })
 
     if ('blocked' in outcome) return failClaim(outcome.blocked)

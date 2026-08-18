@@ -96,6 +96,7 @@ describe('ownedCouponRedeemError', () => {
 describe('claimCouponForUser template handling', () => {
   it('clones the campaign code for the shopper without consuming the global template', () => {
     const src = readFileSync(join(process.cwd(), 'src/lib/coupon-claim.ts'), 'utf-8')
+    expect(src).toMatch(/type ClaimTxOutcome/)
     expect(src).toMatch(/claimedFromCode: template.code/)
     expect(src).toMatch(/source: ADMIN_CLAIM_SOURCE/)
     expect(src).not.toMatch(/usedCount: newUsed/)
