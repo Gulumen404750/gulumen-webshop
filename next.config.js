@@ -5,7 +5,7 @@ const nextConfig = {
   experimental: {
     instrumentationHook: true,
     // Keep next-auth as Node require – avoids webpack inlining process.env at build time
-    serverComponentsExternalPackages: ['next-auth', 'otplib'],
+    serverComponentsExternalPackages: ['next-auth', 'otplib', 'qrcode'],
   },
   images: {
     formats: ['image/avif', 'image/webp'],

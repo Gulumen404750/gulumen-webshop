@@ -1,8 +1,11 @@
-export type ShippingLabelItem = {
-  name: string | null
-  productId: string
-  qty: number
-}
+import { ShippingLabelQrCode } from '@/components/admin/ShippingLabelQrCode'
+import {
+  formatShippingLabelItemLine,
+  shippingLabelQrText,
+  type ShippingLabelProductionItem,
+} from '@/lib/shipping-label'
+
+export type ShippingLabelItem = ShippingLabelProductionItem
 
 export type ShippingLabelOrder = {
   id: string
@@ -16,6 +19,7 @@ export type ShippingLabelOrder = {
   deliveryNotes?: string | null
   addressType?: string | null
   items: ShippingLabelItem[]
+  qrDataUrl?: string | null
 }
 
 function formatAddressLines(o: ShippingLabelOrder): string[] {
@@ -35,17 +39,26 @@ export function ShippingLabelCard({ order }: { order: ShippingLabelOrder }) {
       : order.addressType === 'home'
         ? 'Lakás / Magáncím'
         : order.addressType?.trim() || ''
-  const contents = order.items
-    .map((i) => `${i.qty}× ${i.name?.trim() || i.productId}`)
-    .join(', ')
+  const qrValue = shippingLabelQrText(order.id, order.items)
+  const itemLines = order.items.map(formatShippingLabelItemLine)
 
   return (
-    <div className="shipping-label mx-auto max-w-[420px] border-2 border-black bg-white p-5 font-sans text-[13px] leading-snug text-black">
-      <div className="mb-4 border-b border-black pb-3">
-        <p className="text-[10px] uppercase tracking-wide text-neutral-600">Feladó</p>
-        <p className="text-base font-bold">Gulumen</p>
-        <p>gulumen.hu</p>
-        <p>postmaster@gulumen.com</p>
+    <div
+      className="shipping-label mx-auto max-w-[420px] border-2 border-black bg-white p-5 font-sans text-[13px] leading-snug text-black"
+      style={{ printColorAdjust: 'exact', WebkitPrintColorAdjust: 'exact' }}
+    >
+      <div className="mb-4 flex items-start justify-between gap-3 border-b border-black pb-3">
+        <div className="min-w-0">
+          <p className="text-[10px] uppercase tracking-wide text-neutral-600">Feladó</p>
+          <p className="text-base font-bold">Gulumen</p>
+          <p>gulumen.hu</p>
+          <p>postmaster@gulumen.com</p>
+        </div>
+        <ShippingLabelQrCode
+          value={qrValue}
+          src={order.qrDataUrl}
+          alt={`QR-kód: rendelés ${order.id}, gyártási tételek`}
+        />
       </div>
 
       <div className="mb-4">
@@ -72,7 +85,17 @@ export function ShippingLabelCard({ order }: { order: ShippingLabelOrder }) {
 
       <div className="border-t border-black pt-3">
         <p className="text-[10px] uppercase tracking-wide text-neutral-600">Csomag tartalma</p>
-        <p className="mt-1 font-medium">{contents || '—'}</p>
+        {itemLines.length > 0 ? (
+          <div className="mt-1 space-y-1">
+            {itemLines.map((line, index) => (
+              <p key={`${index}-${line}`} className="text-[11px] font-medium leading-snug">
+                {line}
+              </p>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-1 font-medium">—</p>
+        )}
         <p className="mt-3 font-mono text-[11px] text-neutral-700">Rendelés: {order.id}</p>
       </div>
     </div>
