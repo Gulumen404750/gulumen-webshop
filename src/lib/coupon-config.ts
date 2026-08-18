@@ -5,7 +5,7 @@ export const CAT_COUPON_PERCENT = 0.05
 export const REGISTRATION_COUPON_PERCENT = 0.1
 
 /** Éles deploy marker – Railway Watch Paths a src/** fájlokra figyel. */
-export const COUPON_STACKING_DEPLOY_MARKER = '2026-08-18T23:30'
+export const COUPON_STACKING_DEPLOY_MARKER = '2026-08-18T22:45'
 
 /**
  * Checkout welcome ajánlat: hírlevél feliratkozás → azonnali 10%.
