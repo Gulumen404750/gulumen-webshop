@@ -1,5 +1,7 @@
 'use client'
 
+/** Fizetési oldal – fix Ft kupon összevonás (Railway src watch-path). */
+
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
