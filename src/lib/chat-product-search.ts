@@ -422,18 +422,21 @@ function mapProductToRecommended(p: Product): ChatRecommendedProduct {
 
 async function searchProductsInDb(
   keywords: string[],
-  limit: number
+  limit: number,
+  excludeProductIds: string[] = []
 ): Promise<ChatRecommendedProduct[]> {
   if (!isDbConfigured()) return []
+  const blocked = excludeProductIds.filter(Boolean)
+  const notIn = blocked.length > 0 ? { id: { notIn: blocked } } : {}
 
   if (keywords.length === 0) {
     const rows = await prisma.product.findMany({
-      where: { active: true, archived: false },
+      where: { active: true, archived: false, ...notIn },
       orderBy: [{ likesCount: 'desc' }, { updatedAt: 'desc' }],
-      take: limit,
+      take: limit + blocked.length,
       select: productSelect,
     })
-    return rows.map(mapDbRowToRecommended)
+    return rows.map(mapDbRowToRecommended).slice(0, limit)
   }
 
   const dbKeywords = [...new Set(keywords.flatMap((kw) => stemSearchToken(kw)))].slice(0, 24)
@@ -453,6 +456,7 @@ async function searchProductsInDb(
     where: {
       active: true,
       archived: false,
+      ...notIn,
       OR: orFilters,
     },
     orderBy: [{ likesCount: 'desc' }, { updatedAt: 'desc' }],
@@ -478,7 +482,7 @@ async function searchProductsInDb(
   // Ilyenkor népszerű poolon JS-ben pontozunk ascii-tűrően.
   if (scored.length === 0) {
     const pool = await prisma.product.findMany({
-      where: { active: true, archived: false },
+      where: { active: true, archived: false, ...notIn },
       orderBy: [{ likesCount: 'desc' }, { updatedAt: 'desc' }],
       take: 120,
       select: {
@@ -503,10 +507,14 @@ async function searchProductsInDb(
 
 async function searchProductsInMemory(
   keywords: string[],
-  limit: number
+  limit: number,
+  excludeProductIds: string[] = []
 ): Promise<ChatRecommendedProduct[]> {
   const all = await getAllProductsAsync()
-  const active = all.filter((p) => p.active !== false && p.archived !== true)
+  const blocked = new Set(excludeProductIds)
+  const active = all.filter(
+    (p) => p.active !== false && p.archived !== true && !blocked.has(p.id)
+  )
 
   if (keywords.length === 0) {
     return active
@@ -542,9 +550,13 @@ async function searchProductsInMemory(
  */
 export async function searchProductsForChat(
   message: string,
-  limit: number = CHAT_PRODUCT_RECOMMENDATION_LIMIT
+  options: { limit?: number; excludeProductIds?: string[] } = {}
 ): Promise<ChatRecommendedProduct[]> {
-  const take = Math.min(Math.max(limit, 1), CHAT_PRODUCT_RECOMMENDATION_LIMIT)
+  const take = Math.min(
+    Math.max(options.limit ?? CHAT_PRODUCT_RECOMMENDATION_LIMIT, 1),
+    CHAT_PRODUCT_RECOMMENDATION_LIMIT
+  )
+  const excludeProductIds = options.excludeProductIds ?? []
   if (!isProductSearchQuery(message)) return []
 
   const keywords = extractSearchKeywords(message)
@@ -559,6 +571,7 @@ export async function searchProductsForChat(
     )
   const recommendOnly = keywords.length === 0 || vagueRecommendIntent || giftIntent
 
+  const excludeSet = new Set(excludeProductIds)
   const mergeUnique = (
     primary: ChatRecommendedProduct[],
     extra: ChatRecommendedProduct[]
@@ -566,7 +579,7 @@ export async function searchProductsForChat(
     const seen = new Set<string>()
     const out: ChatRecommendedProduct[] = []
     for (const p of [...primary, ...extra]) {
-      if (!p?.id || seen.has(p.id)) continue
+      if (!p?.id || seen.has(p.id) || excludeSet.has(p.id)) continue
       seen.add(p.id)
       out.push(p)
       if (out.length >= take) break
@@ -576,9 +589,9 @@ export async function searchProductsForChat(
 
   try {
     if (isDbConfigured()) {
-      const dbHits = await searchProductsInDb(recommendOnly ? [] : keywords, take)
+      const dbHits = await searchProductsInDb(recommendOnly ? [] : keywords, take, excludeProductIds)
       if (dbHits.length >= take) return dbHits.slice(0, take)
-      const popular = await searchProductsInDb([], Math.max(take * 3, 9))
+      const popular = await searchProductsInDb([], Math.max(take * 3, 9), excludeProductIds)
       const merged = mergeUnique(dbHits, popular)
       if (merged.length > 0) return merged
     }
@@ -586,9 +599,9 @@ export async function searchProductsForChat(
     // fallback memóriára
   }
 
-  const memoryHits = await searchProductsInMemory(recommendOnly ? [] : keywords, take)
+  const memoryHits = await searchProductsInMemory(recommendOnly ? [] : keywords, take, excludeProductIds)
   if (memoryHits.length >= take) return memoryHits.slice(0, take)
-  const popularMemory = await searchProductsInMemory([], Math.max(take * 3, 9))
+  const popularMemory = await searchProductsInMemory([], Math.max(take * 3, 9), excludeProductIds)
   return mergeUnique(memoryHits, popularMemory)
 }
 

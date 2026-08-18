@@ -39,7 +39,7 @@ export function useProductLikeToggle({
   onUnauthorized,
   onPointLimit,
 }: UseProductLikeToggleArgs) {
-  const { applyOptimisticToggle, beginPendingToggle, endPendingToggle, syncFromServer } =
+  const { applyOptimisticToggle, beginPendingToggle, endPendingToggle, syncFromServer, isDismissed } =
     useWishlist()
   const inFlightRef = useRef(false)
   const requestSeqRef = useRef(0)
@@ -51,6 +51,14 @@ export function useProductLikeToggle({
 
   /** Mount GET ne írja felül a számlálót, amíg POST folyamatban van. */
   const shouldIgnoreExternalCount = useCallback(() => inFlightRef.current, [])
+
+  /** GET liked=true soha ne rakja vissza a expliciten törölt terméket. */
+  const canAcceptExternalLike = useCallback((liked: boolean) => {
+    if (!liked || inFlightRef.current) return false
+    const prodId = stateRef.current.product.id
+    if (isDismissed(prodId) || stateRef.current.isFavorite) return false
+    return true
+  }, [isDismissed])
 
   const toggle = useCallback(
     (e?: { preventDefault?: () => void; stopPropagation?: () => void }) => {
@@ -86,6 +94,8 @@ export function useProductLikeToggle({
       fetch(`/api/products/${prod.id}/like`, {
         method: 'POST',
         ...likeFetchOpts,
+        headers: { ...likeFetchOpts.headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ liked: nextLiked }),
       })
         .then(async (r) => {
           if (r.status === 401) {
@@ -156,7 +166,7 @@ export function useProductLikeToggle({
     ]
   )
 
-  return { toggle, isToggling, shouldIgnoreExternalCount }
+  return { toggle, isToggling, shouldIgnoreExternalCount, canAcceptExternalLike }
 }
 
 export { likeFetchOpts }

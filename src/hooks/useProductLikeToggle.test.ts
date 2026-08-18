@@ -1,4 +1,6 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'fs'
+import { join } from 'path'
 
 /**
  * Pure helpers mirroring the like-toggle settle rules used by useProductLikeToggle.
@@ -60,6 +62,15 @@ describe('wishlist like counter settle', () => {
   it('pending overlay protects optimistic unlike', () => {
     const pending = new Map<string, boolean>([['p1', false]])
     expect(applyPendingOverlay(['p1', 'p2'], pending)).toEqual(['p2'])
+  })
+})
+
+describe('like POST desired state', () => {
+  it('sends the intended liked flag so a stale toggle cannot recreate the row', () => {
+    const src = readFileSync(join(process.cwd(), 'src/hooks/useProductLikeToggle.ts'), 'utf-8')
+    expect(src).toMatch(/JSON\.stringify\(\{ liked: nextLiked \}\)/)
+    expect(src).toMatch(/canAcceptExternalLike/)
+    expect(src).toMatch(/isDismissed\(prodId\)/)
   })
 })
 

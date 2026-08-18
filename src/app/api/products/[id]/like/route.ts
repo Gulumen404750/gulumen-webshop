@@ -134,7 +134,17 @@ export async function POST(
       )
     }
 
-    const result = await ProductLikes.toggleLike(productId, userId, session.email)
+    let desiredLiked: boolean | undefined
+    try {
+      const raw = await request.json()
+      if (raw && typeof raw === 'object' && typeof (raw as { liked?: unknown }).liked === 'boolean') {
+        desiredLiked = (raw as { liked: boolean }).liked
+      }
+    } catch {
+      desiredLiked = undefined
+    }
+
+    const result = await ProductLikes.toggleLike(productId, userId, session.email, desiredLiked)
 
     if (result.dailyBonusQueued) {
       const { processPendingPointEvents } = await import('@/lib/gamification/point-event-queue')

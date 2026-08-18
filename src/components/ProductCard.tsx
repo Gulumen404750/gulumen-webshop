@@ -109,7 +109,7 @@ export function ProductCard({
     toast(t('wishlist.loginRequired'))
   }, [toast, t])
 
-  const { toggle, isToggling, shouldIgnoreExternalCount } = useProductLikeToggle({
+  const { toggle, isToggling, shouldIgnoreExternalCount, canAcceptExternalLike } = useProductLikeToggle({
     product,
     userId,
     isFavorite,
@@ -132,7 +132,7 @@ export function ProductCard({
           setLikesCount(Math.max(0, Math.floor(data.likesCount)))
         }
         // Ha a szerver liked=true, de a store még nem tudja (hideg betöltés), szinkronizálunk
-        if (data?.liked === true && !isInWishlist(product.id) && !shouldIgnoreExternalCount()) {
+        if (canAcceptExternalLike(data?.liked === true)) {
           applyOptimisticToggle(product, true)
         }
         if (typeof data?.pointLimitReached === 'boolean') setPointLimitReached(data.pointLimitReached)

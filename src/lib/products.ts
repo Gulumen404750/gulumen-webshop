@@ -170,15 +170,17 @@ export async function getStockProductsFromDb(): Promise<Product[]> {
 export async function getSimilarProductsFromDb(
   category: string,
   excludeProductId: string,
-  limit = 4
+  limit = 4,
+  excludeProductIds: string[] = []
 ): Promise<Product[]> {
   if (!isDbConfigured()) return []
+  const blocked = Array.from(new Set([excludeProductId, ...excludeProductIds].filter(Boolean)))
   const rows = await prisma.product.findMany({
     where: {
       category,
       active: true,
       archived: false,
-      id: { not: excludeProductId },
+      id: { notIn: blocked },
     },
     orderBy: { updatedAt: 'desc' },
     take: limit,

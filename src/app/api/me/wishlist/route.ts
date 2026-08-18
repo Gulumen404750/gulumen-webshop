@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { rateLimit } from '@/lib/rate-limit'
 import * as ProductLikes from '@/lib/product-likes'
+import { getDismissedProductIdsByUser } from '@/lib/product-dismiss'
 import { getSession, resolveSessionUserId } from '@/lib/auth'
 import { isDbConfigured } from '@/lib/prisma'
 import { getProductsByIdsFromDb } from '@/lib/products'
@@ -30,7 +31,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const productIds = await ProductLikes.getLikedProductIdsByUser(userId, session.email)
+    const [productIds, dismissedIds] = await Promise.all([
+      ProductLikes.getLikedProductIdsByUser(userId, session.email),
+      getDismissedProductIdsByUser(userId),
+    ])
 
     let products: Product[] = []
     if (isDbConfigured()) {
@@ -42,7 +46,7 @@ export async function GET(request: Request) {
       }
     }
 
-    return NextResponse.json({ productIds, products })
+    return NextResponse.json({ productIds, products, dismissedIds })
   } catch (e) {
     console.error('[api/me/wishlist] GET', e)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

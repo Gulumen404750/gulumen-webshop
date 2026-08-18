@@ -29,6 +29,8 @@ import {
 import { applyPointsCopyPlaceholders } from '@/lib/display-money'
 import { fetchEuroToHufRate } from '@/lib/euro-rate'
 import { formatChatAssistantText } from '@/lib/chat-message-format'
+import { getSession, resolveSessionUserId } from '@/lib/auth'
+import { getDismissedProductIdsByUser } from '@/lib/product-dismiss'
 import {
   buildChatVisitorNameBlock,
   resolveChatVisitorDisplayName,
@@ -76,7 +78,10 @@ export async function POST(request: Request) {
     void logChatQuestion({ question: message, locale, ipHash })
 
     const apiKey = process.env.OPENAI_API_KEY?.trim()
-    const recommendedProducts = await searchProductsForChat(message)
+    const session = await getSession(request)
+    const chatUserId = session ? await resolveSessionUserId(session) : null
+    const excludeProductIds = chatUserId ? await getDismissedProductIdsByUser(chatUserId) : []
+    const recommendedProducts = await searchProductsForChat(message, { excludeProductIds })
     const productIds = recommendedProducts.map((p) => p.id)
 
     if (apiKey) {

@@ -1298,17 +1298,24 @@ export async function getSourcingDealProductsAsync(): Promise<Product[]> {
 }
 
 /** Async: hasonló termékek (DB-first). */
-export async function getSimilarProductsAsync(product: Product, limit = 4): Promise<Product[]> {
+export async function getSimilarProductsAsync(
+  product: Product,
+  limit = 4,
+  excludeProductIds: string[] = []
+): Promise<Product[]> {
   return loadFromDbOrMock(
     async () => {
       const { getSimilarProductsFromDb } = await import('@/lib/products')
-      return getSimilarProductsFromDb(product.category, product.id, limit)
+      return getSimilarProductsFromDb(product.category, product.id, limit, excludeProductIds)
     },
     () =>
       mockProducts
         .filter(
           (p) =>
-            p.category === product.category && p.id !== product.id && p.type !== 'sourcing_deal'
+            p.category === product.category &&
+            p.id !== product.id &&
+            p.type !== 'sourcing_deal' &&
+            !excludeProductIds.includes(p.id)
         )
         .slice(0, limit),
     [] as Product[]

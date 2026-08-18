@@ -84,17 +84,27 @@ function fileHasLike(productId: string, userId: string, email?: string): boolean
   return loadRecords().some((r) => r.productId === productId && userIds.has(r.userId))
 }
 
-function fileToggleLike(productId: string, userId: string, email?: string): { liked: boolean; likesCount: number } {
+function fileToggleLike(
+  productId: string,
+  userId: string,
+  email?: string,
+  desiredLiked?: boolean
+): { liked: boolean; likesCount: number } {
   const records = loadRecords()
   const userIds = userIdsForLookup(userId, email)
   const idx = records.findIndex((r) => r.productId === productId && userIds.has(r.userId))
-  if (idx >= 0) {
-    records.splice(idx, 1)
+  const currentlyLiked = idx >= 0
+  const nextLiked = typeof desiredLiked === 'boolean' ? desiredLiked : !currentlyLiked
+
+  if (!nextLiked) {
+    if (idx >= 0) records.splice(idx, 1)
     saveRecords(records)
     return { liked: false, likesCount: records.filter((r) => r.productId === productId).length }
   }
-  records.push({ productId, userId, createdAt: new Date().toISOString() })
-  saveRecords(records)
+  if (idx < 0) {
+    records.push({ productId, userId, createdAt: new Date().toISOString() })
+    saveRecords(records)
+  }
   return { liked: true, likesCount: records.filter((r) => r.productId === productId).length }
 }
 
@@ -128,10 +138,11 @@ export async function hasLike(productId: string, userId: string, email?: string)
 export async function toggleLike(
   productId: string,
   userId: string,
-  email?: string
+  email?: string,
+  desiredLiked?: boolean
 ): Promise<ToggleLikeResult> {
   if (isDbConfigured()) {
-    const result = await toggleLikeWithGamification(productId, userId)
+    const result = await toggleLikeWithGamification(productId, userId, desiredLiked)
     return {
       liked: result.liked,
       likesCount: result.likesCount,
@@ -145,21 +156,37 @@ export async function toggleLike(
       dailyLikeTarget: result.qualifyingLikeTarget,
     }
   }
-  const fileResult = fileToggleLike(productId, userId, email)
+  const fileResult = fileToggleLike(productId, userId, email, desiredLiked)
+  if (fileResult.liked) {
+    const { forgetProductDismiss } = await import('@/lib/product-dismiss')
+    await forgetProductDismiss(userId, productId)
+  } else {
+    const { rememberProductDismiss } = await import('@/lib/product-dismiss')
+    await rememberProductDismiss(userId, productId)
+  }
   const { devOnLikeToggle } = await import('@/lib/dev-gamification')
   const gam = devOnLikeToggle(userId, productId, fileResult.liked)
   return { ...fileResult, ...gam }
 }
 
-/** User összes kedvenc termék id-ja (privát wishlist). */
+/** User összes kedvenc termék id-ja (privát wishlist). Dismisselt ID soha nem kerül bele. */
 export async function getLikedProductIdsByUser(userId: string, email?: string): Promise<string[]> {
   if (isDbConfigured()) {
-    const rows = await prisma.productLike.findMany({
-      where: { userId },
-      select: { productId: true },
-      orderBy: { createdAt: 'desc' },
-    })
-    return rows.map((r) => r.productId)
+    const [rows, dismissed] = await Promise.all([
+      prisma.productLike.findMany({
+        where: { userId },
+        select: { productId: true },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.productDismiss.findMany({
+        where: { userId },
+        select: { productId: true },
+      }),
+    ])
+    const blocked = new Set(dismissed.map((d) => d.productId))
+    return rows.map((r) => r.productId).filter((id) => !blocked.has(id))
   }
-  return fileGetLikedProductIdsByUser(userId, email)
+  const { getDismissedProductIdsByUser } = await import('@/lib/product-dismiss')
+  const blocked = new Set(await getDismissedProductIdsByUser(userId))
+  return fileGetLikedProductIdsByUser(userId, email).filter((id) => !blocked.has(id))
 }

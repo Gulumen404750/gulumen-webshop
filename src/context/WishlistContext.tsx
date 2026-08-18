@@ -12,9 +12,17 @@ import {
 import { useAuth } from '@/context/AuthContext'
 import { onLogoutCleanup } from '@/lib/logout-cleanup'
 import type { Product } from '@/lib/data'
+import {
+  applyPendingFavoriteOverlay,
+  excludeDismissedIds,
+  mergeFavoriteIdsFromCache,
+  nextDismissedIdsAfterToggle,
+  nextFavoriteIdsAfterToggle,
+} from '@/lib/wishlist-sync'
 
 /** localStorage kulcs – kedvenc termék ID-k (oldalváltás / Vissza gomb után is). */
 export const FAVORITES_STORAGE_KEY = 'gulumen_favorites'
+export const FAVORITE_DISMISS_STORAGE_KEY = 'gulumen_favorite_dismissed'
 
 type StoredFavorites = {
   userId: string
@@ -28,6 +36,7 @@ type WishlistContextValue = {
   products: Product[]
   isLoading: boolean
   isInWishlist: (productId: string) => boolean
+  isDismissed: (productId: string) => boolean
   count: number
   syncFromServer: (() => void) | undefined
   /** Alias: BFCache / focus utáni újraszinkron. */
@@ -83,10 +92,45 @@ function writeStoredFavoriteIds(userId: string | null | undefined, ids: string[]
   }
 }
 
+function readStoredDismissedIds(userId: string | null | undefined): string[] {
+  if (typeof window === 'undefined' || !userId) return []
+  try {
+    const raw = localStorage.getItem(FAVORITE_DISMISS_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as StoredFavorites
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      parsed.userId === userId &&
+      Array.isArray(parsed.ids)
+    ) {
+      return parsed.ids.filter((id): id is string => typeof id === 'string')
+    }
+    return []
+  } catch {
+    return []
+  }
+}
+
+function writeStoredDismissedIds(userId: string | null | undefined, ids: string[]) {
+  if (typeof window === 'undefined') return
+  try {
+    if (!userId) {
+      localStorage.removeItem(FAVORITE_DISMISS_STORAGE_KEY)
+      return
+    }
+    const payload: StoredFavorites = { userId, ids }
+    localStorage.setItem(FAVORITE_DISMISS_STORAGE_KEY, JSON.stringify(payload))
+  } catch {
+    /* private mode / quota */
+  }
+}
+
 export function WishlistProvider({ children }: { children: ReactNode }) {
   const { userId, authChecked } = useAuth()
   const [productIds, setProductIds] = useState<string[]>([])
   const [products, setProducts] = useState<Product[]>([])
+  const [dismissedIds, setDismissedIds] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const fetchGenRef = useRef(0)
   const hydratedUserRef = useRef<string | null>(null)
@@ -104,15 +148,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const applyPendingOverlay = useCallback((ids: string[]): string[] => {
-    let next = ids
-    for (const [id, liked] of pendingToggleRef.current) {
-      if (liked) {
-        if (!next.includes(id)) next = [...next, id]
-      } else if (next.includes(id)) {
-        next = next.filter((x) => x !== id)
-      }
-    }
-    return next
+    return applyPendingFavoriteOverlay(ids, pendingToggleRef.current)
   }, [])
 
   // Kijelentkezés: azonnali memory reset (storage-t a runLogoutCleanup törli)
@@ -123,6 +159,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
       pendingToggleRef.current.clear()
       setProductIds([])
       setProducts([])
+      setDismissedIds([])
       setIsLoading(false)
     })
   }, [])
@@ -134,12 +171,16 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
       hydratedUserRef.current = null
       setProductIds([])
       setProducts([])
+      setDismissedIds([])
       writeStoredFavoriteIds(null, [])
+      writeStoredDismissedIds(null, [])
       return
     }
     if (hydratedUserRef.current === userId) return
     hydratedUserRef.current = userId
-    const stored = readStoredFavoriteIds(userId)
+    const dismissed = readStoredDismissedIds(userId)
+    if (dismissed.length > 0) setDismissedIds(dismissed)
+    const stored = excludeDismissedIds(readStoredFavoriteIds(userId), dismissed)
     if (stored.length > 0) {
       setProductIds((prev) => (prev.length > 0 ? prev : stored))
     }
@@ -151,12 +192,18 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     writeStoredFavoriteIds(userId, productIds)
   }, [productIds, userId, authChecked])
 
+  useEffect(() => {
+    if (!authChecked || !userId) return
+    writeStoredDismissedIds(userId, dismissedIds)
+  }, [dismissedIds, userId, authChecked])
+
   const fetchWishlist = useCallback(() => {
     if (!authChecked) return
 
     if (!userId) {
       setProductIds([])
       setProducts([])
+      setDismissedIds([])
       setIsLoading(false)
       return
     }
@@ -175,9 +222,16 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
 
         const ids = Array.isArray(data?.productIds) ? data.productIds : []
         const serverIds = ids.filter((id: unknown): id is string => typeof id === 'string')
-        const nextIds = applyPendingOverlay(serverIds)
+        const serverDismissed = Array.isArray(data?.dismissedIds)
+          ? data.dismissedIds.filter((id: unknown): id is string => typeof id === 'string')
+          : []
+        const localDismissed = readStoredDismissedIds(userId)
+        const nextDismissed = Array.from(new Set([...serverDismissed, ...localDismissed]))
+        const nextIds = excludeDismissedIds(applyPendingOverlay(serverIds), nextDismissed)
+        setDismissedIds(nextDismissed)
         setProductIds(nextIds)
         writeStoredFavoriteIds(userId, nextIds)
+        writeStoredDismissedIds(userId, nextDismissed)
 
         const prods = Array.isArray(data?.products) ? data.products : []
         const nextProds = prods.filter(
@@ -197,9 +251,14 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
       .catch(() => {
         if (gen !== fetchGenRef.current) return
         // Hiba esetén megtartjuk a meglévő / localStorage listát
-        const stored = readStoredFavoriteIds(userId)
+        const stored = excludeDismissedIds(
+          readStoredFavoriteIds(userId),
+          readStoredDismissedIds(userId)
+        )
         if (stored.length > 0) {
-          setProductIds((prev) => applyPendingOverlay(prev.length > 0 ? prev : stored))
+          setProductIds((prev) =>
+            applyPendingOverlay(prev.length > 0 ? mergeFavoriteIdsFromCache(prev, stored) : stored)
+          )
         }
       })
       .finally(() => {
@@ -221,6 +280,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     if (!authChecked) return
     if (!userId) {
       setProductIds([])
+      setDismissedIds([])
       return
     }
     // In-flight like alatt ne mergeljünk / ne GET-eljünk – elkerüli a számláló ugrálást.
@@ -228,19 +288,10 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
 
     const now = Date.now()
     if (now - lastSyncAtRef.current < 1500) {
-      // Gyors egymás utáni focus/pageshow: csak localStorage refresh (unió nélkül – ne duzzadjon)
-      const stored = readStoredFavoriteIds(userId)
-      if (stored.length > 0) {
-        setProductIds((prev) => (prev.length >= stored.length ? prev : stored))
-      }
+      // Gyors focus/pageshow: ne töltsük vissza a stale localStorage listát.
       return
     }
     lastSyncAtRef.current = now
-    // Először localStorage (azonnali UI), majd szerver
-    const stored = readStoredFavoriteIds(userId)
-    if (stored.length > 0) {
-      setProductIds((prev) => (prev.length > 0 ? prev : stored))
-    }
     fetchWishlist()
   }, [authChecked, userId, fetchWishlist])
 
@@ -276,18 +327,34 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
   }, [syncFavorites])
 
   const applyOptimisticToggle = useCallback((product: Product, liked: boolean) => {
+    setProductIds((prev) => {
+      const next = excludeDismissedIds(
+        nextFavoriteIdsAfterToggle(prev, product.id, liked),
+        liked ? [] : [product.id]
+      )
+      writeStoredFavoriteIds(userId, next)
+      return next
+    })
+    setDismissedIds((prev) => {
+      const next = nextDismissedIdsAfterToggle(prev, product.id, liked)
+      writeStoredDismissedIds(userId, next)
+      return next
+    })
     if (liked) {
-      setProductIds((prev) => (prev.includes(product.id) ? prev : [...prev, product.id]))
       setProducts((prev) => (prev.some((p) => p.id === product.id) ? prev : [...prev, product]))
     } else {
-      setProductIds((prev) => prev.filter((id) => id !== product.id))
       setProducts((prev) => prev.filter((p) => p.id !== product.id))
     }
-  }, [])
+  }, [userId])
 
   const isInWishlist = useCallback(
     (productId: string) => productIds.includes(productId),
     [productIds]
+  )
+
+  const isDismissed = useCallback(
+    (productId: string) => dismissedIds.includes(productId),
+    [dismissedIds]
   )
 
   const value: WishlistContextValue = {
@@ -296,6 +363,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     products,
     isLoading,
     isInWishlist,
+    isDismissed,
     count: productIds.length,
     syncFromServer,
     syncFavorites,

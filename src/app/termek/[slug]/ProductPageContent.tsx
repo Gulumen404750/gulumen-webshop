@@ -2,7 +2,7 @@
 
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Share2 } from 'lucide-react'
 import { getDisplayStock, getProductName, getSourcingDealStatus, isUnlimitedStock } from '@/lib/data'
@@ -102,9 +102,13 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
   const searchParams = useSearchParams()
   const { items, addItem, itemCount } = useCart()
   const { userId } = useAuth()
-  const { isInWishlist, applyOptimisticToggle } = useWishlist()
+  const { isInWishlist, isDismissed, applyOptimisticToggle } = useWishlist()
   const { toast } = useToast()
   const isFavorite = isInWishlist(product.id)
+  const visibleSimilarProducts = useMemo(
+    () => similarProducts.filter((p) => !isDismissed(p.id)),
+    [similarProducts, isDismissed]
+  )
   const [likesCount, setLikesCount] = useState(() => Math.max(0, product.likesCount ?? 0))
   const [pointLimitReached, setPointLimitReached] = useState(false)
   useRecentlyViewed(product.id, product.slug)
@@ -240,7 +244,7 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
     toast(t('wishlist.loginRequired'))
   }, [toast, t])
 
-  const { toggle: toggleLike, isToggling: isLikeToggling, shouldIgnoreExternalCount } =
+  const { toggle: toggleLike, isToggling: isLikeToggling, shouldIgnoreExternalCount, canAcceptExternalLike } =
     useProductLikeToggle({
       product,
       userId,
@@ -265,7 +269,7 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
         ) {
           setLikesCount(Math.max(0, Math.floor(data.likesCount)))
         }
-        if (data?.liked === true && !isInWishlist(product.id) && !shouldIgnoreExternalCount()) {
+        if (canAcceptExternalLike(data?.liked === true)) {
           applyOptimisticToggle(product, true)
         }
         if (typeof data?.pointLimitReached === 'boolean') setPointLimitReached(data.pointLimitReached)
@@ -701,11 +705,11 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
         </div>
       </div>
 
-      {similarProducts.length > 0 && (
+      {visibleSimilarProducts.length > 0 && (
         <section className="mt-16 pt-12 border-t border-[var(--border)]">
           <h2 className="font-heading text-xl font-bold text-foreground mb-6">{t('product.similarProducts')}</h2>
           <div className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {similarProducts.map((p, i) => (
+            {visibleSimilarProducts.map((p, i) => (
               <ProductStaggerItem key={p.id} index={i}>
                 <ProductCard product={p} />
               </ProductStaggerItem>

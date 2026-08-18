@@ -140,6 +140,7 @@ model User {
   updatedAt DateTime @updatedAt
   orders    Order[]
   productLikes ProductLike[]
+  productDismisses ProductDismiss[]
   loyaltyRecords LoyaltyRecord[]
   pointWallet UserPointWallet?
   pointTransactions PointTransaction[]
@@ -331,6 +332,18 @@ model ProductLike {
   @@unique([productId, userId])
   @@index([userId, createdAt])
   @@index([createdAt])
+}
+
+/// Explicit unlike / kedvencekből törlés. Auto-ajánló és auto-kedvenc soha nem rakja vissza.
+model ProductDismiss {
+  id        String   @id @default(cuid())
+  productId String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  @@unique([productId, userId])
+  @@index([userId])
+  @@index([productId])
 }
 
 model LoyaltyRecord {

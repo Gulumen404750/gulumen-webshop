@@ -87,18 +87,25 @@ function shuffleArray<T>(arr: T[]): T[] {
 }
 
 async function pickSpinProducts(userId: string): Promise<string[]> {
-  const liked = await prisma.productLike.findMany({
-    where: { userId },
-    select: { productId: true },
-    orderBy: { createdAt: 'desc' },
-  })
-  const likedIds = liked.map((l) => l.productId)
+  const [liked, dismissed] = await Promise.all([
+    prisma.productLike.findMany({
+      where: { userId },
+      select: { productId: true },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.productDismiss.findMany({
+      where: { userId },
+      select: { productId: true },
+    }),
+  ])
+  const blocked = new Set(dismissed.map((d) => d.productId))
+  const likedIds = liked.map((l) => l.productId).filter((id) => !blocked.has(id))
   const shuffled = shuffleArray(likedIds)
   const selected = shuffled.slice(0, LUCKY_SPIN_PRODUCT_COUNT)
 
   if (selected.length < LUCKY_SPIN_PRODUCT_COUNT) {
     const needed = LUCKY_SPIN_PRODUCT_COUNT - selected.length
-    const exclude = new Set(selected)
+    const exclude = new Set([...selected, ...blocked])
     const filler = await prisma.product.findMany({
       where: {
         active: true,

@@ -39,7 +39,8 @@ function toLikeMeta(window: LikePointWindowState): Pick<
 
 export async function toggleLikeWithGamification(
   productId: string,
-  userId: string
+  userId: string,
+  desiredLiked?: boolean
 ): Promise<LikeToggleResult> {
   if (!isDbConfigured()) {
     throw new Error('Gamification likes require database')
@@ -55,26 +56,40 @@ export async function toggleLikeWithGamification(
       where: { productId_userId: { productId, userId } },
     })
 
+    const shouldLike =
+      typeof desiredLiked === 'boolean' ? desiredLiked : !existing
+
     let liked: boolean
 
-    if (existing) {
-      await tx.productLike.delete({ where: { id: existing.id } })
-      liked = false
+    if (!shouldLike) {
+      if (existing) {
+        await tx.productLike.delete({ where: { id: existing.id } })
 
-      if (LIKE_UNDO_DECREMENTS_DAILY_COUNT && existing.countsForDailyBonus) {
-        const freshWindow = await tx.userLikePointWindow.findUnique({ where: { userId } })
-        if (freshWindow && !freshWindow.bonusGranted && freshWindow.qualifyingLikeCount > 0) {
-          await tx.userLikePointWindow.update({
-            where: { userId },
-            data: { qualifyingLikeCount: { decrement: 1 } },
-          })
+        if (LIKE_UNDO_DECREMENTS_DAILY_COUNT && existing.countsForDailyBonus) {
+          const freshWindow = await tx.userLikePointWindow.findUnique({ where: { userId } })
+          if (freshWindow && !freshWindow.bonusGranted && freshWindow.qualifyingLikeCount > 0) {
+            await tx.userLikePointWindow.update({
+              where: { userId },
+              data: { qualifyingLikeCount: { decrement: 1 } },
+            })
+          }
         }
       }
+      await tx.productDismiss.upsert({
+        where: { productId_userId: { productId, userId } },
+        create: { productId, userId },
+        update: {},
+      })
+      liked = false
+    } else if (existing) {
+      await tx.productDismiss.deleteMany({ where: { productId, userId } })
+      liked = true
     } else {
       const countsForDailyBonus = windowState.canEarnProgress
       await tx.productLike.create({
         data: { productId, userId, countsForDailyBonus },
       })
+      await tx.productDismiss.deleteMany({ where: { productId, userId } })
       liked = true
 
       if (countsForDailyBonus) {
@@ -131,6 +146,10 @@ export async function getLikeGamificationStatus(userId: string) {
 }
 
 export async function safeCreateLike(productId: string, userId: string): Promise<void> {
+  const dismissed = await prisma.productDismiss.findUnique({
+    where: { productId_userId: { productId, userId } },
+  })
+  if (dismissed) return
   try {
     await prisma.productLike.create({ data: { productId, userId } })
   } catch (e) {

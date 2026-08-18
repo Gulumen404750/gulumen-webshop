@@ -134,3 +134,14 @@ describe('buildRecommendedProductsChatBlock', () => {
     expect(block).toMatch(/kényelmes párna/)
   })
 })
+
+describe('dismissed products stay out of chat recommendations', () => {
+  it('filters excluded ids when merging recommend results', async () => {
+    const { excludeDismissedItems } = await import('./wishlist-sync')
+    const products = [
+      { id: 'keep', name: 'Keep' },
+      { id: 'gone', name: 'Gone' },
+    ]
+    expect(excludeDismissedItems(products, ['gone'])).toEqual([{ id: 'keep', name: 'Keep' }])
+  })
+})
