@@ -63,6 +63,15 @@ import {
   checkoutCustomerSchema,
   toOrderCustomerSnapshot,
 } from '@/lib/checkout-customer'
+import { LOCALES } from '@/i18n/locales'
+import {
+  CHECKOUT_PAYMENT_METHODS,
+  DEFAULT_CHECKOUT_PAYMENT_METHOD,
+  resolveChargeCurrency,
+  resolvePaymentMode,
+  toStripeUnitAmount,
+} from '@/lib/checkout-payment-methods'
+import { getConfiguredHufPerEur } from '@/lib/euro-rate'
 
 const selectedCouponEnum = z.enum([
   'cat',
@@ -100,6 +109,10 @@ const checkoutBodySchema = z.object({
   welcomeOfferAccepted: z.boolean().optional(),
   /** Manuálisan kiválasztott szerver-validált kuponok (cat/registration/welcome). A hűség automatikus. */
   selectedCoupons: z.array(selectedCouponEnum).max(2).optional(),
+  /** Kártya, PayPal, Apple Pay, Google Pay vagy Klarna. */
+  paymentMethod: z.enum(CHECKOUT_PAYMENT_METHODS).optional(),
+  /** Felület nyelve – HUF (hu) / EUR (en, de, ro) terheléshez. */
+  locale: z.enum(LOCALES).optional(),
 })
 
 export async function POST(request: Request) {
@@ -152,7 +165,13 @@ export async function POST(request: Request) {
     couponCode: bodyCouponCode,
     welcomeOfferAccepted,
     selectedCoupons: bodySelectedCoupons,
+    paymentMethod: bodyPaymentMethod,
+    locale: bodyLocale,
   } = parsed.data
+  const paymentMethod = bodyPaymentMethod ?? DEFAULT_CHECKOUT_PAYMENT_METHOD
+  const checkoutLocale = bodyLocale ?? 'hu'
+  const chargeCurrency = resolveChargeCurrency(paymentMethod, checkoutLocale)
+  const fxRate = getConfiguredHufPerEur()
   const spendGift = useGiftPoints !== false
   const spendActivity = useActivityPoints !== false
 
@@ -488,6 +507,7 @@ export async function POST(request: Request) {
 
   const orderGroupId = generateOrderGroupId()
   const provider = getPaymentProvider()
+  /** Rendelés belső elszámolása HUF; a Stripe-terhelés HUF vagy EUR. */
   const currency = 'huf'
   const customerSnapshot = toOrderCustomerSnapshot(customer)
 
@@ -582,24 +602,27 @@ export async function POST(request: Request) {
       continue
     }
 
-    const isCapture = order.orderType === 'in_stock'
-    const mode = isCapture ? 'capture' : 'authorize'
+    const mode = resolvePaymentMode(order.orderType!, paymentMethod)
+    const isCapture = mode === 'capture'
+    const chargeAmount = toStripeUnitAmount(order.totalHuf, chargeCurrency, fxRate)
     const tx = await createPaymentTransaction({
       orderId: order.id,
       provider: provider.name,
       mode,
-      amount: order.totalHuf,
-      currency,
+      amount: chargeAmount,
+      currency: chargeCurrency,
       status: 'pending',
     })
 
     const params = {
       transactionId: tx.id,
-      amount: order.totalHuf,
-      currency,
+      amount: chargeAmount,
+      currency: chargeCurrency,
       orderId: order.id,
       orderGroupId,
       customer: { email: customerSnapshot.email, name: customerSnapshot.name },
+      paymentMethod,
+      locale: checkoutLocale,
     }
 
     let result

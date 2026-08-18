@@ -51,6 +51,20 @@ export async function POST(
 
   const transactions = await getPaymentTransactionsByOrderId(orderId)
   const authTx = transactions.find((t) => t.mode === 'authorize' && t.status !== 'cancelled' && t.status !== 'failed')
+  const capturedTx = transactions.find((t) => t.mode === 'capture' && t.status === 'succeeded')
+  if (!authTx && capturedTx) {
+    // Klarna / azonnali capture: a partner már kifizette a teljes összeget.
+    await setOrderStatus(orderId, 'fulfilled')
+    await logAdminAction({
+      action: 'sourcing_success',
+      orderId,
+      success: true,
+      request,
+      actor: auditActor,
+      details: { alreadyCaptured: true, transactionId: capturedTx.id },
+    })
+    return NextResponse.json({ success: true, orderId, status: 'fulfilled' })
+  }
   if (!authTx) {
     return NextResponse.json(
       { error: 'No authorization transaction found for this order' },

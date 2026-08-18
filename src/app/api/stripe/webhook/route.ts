@@ -14,10 +14,46 @@ import { finalizeOrderRewards } from '@/lib/checkout-rewards'
 import { clearUserCartSnapshot } from '@/lib/cart-snapshot'
 import { logger } from '@/lib/logger'
 import { dispatchProductionJobForPaidOrder } from '@/lib/production-dispatch'
+import {
+  stripeCheckoutAmountMatches,
+  toStripeUnitAmount,
+  type ChargeCurrency,
+} from '@/lib/checkout-payment-methods'
+import { getConfiguredHufPerEur } from '@/lib/euro-rate'
+import { getPaymentTransactionById } from '@/lib/payment-transactions'
 
-/** Stripe HUF: zero-decimal – amount_total forintban (egész), nem fillér. */
-function expectedAmountTotalHuf(orderTotalHuf: number): number {
-  return Math.round(orderTotalHuf)
+function isChargeCurrency(value: string): value is ChargeCurrency {
+  return value === 'huf' || value === 'eur'
+}
+
+async function stripeAmountMatchesOrder(params: {
+  amountTotal: number
+  currency: string
+  orderTotalHuf: number
+  transactionId?: string
+}): Promise<boolean> {
+  const currency = (params.currency || 'huf').toLowerCase()
+  if (!isChargeCurrency(currency)) return false
+
+  if (params.transactionId) {
+    const tx = await getPaymentTransactionById(params.transactionId)
+    if (tx) {
+      return stripeCheckoutAmountMatches({
+        amountTotal: params.amountTotal,
+        currency,
+        expectedAmount: tx.amount,
+        expectedCurrency: tx.currency,
+      })
+    }
+  }
+
+  const expected = toStripeUnitAmount(params.orderTotalHuf, currency, getConfiguredHufPerEur())
+  return stripeCheckoutAmountMatches({
+    amountTotal: params.amountTotal,
+    currency,
+    expectedAmount: expected,
+    expectedCurrency: currency,
+  })
 }
 
 /** Lazy init: ne modul betöltéskor inicializáljuk, hogy hiányzó STRIPE_SECRET_KEY ne törje a buildet. */
@@ -130,16 +166,18 @@ export async function POST(request: Request) {
 
       const amountTotal = session.amount_total ?? 0
       const currency = (session.currency ?? 'huf').toLowerCase()
-      const expectedTotal = expectedAmountTotalHuf(order.totalHuf)
+      const amountOk = await stripeAmountMatchesOrder({
+        amountTotal,
+        currency,
+        orderTotalHuf: order.totalHuf,
+        transactionId,
+      })
 
-      if (currency !== 'huf') {
-        logger.error({ orderId, currency, expected: 'huf' }, 'checkout.session.completed: currency mismatch')
-        await setOrderFailed(orderId)
-        return NextResponse.json({ received: true })
-      }
-
-      if (amountTotal !== expectedTotal) {
-        logger.error({ orderId, amountTotal, expectedTotal, orderTotalHuf: order.totalHuf }, 'checkout.session.completed: amount_total mismatch')
+      if (!amountOk) {
+        logger.error(
+          { orderId, amountTotal, currency, orderTotalHuf: order.totalHuf, transactionId },
+          'checkout.session.completed: amount/currency mismatch'
+        )
         await setOrderFailed(orderId)
         return NextResponse.json({ received: true })
       }

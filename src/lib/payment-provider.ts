@@ -1,9 +1,11 @@
 /**
  * Payment Provider Abstraction – provider-független fizetési interfész.
- * Implementációk: DummyProvider, StripeProvider (Barion, SimplePay később).
+ * Implementációk: DummyProvider, StripeProvider (PayPal, Apple Pay, Google Pay, Klarna).
  */
 
 import { StripeProvider } from '@/lib/stripe-provider'
+import type { Locale } from '@/i18n/locales'
+import type { CheckoutPaymentMethod } from '@/lib/checkout-payment-methods'
 
 export type PaymentCustomer = {
   email: string
@@ -13,11 +15,14 @@ export type PaymentCustomer = {
 export type CreatePaymentParams = {
   /** Belső tranzakció id – webhook/callback egyezményhez. */
   transactionId: string
+  /** Stripe unit amount: HUF forint, EUR cent. */
   amount: number
   currency: string
   orderId: string
   orderGroupId: string
   customer: PaymentCustomer
+  paymentMethod?: CheckoutPaymentMethod
+  locale?: Locale
 }
 
 /** Redirect alapú: a kliens erre az URL-re megy. */

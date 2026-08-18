@@ -13,6 +13,7 @@ import { cancelPendingOrderWithStockRestore } from '@/lib/stuck-payments'
 import type { PaymentTransactionStatus } from '@/lib/payment-transactions'
 import { secureCompare } from '@/lib/secure-compare'
 import { dispatchProductionJobForPaidOrder } from '@/lib/production-dispatch'
+import { stripeCheckoutAmountMatches } from '@/lib/checkout-payment-methods'
 
 /**
  * Provider-független payment webhook váz + Stripe webhook (checkout.session.completed).
@@ -252,7 +253,14 @@ async function handleStripeWebhook(request: Request, signature: string): Promise
 
     const amountTotal = session.amount_total ?? 0
     const currency = (session.currency ?? 'huf').toLowerCase()
-    if (currency !== tx.currency.toLowerCase() || amountTotal !== Math.round(tx.amount)) {
+    if (
+      !stripeCheckoutAmountMatches({
+        amountTotal,
+        currency,
+        expectedAmount: tx.amount,
+        expectedCurrency: tx.currency,
+      })
+    ) {
       console.error('[payments/webhook] checkout.session.completed: amount/currency mismatch', {
         transactionId,
         amountTotal,

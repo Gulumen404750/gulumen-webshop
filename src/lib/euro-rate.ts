@@ -8,6 +8,13 @@ const FRANKFURTER_URL = 'https://api.frankfurter.dev/latest?from=EUR&to=HUF'
 /** Ha az API nem elérhető, ezt használjuk (HUF per 1 EUR). */
 export const FALLBACK_HUF_PER_EUR = 395
 
+/** Checkout / webhook / hűség: env FX, különben a fallback. */
+export function getConfiguredHufPerEur(): number {
+  const v = process.env.FX_HUF_PER_EUR
+  const n = v ? Number(v) : NaN
+  return Number.isFinite(n) && n > 0 ? n : FALLBACK_HUF_PER_EUR
+}
+
 export interface EuroRateResult {
   rate: number
   date: string

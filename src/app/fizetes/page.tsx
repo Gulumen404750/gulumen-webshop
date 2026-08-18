@@ -24,6 +24,11 @@ import {
 import { GIFT_POINTS_MAX_COVERAGE } from '@/lib/gamification/constants'
 import { getLuckySpinNextTierRemaining } from '@/lib/gamification/lucky-spin'
 import { PaymentTrustBadges } from '@/components/PaymentTrustBadges'
+import { PaymentMethodPicker } from '@/components/PaymentMethodPicker'
+import {
+  DEFAULT_CHECKOUT_PAYMENT_METHOD,
+  type CheckoutPaymentMethod,
+} from '@/lib/checkout-payment-methods'
 import { WELCOME_CHECKOUT_COUPON_PERCENT, capCombinedCouponPercent } from '@/lib/coupon-config'
 import { CouponSelector } from '@/components/CouponSelector'
 import { GiftPointClaimForm } from '@/components/GiftPointClaimForm'
@@ -87,6 +92,7 @@ export default function PaymentPage() {
   const [welcomeOfferEligible, setWelcomeOfferEligible] = useState(false)
   const [welcomeOfferBusy, setWelcomeOfferBusy] = useState(false)
   const [welcomeOfferError, setWelcomeOfferError] = useState<string | null>(null)
+  const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>(DEFAULT_CHECKOUT_PAYMENT_METHOD)
   const [checkoutResult, setCheckoutResult] = useState<{
     orderGroupId: string
     payments: Array<{ orderType: 'in_stock' | 'sourcing'; type: string; url?: string; clientSecret?: string; message?: string }>
@@ -583,6 +589,21 @@ export default function PaymentPage() {
     }
   }, [items.length, router])
 
+  useEffect(() => {
+    idempotencyKeyRef.current = null
+  }, [paymentMethod])
+
+  const payButtonLabel =
+    paymentMethod === 'paypal'
+      ? t('payment.payWithPaypal')
+      : paymentMethod === 'apple_pay'
+        ? t('payment.payWithApplePay')
+        : paymentMethod === 'google_pay'
+          ? t('payment.payWithGooglePay')
+          : paymentMethod === 'klarna'
+            ? t('payment.payWithKlarna')
+            : t('payment.payWithCard')
+
   const handlePayByCard = useCallback(async () => {
     if (checkoutInFlightRef.current || loading || checkoutResult) return
 
@@ -687,6 +708,8 @@ export default function PaymentPage() {
           pointsDiscountHuf: pointsDiscountHuf > 0 ? pointsDiscountHuf : undefined,
           useGiftPoints: usePoints ? useGiftPoints : undefined,
           useActivityPoints: usePoints ? useActivityPoints : undefined,
+          paymentMethod,
+          locale,
         }),
       })
       const data = await res.json()
@@ -774,6 +797,8 @@ export default function PaymentPage() {
     usePoints,
     useGiftPoints,
     useActivityPoints,
+    paymentMethod,
+    locale,
     wallet?.balance,
     refreshWallet,
     router,
@@ -1339,7 +1364,41 @@ export default function PaymentPage() {
       )}
 
       <section className="mb-8 p-4 rounded-xl border-2 border-[var(--border)] bg-[var(--card-bg)]">
-        <p className="text-sm text-muted mb-3">{t('payment.cardOnly')}</p>
+        <p className="text-sm text-muted mb-3">{t('payment.methodsIntro')}</p>
+        <PaymentMethodPicker
+          value={paymentMethod}
+          onChange={setPaymentMethod}
+          disabled={loading || !!checkoutResult}
+          title={t('payment.methodsTitle')}
+          expressBadge={t('payment.expressCheckoutBadge')}
+          methods={{
+            card: {
+              label: t('payment.methodCard'),
+              hint: t('payment.methodCardHint'),
+            },
+            paypal: {
+              label: t('payment.methodPaypal'),
+              hint: t('payment.methodPaypalHint'),
+            },
+            apple_pay: {
+              label: t('payment.methodApplePay'),
+              hint: t('payment.methodApplePayHint'),
+            },
+            google_pay: {
+              label: t('payment.methodGooglePay'),
+              hint: t('payment.methodGooglePayHint'),
+            },
+            klarna: {
+              label: t('payment.methodKlarna'),
+              hint: t('payment.methodKlarnaHint', { amount: money(usePoints ? invoiceTotalHuf : cardTotalHuf) }),
+            },
+          }}
+        />
+        {paymentMethod === 'klarna' && (
+          <p className="text-xs text-muted mb-3">
+            {t('payment.methodKlarnaNote', { amount: money(usePoints ? invoiceTotalHuf : cardTotalHuf) })}
+          </p>
+        )}
         {userId && (
           <p className="text-xs text-emerald-600 dark:text-emerald-400 mb-3">
             {usePoints ? t('payment.cashEarnHintPointsUsed') : t('payment.cashEarnHint', copy)}
@@ -1383,7 +1442,7 @@ export default function PaymentPage() {
               ? t('payment.redirecting')
               : checkoutResult
                 ? (t('checkout.redirecting'))
-                : t('payment.payWithCard')}
+                : payButtonLabel}
           </span>
         </button>
       </section>

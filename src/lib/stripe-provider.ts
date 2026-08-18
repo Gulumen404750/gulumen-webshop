@@ -1,6 +1,12 @@
 import Stripe from 'stripe'
 import { resolvePublicAppUrl } from '@/lib/bootstrap-auth-env'
 import { getPaymentTransactionById } from '@/lib/payment-transactions'
+import {
+  DEFAULT_CHECKOUT_PAYMENT_METHOD,
+  stripePaymentMethodTypes,
+  type CheckoutPaymentMethod,
+} from '@/lib/checkout-payment-methods'
+import type { Locale } from '@/i18n/locales'
 import type {
   PaymentProvider,
   CreatePaymentParams,
@@ -11,6 +17,24 @@ import type {
 function getStripeClient(): Stripe | null {
   const key = process.env.STRIPE_SECRET_KEY?.trim()
   return key ? new Stripe(key) : null
+}
+
+const STRIPE_LOCALE: Record<Locale, Stripe.Checkout.SessionCreateParams.Locale> = {
+  hu: 'hu',
+  en: 'en',
+  de: 'de',
+  ro: 'ro',
+}
+
+function stripeLocale(locale?: Locale): Stripe.Checkout.SessionCreateParams.Locale | undefined {
+  if (!locale) return undefined
+  return STRIPE_LOCALE[locale]
+}
+
+export function resolveStripeCheckoutPaymentMethod(
+  paymentMethod?: CheckoutPaymentMethod
+): CheckoutPaymentMethod {
+  return paymentMethod ?? DEFAULT_CHECKOUT_PAYMENT_METHOD
 }
 
 export class StripeProvider implements PaymentProvider {
@@ -30,13 +54,17 @@ export class StripeProvider implements PaymentProvider {
   ): Promise<CreatePaymentResult> {
     const stripe = this.getStripe()
     const appUrl = resolvePublicAppUrl()
+    const paymentMethod = resolveStripeCheckoutPaymentMethod(params.paymentMethod)
+    const paymentMethodTypes = stripePaymentMethodTypes(paymentMethod)
+    const currency = params.currency.toLowerCase()
 
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: 'payment',
+      locale: stripeLocale(params.locale),
       line_items: [
         {
           price_data: {
-            currency: params.currency.toLowerCase(),
+            currency,
             product_data: {
               name: `Rendelés ${params.orderId}`,
             },
@@ -51,9 +79,11 @@ export class StripeProvider implements PaymentProvider {
         transactionId: params.transactionId,
         orderId: params.orderId,
         orderGroupId: params.orderGroupId,
+        paymentMethod,
       },
-      payment_method_types: ['card'],
+      payment_method_types: paymentMethodTypes,
       customer_email: params.customer.email,
+      billing_address_collection: paymentMethod === 'klarna' ? 'required' : 'auto',
     }
 
     if (captureMethod === 'manual') {
@@ -62,6 +92,15 @@ export class StripeProvider implements PaymentProvider {
         metadata: {
           transactionId: params.transactionId,
           orderId: params.orderId,
+          paymentMethod,
+        },
+      }
+    } else {
+      sessionParams.payment_intent_data = {
+        metadata: {
+          transactionId: params.transactionId,
+          orderId: params.orderId,
+          paymentMethod,
         },
       }
     }
