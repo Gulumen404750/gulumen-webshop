@@ -3,6 +3,7 @@
 import { Medal } from 'lucide-react'
 import { useLocale } from '@/context/LocaleContext'
 import { useLoyalty } from '@/hooks/useLoyalty'
+import { useDisplayMoney } from '@/hooks/useDisplayMoney'
 import type { LoyaltyTier } from '@/lib/loyalty'
 
 type Props = {
@@ -34,13 +35,14 @@ const TIER_STYLES: Record<
 export function LoyaltyTierBadge({ email, className = '' }: Props) {
   const { t } = useLocale()
   const { loyalty, isLoading } = useLoyalty(email)
+  const { copy } = useDisplayMoney()
 
   if (isLoading) return null
 
   const loyaltyPercent = loyalty?.loyaltyPercent ?? 0
   const qualifyingPaidOrdersCount = loyalty?.qualifyingPaidOrdersCount ?? 0
   const tier = loyalty?.tier ?? null
-  const how = t('profile.loyaltyHowItWorks')
+  const how = t('profile.loyaltyHowItWorks', copy)
 
   if (!tier || loyaltyPercent <= 0) {
     return (

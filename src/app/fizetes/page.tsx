@@ -8,7 +8,7 @@ import { useCart } from '@/context/CartContext'
 import { useCatCoupon } from '@/context/CatCouponContext'
 import { useAuth } from '@/context/AuthContext'
 import { useLocale } from '@/context/LocaleContext'
-import { useEuroRate } from '@/context/EuroRateContext'
+import { useDisplayMoney } from '@/hooks/useDisplayMoney'
 import { trackBeginCheckout } from '@/lib/analytics'
 import { getProductById as getProductByIdFromData } from '@/lib/data'
 import { useProducts } from '@/context/ProductsContext'
@@ -20,7 +20,6 @@ import {
   computeCheckoutTotals,
   applyLuckySpinLockedPrices,
   MAX_CART_POINTS_COVERAGE,
-  POINTS_PER_HUF,
 } from '@/lib/checkout'
 import { GIFT_POINTS_MAX_COVERAGE } from '@/lib/gamification/constants'
 import { getLuckySpinNextTierRemaining } from '@/lib/gamification/lucky-spin'
@@ -47,12 +46,12 @@ function createCheckoutIdempotencyKey(): string {
 export default function PaymentPage() {
   const router = useRouter()
   const { t, locale } = useLocale()
+  const { money, copy, hufToEur, formatEur } = useDisplayMoney()
   const { userId } = useAuth()
   const { items, clearCart } = useCart()
   const { getProductById: getProductByIdFromContext } = useProducts()
   const getProductById = (id: string) => getProductByIdFromContext(id) ?? getProductByIdFromData(id)
   const { catStatus, registrationStatus } = useCatCoupon()
-  const { hufToEur, formatEur } = useEuroRate()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loyaltyPercent, setLoyaltyPercent] = useState(0)
@@ -512,11 +511,11 @@ export default function PaymentPage() {
         <span className="shrink-0 text-right text-muted tabular-nums">
           {showPromoPrice ? (
             <>
-              <span className="line-through block">{unitPriceHuf.toLocaleString('hu-HU')} Ft</span>
-              <span className="text-discount font-medium">{discountedUnitHuf.toLocaleString('hu-HU')} Ft</span>
+              <span className="line-through block">{money(unitPriceHuf)}</span>
+              <span className="text-discount font-medium">{money(discountedUnitHuf)}</span>
             </>
           ) : (
-            <span>{unitPriceHuf.toLocaleString('hu-HU')} Ft</span>
+            <span>{money(unitPriceHuf)}</span>
           )}
         </span>
       </li>
@@ -777,7 +776,7 @@ export default function PaymentPage() {
             <div className="flex justify-between items-baseline gap-3 mb-2">
               <h3 className="text-sm font-semibold text-accent">{t('cart.blockPromoTitle')}</h3>
               <span className="text-sm font-medium text-foreground tabular-nums shrink-0">
-                {promoSubtotalHuf.toLocaleString('hu-HU')} Ft
+                {money(promoSubtotalHuf)}
               </span>
             </div>
             <ul className="space-y-2">
@@ -793,7 +792,7 @@ export default function PaymentPage() {
                 {promoItems.length > 0 ? t('cart.blockNormalTitle') : t('payment.allItems')}
               </h3>
               <span className="text-sm font-medium text-foreground tabular-nums shrink-0">
-                {normalSubtotalHuf.toLocaleString('hu-HU')} Ft
+                {money(normalSubtotalHuf)}
               </span>
             </div>
             <ul className="space-y-2">
@@ -818,13 +817,13 @@ export default function PaymentPage() {
               {promoSubtotalHuf > 0 && (
                 <div className="flex justify-between text-foreground">
                   <span>{t('payment.subtotalPromo')}</span>
-                  <span className="tabular-nums">{promoSubtotalHuf.toLocaleString('hu-HU')} Ft</span>
+                  <span className="tabular-nums">{money(promoSubtotalHuf)}</span>
                 </div>
               )}
               {normalSubtotalHuf > 0 && (
                 <div className="flex justify-between text-foreground">
                   <span>{t('payment.subtotalNormal')}</span>
-                  <span className="tabular-nums">{normalSubtotalHuf.toLocaleString('hu-HU')} Ft</span>
+                  <span className="tabular-nums">{money(normalSubtotalHuf)}</span>
                 </div>
               )}
             </div>
@@ -840,7 +839,7 @@ export default function PaymentPage() {
                 {loyaltyDiscountHuf > 0 && (
                   <div className="flex justify-between text-discount">
                     <span>{t('payment.loyaltyDiscountLine', { percent: loyaltyPercent })}</span>
-                    <span className="tabular-nums">−{loyaltyDiscountHuf.toLocaleString('hu-HU')} Ft</span>
+                    <span className="tabular-nums">−{money(loyaltyDiscountHuf)}</span>
                   </div>
                 )}
                 {luckySpinDiscount.discountHuf > 0 && (
@@ -850,7 +849,7 @@ export default function PaymentPage() {
                         percent: Math.round(luckySpinDiscountPercent * 100),
                       })}
                     </span>
-                    <span className="tabular-nums">−{luckySpinDiscount.discountHuf.toLocaleString('hu-HU')} Ft</span>
+                    <span className="tabular-nums">−{money(luckySpinDiscount.discountHuf)}</span>
                   </div>
                 )}
                 {effectiveCouponDiscountHuf > 0 && (
@@ -859,7 +858,7 @@ export default function PaymentPage() {
                       <span>
                         {typedCoupon?.discountType === 'fixed'
                           ? t('payment.couponDiscountFixed', {
-                              amount: typedCoupon.discountValue.toLocaleString('hu-HU'),
+                              amount: money(typedCoupon.discountValue),
                               code: typedCoupon.code,
                             }) || `Kupon (${typedCoupon.code})`
                           : t('payment.couponDiscountWithCode', {
@@ -878,25 +877,25 @@ export default function PaymentPage() {
                         i
                       </button>
                     </span>
-                    <span className="tabular-nums">−{effectiveCouponDiscountHuf.toLocaleString('hu-HU')} Ft</span>
+                    <span className="tabular-nums">−{money(effectiveCouponDiscountHuf)}</span>
                   </div>
                 )}
                 {giftPointsUsedPreview > 0 && (
                   <div className="flex justify-between text-accent">
                     <span>{t('payment.giftPointsDiscount') || 'Ajándékpont'}</span>
-                    <span className="tabular-nums">−{giftPointsUsedPreview.toLocaleString('hu-HU')} Ft</span>
+                    <span className="tabular-nums">−{money(giftPointsUsedPreview)}</span>
                   </div>
                 )}
                 {activityPointsUsedPreview > 0 && (
                   <div className="flex justify-between text-accent">
                     <span>{t('payment.activityPointsDiscount') || 'Aktivitási pont (1:1)'}</span>
-                    <span className="tabular-nums">−{activityPointsUsedPreview.toLocaleString('hu-HU')} Ft</span>
+                    <span className="tabular-nums">−{money(activityPointsUsedPreview)}</span>
                   </div>
                 )}
                 {pointsDiscountHuf > 0 && giftPointsUsedPreview === 0 && activityPointsUsedPreview === 0 && (
                   <div className="flex justify-between text-accent">
                     <span>{t('payment.pointsDiscount')}</span>
-                    <span className="tabular-nums">−{pointsDiscountHuf.toLocaleString('hu-HU')} Ft</span>
+                    <span className="tabular-nums">−{money(pointsDiscountHuf)}</span>
                   </div>
                 )}
               </div>
@@ -907,7 +906,7 @@ export default function PaymentPage() {
             {usePoints && (
               <div className="flex justify-between text-foreground">
                 <span>{t('payment.invoiceMerchandise') || 'Számlázandó termék'}</span>
-                <span className="tabular-nums">{invoiceMerchandiseHuf.toLocaleString('hu-HU')} Ft</span>
+                <span className="tabular-nums">{money(invoiceMerchandiseHuf)}</span>
               </div>
             )}
             <div className="flex justify-between text-foreground">
@@ -918,13 +917,13 @@ export default function PaymentPage() {
                     {t('payment.shippingFreeBadge')}
                   </span>
                 ) : (
-                  `${shippingHuf.toLocaleString('hu-HU')} Ft`
+                  money(shippingHuf)
                 )}
               </span>
             </div>
             {freeShippingRemainingHuf > 0 && (
               <p className="text-xs text-muted">
-                {t('cart.freeShippingProgress', { amount: freeShippingRemainingHuf.toLocaleString('hu-HU') })}
+                {t('cart.freeShippingProgress', { amount: money(freeShippingRemainingHuf) })}
               </p>
             )}
             {freeShippingRemainingHuf === 0 && checkoutPreview.merchandiseTotalHuf > 0 && shippingHuf === 0 && (
@@ -932,15 +931,16 @@ export default function PaymentPage() {
             )}
             {usePoints && (
               <p className="text-xs text-muted">
-                {t('payment.invoiceRemainderHint') ||
-                  'A ponttal nem fedezett termékár kerül számlára. 25 000 Ft felett, ha csak ponttal fizetsz, a szállítási díjat kártyával kell rendezni.'}
+                {t('payment.invoiceRemainderHint', copy)}
               </p>
             )}
             <div className="flex justify-between font-heading font-bold text-lg text-foreground pt-2 mt-1">
               <span>{usePoints ? (t('payment.invoiceDue') || 'Számlázandó (kártya)') : t('payment.totalDue')}</span>
               <span className="tabular-nums">
-                {(usePoints ? invoiceTotalHuf : cardTotalHuf).toLocaleString('hu-HU')} Ft{' '}
-                <span className="text-muted text-sm font-normal">(€{formatEur(totalEur)})</span>
+                {money(usePoints ? invoiceTotalHuf : cardTotalHuf)}{' '}
+                {locale === 'hu' && (
+                  <span className="text-muted text-sm font-normal">(€{formatEur(totalEur)})</span>
+                )}
               </span>
             </div>
           </div>
@@ -1193,7 +1193,7 @@ export default function PaymentPage() {
           <p className="text-sm text-foreground">
             {typedCoupon.discountType === 'fixed'
               ? t('giftClaim.couponSuccessFixed', {
-                  amount: typedCoupon.discountValue.toLocaleString('hu-HU'),
+                  amount: money(typedCoupon.discountValue),
                   code: typedCoupon.code,
                 })
               : t('giftClaim.couponSuccessPercent', {
@@ -1272,11 +1272,8 @@ export default function PaymentPage() {
               <span className="text-sm text-foreground">
                 {t('payment.useGiftPoints', {
                   points: String(pointsPreview.maxGiftDiscountHuf || pointsPreview.giftBalance),
-                  huf: (pointsPreview.maxGiftDiscountHuf || pointsPreview.giftBalance).toLocaleString('hu-HU'),
-                }) ||
-                  `Ajándékpontok: ${pointsPreview.giftBalance} pont (−${(
-                    pointsPreview.maxGiftDiscountHuf || pointsPreview.giftBalance
-                  ).toLocaleString('hu-HU')} Ft, 100%)`}
+                  amount: money(pointsPreview.maxGiftDiscountHuf || pointsPreview.giftBalance),
+                })}
                 {pointsPreview.giftExpiresAt && (
                   <span className="block text-xs text-muted mt-0.5">
                     {t('payment.giftPointsExpires', {
@@ -1299,19 +1296,17 @@ export default function PaymentPage() {
               <span className="text-sm text-foreground">
                 {t('payment.useActivityPoints', {
                   points: String(pointsPreview.maxActivityDiscountHuf),
-                  huf: pointsPreview.maxActivityDiscountHuf.toLocaleString('hu-HU'),
-                }) ||
-                  `Aktivitási pontok: ${pointsPreview.maxActivityDiscountHuf.toLocaleString('hu-HU')} Ft (1:1)`}
+                  amount: money(pointsPreview.maxActivityDiscountHuf),
+                })}
               </span>
             </label>
           )}
           <p className="text-xs text-muted ml-7">
-            {t('payment.pointsRate').replace('{rate}', String(POINTS_PER_HUF))}
+            {t('payment.pointsRate', copy)}
           </p>
           {usePoints && (
             <p className="text-xs text-muted ml-7">
-              {t('payment.pointsNoStackHint') ||
-                'A pontok más kuponnal vagy akcióval nem vonhatók össze. 25 000 Ft felett, csak ponttal fizetve a szállítási díjat ki kell fizetni.'}
+              {t('payment.pointsNoStackHint', copy)}
             </p>
           )}
         </section>
@@ -1321,8 +1316,7 @@ export default function PaymentPage() {
         <p className="text-sm text-muted mb-3">{t('payment.cardOnly')}</p>
         {userId && (
           <p className="text-xs text-emerald-600 dark:text-emerald-400 mb-3">
-            {t('payment.cashEarnHint') ||
-              'Bejelentkezve, kártyás fizetésnél 100 Ft = 1 pont, sikeres fizetés után.'}
+            {t('payment.cashEarnHint', copy)}
           </p>
         )}
         <p className="text-xs text-muted mb-4">{t('payment.secureNote')}</p>

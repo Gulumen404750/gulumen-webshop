@@ -26,6 +26,8 @@ import {
   searchProductsForChat,
   type ChatRecommendedProduct,
 } from '@/lib/chat-product-search'
+import { applyPointsCopyPlaceholders } from '@/lib/display-money'
+import { fetchEuroToHufRate } from '@/lib/euro-rate'
 import { formatChatAssistantText } from '@/lib/chat-message-format'
 import {
   buildChatVisitorNameBlock,
@@ -209,11 +211,16 @@ async function fallbackResponse(
     })
   }
   const { textKey, escalate } = getResponse(userMessage)
+  const rate = (await fetchEuroToHufRate()).rate
   if (textKey === 'ai.default') {
-    const text = getChatFallbackForLocale(settings, locale)
+    const text = applyPointsCopyPlaceholders(
+      getChatFallbackForLocale(settings, locale),
+      locale,
+      rate
+    )
     return chatJsonResponse({ text, escalate, productIds, products: recommendedProducts })
   }
   const dict = getTranslations(locale)
-  const text = t(dict, textKey)
+  const text = applyPointsCopyPlaceholders(t(dict, textKey), locale, rate)
   return chatJsonResponse({ text, escalate, productIds, products: recommendedProducts })
 }

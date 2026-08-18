@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useLocale } from '@/context/LocaleContext'
+import { useDisplayMoney } from '@/hooks/useDisplayMoney'
 import { useFocusTrap } from '@/hooks/useFocusTrap'
 
 type Props = {
@@ -12,6 +13,7 @@ type Props = {
 
 export function CheckoutSourcingModal({ isOpen, onClose, onConfirm }: Props) {
   const { t } = useLocale()
+  const { copy } = useDisplayMoney()
   const [accepted, setAccepted] = useState(false)
   const prevOpen = useRef(false)
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -60,7 +62,7 @@ export function CheckoutSourcingModal({ isOpen, onClose, onConfirm }: Props) {
         <h2 id="checkout-sourcing-title" className="font-heading text-lg font-bold text-foreground mb-4">
           {t('cart.blockSourcingTitle')}
         </h2>
-        <p className="text-sm text-muted whitespace-pre-line mb-4">{t('pages.shipping.sourcingFullDescription')}</p>
+        <p className="text-sm text-muted whitespace-pre-line mb-4">{t('pages.shipping.sourcingFullDescription', copy)}</p>
         <div className="mb-6">
           <label className="flex gap-3 cursor-pointer items-start">
             <input

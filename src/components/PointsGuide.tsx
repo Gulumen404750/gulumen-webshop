@@ -12,11 +12,10 @@ import {
   BROWSE_BONUS_COOLDOWN_MS,
   POINTS_PER_HUF,
   LIKE_BONUS_WINDOW_MS,
-  FREE_SHIPPING_THRESHOLD,
-  PURCHASE_EARN_HUF_PER_POINT,
 } from '@/lib/gamification/constants'
 import { Sparkles, Heart, Clock, Gift, ShoppingBag, Wallet, Coins } from 'lucide-react'
 import { useLocale } from '@/context/LocaleContext'
+import { useDisplayMoney } from '@/hooks/useDisplayMoney'
 
 type Props = {
   className?: string
@@ -28,6 +27,7 @@ const likeWindowHours = LIKE_BONUS_WINDOW_MS / (60 * 60 * 1000)
 
 export function PointsGuide({ className = '' }: Props) {
   const { t } = useLocale()
+  const { copy } = useDisplayMoney()
 
   const replace = (key: string, vars: Record<string, string | number>) => {
     let text = t(key)
@@ -61,7 +61,7 @@ export function PointsGuide({ className = '' }: Props) {
       icon: Coins,
       title: t('gamification.mechanicsCashbackTitle'),
       text: replace('gamification.mechanicsCashback', {
-        huf: PURCHASE_EARN_HUF_PER_POINT,
+        earnAmount: copy.earnAmount,
         points: 1,
       }),
     },
@@ -70,13 +70,16 @@ export function PointsGuide({ className = '' }: Props) {
       title: t('gamification.mechanicsPurchaseTitle'),
       text: replace('gamification.mechanicsPurchase', {
         rate: POINTS_PER_HUF,
-        shippingThreshold: FREE_SHIPPING_THRESHOLD.toLocaleString('hu-HU'),
+        pointValue: copy.pointValue,
+        shippingThreshold: copy.shippingThreshold,
       }),
     },
     {
       icon: Wallet,
       title: t('gamification.mechanicsGiftTitle'),
-      text: t('gamification.mechanicsGift'),
+      text: replace('gamification.mechanicsGift', {
+        pointValue: copy.pointValue,
+      }),
     },
     {
       icon: Gift,

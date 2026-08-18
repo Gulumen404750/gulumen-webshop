@@ -2,9 +2,11 @@
 
 import Image from 'next/image'
 import { useLocale } from '@/context/LocaleContext'
+import { useDisplayMoney } from '@/hooks/useDisplayMoney'
 
 export default function ShippingPage() {
   const { t } = useLocale()
+  const { copy } = useDisplayMoney()
 
   return (
     <div className="relative min-h-[60vh] flex items-center">
@@ -24,10 +26,10 @@ export default function ShippingPage() {
           {t('pages.shippingTitle')}
         </h1>
         <div className="text-gray-200 max-w-2xl space-y-6">
-          <p className="whitespace-pre-line">{t('pages.shipping.fullDescription')}</p>
+          <p className="whitespace-pre-line">{t('pages.shipping.fullDescription', copy)}</p>
           <div>
             <p className="font-semibold text-white mb-1">{t('cart.blockSourcingTitle')}</p>
-            <p className="whitespace-pre-line">{t('pages.shipping.sourcingFullDescription')}</p>
+            <p className="whitespace-pre-line">{t('pages.shipping.sourcingFullDescription', copy)}</p>
           </div>
         </div>
       </div>

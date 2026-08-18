@@ -4,11 +4,12 @@
  * Élesben Prisma LoyaltyRecord (Railway); DATABASE_URL nélkül JSON fallback.
  */
 import { prisma, isDbConfigured } from '@/lib/prisma'
+import { FALLBACK_HUF_PER_EUR } from '@/lib/euro-rate'
+import { LOYALTY_MAX_PERCENT, LOYALTY_THRESHOLD_HUF } from '@/lib/loyalty-constants'
 
 export type LoyaltyTier = 'bronze' | 'silver' | 'gold'
 
-export const LOYALTY_THRESHOLD_HUF = 50_000
-export const LOYALTY_MAX_PERCENT = 8
+export { LOYALTY_MAX_PERCENT, LOYALTY_THRESHOLD_HUF }
 
 /** Hűségszint a minősített rendelésszám alapján. 0 rendelés → null (nincs badge). */
 export function getLoyaltyTier(orderCount: number): LoyaltyTier | null {
@@ -44,7 +45,7 @@ const PAID_LIKE = new Set(['paid', 'sourcing_pending', 'fulfilled'])
 function getFxHufPerEur(): number {
   const v = process.env.FX_HUF_PER_EUR
   const n = v ? Number(v) : NaN
-  return Number.isFinite(n) && n > 0 ? n : 390
+  return Number.isFinite(n) && n > 0 ? n : FALLBACK_HUF_PER_EUR
 }
 
 /** EUR küszöb: 50 000 Ft / árfolyam, 2 tizedes. */

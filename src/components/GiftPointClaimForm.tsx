@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/context/AuthContext'
 import { useLocale } from '@/context/LocaleContext'
+import { useDisplayMoney } from '@/hooks/useDisplayMoney'
 import { POINT_WALLET_SWR_KEY } from '@/lib/point-wallet-client'
 import { mutate } from 'swr'
 import { writeTypedCoupon, type StoredTypedCoupon } from '@/lib/typed-coupon-storage'
@@ -41,7 +42,8 @@ export function GiftPointClaimForm({
   className = '',
   onSuccess,
 }: Props) {
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
+  const { copy, money } = useDisplayMoney()
   const { isLoggedIn, authChecked } = useAuth()
   const [token, setToken] = useState(initialToken)
   const [busy, setBusy] = useState(false)
@@ -122,7 +124,7 @@ export function GiftPointClaimForm({
       <h2 className="font-heading text-lg font-semibold text-foreground">
         {t('giftClaim.title')}
       </h2>
-      <p className="text-sm text-muted mt-1">{t('giftClaim.hint')}</p>
+      <p className="text-sm text-muted mt-1">{t('giftClaim.hint', copy)}</p>
 
       <form onSubmit={submit} className="mt-4 space-y-3">
         {!hideTokenInput && (
@@ -152,7 +154,7 @@ export function GiftPointClaimForm({
               : t('giftClaim.success', { points: giftSuccess.points })}
             {giftSuccess.expiresAt
               ? ` ${t('giftClaim.expires', {
-                  date: new Date(giftSuccess.expiresAt).toLocaleDateString(),
+                  date: new Date(giftSuccess.expiresAt).toLocaleDateString(locale),
                 })}`
               : ''}
           </p>
@@ -161,7 +163,7 @@ export function GiftPointClaimForm({
           <p className="text-sm text-green-700 dark:text-green-400" role="status">
             {couponSuccess.discountType === 'fixed'
               ? t('giftClaim.couponSuccessFixed', {
-                  amount: couponSuccess.discountValue.toLocaleString('hu-HU'),
+                  amount: money(couponSuccess.discountValue),
                   code: couponSuccess.code,
                 })
               : t('giftClaim.couponSuccessPercent', {

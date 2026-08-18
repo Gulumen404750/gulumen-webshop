@@ -3,12 +3,14 @@
 import { useState } from 'react'
 import type { Product } from '@/lib/data'
 import { useLocale } from '@/context/LocaleContext'
+import { useDisplayMoney } from '@/hooks/useDisplayMoney'
 import { getProductDescription } from '@/lib/data'
 
 const tabIds = ['leiras', 'szallitas', 'visszakuldes'] as const
 
 export function ProductTabs({ product }: { product: Product }) {
   const { t, locale } = useLocale()
+  const { copy } = useDisplayMoney()
   const [active, setActive] = useState<(typeof tabIds)[number]>('leiras')
 
   const tabs = [
@@ -40,8 +42,8 @@ export function ProductTabs({ product }: { product: Product }) {
         {active === 'szallitas' && (
           <p className="whitespace-pre-line">
             {product.type === 'sourcing_deal'
-              ? t('pages.shipping.sourcingFullDescription')
-              : t('pages.shipping.fullDescription')}
+              ? t('pages.shipping.sourcingFullDescription', copy)
+              : t('pages.shipping.fullDescription', copy)}
           </p>
         )}
         {active === 'visszakuldes' && (

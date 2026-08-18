@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useCart } from '@/context/CartContext'
 import { useLocale } from '@/context/LocaleContext'
+import { useDisplayMoney } from '@/hooks/useDisplayMoney'
 
 /**
  * Mobil (< md): a Header alatt sticky sáv, ha van tétel a kosárban.
@@ -11,10 +12,11 @@ import { useLocale } from '@/context/LocaleContext'
 export function MobileCartStickyBanner() {
   const { itemCount, totalHuf } = useCart()
   const { t } = useLocale()
+  const { money } = useDisplayMoney()
 
   if (itemCount <= 0) return null
 
-  const formattedTotal = totalHuf.toLocaleString('hu-HU')
+  const formattedTotal = money(totalHuf)
 
   return (
     <div

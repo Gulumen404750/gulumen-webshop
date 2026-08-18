@@ -8,6 +8,7 @@ import { getProductById as getProductByIdFromData } from '@/lib/data'
 import { useCart } from '@/context/CartContext'
 import { useProducts } from '@/context/ProductsContext'
 import { useLocale } from '@/context/LocaleContext'
+import { useDisplayMoney } from '@/hooks/useDisplayMoney'
 import { useAuth } from '@/context/AuthContext'
 import { useLuckySpin } from '@/hooks/useLuckySpin'
 import { useFocusTrap } from '@/hooks/useFocusTrap'
@@ -22,6 +23,7 @@ type Props = { isOpen: boolean; onClose: () => void }
 
 export function CartDrawer({ isOpen, onClose }: Props) {
   const { t, locale } = useLocale()
+  const { money } = useDisplayMoney()
   const router = useRouter()
   const { items, removeItem } = useCart()
   const { getProductById: getProductByIdFromContext } = useProducts()
@@ -182,11 +184,11 @@ export function CartDrawer({ isOpen, onClose }: Props) {
                       <p className="text-muted text-xs mt-0.5">
                         {showPromoPrice ? (
                           <>
-                            <span className="line-through mr-1.5">{unitPriceHuf.toLocaleString('hu-HU')} Ft</span>
-                            <span className="text-discount font-medium">{discountedUnitHuf.toLocaleString('hu-HU')} Ft</span>
+                            <span className="line-through mr-1.5">{money(unitPriceHuf)}</span>
+                            <span className="text-discount font-medium">{money(discountedUnitHuf)}</span>
                           </>
                         ) : (
-                          <span>{discountedUnitHuf.toLocaleString('hu-HU')} Ft</span>
+                          <span>{money(discountedUnitHuf)}</span>
                         )}
                         {' '}× {item.qty}
                       </p>
@@ -210,17 +212,17 @@ export function CartDrawer({ isOpen, onClose }: Props) {
           <div className="p-4 border-t border-[var(--border)] space-y-2">
             <div className="flex justify-between text-sm text-foreground">
               <span>{t('cart.subtotal')}</span>
-              <span>{subtotalHuf.toLocaleString('hu-HU')} Ft</span>
+              <span>{money(subtotalHuf)}</span>
             </div>
             {luckySpinDiscountHuf > 0 && (
               <div className="flex justify-between text-sm text-discount">
                 <span>{t('luckySpin.cartDiscount')}</span>
-                <span>−{luckySpinDiscountHuf.toLocaleString('hu-HU')} Ft</span>
+                <span>−{money(luckySpinDiscountHuf)}</span>
               </div>
             )}
             <div className="flex justify-between font-heading font-semibold text-foreground pt-1">
               <span>{t('cart.total')}</span>
-              <span>{merchandiseTotalHuf.toLocaleString('hu-HU')} Ft</span>
+              <span>{money(merchandiseTotalHuf)}</span>
             </div>
             <Link
               href="/kosar"

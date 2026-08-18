@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useLocale } from '@/context/LocaleContext'
+import { useDisplayMoney } from '@/hooks/useDisplayMoney'
 import { GiftPointClaimForm } from '@/components/GiftPointClaimForm'
 import { GIFT_POINT_VALIDITY_DAYS } from '@/lib/gamification/constants'
 
@@ -14,6 +15,7 @@ type Preview = {
 
 export function GiftPointClaimClient({ token }: { token: string }) {
   const { t } = useLocale()
+  const { copy } = useDisplayMoney()
   const { isLoggedIn, authChecked } = useAuth()
   const [preview, setPreview] = useState<Preview | null>(null)
 
@@ -46,7 +48,7 @@ export function GiftPointClaimClient({ token }: { token: string }) {
     <div className="max-w-lg mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-6">
       <div>
         <h1 className="font-heading text-2xl font-bold text-foreground">{t('giftClaim.pageTitle')}</h1>
-        <p className="text-muted mt-2">{t('giftClaim.pageHint', { days: preview?.validityDays ?? GIFT_POINT_VALIDITY_DAYS })}</p>
+        <p className="text-muted mt-2">{t('giftClaim.pageHint', { days: preview?.validityDays ?? GIFT_POINT_VALIDITY_DAYS, ...copy })}</p>
       </div>
 
       {preview && preview.status !== 'available' && preview.status !== 'used' && (

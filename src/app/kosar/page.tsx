@@ -13,6 +13,7 @@ import { useSourcingDealOrders } from '@/context/SourcingDealOrdersContext'
 import { useLocale } from '@/context/LocaleContext'
 import { useToast } from '@/context/ToastContext'
 import { useEuroRate } from '@/context/EuroRateContext'
+import { useDisplayMoney } from '@/hooks/useDisplayMoney'
 import { useLuckySpin } from '@/hooks/useLuckySpin'
 import { usePointWallet } from '@/hooks/usePointWallet'
 import { CheckoutSourcingModal } from '@/components/CheckoutSourcingModal'
@@ -32,6 +33,7 @@ export default function CartPage() {
   const { t, locale } = useLocale()
   const { toast } = useToast()
   const { hufToEur, formatEur } = useEuroRate()
+  const { money, copy } = useDisplayMoney()
   const { userId } = useAuth()
   const { wallet } = usePointWallet(!!userId)
   const { data: luckySpinData } = useLuckySpin(!!userId)
@@ -244,6 +246,7 @@ export default function CartPage() {
                 t={t}
                 hufToEur={hufToEur}
                 formatEur={formatEur}
+                money={money}
                 updateQty={updateQty}
                 removeItem={removeItem}
                 onDecreaseSourcing={(productId) => cancelOrder(productId, 1)}
@@ -285,8 +288,8 @@ export default function CartPage() {
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-foreground truncate">{line.name}</p>
                     <p className="text-muted text-sm">
-                      {priceHuf.toLocaleString('hu-HU')} Ft × {item.qty}
-                      {priceEur > 0 && <span className="ml-1">(€{formatEur(priceEur)})</span>}
+                      {money(priceHuf)} × {item.qty}
+                      {priceEur > 0 && locale === 'hu' && <span className="ml-1">(€{formatEur(priceEur)})</span>}
                     </p>
                     {item.options?.colorName && (
                       <p className="text-foreground text-sm mt-0.5">
@@ -349,8 +352,8 @@ export default function CartPage() {
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-foreground truncate">{line.name}</p>
                     <p className="text-muted text-sm">
-                      {priceHuf.toLocaleString('hu-HU')} Ft × {item.qty}
-                      {priceEur > 0 && <span className="ml-1">(€{formatEur(priceEur)})</span>}
+                      {money(priceHuf)} × {item.qty}
+                      {priceEur > 0 && locale === 'hu' && <span className="ml-1">(€{formatEur(priceEur)})</span>}
                     </p>
                     {item.options?.colorName && (
                       <p className="text-foreground text-sm mt-0.5">
@@ -390,7 +393,7 @@ export default function CartPage() {
       {sourcingItems.length > 0 && (
         <section className="mb-8">
           <h2 className="font-heading text-lg font-semibold text-foreground mb-1">{t('cart.blockSourcingTitle')}</h2>
-          <p className="text-sm text-muted mb-3 whitespace-pre-line">{t('pages.shipping.sourcingFullDescription')}</p>
+          <p className="text-sm text-muted mb-3 whitespace-pre-line">{t('pages.shipping.sourcingFullDescription', copy)}</p>
           <ul className="space-y-4">
             {sourcingItems.map((item) => {
               const product = getProductById(item.productId)
@@ -412,8 +415,8 @@ export default function CartPage() {
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-foreground truncate">{line.name}</p>
                     <p className="text-muted text-sm">
-                      {priceHuf.toLocaleString('hu-HU')} Ft × {item.qty}
-                      {priceEur > 0 && <span className="ml-1">(€{formatEur(priceEur)})</span>}
+                      {money(priceHuf)} × {item.qty}
+                      {priceEur > 0 && locale === 'hu' && <span className="ml-1">(€{formatEur(priceEur)})</span>}
                     </p>
                     {item.options?.colorName && (
                       <p className="text-foreground text-sm mt-0.5">
@@ -450,7 +453,7 @@ export default function CartPage() {
         </section>
       )}
 
-      <p className="text-sm text-muted mb-4 whitespace-pre-line">{t('pages.shipping.fullDescription')}</p>
+      <p className="text-sm text-muted mb-4 whitespace-pre-line">{t('pages.shipping.fullDescription', copy)}</p>
 
       {(() => {
         const remaining = freeShippingRemainingHuf
@@ -464,7 +467,7 @@ export default function CartPage() {
               </p>
             ) : (
               <p className="text-muted text-sm">
-                {t('cart.freeShippingProgress', { amount: remaining.toLocaleString('hu-HU') }) || `Még ${remaining.toLocaleString('hu-HU')} Ft és ingyenes a szállítás`}
+                {t('cart.freeShippingProgress', { amount: money(remaining) })}
               </p>
             )}
           </div>
@@ -481,6 +484,7 @@ export default function CartPage() {
                 wallet.activityBalance ??
                   Math.max(0, (wallet.balance ?? 0) - (wallet.giftBalance ?? wallet.giftPointsAvailable ?? 0))
               ),
+              ...copy,
             })}
           </p>
         </div>
@@ -505,7 +509,7 @@ export default function CartPage() {
       <div className="border-t border-[var(--border)] pt-6 space-y-2">
         <div className="flex justify-between text-foreground">
           <span>{t('cart.subtotal')}</span>
-          <span>{subtotalHuf.toLocaleString('hu-HU')} Ft <span className="text-muted">(€{formatEur(subtotalEur)})</span></span>
+          <span>{money(subtotalHuf)}{locale === 'hu' ? <span className="text-muted"> (€{formatEur(subtotalEur)})</span> : null}</span>
         </div>
         {luckySpinDiscountHuf > 0 && (
           <div className="flex justify-between text-discount">
@@ -514,12 +518,12 @@ export default function CartPage() {
                 percent: Math.round(luckySpinDiscountPercent * 100),
               })}
             </span>
-            <span>−{luckySpinDiscountHuf.toLocaleString('hu-HU')} Ft <span className="text-muted">(€{formatEur(luckySpinDiscountEur)})</span></span>
+            <span>−{money(luckySpinDiscountHuf)}{locale === 'hu' ? <span className="text-muted"> (€{formatEur(luckySpinDiscountEur)})</span> : null}</span>
           </div>
         )}
         <div className="flex justify-between font-heading font-bold text-lg text-foreground pt-2">
           <span>{t('cart.total')}</span>
-          <span>{displayTotalHuf.toLocaleString('hu-HU')} Ft <span className="text-muted">(€{formatEur(totalEur)})</span></span>
+          <span>{money(displayTotalHuf)}{locale === 'hu' ? <span className="text-muted"> (€{formatEur(totalEur)})</span> : null}</span>
         </div>
       </div>
       <div className="mt-8 flex flex-col sm:flex-row gap-4">
@@ -553,6 +557,7 @@ type CartLineRowProps = {
   t: (key: string, params?: Record<string, string | number>) => string
   hufToEur: (huf: number) => number
   formatEur: (eur: number) => string
+  money: (huf: number) => string
   updateQty: (productId: string, qty: number, options?: CartItem['options']) => void
   removeItem: (productId: string, options?: CartItem['options']) => void
   onDecreaseSourcing?: (productId: string) => void
@@ -571,6 +576,7 @@ function CartLineRow({
   t,
   hufToEur,
   formatEur,
+  money,
   updateQty,
   removeItem,
   onDecreaseSourcing,
@@ -608,14 +614,14 @@ function CartLineRow({
         <p className="text-muted text-sm">
           {isPromo && luckySpinDiscountActive ? (
             <>
-              <span className="line-through mr-2">{unitPriceHuf.toLocaleString('hu-HU')} Ft</span>
-              <span className="text-discount font-medium">{displayUnitHuf.toLocaleString('hu-HU')} Ft</span>
+              <span className="line-through mr-2">{money(unitPriceHuf)}</span>
+              <span className="text-discount font-medium">{money(displayUnitHuf)}</span>
             </>
           ) : (
-            <span>{displayUnitHuf.toLocaleString('hu-HU')} Ft</span>
+            <span>{money(displayUnitHuf)}</span>
           )}
           {' '}× {item.qty}
-          {priceEur > 0 && <span className="ml-1">(€{formatEur(priceEur)})</span>}
+          {priceEur > 0 && locale === 'hu' && <span className="ml-1">(€{formatEur(priceEur)})</span>}
         </p>
         {item.options?.colorName && (
           <p className="text-foreground text-sm mt-0.5">
