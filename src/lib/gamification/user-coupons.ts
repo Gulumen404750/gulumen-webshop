@@ -101,8 +101,15 @@ export function redeemableCouponCount(
   return Math.floor(balance / threshold)
 }
 
+/** Aktív, még fel nem használt pontkuponok a fizetéshez. */
+export function listActiveCheckoutCoupons(
+  coupons: UserGamificationCoupon[]
+): UserGamificationCoupon[] {
+  return coupons.filter((c) => c.status === 'active')
+}
+
 export function pickActiveCheckoutCoupon(
   coupons: UserGamificationCoupon[]
 ): UserGamificationCoupon | null {
-  return coupons.find((c) => c.status === 'active') ?? null
+  return listActiveCheckoutCoupons(coupons)[0] ?? null
 }

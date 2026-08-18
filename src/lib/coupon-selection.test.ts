@@ -3,6 +3,7 @@ import {
   buildPromoCoupons,
   calculateSelectedCouponPercent,
   canToggleCoupon,
+  gamificationCouponId,
   MAX_COMBINED_COUPON_PERCENT,
 } from '@/lib/coupon-selection'
 import { ALLOW_CAT_REGISTRATION_STACK, isCouponStackingBlocked, capLoyaltyPercent } from '@/lib/coupon-config'
@@ -65,15 +66,40 @@ describe('coupon selection: no stacking, 15% cap', () => {
     })
     expect(withPointsCoupon).toEqual([
       expect.objectContaining({
-        id: 'gamification',
+        id: gamificationCouponId('GLM-ABCDEF123456'),
         percent: 0.1,
         code: 'GLM-ABCDEF123456',
       }),
     ])
-    const selected = calculateSelectedCouponPercent(withPointsCoupon, ['gamification'])
+    const selected = calculateSelectedCouponPercent(withPointsCoupon, [
+      gamificationCouponId('GLM-ABCDEF123456'),
+    ])
     expect(selected.finalPercent).toBeCloseTo(0.1)
     expect(selected.gamificationCode).toBe('GLM-ABCDEF123456')
     expect(selected.useGamification).toBe(true)
+  })
+
+  it('lists every active points coupon so checkout can pick one', () => {
+    const listed = buildPromoCoupons({
+      catClaimed: false,
+      registrationClaimed: false,
+      gamification: [
+        { code: 'GLM-NEW', percent: 10, validUntil: '2026. 09. 17.' },
+        { code: 'GLM-OLD', percent: 10, validUntil: '2026. 09. 01.' },
+      ],
+      labels: { ...labels, gamification: 'Pontból váltott kupon (10%)' },
+    })
+    expect(listed.map((c) => c.code)).toEqual(['GLM-NEW', 'GLM-OLD'])
+    expect(listed.map((c) => c.id)).toEqual([
+      gamificationCouponId('GLM-NEW'),
+      gamificationCouponId('GLM-OLD'),
+    ])
+    const pickedOld = calculateSelectedCouponPercent(listed, [gamificationCouponId('GLM-OLD')])
+    expect(pickedOld.gamificationCode).toBe('GLM-OLD')
+    expect(pickedOld.finalPercent).toBeCloseTo(0.1)
+    expect(
+      canToggleCoupon(listed, new Set([gamificationCouponId('GLM-NEW')]), gamificationCouponId('GLM-OLD'), true)
+    ).toBe(false)
   })
 
   it('applies a single cat or registration coupon without stacking', () => {
@@ -132,6 +158,6 @@ describe('coupon selection: no stacking, 15% cap', () => {
     })
     expect(withHighCoupon[0]?.percent).toBeCloseTo(MAX_COMBINED_COUPON_PERCENT)
     const empty = new Set<typeof withHighCoupon[number]['id']>()
-    expect(canToggleCoupon(withHighCoupon, empty, 'gamification', true)).toBe(true)
+    expect(canToggleCoupon(withHighCoupon, empty, gamificationCouponId('GLM-HIGH'), true)).toBe(true)
   })
 })

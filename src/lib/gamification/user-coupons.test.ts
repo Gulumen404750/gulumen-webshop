@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   canRedeemFromBalance,
+  listActiveCheckoutCoupons,
   mapUserGamificationCoupon,
   pickActiveCheckoutCoupon,
   redeemableCouponCount,
@@ -75,5 +76,6 @@ describe('sortUserGamificationCoupons + pickActiveCheckoutCoupon', () => {
     ])
     expect(coupons.map((c) => c.code)).toEqual(['GLM-NEW', 'GLM-OLD', 'GLM-USED'])
     expect(pickActiveCheckoutCoupon(coupons)?.code).toBe('GLM-NEW')
+    expect(listActiveCheckoutCoupons(coupons).map((c) => c.code)).toEqual(['GLM-NEW', 'GLM-OLD'])
   })
 })
