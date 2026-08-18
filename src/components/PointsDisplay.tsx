@@ -39,7 +39,7 @@ export function PointsDisplay({ compact = false, className = '' }: Props) {
   }
 
   return (
-    <div className={`rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-4 ${className}`}>
+    <div className={`self-start w-full min-w-0 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-4 ${className}`}>
       <p className="text-sm text-muted mb-1">{t('gamification.pointsTitle')}</p>
       <p className="font-heading text-3xl font-bold text-foreground">
         {isLoading ? '…' : balance}
