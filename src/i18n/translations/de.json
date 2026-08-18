@@ -576,6 +576,7 @@
     "couponStatusExpired": "Abgelaufen",
     "couponStatusInactive": "Inaktiv",
     "couponPercent": "{percent}% Rabatt",
+    "couponFixed": "−{amount}",
     "couponValidUntil": "gültig bis {date}",
     "couponNoExpiry": "kein Ablauf",
     "couponCopy": "Code kopieren",
@@ -633,11 +634,12 @@
     "previewNotYet": "Dieser Code kann noch nicht eingelöst werden.",
     "previewAvailable": "{points} Punkte bereit zur Aktivierung.",
     "previewUsed": "Dieser Code wurde bereits verwendet.",
-    "couponSuccessPercent": "{percent}%-Gutschein aktiviert ({code}). Du kannst ihn an der Kasse nutzen.",
-    "couponSuccessFixed": "{amount} Rabatt aktiviert ({code}). Du kannst ihn an der Kasse nutzen.",
+    "couponSuccessPercent": "{percent}%-Gutschein aktiviert ({code}). Er erscheint jetzt unter Deine Gutscheine.",
+    "couponSuccessFixed": "{amount} Rabatt aktiviert ({code}). Er erscheint jetzt unter Deine Gutscheine.",
     "errorCouponInactive": "Dieser Gutschein ist derzeit nicht aktiv.",
     "errorCouponExpired": "Dieser Gutschein ist abgelaufen.",
     "errorCouponUsed": "Dieser Gutschein wurde bereits verwendet.",
+    "errorCouponAlreadyClaimed": "Dieser Gutschein ist bereits auf deinem Konto aktiviert.",
     "errorCouponWrongUser": "Dieser Gutschein gehört nicht zu diesem Konto."
   },
   "luckySpin": {

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useLocale } from '@/context/LocaleContext'
+import { useDisplayMoney } from '@/hooks/useDisplayMoney'
 import { usePointWallet } from '@/hooks/usePointWallet'
 import type { PointWalletCoupon } from '@/lib/point-wallet-client'
 
@@ -33,6 +34,7 @@ function statusClass(status: PointWalletCoupon['status']) {
 export function PointsProgress({ className = '' }: Props) {
   const { isLoggedIn } = useAuth()
   const { t, locale } = useLocale()
+  const { money } = useDisplayMoney()
   const { wallet, isLoading, refresh } = usePointWallet(isLoggedIn)
   const [redeeming, setRedeeming] = useState(false)
   const [redeemError, setRedeemError] = useState<string | null>(null)
@@ -183,7 +185,11 @@ export function PointsProgress({ className = '' }: Props) {
                     <div className="min-w-0">
                       <p className="font-mono text-sm text-foreground break-all">{coupon.code}</p>
                       <p className="text-xs text-muted mt-0.5">
-                        {t('gamification.couponPercent', { percent: coupon.discountPercent })}
+                        {coupon.discountType === 'fixed'
+                          ? t('gamification.couponFixed', {
+                              amount: money(coupon.discountValue ?? 0),
+                            })
+                          : t('gamification.couponPercent', { percent: coupon.discountPercent })}
                         {' · '}
                         {t('gamification.couponValidUntil', {
                           date: formatUntil(coupon.validUntil),

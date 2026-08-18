@@ -9,7 +9,10 @@ import { canRedeemFromBalance, redeemableCouponCount } from '@/lib/gamification/
 export type PointWalletCoupon = {
   id: string
   code: string
+  checkoutCode?: string
   discountPercent: number
+  discountType?: 'percent' | 'fixed'
+  discountValue?: number
   status: 'active' | 'used' | 'expired' | 'inactive'
   usedCount: number
   maxUses: number | null
