@@ -257,6 +257,8 @@ model Order {
   couponUsageRecorded Boolean @default(false)
   /// Manuálisan kiválasztott kuponok a checkouton: ["cat","birthday","welcome",...].
   appliedCoupons     Json?
+  /// Checkout fizetési mód: card | paypal | apple_pay | google_pay | klarna
+  paymentMethod      String?
   /// Kuponégés + pontlevonás lefuttatva (webhook / siker oldal – idempotens).
   rewardsFinalized   Boolean  @default(false)
   /// Admin címkenyomtatás időpontja (null = még nem nyomtatva).

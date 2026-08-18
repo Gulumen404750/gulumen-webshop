@@ -93,6 +93,8 @@ export type Order = {
   couponUsageRecorded?: boolean
   /** Manuálisan kiválasztott kuponok (cat, birthday, welcome, …). */
   appliedCoupons?: string[]
+  /** Checkout fizetési mód: card | paypal | apple_pay | google_pay | klarna */
+  paymentMethod?: string
   rewardsFinalized?: boolean
   /** Admin címkenyomtatás időpontja (ISO). */
   printedAt?: string
@@ -249,6 +251,7 @@ function dbOrderToOrder(row: {
   couponId: string | null
   couponUsageRecorded: boolean
   appliedCoupons?: unknown
+  paymentMethod?: string | null
   rewardsFinalized?: boolean
   printedAt?: Date | null
   originalShippingPostalCode?: string | null
@@ -303,6 +306,7 @@ function dbOrderToOrder(row: {
     couponId: row.couponId ?? undefined,
     couponUsageRecorded: row.couponUsageRecorded,
     appliedCoupons,
+    paymentMethod: row.paymentMethod ?? undefined,
     rewardsFinalized: row.rewardsFinalized,
     printedAt: row.printedAt?.toISOString(),
     originalShippingPostalCode: row.originalShippingPostalCode ?? undefined,
@@ -686,6 +690,8 @@ export async function createCheckoutOrders(params: {
   couponId?: string
   /** Manuálisan kiválasztott kuponok a fizetésnél. */
   appliedCoupons?: string[]
+  /** Checkout fizetési mód – részletfizetésnél nincs vásárlási pont. */
+  paymentMethod?: string
   /** Szállítási / számlázási / kapcsolattartó adatok. */
   customer?: OrderCustomerSnapshot
   inStock?: {
@@ -711,6 +717,7 @@ export async function createCheckoutOrders(params: {
   const currency = params.currency ?? 'huf'
   const result: Order[] = []
   const appliedCoupons = Array.isArray(params.appliedCoupons) ? params.appliedCoupons : []
+  const paymentMethod = params.paymentMethod?.trim() || undefined
   const customerFields = customerSnapshotFields(params.customer)
 
   if (isDbConfigured()) {
@@ -742,6 +749,7 @@ export async function createCheckoutOrders(params: {
             userId: params.userId ?? null,
             couponId: params.couponId ?? null,
             appliedCoupons,
+            paymentMethod: paymentMethod ?? null,
             currency,
             shippingEditToken,
             ...customerFields,
@@ -765,6 +773,7 @@ export async function createCheckoutOrders(params: {
           userId: params.userId,
           couponId: params.couponId,
           appliedCoupons,
+          paymentMethod,
           currency,
           createdAt: new Date().toISOString(),
           shippingEditToken,
@@ -806,6 +815,7 @@ export async function createCheckoutOrders(params: {
             userId: params.userId ?? null,
             couponId: params.couponId ?? null,
             appliedCoupons,
+            paymentMethod: paymentMethod ?? null,
             currency,
             shippingEditToken,
             ...customerFields,
@@ -829,6 +839,7 @@ export async function createCheckoutOrders(params: {
           userId: params.userId,
           couponId: params.couponId,
           appliedCoupons,
+          paymentMethod,
           currency,
           createdAt: new Date().toISOString(),
           shippingEditToken,
@@ -869,6 +880,8 @@ export async function createCheckoutOrders(params: {
       pointsDiscountHuf: params.inStock.pointsDiscountHuf ?? 0,
       pointsUsed: params.inStock.pointsUsed ?? 0,
       giftPointsUsed: params.inStock.giftPointsUsed ?? 0,
+      appliedCoupons,
+      paymentMethod,
       currency,
       shippingEditToken: generateShippingEditToken(),
       createdAt: new Date().toISOString(),
@@ -906,6 +919,8 @@ export async function createCheckoutOrders(params: {
       pointsDiscountHuf: params.sourcing.pointsDiscountHuf ?? 0,
       pointsUsed: params.sourcing.pointsUsed ?? 0,
       giftPointsUsed: params.sourcing.giftPointsUsed ?? 0,
+      appliedCoupons,
+      paymentMethod,
       currency,
       createdAt: new Date().toISOString(),
       shippingEditToken: generateShippingEditToken(),

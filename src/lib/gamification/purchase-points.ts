@@ -1,4 +1,5 @@
 import { orderUsedInternalPoints } from '@/lib/order-points-accounting'
+import { isInstallmentPayment } from '@/lib/checkout-payment-methods'
 import {
   GIFT_POINTS_MAX_COVERAGE,
   MAX_CART_POINTS_COVERAGE,
@@ -30,8 +31,8 @@ export function cashPaidHufToEarnPoints(paidHuf: number): number {
 }
 
 /**
- * Vásárlási pontjóváírás: csak akkor, ha a rendelésben NEM használtak pontot.
- * Részleges/teljes pontfizetés után extra pont nem jár; csak tiszta kártya/készpénz.
+ * Vásárlási pontjóváírás: csak tiszta kártya / PayPal / mobiltárca.
+ * Pontfizetés vagy külső részletfizetés (Klarna) után extra pont nem jár.
  */
 export function purchaseEarnPointsForOrder(order: {
   userId?: string | null
@@ -40,9 +41,11 @@ export function purchaseEarnPointsForOrder(order: {
   pointsUsed?: number | null
   pointsDiscountHuf?: number | null
   giftPointsUsed?: number | null
+  paymentMethod?: string | null
 }): number {
   if (!order.userId) return 0
   if (orderUsedInternalPoints(order)) return 0
+  if (isInstallmentPayment(order.paymentMethod)) return 0
   const paidHuf = order.paidHuf ?? order.totalHuf ?? 0
   return cashPaidHufToEarnPoints(paidHuf)
 }

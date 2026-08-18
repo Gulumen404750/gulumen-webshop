@@ -14,6 +14,11 @@ describe('checkout coupon picker', () => {
 
   it('does not promise purchase earn when the shopper is spending points', () => {
     expect(src).toMatch(/cashEarnHintPointsUsed/)
-    expect(src).toMatch(/usePoints \? t\('payment.cashEarnHintPointsUsed'\)/)
+    expect(src).toMatch(/usePoints\s*\?\s*t\('payment.cashEarnHintPointsUsed'\)/)
+  })
+
+  it('does not promise purchase earn for Klarna instalments', () => {
+    expect(src).toMatch(/cashEarnHintInstallment/)
+    expect(src).toMatch(/paymentMethod === 'klarna'/)
   })
 })

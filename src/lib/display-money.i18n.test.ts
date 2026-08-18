@@ -14,6 +14,7 @@ const KEYS = [
   'gamification.mechanicsGift',
   'profile.loyaltyHowItWorks',
   'payment.cashEarnHint',
+  'payment.cashEarnHintInstallment',
   'payment.pointsRate',
   'payment.pointsNoStackHint',
   'payment.invoiceRemainderHint',

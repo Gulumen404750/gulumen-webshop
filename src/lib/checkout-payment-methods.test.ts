@@ -5,6 +5,7 @@ import {
   forcesImmediateCapture,
   isCheckoutPaymentMethod,
   isExpressWalletMethod,
+  isInstallmentPayment,
   resolveChargeCurrency,
   resolvePaymentMode,
   stripeCheckoutAmountMatches,
@@ -58,6 +59,13 @@ describe('checkout payment methods', () => {
     expect(resolvePaymentMode('sourcing', 'klarna')).toBe('capture')
     expect(resolvePaymentMode('sourcing', 'card')).toBe('authorize')
     expect(resolvePaymentMode('in_stock', 'paypal')).toBe('capture')
+  })
+
+  it('does not earn purchase points on installment (Klarna)', () => {
+    expect(isInstallmentPayment('klarna')).toBe(true)
+    expect(isInstallmentPayment('card')).toBe(false)
+    expect(isInstallmentPayment('paypal')).toBe(false)
+    expect(isInstallmentPayment(undefined)).toBe(false)
   })
 
   it('matches Stripe webhook amounts against the stored charge currency', () => {

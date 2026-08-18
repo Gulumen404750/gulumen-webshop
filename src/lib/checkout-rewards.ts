@@ -31,13 +31,14 @@ export type AppliedCouponKind = (typeof APPLIED_COUPON_KINDS)[number]
 
 const PAID_LIKE_STATUSES = new Set(['paid', 'sourcing_pending', 'fulfilled'])
 
-/** Bejelentkezett vevő: tiszta kártya/készpénz után 100 Ft-onként 1 pont. Pontfizetés: 0. */
+/** Bejelentkezett vevő: tiszta kártya/PayPal/tárca után 100 Ft-onként 1 pont. Pontfizetés és részletfizetés: 0. */
 function cashEarnPointsForOrder(order: {
   userId: string | null
   totalHuf: number
   pointsUsed?: number | null
   pointsDiscountHuf?: number | null
   giftPointsUsed?: number | null
+  paymentMethod?: string | null
 }): number {
   return purchaseEarnPointsForOrder(order)
 }
@@ -116,6 +117,7 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
       giftPointsUsed: true,
       totalHuf: true,
       appliedCoupons: true,
+      paymentMethod: true,
       rewardsFinalized: true,
       orderGroupId: true,
     },
@@ -273,8 +275,8 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
       }
     }
 
-    // 5) Csak tiszta kártyás/készpénzes fizetés után: 100 Ft = 1 pont.
-    // Ha a kosárban bármennyi pontot felhasználtak, extra pont nem jár.
+    // 5) Csak tiszta kártyás / PayPal / mobiltárcás fizetés után: 100 Ft = 1 pont.
+    // Pontfelhasználás vagy külső részletfizetés (Klarna) esetén extra pont nem jár.
     if (order.userId) {
       const earned = cashEarnPointsForOrder({
         userId: order.userId,
@@ -282,6 +284,7 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
         pointsUsed,
         pointsDiscountHuf: order.pointsDiscountHuf,
         giftPointsUsed: order.giftPointsUsed,
+        paymentMethod: order.paymentMethod,
       })
       if (earned > 0) {
         try {
@@ -290,7 +293,7 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
             delta: earned,
             type: POINT_TX_TYPES.PURCHASE_EARN,
             idempotencyKey: `purchase-earn:${orderId}`,
-            reason: `Vásárlási pont: ${order.totalHuf} Ft kártyás/készpénzes fizetés (100 Ft = 1 pont)`,
+            reason: `Vásárlási pont: ${order.totalHuf} Ft kártyás/PayPal/tárcás fizetés (100 Ft = 1 pont)`,
             referenceType: 'order',
             referenceId: orderId,
             metadata: {

@@ -520,6 +520,7 @@ export async function POST(request: Request) {
       userId: checkoutUserId ?? undefined,
       couponId: appliedCouponId ?? undefined,
       appliedCoupons: appliedCouponsList,
+      paymentMethod,
       customer: customerSnapshot,
       inStock: hasInStock
         ? {

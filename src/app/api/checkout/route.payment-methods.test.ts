@@ -11,6 +11,7 @@ describe('checkout API payment methods', () => {
     expect(src).toMatch(/resolveChargeCurrency/)
     expect(src).toMatch(/toStripeUnitAmount/)
     expect(src).toMatch(/resolvePaymentMode/)
+    expect(src).toMatch(/paymentMethod,/)
   })
 
   it('still blocks coupon stacking before creating a payment', () => {

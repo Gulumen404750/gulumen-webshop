@@ -85,6 +85,11 @@ export function forcesImmediateCapture(paymentMethod: CheckoutPaymentMethod): bo
   return paymentMethod === 'klarna'
 }
 
+/** Külső finanszírozott részletfizetés: vásárlási pont nem jár. */
+export function isInstallmentPayment(paymentMethod?: string | null): boolean {
+  return paymentMethod === 'klarna'
+}
+
 export function resolvePaymentMode(
   orderType: 'in_stock' | 'sourcing',
   paymentMethod: CheckoutPaymentMethod

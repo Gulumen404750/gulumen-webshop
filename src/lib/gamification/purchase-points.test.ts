@@ -142,4 +142,24 @@ describe('purchaseEarnPointsForOrder', () => {
   it('credits nothing for guests', () => {
     expect(purchaseEarnPointsForOrder({ userId: null, totalHuf: 5_000 })).toBe(0)
   })
+
+  it('credits nothing for Klarna instalments', () => {
+    expect(
+      purchaseEarnPointsForOrder({
+        userId: 'u1',
+        totalHuf: 6_190,
+        pointsUsed: 0,
+        giftPointsUsed: 0,
+        pointsDiscountHuf: 0,
+        paymentMethod: 'klarna',
+      })
+    ).toBe(0)
+    expect(
+      purchaseEarnPointsForOrder({
+        userId: 'u1',
+        totalHuf: 6_190,
+        paymentMethod: 'paypal',
+      })
+    ).toBe(61)
+  })
 })

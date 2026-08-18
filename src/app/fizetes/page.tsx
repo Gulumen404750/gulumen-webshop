@@ -1401,7 +1401,11 @@ export default function PaymentPage() {
         )}
         {userId && (
           <p className="text-xs text-emerald-600 dark:text-emerald-400 mb-3">
-            {usePoints ? t('payment.cashEarnHintPointsUsed') : t('payment.cashEarnHint', copy)}
+            {usePoints
+              ? t('payment.cashEarnHintPointsUsed')
+              : paymentMethod === 'klarna'
+                ? t('payment.cashEarnHintInstallment')
+                : t('payment.cashEarnHint', copy)}
           </p>
         )}
         <p className="text-xs text-muted mb-4">{t('payment.secureNote')}</p>
