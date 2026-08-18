@@ -9,7 +9,7 @@ import {
 } from '@/lib/orders'
 import { markReservationsPaidByOrderId } from '@/lib/reservations'
 import { maybeSendOrderGroupConfirmationEmail } from '@/lib/order-email'
-import { qualifiesForLoyalty, incrementQualifyingOrder, decrementQualifyingOrder } from '@/lib/loyalty'
+import { applyLoyaltyForPaidOrder, decrementQualifyingOrder } from '@/lib/loyalty'
 import { finalizeOrderRewards } from '@/lib/checkout-rewards'
 import { clearUserCartSnapshot } from '@/lib/cart-snapshot'
 import { logger } from '@/lib/logger'
@@ -193,12 +193,10 @@ export async function POST(request: Request) {
         await clearUserCartSnapshot(updatedOrder.userId)
       }
 
-      // Hűségkedvezmény: csak ha még nem számoltuk, és a végösszeg eléri a küszöböt (HUF/EUR)
-      if (updatedOrder && !updatedOrder.countedForLoyalty && customerEmail) {
-        if (qualifiesForLoyalty(amountTotal, currency)) {
-          incrementQualifyingOrder(customerEmail)
-          await setOrderCountedForLoyalty(orderId)
-        }
+      try {
+        await applyLoyaltyForPaidOrder(orderId)
+      } catch (err) {
+        logger.error({ err, orderId }, 'checkout.session.completed: loyalty credit failed')
       }
 
       try {
@@ -243,7 +241,7 @@ export async function POST(request: Request) {
       const amountRefunded = charge.amount_refunded ?? 0
       const isFullRefund = amountPaid > 0 && amountRefunded >= amountPaid
       if (isFullRefund) {
-        decrementQualifyingOrder(order.customerEmail)
+        await decrementQualifyingOrder(order.customerEmail)
         await setOrderCountedForLoyalty(order.id, false)
       }
       return NextResponse.json({ received: true })

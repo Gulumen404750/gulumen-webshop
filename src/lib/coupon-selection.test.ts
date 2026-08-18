@@ -31,6 +31,21 @@ describe('coupon selection: no stacking, 15% cap', () => {
     )
   })
 
+  it('lists loyalty first so the 1–8% discount is visible at checkout', () => {
+    expect(coupons[0]?.id).toBe('loyalty')
+    expect(coupons[0]?.percent).toBeCloseTo(0.05)
+  })
+
+  it('omits loyalty when the percent is still 0', () => {
+    const withoutLoyalty = buildPromoCoupons({
+      catClaimed: false,
+      registrationClaimed: false,
+      loyaltyPercent: 0,
+      labels,
+    })
+    expect(withoutLoyalty.some((c) => c.id === 'loyalty')).toBe(false)
+  })
+
   it('keeps coupon stacking disabled', () => {
     expect(ALLOW_CAT_REGISTRATION_STACK).toBe(false)
   })

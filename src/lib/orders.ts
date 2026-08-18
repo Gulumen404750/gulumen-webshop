@@ -637,6 +637,33 @@ export async function setOrderCountedForLoyalty(orderId: string, value = true): 
   return orders[idx]
 }
 
+/** Atomosan jelöli countedForLoyalty=true-ra a még nem számolt rendeléseket. */
+export async function claimOrdersCountedForLoyalty(orderIds: string[]): Promise<number> {
+  const ids = [...new Set(orderIds.filter(Boolean))]
+  if (!ids.length) return 0
+  if (isDbConfigured()) {
+    const result = await prisma.order.updateMany({
+      where: { id: { in: ids }, countedForLoyalty: false },
+      data: { countedForLoyalty: true },
+    })
+    return result.count
+  }
+  const orders = loadOrders()
+  let claimed = 0
+  for (const id of ids) {
+    const idx = orders.findIndex((o) => o.id === id)
+    if (idx < 0) continue
+    if (orders[idx].countedForLoyalty) continue
+    orders[idx].countedForLoyalty = true
+    claimed += 1
+  }
+  if (claimed > 0) {
+    memoryStore = orders
+    saveOrders()
+  }
+  return claimed
+}
+
 export async function getOrderByPaymentIntentId(paymentIntentId: string): Promise<Order | null> {
   if (isDbConfigured()) {
     const row = await prisma.order.findFirst({

@@ -10,6 +10,11 @@ import { applyPointDelta, GamificationSuspendedError } from '@/lib/gamification/
 import { consumeGiftPointsForOrder } from '@/lib/gamification/gift-points'
 import { POINT_TX_TYPES } from '@/lib/gamification/constants'
 import { cashPaidHufToEarnPoints } from '@/lib/gamification/purchase-points'
+import {
+  applyLoyaltyForPaidOrder,
+  getLoyaltyByEmail,
+  type LoyaltyCreditResult,
+} from '@/lib/loyalty'
 import { internalPointsLedgerMetadata } from '@/lib/order-points-accounting'
 import { logger } from '@/lib/logger'
 import { revalidateUserProfile } from '@/lib/revalidate-user-profile'
@@ -30,6 +35,21 @@ const PAID_LIKE_STATUSES = new Set(['paid', 'sourcing_pending', 'fulfilled'])
 function cashEarnPointsForOrder(order: { userId: string | null; totalHuf: number }): number {
   if (!order.userId) return 0
   return cashPaidHufToEarnPoints(order.totalHuf)
+}
+
+async function loyaltySnapshotForEmail(
+  email: string | null | undefined
+): Promise<LoyaltyCreditResult | undefined> {
+  if (!email?.trim()) return undefined
+  const current = await getLoyaltyByEmail(email)
+  return {
+    credited: false,
+    alreadyCounted: false,
+    qualified: false,
+    loyaltyPercent: current?.loyaltyPercent ?? 0,
+    previousPercent: current?.loyaltyPercent ?? 0,
+    qualifyingPaidOrdersCount: current?.qualifyingPaidOrdersCount ?? 0,
+  }
 }
 
 export function parseAppliedCoupons(value: unknown): AppliedCouponKind[] {
@@ -58,6 +78,7 @@ export type FinalizeOrderRewardsResult = {
     pointsUsed: number
     pointsEarned: number
   }
+  loyalty?: LoyaltyCreditResult
 }
 
 /**
@@ -100,7 +121,13 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
   }
 
   if (!PAID_LIKE_STATUSES.has(order.status)) {
-    return { ok: false, skipped: true, reason: 'order_not_paid', burned: emptyBurn }
+    return {
+      ok: false,
+      skipped: true,
+      reason: 'order_not_paid',
+      burned: emptyBurn,
+      loyalty: await loyaltySnapshotForEmail(order.customerEmail),
+    }
   }
 
   if (order.rewardsFinalized) {
@@ -117,11 +144,13 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
       }
     }
     revalidateUserProfile()
+    const loyalty = await applyLoyaltyForPaidOrder(orderId)
     return {
       ok: true,
       alreadyFinalized: true,
       balanceAfter,
       burned: { ...emptyBurn, pointsEarned: cashEarnPointsForOrder(order) },
+      loyalty,
     }
   }
 
@@ -131,10 +160,12 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
     data: { rewardsFinalized: true },
   })
   if (claimed.count === 0) {
+    const loyalty = await applyLoyaltyForPaidOrder(orderId)
     return {
       ok: true,
       alreadyFinalized: true,
       burned: { ...emptyBurn, pointsEarned: cashEarnPointsForOrder(order) },
+      loyalty,
     }
   }
 
@@ -269,11 +300,12 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
 
     revalidateUserProfile()
 
+    const loyalty = await applyLoyaltyForPaidOrder(orderId)
     logger.info(
-      { orderId, burned, applied, balanceAfter },
+      { orderId, burned, applied, balanceAfter, loyalty },
       'finalizeOrderRewards: coupons burned, points deducted, cash earn credited'
     )
-    return { ok: true, burned, balanceAfter }
+    return { ok: true, burned, balanceAfter, loyalty }
   } catch (err) {
     // Claim visszavonása, hogy a webhook / siker oldal újrapróbálhassa
     try {

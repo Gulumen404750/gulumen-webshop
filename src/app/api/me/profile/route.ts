@@ -10,6 +10,12 @@ import {
   isBirthdayToday,
   parseBirthDateInput,
 } from '@/lib/birthday-coupon'
+import {
+  getLoyaltyByEmail,
+  getLoyaltyTier,
+  LOYALTY_MAX_PERCENT,
+  LOYALTY_THRESHOLD_HUF,
+} from '@/lib/loyalty'
 
 /**
  * GET /api/me/profile – bejelentkezett user profil (születési dátum + születésnapi kupon).
@@ -43,6 +49,8 @@ export async function GET(request: Request) {
   }
 
   const birthdayCoupon = await findActiveBirthdayCoupon(userId)
+  const loyaltyRow = user.email ? await getLoyaltyByEmail(user.email) : null
+  const qualifyingPaidOrdersCount = loyaltyRow?.qualifyingPaidOrdersCount ?? 0
 
   return NextResponse.json({
     user: {
@@ -54,6 +62,13 @@ export async function GET(request: Request) {
       marketingOptIn: user.marketingOptIn,
     },
     birthdayCoupon,
+    loyalty: {
+      loyaltyPercent: loyaltyRow?.loyaltyPercent ?? 0,
+      qualifyingPaidOrdersCount,
+      tier: getLoyaltyTier(qualifyingPaidOrdersCount),
+      thresholdHuf: LOYALTY_THRESHOLD_HUF,
+      maxPercent: LOYALTY_MAX_PERCENT,
+    },
   })
 }
 

@@ -132,6 +132,14 @@ export function buildPromoCoupons(input: {
   }
 }): SelectableCoupon[] {
   const out: SelectableCoupon[] = []
+  const loyaltyPct = (input.loyaltyPercent ?? 0) / 100
+  if (loyaltyPct > 0) {
+    out.push({
+      id: 'loyalty',
+      label: input.labels.loyalty,
+      percent: loyaltyPct,
+    })
+  }
   if (input.catClaimed) {
     out.push({
       id: 'cat',
@@ -151,14 +159,6 @@ export function buildPromoCoupons(input: {
       id: 'welcome',
       label: input.labels.welcome,
       percent: WELCOME_CHECKOUT_COUPON_PERCENT,
-    })
-  }
-  const loyaltyPct = (input.loyaltyPercent ?? 0) / 100
-  if (loyaltyPct > 0) {
-    out.push({
-      id: 'loyalty',
-      label: input.labels.loyalty,
-      percent: loyaltyPct,
     })
   }
   if (input.birthday?.code) {

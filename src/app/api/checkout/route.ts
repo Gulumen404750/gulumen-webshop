@@ -317,7 +317,8 @@ export async function POST(request: Request) {
   }
 
   if (selectedCoupons.has('loyalty')) {
-    const loyalty = getLoyaltyByEmail(customer.email.trim().toLowerCase())
+    const loyaltyEmail = (session?.email || customer.email).trim().toLowerCase()
+    const loyalty = await getLoyaltyByEmail(loyaltyEmail)
     if (!loyalty || loyalty.loyaltyPercent <= 0) {
       return NextResponse.json(
         { code: 'loyalty_inactive', error: 'No loyalty discount on this account' },

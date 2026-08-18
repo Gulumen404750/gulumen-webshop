@@ -194,19 +194,39 @@ function summarizeFinalizeResults(
   results: Array<{
     balanceAfter?: number
     burned?: { pointsUsed?: number; pointsEarned?: number }
+    loyalty?: {
+      credited?: boolean
+      loyaltyPercent?: number
+      previousPercent?: number
+      qualifyingPaidOrdersCount?: number
+    }
   }>
 ) {
   let pointsUsed = 0
   let pointsEarned = 0
   let balance: number | undefined
+  let loyaltyPercent = 0
+  let loyaltyCredited = false
+  let loyaltyPreviousPercent = 0
+  let qualifyingPaidOrdersCount = 0
   for (const r of results) {
     pointsUsed += r.burned?.pointsUsed ?? 0
     pointsEarned += r.burned?.pointsEarned ?? 0
     if (typeof r.balanceAfter === 'number') balance = r.balanceAfter
+    if (typeof r.loyalty?.loyaltyPercent === 'number' && r.loyalty.loyaltyPercent > loyaltyPercent) {
+      loyaltyPercent = r.loyalty.loyaltyPercent
+      loyaltyPreviousPercent = r.loyalty.previousPercent ?? 0
+      qualifyingPaidOrdersCount = r.loyalty.qualifyingPaidOrdersCount ?? 0
+    }
+    if (r.loyalty?.credited) loyaltyCredited = true
   }
   return {
     pointsUsed,
     pointsEarned,
+    loyaltyPercent,
+    loyaltyCredited,
+    loyaltyPreviousPercent,
+    qualifyingPaidOrdersCount,
     ...(typeof balance === 'number' ? { balance } : {}),
   }
 }

@@ -35,9 +35,26 @@ export function LoyaltyTierBadge({ email, className = '' }: Props) {
   const { t } = useLocale()
   const { loyalty, isLoading } = useLoyalty(email)
 
-  if (isLoading || !loyalty?.tier) return null
+  if (isLoading) return null
 
-  const { tier, loyaltyPercent, qualifyingPaidOrdersCount } = loyalty
+  const loyaltyPercent = loyalty?.loyaltyPercent ?? 0
+  const qualifyingPaidOrdersCount = loyalty?.qualifyingPaidOrdersCount ?? 0
+  const tier = loyalty?.tier ?? null
+  const how = t('profile.loyaltyHowItWorks')
+
+  if (!tier || loyaltyPercent <= 0) {
+    return (
+      <div
+        className={`rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-4 ${className}`}
+      >
+        <p className="font-heading text-sm font-semibold text-foreground">
+          {t('profile.loyaltyEmptyTitle')}
+        </p>
+        <p className="text-sm text-muted mt-1">{how}</p>
+      </div>
+    )
+  }
+
   const styles = TIER_STYLES[tier]
   const tierLabel = t(`profile.loyaltyTier${tier.charAt(0).toUpperCase()}${tier.slice(1)}`)
 
@@ -65,6 +82,7 @@ export function LoyaltyTierBadge({ email, className = '' }: Props) {
             String(qualifyingPaidOrdersCount)
           )}
         </p>
+        <p className="text-xs text-muted mt-1">{how}</p>
       </div>
     </div>
   )

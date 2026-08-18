@@ -321,15 +321,16 @@ export default function PaymentPage() {
   }, [userId])
 
   useEffect(() => {
-    if (!userId) {
+    const email = (userId || guestEmail).trim().toLowerCase()
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setLoyaltyPercent(0)
       return
     }
-    fetch(`/api/loyalty?email=${encodeURIComponent(userId)}`)
+    fetch(`/api/loyalty?email=${encodeURIComponent(email)}`, { credentials: 'include' })
       .then((r) => r.json())
-      .then((d) => setLoyaltyPercent(d.loyaltyPercent ?? 0))
+      .then((d) => setLoyaltyPercent(Number(d.loyaltyPercent) || 0))
       .catch(() => setLoyaltyPercent(0))
-  }, [userId])
+  }, [userId, guestEmail])
 
   // Welcome ajánlat elérhetőség (lista elemként; nincs auto-apply)
   useEffect(() => {
@@ -400,6 +401,22 @@ export default function PaymentPage() {
       return ['gamification']
     })
   }, [gamificationCoupon?.code, availableCoupons, usePoints, typedCoupon])
+
+  const autoSelectedLoyaltyRef = useRef(false)
+  useEffect(() => {
+    if (usePoints || typedCoupon || loyaltyPercent <= 0) {
+      if (loyaltyPercent <= 0) autoSelectedLoyaltyRef.current = false
+      return
+    }
+    if (autoSelectedLoyaltyRef.current) return
+    autoSelectedLoyaltyRef.current = true
+    setSelectedCouponIds((prev) => {
+      if (prev.includes('loyalty')) return prev
+      if (prev.length > 0) return prev
+      if (!canToggleCoupon(availableCoupons, new Set(prev), 'loyalty', true)) return prev
+      return ['loyalty']
+    })
+  }, [loyaltyPercent, availableCoupons, usePoints, typedCoupon])
 
   useEffect(() => {
     if (!usePoints) return

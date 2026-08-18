@@ -16,6 +16,24 @@ import {
   syncPointWalletAfterPayment,
 } from '@/lib/point-wallet-client'
 
+function LoyaltyCreditBanner({
+  percent,
+  credited,
+}: {
+  percent: number
+  credited: boolean
+}) {
+  const { t } = useLocale()
+  if (percent <= 0) return null
+  return (
+    <p className="text-sm text-emerald-600 dark:text-emerald-400">
+      {credited
+        ? t('payment.loyaltyEarnedSuccess', { percent: String(percent) })
+        : t('payment.loyaltyAvailableSuccess', { percent: String(percent) })}
+    </p>
+  )
+}
+
 const POLL_INTERVAL_MS = 1500
 const POLL_MAX_ATTEMPTS = 8
 const GIVE_UP_MS = 10 * 1000
@@ -69,6 +87,8 @@ export default function PaymentSuccessPage() {
   const [error, setError] = useState<string | null>(null)
   const [gaveUp, setGaveUp] = useState(false)
   const [pointsEarned, setPointsEarned] = useState(0)
+  const [loyaltyPercent, setLoyaltyPercent] = useState(0)
+  const [loyaltyCredited, setLoyaltyCredited] = useState(false)
   const pollCountRef = useRef(0)
   const didClearCartRef = useRef(false)
   const didFinalizeRewardsRef = useRef(false)
@@ -79,6 +99,27 @@ export default function PaymentSuccessPage() {
   useEffect(() => {
     void applyStashedPointsRedeemOnce()
   }, [])
+
+  useEffect(() => {
+    if (!userId) return
+    let cancelled = false
+    const load = () => {
+      fetch('/api/loyalty', { credentials: 'include' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => {
+          if (cancelled || !d) return
+          const pct = Number(d.loyaltyPercent) || 0
+          if (pct > 0) setLoyaltyPercent((prev) => Math.max(prev, pct))
+        })
+        .catch(() => {})
+    }
+    load()
+    const retryId = window.setTimeout(load, 2500)
+    return () => {
+      cancelled = true
+      window.clearTimeout(retryId)
+    }
+  }, [userId])
 
   const applyOptimisticPointsFromOrders = (orders: Order[]) => {
     if (didOptimisticPointsRef.current) return
@@ -126,10 +167,18 @@ export default function PaymentSuccessPage() {
           balance?: number
           pointsUsed?: number
           pointsEarned?: number
+          loyaltyPercent?: number
+          loyaltyCredited?: boolean
         }
         markUsed()
         if (typeof data.pointsEarned === 'number' && data.pointsEarned > 0) {
           setPointsEarned(data.pointsEarned)
+        }
+        if (typeof data.loyaltyPercent === 'number' && data.loyaltyPercent > 0) {
+          setLoyaltyPercent(data.loyaltyPercent)
+        }
+        if (data.loyaltyCredited === true) {
+          setLoyaltyCredited(true)
         }
         if (typeof data.balance === 'number') {
           void syncPointWalletAfterPayment(data.balance)
@@ -291,11 +340,15 @@ export default function PaymentSuccessPage() {
           {t('payment.successTitle')}
         </h1>
         <p className="text-muted mb-6">{t('payment.successMessage')}</p>
-        {pointsEarned > 0 && (
-          <p className="text-sm text-emerald-600 dark:text-emerald-400 -mt-4 mb-6">
-            {t('payment.pointsEarnedSuccess', { points: String(pointsEarned) }) ||
-              `+${pointsEarned} pont jóváírva a kártyás fizetés után.`}
-          </p>
+        {(pointsEarned > 0 || loyaltyPercent > 0) && (
+          <div className="-mt-4 mb-6 space-y-1">
+            {pointsEarned > 0 && (
+              <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                {t('payment.pointsEarnedSuccess', { points: String(pointsEarned) })}
+              </p>
+            )}
+            <LoyaltyCreditBanner percent={loyaltyPercent} credited={loyaltyCredited} />
+          </div>
         )}
         <section className="mb-8 space-y-6">
           {stockOrder && (
@@ -415,11 +468,15 @@ export default function PaymentSuccessPage() {
             {t('payment.successTitle')}
           </h1>
           <p className="text-muted mb-6">{t('payment.successMessage')}</p>
-          {pointsEarned > 0 && (
-            <p className="text-sm text-emerald-600 dark:text-emerald-400 -mt-4 mb-6">
-              {t('payment.pointsEarnedSuccess', { points: String(pointsEarned) }) ||
-                `+${pointsEarned} pont jóváírva a kártyás fizetés után.`}
-            </p>
+          {(pointsEarned > 0 || loyaltyPercent > 0) && (
+            <div className="-mt-4 mb-6 space-y-1">
+              {pointsEarned > 0 && (
+                <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                  {t('payment.pointsEarnedSuccess', { points: String(pointsEarned) })}
+                </p>
+              )}
+              <LoyaltyCreditBanner percent={loyaltyPercent} credited={loyaltyCredited} />
+            </div>
           )}
         </>
       )}
