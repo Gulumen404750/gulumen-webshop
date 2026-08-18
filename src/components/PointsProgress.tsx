@@ -92,7 +92,9 @@ export function PointsProgress({ className = '' }: Props) {
   }
 
   return (
-    <div className={`rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-4 ${className}`}>
+    <div
+      className={`relative z-10 self-start w-full min-w-0 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-4 ${className}`}
+    >
       <div className="flex items-center justify-between mb-2">
         <p className="text-sm font-medium text-foreground">{t('gamification.progressTitle')}</p>
         <span className="text-sm text-muted">
@@ -152,11 +154,11 @@ export function PointsProgress({ className = '' }: Props) {
 
       {coupons.length > 0 && (
         <details
-          className="mt-4 rounded-lg border border-[var(--border)] bg-background overflow-hidden group"
+          className="relative mt-4 group"
           open={listOpen}
           onToggle={(e) => setListOpen((e.currentTarget as HTMLDetailsElement).open)}
         >
-          <summary className="px-3 py-2.5 text-sm font-medium text-foreground cursor-pointer list-none flex items-center justify-between gap-3">
+          <summary className="px-3 py-2.5 text-sm font-medium text-foreground cursor-pointer list-none flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-background">
             <span>
               {t('gamification.myCouponsTitle', { count: coupons.length })}
               {activeCount > 0 ? (
@@ -170,44 +172,46 @@ export function PointsProgress({ className = '' }: Props) {
               ▼
             </span>
           </summary>
-          <ul className="px-3 pb-3 space-y-2">
-            {coupons.map((coupon) => (
-              <li
-                key={coupon.id}
-                className="rounded-lg border border-[var(--border)] px-3 py-2"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="font-mono text-sm text-foreground break-all">{coupon.code}</p>
-                    <p className="text-xs text-muted mt-0.5">
-                      {t('gamification.couponPercent', { percent: coupon.discountPercent })}
-                      {' · '}
-                      {t('gamification.couponValidUntil', {
-                        date: formatUntil(coupon.validUntil),
-                      })}
-                    </p>
+          <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-56 overflow-y-auto overscroll-contain rounded-lg border border-[var(--border)] bg-[var(--card-bg)] shadow-lg">
+            <ul className="px-3 pt-3 space-y-2">
+              {coupons.map((coupon) => (
+                <li
+                  key={coupon.id}
+                  className="rounded-lg border border-[var(--border)] px-3 py-2"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-mono text-sm text-foreground break-all">{coupon.code}</p>
+                      <p className="text-xs text-muted mt-0.5">
+                        {t('gamification.couponPercent', { percent: coupon.discountPercent })}
+                        {' · '}
+                        {t('gamification.couponValidUntil', {
+                          date: formatUntil(coupon.validUntil),
+                        })}
+                      </p>
+                    </div>
+                    <span
+                      className={`inline-flex shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full ${statusClass(coupon.status)}`}
+                    >
+                      {couponStatusLabel(coupon.status, t)}
+                    </span>
                   </div>
-                  <span
-                    className={`inline-flex shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full ${statusClass(coupon.status)}`}
-                  >
-                    {couponStatusLabel(coupon.status, t)}
-                  </span>
-                </div>
-                {coupon.status === 'active' && (
-                  <button
-                    type="button"
-                    onClick={() => void copyCode(coupon.code)}
-                    className="mt-2 text-xs font-medium text-accent hover:underline"
-                  >
-                    {copiedCode === coupon.code
-                      ? t('gamification.couponCopied')
-                      : t('gamification.couponCopy')}
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-          <p className="px-3 pb-3 text-xs text-muted">{t('gamification.myCouponsCheckoutHint')}</p>
+                  {coupon.status === 'active' && (
+                    <button
+                      type="button"
+                      onClick={() => void copyCode(coupon.code)}
+                      className="mt-2 text-xs font-medium text-accent hover:underline"
+                    >
+                      {copiedCode === coupon.code
+                        ? t('gamification.couponCopied')
+                        : t('gamification.couponCopy')}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <p className="px-3 py-3 text-xs text-muted">{t('gamification.myCouponsCheckoutHint')}</p>
+          </div>
         </details>
       )}
     </div>

@@ -11,6 +11,11 @@ describe('PointsProgress profile coupons', () => {
     expect(src).toMatch(/wallet\?\.coupons/)
   })
 
+  it('overlays a scrollable coupon list so the profile grid does not jump', () => {
+    expect(src).toMatch(/absolute left-0 right-0 top-full/)
+    expect(src).toMatch(/max-h-56 overflow-y-auto/)
+  })
+
   it('does not hide the redeem button just because a coupon is already unused', () => {
     expect(src).toMatch(/wallet\?\.canRedeem/)
     expect(src).not.toMatch(/canRedeem && !wallet\?\.hasActiveCoupon/)
