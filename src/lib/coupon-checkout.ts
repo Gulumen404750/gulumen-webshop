@@ -4,6 +4,7 @@
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import type { CouponDiscount } from '@/lib/checkout'
 import { capCombinedCouponPercent } from '@/lib/coupon-config'
+import { claimCouponForUser } from '@/lib/coupon-claim'
 
 export type ResolvedDbCoupon = {
   id: string
@@ -130,21 +131,41 @@ export async function resolveCheckoutCoupon(params: {
   })
   if (!preview.ok) return preview
 
-  if (preview.coupon.minOrderHuf != null && params.subtotalHuf < preview.coupon.minOrderHuf) {
-    return {
-      ok: false,
-      error: `Minimum order amount is ${preview.coupon.minOrderHuf} HUF`,
-      code: 'coupon_min_order',
-    }
-  }
-
-  const resolved: ResolvedDbCoupon = {
+  let resolved: ResolvedDbCoupon = {
     id: preview.coupon.id,
     code: preview.coupon.code,
     discountType: preview.coupon.discountType,
     discountValue: preview.coupon.discountValue,
     source: preview.coupon.source,
     userId: preview.coupon.userId,
+  }
+
+  if (!preview.coupon.userId) {
+    const claimed = await claimCouponForUser({
+      userId: params.checkoutUserId,
+      code: preview.coupon.code,
+      now: params.now,
+      allowExistingUnused: true,
+    })
+    if (!claimed.ok) {
+      return { ok: false, error: claimed.error, code: claimed.code }
+    }
+    resolved = {
+      id: claimed.coupon.id,
+      code: claimed.coupon.checkoutCode,
+      discountType: claimed.coupon.discountType,
+      discountValue: claimed.coupon.discountValue,
+      source: claimed.coupon.source,
+      userId: claimed.coupon.userId,
+    }
+  }
+
+  if (preview.coupon.minOrderHuf != null && params.subtotalHuf < preview.coupon.minOrderHuf) {
+    return {
+      ok: false,
+      error: `Minimum order amount is ${preview.coupon.minOrderHuf} HUF`,
+      code: 'coupon_min_order',
+    }
   }
 
   return { ok: true, coupon: resolved, discount: dbCouponToDiscount(resolved) }

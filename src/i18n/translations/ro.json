@@ -561,6 +561,7 @@
     "couponStatusExpired": "Expirat",
     "couponStatusInactive": "Inactiv",
     "couponPercent": "{percent}% reducere",
+    "couponFixed": "−{amount}",
     "couponValidUntil": "valabil până la {date}",
     "couponNoExpiry": "fără expirare",
     "couponCopy": "Copiază codul",
@@ -618,11 +619,12 @@
     "previewNotYet": "Acest cod nu poate fi valorificat încă.",
     "previewAvailable": "{points} puncte gata de activare.",
     "previewUsed": "Acest cod a fost deja folosit.",
-    "couponSuccessPercent": "Cupon de {percent}% activat ({code}). Îl poți folosi la plată.",
-    "couponSuccessFixed": "Reducere de {amount} activată ({code}). O poți folosi la plată.",
+    "couponSuccessPercent": "Cupon de {percent}% activat ({code}). Apare acum la Cupoanele tale.",
+    "couponSuccessFixed": "Reducere de {amount} activată ({code}). Apare acum la Cupoanele tale.",
     "errorCouponInactive": "Acest cupon nu este activ momentan.",
     "errorCouponExpired": "Cuponul a expirat.",
     "errorCouponUsed": "Cuponul a fost deja folosit.",
+    "errorCouponAlreadyClaimed": "Acest cupon este deja activat pe contul tău.",
     "errorCouponWrongUser": "Acest cupon nu aparține acestui cont."
   },
   "luckySpin": {

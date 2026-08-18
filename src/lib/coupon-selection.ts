@@ -57,6 +57,8 @@ export type SelectableCoupon = {
   code?: string
   /** Extra leírás (pl. érvényesség). */
   hint?: string
+  /** Fix Ft kedvezmény (admin kampánykupon). */
+  fixedHuf?: number
 }
 
 export type CouponSelectionResult = {
@@ -68,6 +70,7 @@ export type CouponSelectionResult = {
   capped: boolean
   birthdayCode?: string
   gamificationCode?: string
+  gamificationFixedHuf?: number
   useWelcome: boolean
   useLoyalty: boolean
   useCat: boolean
@@ -104,6 +107,7 @@ export function calculateSelectedCouponPercent(
     capped: rawPercent > MAX_COMBINED_COUPON_PERCENT + 1e-9,
     birthdayCode: birthday?.code,
     gamificationCode: gamification?.code,
+    gamificationFixedHuf: gamification?.fixedHuf,
     useWelcome: selected.has('welcome'),
     useLoyalty: false,
     useCat: selected.has('cat'),
@@ -141,8 +145,8 @@ export function buildPromoCoupons(input: {
   welcomeEligible?: boolean
   birthday?: { code: string; percent?: number; validUntil?: string } | null
   gamification?:
-    | { code: string; percent?: number; validUntil?: string; label?: string }
-    | Array<{ code: string; percent?: number; validUntil?: string; label?: string }>
+    | { code: string; percent?: number; validUntil?: string; label?: string; fixedHuf?: number }
+    | Array<{ code: string; percent?: number; validUntil?: string; label?: string; fixedHuf?: number }>
     | null
   labels: {
     cat: string
@@ -197,13 +201,14 @@ export function buildPromoCoupons(input: {
     const key = code.toUpperCase()
     if (seenCodes.has(key)) continue
     seenCodes.add(key)
-    const p = normalizeCouponPercent(item.percent, 0.1)
+    const p = normalizeCouponPercent(item.percent, item.fixedHuf ? 0 : 0.1)
     out.push({
       id: gamificationCouponId(code),
       label: item.label || input.labels.gamification || '',
-      percent: capCombinedCouponPercent(p),
+      percent: item.fixedHuf ? 0 : capCombinedCouponPercent(p),
       code,
       hint: item.validUntil,
+      ...(item.fixedHuf ? { fixedHuf: item.fixedHuf } : {}),
     })
   }
   return out

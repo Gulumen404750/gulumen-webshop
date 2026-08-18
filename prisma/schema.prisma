@@ -92,11 +92,15 @@ model Coupon {
   source       String?
   /// Melyik pontlevonás hozta létre (append-only audit)
   pointTransactionId String? @unique
+  /// Kampánykód, amiből a személyes példány készült (pl. NYAR2026). Egyszer / user.
+  claimedFromCode String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   orders       Order[]
+  @@unique([userId, claimedFromCode])
   @@index([userId, active])
   @@index([source])
+  @@index([claimedFromCode])
 }
 
 /// Admin / chatbot / webshop beállítások – key-value.

@@ -576,6 +576,7 @@
     "couponStatusExpired": "Expired",
     "couponStatusInactive": "Inactive",
     "couponPercent": "{percent}% off",
+    "couponFixed": "−{amount}",
     "couponValidUntil": "valid until {date}",
     "couponNoExpiry": "no expiry",
     "couponCopy": "Copy code",
@@ -633,11 +634,12 @@
     "previewNotYet": "This code cannot be claimed yet.",
     "previewAvailable": "{points} points ready to activate.",
     "previewUsed": "This code has already been used.",
-    "couponSuccessPercent": "{percent}% coupon activated ({code}). You can use it at checkout.",
-    "couponSuccessFixed": "{amount} off activated ({code}). You can use it at checkout.",
+    "couponSuccessPercent": "{percent}% coupon activated ({code}). It now appears in Your coupons.",
+    "couponSuccessFixed": "{amount} off activated ({code}). It now appears in Your coupons.",
     "errorCouponInactive": "This coupon is not currently active.",
     "errorCouponExpired": "This coupon has expired.",
     "errorCouponUsed": "This coupon has already been used.",
+    "errorCouponAlreadyClaimed": "This coupon is already activated on your account.",
     "errorCouponWrongUser": "This coupon does not belong to this account."
   },
   "luckySpin": {

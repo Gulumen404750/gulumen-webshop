@@ -144,19 +144,29 @@ export default function PaymentPage() {
   const gamificationCoupons = useMemo(() => {
     const active = listActiveCheckoutCoupons(wallet?.coupons ?? [])
     if (active.length > 0) {
-      return active.map((coupon) => ({
-        code: coupon.code,
-        percent: coupon.discountPercent,
-        validUntil: coupon.validUntil
-          ? new Date(coupon.validUntil).toLocaleDateString(locale)
-          : undefined,
-        label: t('payment.couponGamificationLabel', {
-          percent:
-            coupon.discountPercent > 1
-              ? coupon.discountPercent
-              : Math.round(coupon.discountPercent * 100),
-        }),
-      }))
+      return active.map((coupon) => {
+        const checkoutCode = coupon.checkoutCode || coupon.code
+        const isFixed = coupon.discountType === 'fixed'
+        return {
+          code: checkoutCode,
+          percent: coupon.discountPercent,
+          fixedHuf: isFixed ? coupon.discountValue : undefined,
+          validUntil: coupon.validUntil
+            ? new Date(coupon.validUntil).toLocaleDateString(locale)
+            : undefined,
+          label: isFixed
+            ? t('payment.couponDiscountFixed', {
+                amount: money(coupon.discountValue ?? 0),
+                code: coupon.code,
+              })
+            : t('payment.couponGamificationLabel', {
+                percent:
+                  coupon.discountPercent > 1
+                    ? coupon.discountPercent
+                    : Math.round(coupon.discountPercent * 100),
+              }),
+        }
+      })
     }
     if (!wallet?.hasActiveCoupon || !wallet.activeCouponCode) return []
     const percent = wallet.activeCouponPercent ?? 10
@@ -172,7 +182,7 @@ export default function PaymentPage() {
         }),
       },
     ]
-  }, [wallet, locale, t])
+  }, [wallet, locale, t, money])
 
   const availableCoupons = useMemo(
     () =>
@@ -234,7 +244,9 @@ export default function PaymentPage() {
         ? typedCoupon.discountType === 'fixed'
           ? { fixedHuf: typedCoupon.discountValue }
           : { percent: effectiveCouponPercent }
-        : { percent: effectiveCouponPercent },
+        : couponSelection.gamificationFixedHuf
+          ? { fixedHuf: couponSelection.gamificationFixedHuf }
+          : { percent: effectiveCouponPercent },
     luckySpin: luckySpinRecord,
     loyaltyPercent: loyaltyFraction,
     points:
@@ -456,11 +468,12 @@ export default function PaymentPage() {
       return
     }
     applyTypedCoupon({
-      code: result.code,
+      code: result.checkoutCode || result.code,
       discountType: result.discountType,
       discountValue: result.discountValue,
       minOrderHuf: result.minOrderHuf,
     })
+    void refreshWallet()
   }
 
   const handleCouponSelectionChange = async (next: SelectableCouponId[]) => {
@@ -870,11 +883,15 @@ export default function PaymentPage() {
                   <div className="flex justify-between text-discount">
                     <span className="inline-flex items-center gap-1.5">
                       <span>
-                        {typedCoupon?.discountType === 'fixed'
+                        {typedCoupon?.discountType === 'fixed' || couponSelection.gamificationFixedHuf
                           ? t('payment.couponDiscountFixed', {
-                              amount: money(typedCoupon.discountValue),
-                              code: typedCoupon.code,
-                            }) || `Kupon (${typedCoupon.code})`
+                              amount: money(
+                                typedCoupon?.discountType === 'fixed'
+                                  ? typedCoupon.discountValue
+                                  : couponSelection.gamificationFixedHuf ?? 0
+                              ),
+                              code: typedCoupon?.code || couponSelection.gamificationCode || '',
+                            })
                           : t('payment.couponDiscountWithCode', {
                               percent: Math.round(effectiveCouponPercent * 100),
                             })}

@@ -4,6 +4,7 @@ import { getSession, resolveSessionUserId } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
 import { isDbConfigured } from '@/lib/prisma'
 import { lookupRedeemableCode } from '@/lib/redeem-code'
+import { claimCouponForUser } from '@/lib/coupon-claim'
 import { claimGiftPointCode } from '@/lib/gamification/gift-point-codes'
 import { GIFT_POINT_VALIDITY_DAYS } from '@/lib/gamification/constants'
 
@@ -42,7 +43,11 @@ function mapCouponError(code: string, fallback: string): { status: number; code:
     case 'coupon_expired':
       return { status: 400, code, error: 'A kupon érvényességi ideje lejárt.' }
     case 'coupon_exhausted':
-      return { status: 400, code, error: 'A kupont már felhasználták.' }
+      return { status: 409, code, error: 'A kupont már felhasználták.' }
+    case 'coupon_already_claimed':
+      return { status: 409, code, error: 'Ez a kupon már aktiválva van a fiókodon.' }
+    case 'coupon_used':
+      return { status: 409, code, error: 'Ezt a kupont már felhasználtad.' }
     case 'coupon_login_required':
       return { status: 401, code, error: 'A beváltáshoz jelentkezz be.' }
     case 'coupon_not_owned':
@@ -93,17 +98,31 @@ export async function POST(request: Request) {
   }
 
   if (looked.kind === 'coupon') {
-    const c = looked.coupon
+    const claimed = await claimCouponForUser({
+      userId,
+      code: looked.coupon.code,
+      allowExistingUnused: false,
+    })
+    if (!claimed.ok) {
+      const mapped = mapCouponError(claimed.code, claimed.error)
+      return NextResponse.json(
+        { error: mapped.error, code: mapped.code },
+        { status: mapped.status, headers: NO_STORE }
+      )
+    }
+    const c = claimed.coupon
     return NextResponse.json(
       {
         ok: true,
         kind: 'coupon',
         code: c.code,
-        discountType: c.discountType === 'fixed' ? 'fixed' : 'percent',
+        checkoutCode: c.checkoutCode,
+        discountType: c.discountType,
         discountValue: c.discountValue,
         minOrderHuf: c.minOrderHuf,
         validUntil: c.validUntil ? c.validUntil.toISOString() : null,
         source: c.source,
+        created: claimed.created,
       },
       { headers: NO_STORE }
     )

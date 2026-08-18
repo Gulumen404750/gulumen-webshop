@@ -550,6 +550,7 @@
     "couponStatusExpired": "Lejárt",
     "couponStatusInactive": "Inaktív",
     "couponPercent": "{percent}% kedvezmény",
+    "couponFixed": "−{amount}",
     "couponValidUntil": "érvényes: {date}",
     "couponNoExpiry": "nincs lejárat",
     "couponCopy": "Kód másolása",
@@ -607,11 +608,12 @@
     "previewNotYet": "Ez a kód még nem váltható be.",
     "previewAvailable": "{points} pont vár aktiválásra.",
     "previewUsed": "Ez a kód már fel lett használva.",
-    "couponSuccessPercent": "{percent}% kupon aktiválva ({code}). A fizetésnél fel tudod használni.",
-    "couponSuccessFixed": "{amount} kedvezmény aktiválva ({code}). A fizetésnél fel tudod használni.",
+    "couponSuccessPercent": "{percent}% kupon aktiválva ({code}). Megjelent a Kuponjaid listában.",
+    "couponSuccessFixed": "{amount} kedvezmény aktiválva ({code}). Megjelent a Kuponjaid listában.",
     "errorCouponInactive": "Ez a kupon jelenleg nem aktív.",
     "errorCouponExpired": "A kupon érvényességi ideje lejárt.",
-    "errorCouponUsed": "A kupont már felhasználták.",
+    "errorCouponUsed": "Ezt a kupont már felhasználtad.",
+    "errorCouponAlreadyClaimed": "Ez a kupon már aktiválva van a fiókodon.",
     "errorCouponWrongUser": "Ez a kupon nem ehhez a fiókhoz tartozik."
   },
   "luckySpin": {
