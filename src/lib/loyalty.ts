@@ -312,6 +312,7 @@ export async function applyLoyaltyForPaidOrder(orderId: string): Promise<Loyalty
       credited: false,
       alreadyCounted: true,
       qualified: true,
+      previousPercent: snapshot.loyaltyPercent,
       ...snapshot,
     }
   }
@@ -327,6 +328,7 @@ export async function applyLoyaltyForPaidOrder(orderId: string): Promise<Loyalty
       credited: false,
       alreadyCounted: true,
       qualified: true,
+      previousPercent: snapshot.loyaltyPercent,
       ...snapshot,
     }
   }
