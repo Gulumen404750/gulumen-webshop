@@ -73,6 +73,7 @@ export async function GET(request: Request) {
   if (activeStr === 'true') where.active = true
   else if (activeStr === 'false') where.active = false
   if (source) where.source = source
+  else where.NOT = { source: 'gamification' }
 
   const coupons = await prisma.coupon.findMany({
     where,

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { AdminPromoCouponsSection } from './PromoCouponsSection'
+import { AdminGamificationCouponsSection } from './GamificationCouponsSection'
 import { AdminGiftPointsSection } from './GiftPointsSection'
 import { MAX_COUPON_PERCENT_DISPLAY } from '@/lib/coupon-config'
 
@@ -516,11 +517,11 @@ export default function AdminCouponsPage() {
           onChange={(e) => setSourceFilter(e.target.value)}
           className="rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
         >
-          <option value="">Összes forrás</option>
+          <option value="">Összes forrás (admin kódok)</option>
           <option value="admin">Admin</option>
-          <option value="gamification">Gamification</option>
           <option value="registration">Regisztráció (DB kód)</option>
           <option value="cat">Macska (DB kód)</option>
+          <option value="birthday">Születésnap</option>
         </select>
       </div>
 
@@ -528,9 +529,18 @@ export default function AdminCouponsPage() {
 
       <AdminPromoCouponsSection />
 
+      <AdminGamificationCouponsSection />
+
       {loading ? (
         <p className="text-muted">Betöltés…</p>
       ) : (
+        <div className="space-y-3">
+          <div>
+            <h2 className="font-heading font-semibold text-foreground">Admin kuponkódok</h2>
+            <p className="text-sm text-muted mt-1">
+              Kézzel létrehozott és egyéb DB kuponok. A pontból váltott GLM-kódok a fenti külön táblában vannak.
+            </p>
+          </div>
         <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-[var(--border)] bg-[var(--border)]/30">
@@ -591,6 +601,7 @@ export default function AdminCouponsPage() {
               })}
             </tbody>
           </table>
+        </div>
         </div>
       )}
 
