@@ -3,10 +3,11 @@ import { getSession, resolveSessionUserId } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
 import { isDbConfigured } from '@/lib/prisma'
 import { getPointBalance } from '@/lib/gamification/point-ledger'
+import { getAvailableGiftPoints } from '@/lib/gamification/gift-points'
 import {
   maxPointsDiscountHuf,
   hufToPoints,
-  pointsToHuf,
+  computeMixedPointsRedemption,
 } from '@/lib/gamification/purchase-points'
 import { MAX_CART_POINTS_COVERAGE, POINTS_PER_HUF } from '@/lib/gamification/constants'
 
@@ -37,16 +38,23 @@ export async function GET(request: Request) {
 
   const maxDiscountHuf = maxPointsDiscountHuf(cartTotalHuf)
   const balance = isDbConfigured() ? await getPointBalance(userId) : 0
-  const maxByBalanceHuf = pointsToHuf(balance)
-  const usableDiscountHuf = Math.min(maxDiscountHuf, maxByBalanceHuf, cartTotalHuf)
+  const giftPointsAvailable = isDbConfigured() ? await getAvailableGiftPoints(userId) : 0
+  const redemption = computeMixedPointsRedemption({
+    merchandiseHuf: cartTotalHuf,
+    requestedDiscountHuf: cartTotalHuf,
+    userBalance: balance,
+    giftPointsAvailable,
+  })
+  const usableDiscountHuf = redemption.pointsDiscountHuf
 
   return NextResponse.json({
     balance,
+    giftPointsAvailable,
     cartTotalHuf,
     maxPointsDiscountHuf: maxDiscountHuf,
     maxUsablePointsDiscountHuf: usableDiscountHuf,
     maxUsablePoints: hufToPoints(usableDiscountHuf),
     pointsPerHuf: POINTS_PER_HUF,
-    maxCoveragePercent: MAX_CART_POINTS_COVERAGE,
+    maxCoveragePercent: giftPointsAvailable > 0 ? 1 : MAX_CART_POINTS_COVERAGE,
   })
 }

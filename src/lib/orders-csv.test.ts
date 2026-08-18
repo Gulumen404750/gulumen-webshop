@@ -26,9 +26,10 @@ describe('orders CSV export', () => {
     expect(csv.charCodeAt(0)).toBe(0xfeff)
     const [header] = csvLines(csv)
     expect(header).toBe(ORDERS_CSV_HEADERS.join(';'))
-    expect(header.split(';')).toHaveLength(13)
+    expect(header.split(';')).toHaveLength(16)
     expect(header).toContain('Rendelés ID')
     expect(header).toContain('SKU / Termékkód')
+    expect(header).toContain('Elszámolás')
     expect(header).not.toContain(',')
   })
 
@@ -78,6 +79,9 @@ describe('orders CSV export', () => {
         '4500',
         '4500',
         'in_stock',
+        '0',
+        '0',
+        'Pénzbeni fizetés',
       ].join(';')
     )
     expect(lines[2]).toContain('Lámpa')
@@ -103,7 +107,7 @@ describe('orders CSV export', () => {
     expect(row).toContain('ord_empty')
     expect(row).toContain('Fizetés folyamatban')
     expect(row).toContain('sourcing')
-    expect(row.split(';')).toHaveLength(13)
+    expect(row.split(';')).toHaveLength(16)
   })
 
   it('quotes fields that contain semicolons, quotes or newlines', () => {
@@ -155,5 +159,32 @@ describe('orders CSV export', () => {
     expect(row).toContain('PLA')
     expect(row).toContain('Rózsaszín')
     expect(row).toContain(';1;1890;1890;')
+  })
+
+  it('marks internal points payments as non-cash profit for accounting', () => {
+    const csv = buildOrdersCsv([
+      {
+        id: 'ord_points',
+        createdAt: new Date('2026-08-17T21:04:51.000Z'),
+        customerName: 'Pontos',
+        customerEmail: 'p@example.com',
+        status: 'paid',
+        orderType: 'in_stock',
+        pointsUsed: 4500,
+        pointsDiscountHuf: 4500,
+        items: [
+          {
+            name: 'Kuka',
+            sku: 'GUL-1',
+            qty: 1,
+            priceHuf: 4500,
+            fulfillmentType: 'stock',
+          },
+        ],
+      },
+    ])
+    const [, row] = csvLines(csv)
+    expect(row).toContain(';4500;4500;')
+    expect(row).toContain('Belső pontrendszer / Ajándékpont – belső elszámolás (nem pénzbeni profit)')
   })
 })

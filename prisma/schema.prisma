@@ -146,6 +146,7 @@ model User {
   cartSnapshot        UserCartSnapshot?
   likePointWindow UserLikePointWindow?
   luckySpins LuckySpin[]
+  giftPointGrants GiftPointGrant[]
 }
 
 /// E-mail szintű marketing hozzájárulás (hírlevél, vendég, leiratkozási token).
@@ -546,6 +547,27 @@ model UserPointWallet {
   version              Int      @default(0)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
+}
+
+/// NFC / ajándékpont jóváírás – a felhasználó nevére, 1 hónapig érvényes, teljesen levásárolható.
+model GiftPointGrant {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Jóváírt pont (1 pont = 1 Ft).
+  points      Int
+  /// Még fel nem használt maradék.
+  remaining   Int
+  /// nfc | admin
+  source      String   @default("nfc")
+  nfcTagId    String?
+  activatedAt DateTime @default(now())
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId, expiresAt])
+  @@index([nfcTagId])
 }
 
 /// Append-only pont főkönyv – UPDATE/DELETE tiltva az app rétegben.

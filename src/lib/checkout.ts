@@ -5,8 +5,8 @@
  * Sorrend:
  * 1. Regisztrációs / kupon kedvezmény (% vagy fix Ft) – csak teljes árú tételekre
  * 2. Szerencsekerék (15/20/25% a spin listában lévő termékek zárolt árából; +5% ponttal)
- * 3. Pontbeváltás (max. a fennmaradó összeg 30%-a)
- * 4. Szállítási díj (ha a végső áruösszeg < FREE_SHIPPING_THRESHOLD)
+ * 3. Pontbeváltás (sima pont max. 30%; NFC ajándékpont a termékár 100%-a; más akcióval nem kombinálható)
+ * 4. Szállítási díj (pontfizetésnél mindig a vásárlót terheli; különben küszöb alatt STANDARD díj)
  */
 
 import type { Product } from '@/lib/data'
@@ -37,6 +37,7 @@ import {
   pointsToHuf,
   splitPointsDiscount,
   splitPointsUsed,
+  computeMixedPointsRedemption,
 } from '@/lib/gamification/purchase-points'
 
 export {
@@ -86,6 +87,8 @@ export type CouponDiscount = {
 export type PointsRedemptionInput = {
   requestedDiscountHuf: number
   userBalance: number
+  /** NFC / ajándékpont – 100%-ban levásárolható a termékárra. */
+  giftPointsAvailable?: number
 }
 
 export type CheckoutOrderSplit = {
@@ -197,33 +200,29 @@ export function computeCouponDiscountHuf(
   return Math.min(fullPriceSubtotal, roundHuf(fixed + fromPercent))
 }
 
-/** 3. lépés: pontbeváltás – max. 30% a kupon+spin utáni összegből. */
+/** 3. lépés: pontbeváltás – ajándékpont 100%, sima pont max. 30%, soha nem a szállításra. */
 export function computePointsRedemption(
   orderTotalAfterDiscountsHuf: number,
   input: PointsRedemptionInput
 ): { pointsDiscountHuf: number; pointsUsed: number } {
-  if (orderTotalAfterDiscountsHuf <= 0 || input.requestedDiscountHuf <= 0) {
-    return { pointsDiscountHuf: 0, pointsUsed: 0 }
-  }
-
-  const maxHuf = maxPointsDiscountHuf(orderTotalAfterDiscountsHuf)
-  const pointsDiscountHuf = Math.min(
-    Math.floor(input.requestedDiscountHuf),
-    maxHuf,
-    orderTotalAfterDiscountsHuf
-  )
-  const pointsUsed = hufToPoints(pointsDiscountHuf)
-  if (pointsUsed <= 0) {
-    return { pointsDiscountHuf: 0, pointsUsed: 0 }
-  }
-  if (input.userBalance < pointsUsed) {
-    return { pointsDiscountHuf: 0, pointsUsed: 0 }
-  }
-  return { pointsDiscountHuf, pointsUsed }
+  const mixed = computeMixedPointsRedemption({
+    merchandiseHuf: orderTotalAfterDiscountsHuf,
+    requestedDiscountHuf: input.requestedDiscountHuf,
+    userBalance: input.userBalance,
+    giftPointsAvailable: input.giftPointsAvailable ?? 0,
+  })
+  return { pointsDiscountHuf: mixed.pointsDiscountHuf, pointsUsed: mixed.pointsUsed }
 }
 
-/** 4. lépés: szállítási díj a kedvezmények és pontok UTÁN. */
-export function computeShippingHuf(merchandiseTotalHuf: number): number {
+/** 4. lépés: szállítási díj. Pontfizetésnél mindig fizetendő (a pont csak a termékárra megy). */
+export function computeShippingHuf(
+  merchandiseTotalHuf: number,
+  options?: { pointsUsed?: boolean; hasItems?: boolean }
+): number {
+  const hasItems = options?.hasItems ?? merchandiseTotalHuf > 0
+  if (options?.pointsUsed) {
+    return hasItems ? STANDARD_SHIPPING_FEE_HUF : 0
+  }
   if (merchandiseTotalHuf <= 0) return 0
   if (merchandiseTotalHuf >= FREE_SHIPPING_THRESHOLD) return 0
   return STANDARD_SHIPPING_FEE_HUF
@@ -332,19 +331,19 @@ export type ComputeCheckoutTotalsParams = {
 export function computeCheckoutTotals(params: ComputeCheckoutTotalsParams): CheckoutTotals {
   const { lines: rawLines, coupon, luckySpin, points, now = new Date() } = params
   const lines = applyLuckySpinLockedPrices(rawLines, luckySpin)
+  const wantsPoints = !!(points && points.requestedDiscountHuf > 0)
 
   const subtotalHuf = lineSubtotalHuf(lines)
   const spinProductIds = new Set(luckySpin?.productIds ?? [])
-  const couponDiscountHuf = computeCouponDiscountHuf(lines, coupon, spinProductIds)
+  const couponDiscountHuf = wantsPoints ? 0 : computeCouponDiscountHuf(lines, coupon, spinProductIds)
 
   const discountItems = lines.map((l) => ({
     productId: l.productId,
     qty: l.qty,
     priceHuf: l.priceHuf,
   }))
-  const usePointsForSpin = !!(points && points.requestedDiscountHuf > 0)
-  const luckySpinResult = computeLuckySpinDiscount(discountItems, luckySpin, now, usePointsForSpin)
-  const luckySpinDiscountHuf = luckySpinResult.discountHuf
+  const luckySpinResult = computeLuckySpinDiscount(discountItems, luckySpin, now, false)
+  const luckySpinDiscountHuf = wantsPoints ? 0 : luckySpinResult.discountHuf
 
   const afterCouponAndLuckyHuf = Math.max(0, subtotalHuf - couponDiscountHuf - luckySpinDiscountHuf)
 
@@ -357,7 +356,10 @@ export function computeCheckoutTotals(params: ComputeCheckoutTotalsParams): Chec
   }
 
   const merchandiseTotalHuf = Math.max(0, afterCouponAndLuckyHuf - pointsDiscountHuf)
-  const shippingHuf = computeShippingHuf(merchandiseTotalHuf)
+  const shippingHuf = computeShippingHuf(merchandiseTotalHuf, {
+    pointsUsed: pointsUsed > 0,
+    hasItems: lines.length > 0,
+  })
   const finalTotalHuf = merchandiseTotalHuf + shippingHuf
   const freeShippingRemainingHuf = computeFreeShippingRemainingHuf(merchandiseTotalHuf)
 
@@ -403,7 +405,9 @@ export function computeCheckoutTotals(params: ComputeCheckoutTotalsParams): Chec
     shippingHuf,
     finalTotalHuf,
     freeShippingRemainingHuf,
-    luckySpin: luckySpinResult,
+    luckySpin: wantsPoints
+      ? { ...luckySpinResult, discountHuf: 0, discountPercent: 0, active: false }
+      : luckySpinResult,
     inStock,
     sourcing,
   }

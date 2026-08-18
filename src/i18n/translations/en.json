@@ -218,6 +218,7 @@
     "usePoints": "Use points: {points} pts (−{huf} HUF, max. {percent}%)",
     "pointsDiscount": "Points discount",
     "pointsRate": "Rate: {rate} points = 1 HUF",
+    "pointsNoStackHint": "Points cannot be combined with other coupons or promotions. Shipping is always paid by the customer.",
     "subtotalPromo": "Promo (Lucky Spin)",
     "subtotalNormal": "Regular price",
     "itemsTotalSection": "Items total",

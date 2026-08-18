@@ -218,6 +218,7 @@
     "usePoints": "Punkte einlösen: {points} Pkt. (−{huf} Ft, max. {percent}%)",
     "pointsDiscount": "Punktrabatt",
     "pointsRate": "Kurs: {rate} Punkte = 1 Ft",
+    "pointsNoStackHint": "Punkte sind nicht mit anderen Gutscheinen oder Aktionen kombinierbar. Die Versandkosten trägt immer der Kunde.",
     "subtotalPromo": "Aktion (Glücksrad)",
     "subtotalNormal": "Normalpreis",
     "itemsTotalSection": "Artikel gesamt",

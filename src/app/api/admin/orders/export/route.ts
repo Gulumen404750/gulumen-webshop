@@ -91,6 +91,8 @@ export async function GET(request: Request) {
           parameters: true,
         },
       },
+      pointsUsed: true,
+      pointsDiscountHuf: true,
     },
   })
 

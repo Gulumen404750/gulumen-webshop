@@ -57,6 +57,8 @@ export async function GET(request: Request) {
         originalCustomerName: o.originalCustomerName,
         originalCustomerPhone: o.originalCustomerPhone,
         amountPaid: o.amountPaid,
+        pointsUsed: o.pointsUsed,
+        pointsDiscountHuf: o.pointsDiscountHuf,
         items: o.items,
       }
       return redactCustomerPii(
