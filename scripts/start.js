@@ -4,7 +4,7 @@
  * - NEM fut seed, NEM fut migrate reset / db push --force-reset
  * - NEM töröl / archivál termékeket
  */
-console.log('[start] gulumen-webshop bootstrap v7 (no-seed, migrate deploy only)')
+console.log('[start] gulumen-webshop bootstrap v8 (no-seed, migrate deploy only)')
 require('./load-env.cjs')
 require('./bootstrap-auth-env.cjs')
 
