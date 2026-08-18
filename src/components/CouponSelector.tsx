@@ -21,6 +21,7 @@ type Props = {
   /** Nyers összeg % (0–100) megjelenítéshez. */
   selectedPercentDisplay?: number
   capped?: boolean
+  disabled?: boolean
 }
 
 export function CouponSelector({
@@ -33,6 +34,7 @@ export function CouponSelector({
   capReachedText,
   selectedPercentDisplay = 0,
   capped = false,
+  disabled = false,
 }: Props) {
   const { t } = useLocale()
   const resolvedTitle = title ?? t('payment.couponSelectorTitle')
@@ -48,6 +50,7 @@ export function CouponSelector({
   const selected = new Set(selectedIds)
 
   const toggle = (id: SelectableCouponId) => {
+    if (disabled) return
     const turningOn = !selected.has(id)
     if (turningOn && !canToggleCoupon(coupons, selected, id, true)) {
       return
@@ -71,7 +74,12 @@ export function CouponSelector({
     <section className="mb-8 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] space-y-3">
       <div>
         <h2 className="font-heading text-lg font-semibold text-foreground">{resolvedTitle}</h2>
-        <p className="text-sm text-muted mt-1">{resolvedHint}</p>
+        <p className="text-sm text-muted mt-1">
+          {disabled
+            ? t('payment.pointsNoStackHint') ||
+              'A pontok más kuponnal vagy akcióval nem vonhatók össze.'
+            : resolvedHint}
+        </p>
       </div>
 
       <ul className="space-y-2">
@@ -98,7 +106,7 @@ export function CouponSelector({
                   type="checkbox"
                   className="mt-1 w-4 h-4 rounded border-[var(--border)] text-accent focus:ring-accent"
                   checked={checked}
-                  disabled={wouldExceed}
+                  disabled={disabled || wouldExceed}
                   onChange={() => toggle(coupon.id)}
                 />
                 <span className="flex-1 min-w-0">

@@ -218,6 +218,7 @@
     "usePoints": "Pontok felhasználása: {points} pont (−{huf} Ft, max. {percent}%)",
     "pointsDiscount": "Pont kedvezmény",
     "pointsRate": "Árfolyam: {rate} pont = 1 Ft",
+    "pointsNoStackHint": "A pontalapú fizetés más kuponnal vagy akcióval nem vonható össze. A szállítás mindig a vásárlót terheli.",
     "subtotalPromo": "Akciós (Szerencsekerék)",
     "subtotalNormal": "Normál árú",
     "itemsTotalSection": "Termékek összesen",

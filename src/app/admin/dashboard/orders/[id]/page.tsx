@@ -13,6 +13,7 @@ import {
   hasShippingAddressChanged,
 } from '@/lib/admin-order-badges'
 import { formatAddressTypeLabel } from '@/lib/checkout-customer'
+import { INTERNAL_POINTS_ACCOUNTING_NOTE, orderUsedInternalPoints } from '@/lib/order-points-accounting'
 import { buildProductionJobPayload, orderItemSpecForAdmin } from '@/lib/production-payload'
 import { shippingLabelItemsFromOrderItems, shippingLabelQrText } from '@/lib/shipping-label'
 import { generateShippingLabelQrDataUrl } from '@/lib/shipping-label-qr'
@@ -88,6 +89,8 @@ export default async function AdminOrderDetailPage({ params }: Props) {
           status={order.status}
           printedAt={order.printedAt}
           shippingAddressChangedAt={order.shippingAddressChangedAt}
+          pointsUsed={order.pointsUsed}
+          pointsDiscountHuf={order.pointsDiscountHuf}
         />
       </div>
 
@@ -96,6 +99,15 @@ export default async function AdminOrderDetailPage({ params }: Props) {
         <p><span className="font-medium">Típus:</span> {order.orderType ?? '–'}</p>
         <p><span className="font-medium">Csoport ID:</span> {order.orderGroupId ?? '–'}</p>
         <p><span className="font-medium">Összeg:</span> {order.totalHuf.toLocaleString('hu-HU')} Ft (kedvezmény: {order.discountHuf} Ft)</p>
+        {(order.pointsUsed > 0 || order.pointsDiscountHuf > 0) && (
+          <p>
+            <span className="font-medium">Pont:</span>{' '}
+            {order.pointsUsed} pont (−{order.pointsDiscountHuf.toLocaleString('hu-HU')} Ft)
+          </p>
+        )}
+        {orderUsedInternalPoints(order) && (
+          <p className="text-sm font-medium text-sky-200">{INTERNAL_POINTS_ACCOUNTING_NOTE}</p>
+        )}
         <p><span className="font-medium">Fizetve:</span> {order.paidAt ? new Date(order.paidAt).toLocaleString('hu-HU') : '–'} {order.amountPaid != null && `(${order.amountPaid} ${order.currencyPaid ?? 'HUF'})`}</p>
         <p><span className="font-medium">Email:</span> {order.customerEmail ?? '–'}</p>
         <p><span className="font-medium">Címke:</span> {order.printedAt ? `kinyomtatva (${new Date(order.printedAt).toLocaleString('hu-HU')})` : 'még nincs nyomtatva'}</p>

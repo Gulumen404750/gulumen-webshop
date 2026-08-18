@@ -192,6 +192,7 @@
     "usePoints": "Folosește puncte: {points} pct (−{huf} Ft, max. {percent}%)",
     "pointsDiscount": "Reducere puncte",
     "pointsRate": "Curs: {rate} puncte = 1 Ft",
+    "pointsNoStackHint": "Punctele nu se combină cu alte cupoane sau promoții. Transportul este întotdeauna plătit de client.",
     "subtotalPromo": "Promo (Roata norocului)",
     "subtotalNormal": "Preț normal",
     "itemsTotalSection": "Total produse",

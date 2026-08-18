@@ -5,6 +5,7 @@
 
 import { formatAdminOrderStatusLabel } from '@/lib/admin-order-badges'
 import { orderItemSpecForAdmin } from '@/lib/production-payload'
+import { formatInternalPointsSettlement } from '@/lib/order-points-accounting'
 
 export const ORDERS_CSV_SEPARATOR = ';'
 
@@ -22,6 +23,9 @@ export const ORDERS_CSV_HEADERS = [
   'Egységár',
   'Összesen',
   'Fizetési Típus / Típus',
+  'Pont kedvezmény (Ft)',
+  'Felhasznált pont',
+  'Elszámolás',
 ] as const
 
 export type OrdersCsvItem = {
@@ -41,6 +45,8 @@ export type OrdersCsvOrder = {
   status: string
   orderType?: string | null
   items?: OrdersCsvItem[] | null
+  pointsUsed?: number | null
+  pointsDiscountHuf?: number | null
 }
 
 export function escapeCsvField(value: string, separator = ORDERS_CSV_SEPARATOR): string {
@@ -88,6 +94,8 @@ function buildItemRow(order: OrdersCsvOrder, item: OrdersCsvItem | null): string
   const qty = item ? Math.max(0, Math.floor(item.qty) || 0) : 0
   const unitHuf = item ? item.priceHuf : 0
   const lineHuf = unitHuf * qty
+  const pointsDiscountHuf = Math.max(0, Math.floor(order.pointsDiscountHuf ?? 0))
+  const pointsUsed = Math.max(0, Math.floor(order.pointsUsed ?? 0))
   return [
     csvCell(order.id),
     csvCell(formatOrdersCsvDateTime(order.createdAt)),
@@ -102,6 +110,9 @@ function buildItemRow(order: OrdersCsvOrder, item: OrdersCsvItem | null): string
     csvCell(unitHuf),
     csvCell(lineHuf),
     csvCell(formatOrdersCsvPaymentType(order.orderType, item?.fulfillmentType)),
+    csvCell(pointsDiscountHuf),
+    csvCell(pointsUsed),
+    csvCell(formatInternalPointsSettlement(order)),
   ].join(ORDERS_CSV_SEPARATOR)
 }
 

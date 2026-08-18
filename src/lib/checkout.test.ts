@@ -90,19 +90,29 @@ describe('computeCouponDiscountHuf', () => {
 })
 
 describe('computePointsRedemption', () => {
-  it('limits discount to 30% of order total', () => {
+  it('limits regular points to 30% of order total at 1 pont = 1 Ft', () => {
     const result = computePointsRedemption(10_000, {
       requestedDiscountHuf: 5_000,
       userBalance: 50_000,
     })
     expect(result.pointsDiscountHuf).toBe(3_000)
-    expect(result.pointsUsed).toBe(12_000)
+    expect(result.pointsUsed).toBe(3_000)
+  })
+
+  it('lets NFC gift points cover the full merchandise amount', () => {
+    const result = computePointsRedemption(10_000, {
+      requestedDiscountHuf: 10_000,
+      userBalance: 10_000,
+      giftPointsAvailable: 10_000,
+    })
+    expect(result.pointsDiscountHuf).toBe(10_000)
+    expect(result.pointsUsed).toBe(10_000)
   })
 
   it('rejects redemption when balance is insufficient', () => {
     const result = computePointsRedemption(10_000, {
       requestedDiscountHuf: 1_000,
-      userBalance: 100,
+      userBalance: 0,
     })
     expect(result).toEqual({ pointsDiscountHuf: 0, pointsUsed: 0 })
   })
@@ -113,9 +123,15 @@ describe('computeShippingHuf', () => {
     expect(computeShippingHuf(FREE_SHIPPING_THRESHOLD - 1)).toBe(STANDARD_SHIPPING_FEE_HUF)
   })
 
-  it('is free at or above threshold', () => {
+  it('is free at or above threshold when not using points', () => {
     expect(computeShippingHuf(FREE_SHIPPING_THRESHOLD)).toBe(0)
     expect(computeShippingHuf(FREE_SHIPPING_THRESHOLD + 1)).toBe(0)
+  })
+
+  it('charges shipping when paying with points even above the free-shipping threshold', () => {
+    expect(
+      computeShippingHuf(FREE_SHIPPING_THRESHOLD + 5_000, { pointsUsed: true, hasItems: true })
+    ).toBe(STANDARD_SHIPPING_FEE_HUF)
   })
 })
 
@@ -240,7 +256,7 @@ describe('resolveCartLines', () => {
 })
 
 describe('computeCheckoutTotals', () => {
-  it('splits stock and procurement lines with proportional discounts', () => {
+  it('does not stack coupons with points and always charges shipping', () => {
     const lines = [
       line('stock-1', 2, 5_000, 'stock'),
       line('source-1', 1, 10_000, 'procurement'),
@@ -254,25 +270,36 @@ describe('computeCheckoutTotals', () => {
     })
 
     expect(totals.subtotalHuf).toBe(20_000)
-    expect(totals.couponDiscountHuf).toBe(2_000)
+    expect(totals.couponDiscountHuf).toBe(0)
     expect(totals.pointsDiscountHuf).toBe(1_500)
-    expect(totals.merchandiseTotalHuf).toBe(16_500)
+    expect(totals.pointsUsed).toBe(1_500)
+    expect(totals.merchandiseTotalHuf).toBe(18_500)
     expect(totals.shippingHuf).toBe(STANDARD_SHIPPING_FEE_HUF)
-    expect(totals.finalTotalHuf).toBe(16_500 + STANDARD_SHIPPING_FEE_HUF)
+    expect(totals.finalTotalHuf).toBe(18_500 + STANDARD_SHIPPING_FEE_HUF)
 
     expect(totals.inStock.items).toHaveLength(1)
     expect(totals.inStock.subtotalHuf).toBe(10_000)
-    expect(totals.inStock.couponDiscountHuf).toBe(1_000)
     expect(totals.inStock.shippingHuf).toBe(STANDARD_SHIPPING_FEE_HUF)
 
     expect(totals.sourcing.items).toHaveLength(1)
     expect(totals.sourcing.subtotalHuf).toBe(10_000)
-    expect(totals.sourcing.couponDiscountHuf).toBe(1_000)
     expect(totals.sourcing.shippingHuf).toBe(0)
+  })
 
-    const splitMerchandise =
-      totals.inStock.merchandiseTotalHuf + totals.sourcing.merchandiseTotalHuf
-    expect(Math.abs(splitMerchandise - totals.merchandiseTotalHuf)).toBeLessThanOrEqual(200)
+  it('splits coupon discount without points', () => {
+    const lines = [
+      line('stock-1', 2, 5_000, 'stock'),
+      line('source-1', 1, 10_000, 'procurement'),
+    ]
+    const totals = computeCheckoutTotals({
+      lines,
+      coupon: { percent: 0.1 },
+      luckySpin: null,
+    })
+    expect(totals.couponDiscountHuf).toBe(2_000)
+    expect(totals.pointsDiscountHuf).toBe(0)
+    expect(totals.inStock.couponDiscountHuf).toBe(1_000)
+    expect(totals.sourcing.couponDiscountHuf).toBe(1_000)
   })
 
   it('assigns shipping to sourcing-only cart', () => {
@@ -300,5 +327,19 @@ describe('computeCheckoutTotals', () => {
     expect(totals.shippingHuf).toBe(0)
     expect(totals.finalTotalHuf).toBe(30_000)
     expect(totals.freeShippingRemainingHuf).toBe(0)
+  })
+
+  it('still charges shipping when points are used on a free-shipping cart', () => {
+    const lines = [line('stock-1', 1, 40_000, 'stock')]
+    const totals = computeCheckoutTotals({
+      lines,
+      coupon: {},
+      luckySpin: null,
+      points: { requestedDiscountHuf: 3_000, userBalance: 50_000 },
+    })
+    expect(totals.pointsDiscountHuf).toBe(3_000)
+    expect(totals.merchandiseTotalHuf).toBe(37_000)
+    expect(totals.shippingHuf).toBe(STANDARD_SHIPPING_FEE_HUF)
+    expect(totals.finalTotalHuf).toBe(37_000 + STANDARD_SHIPPING_FEE_HUF)
   })
 })

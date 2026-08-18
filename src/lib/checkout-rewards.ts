@@ -7,6 +7,7 @@ import { recordCouponUsageOnPayment } from '@/lib/coupon-checkout'
 import { markUserPromoCouponUsed, markUserPromoCouponsUsed } from '@/lib/promo-coupons'
 import { markWelcomeCouponRedeemed } from '@/lib/welcome-checkout-offer'
 import { applyPointDelta } from '@/lib/gamification/point-ledger'
+import { consumeGiftPointsForOrder } from '@/lib/gamification/gift-points'
 import { POINT_TX_TYPES } from '@/lib/gamification/constants'
 import { logger } from '@/lib/logger'
 import { revalidateUserProfile } from '@/lib/revalidate-user-profile'
@@ -179,6 +180,12 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
       })
       burned.pointsUsed = pointsUsed
       balanceAfter = deltaResult.wallet?.balance
+
+      try {
+        await consumeGiftPointsForOrder(order.userId, pointsUsed)
+      } catch {
+        /* gift ledger is best-effort; wallet delta is source of truth */
+      }
 
       // Ha volt pending outbox esemény, jelöljük késznek (elkerüli a dupla feldolgozást)
       try {

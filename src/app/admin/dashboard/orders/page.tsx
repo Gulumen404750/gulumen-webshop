@@ -29,6 +29,8 @@ type Order = {
   printedAt: string | null
   shippingAddressChangedAt: string | null
   amountPaid: number | null
+  pointsUsed?: number
+  pointsDiscountHuf?: number
   items: {
     productId: string
     qty: number
@@ -288,6 +290,8 @@ export default function AdminOrdersPage() {
                         status={o.status}
                         printedAt={o.printedAt}
                         shippingAddressChangedAt={o.shippingAddressChangedAt}
+                        pointsUsed={o.pointsUsed}
+                        pointsDiscountHuf={o.pointsDiscountHuf}
                       />
                     </td>
                     <td className="p-3">

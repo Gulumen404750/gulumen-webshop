@@ -34,6 +34,7 @@ import {
 } from '@/lib/reservations'
 import { getSession, resolveSessionUserId } from '@/lib/auth'
 import { getPointBalance } from '@/lib/gamification/point-ledger'
+import { getAvailableGiftPoints } from '@/lib/gamification/gift-points'
 import {
   MAX_CART_POINTS_COVERAGE,
   POINTS_PER_HUF,
@@ -309,6 +310,22 @@ export async function POST(request: Request) {
   if (!validateCouponPercent(cappedPercent, Boolean(checkoutUserId) || wantsWelcomeOffer || Boolean(couponCodeTrimmed))) {
     return NextResponse.json({ error: 'Invalid coupon discount' }, { status: 400 })
   }
+
+  const hasPromoSelection =
+    selectedCoupons.size > 0 ||
+    Boolean(couponCodeTrimmed) ||
+    cappedPercent > 0 ||
+    fixedHufFromDb > 0
+  if (requestedPointsHuf > 0 && hasPromoSelection) {
+    return NextResponse.json(
+      {
+        code: 'points_promo_stack_disabled',
+        error: 'Points cannot be combined with other promotions or coupons',
+      },
+      { status: 400 }
+    )
+  }
+
   couponDiscount = {
     percent: cappedPercent,
     ...(fixedHufFromDb > 0 ? { fixedHuf: fixedHufFromDb } : {}),
@@ -322,6 +339,7 @@ export async function POST(request: Request) {
   })
 
   let validatedPointsHuf = 0
+  let giftPointsAvailable = 0
   if (requestedPointsHuf > 0 && checkoutUserId) {
     const validation = await validatePurchasePoints(
       checkoutUserId,
@@ -332,6 +350,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: validation.error }, { status: 400 })
     }
     validatedPointsHuf = validation.pointsDiscountHuf
+    giftPointsAvailable = await getAvailableGiftPoints(checkoutUserId)
   }
 
   const totals = computeCheckoutTotals({
@@ -343,6 +362,7 @@ export async function POST(request: Request) {
         ? {
             requestedDiscountHuf: validatedPointsHuf,
             userBalance: await getPointBalance(checkoutUserId),
+            giftPointsAvailable,
           }
         : undefined,
     now,

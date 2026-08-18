@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { AdminTableSkeleton } from '@/components/AdminTableSkeleton'
 
 type GamificationStats = {
@@ -38,6 +38,7 @@ const TX_TYPE_LABELS: Record<string, string> = {
   LUCKY_SPIN_BONUS: 'Szerencsekerék',
   REVERSAL: 'Visszavonás',
   ADMIN_ADJUST: 'Admin módosítás',
+  NFC_GIFT: 'NFC ajándékpont',
 }
 
 function formatTxType(type: string): string {
@@ -54,6 +55,11 @@ export default function AdminGamificationPage() {
   const [transactions, setTransactions] = useState<PointTx[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [nfcEmail, setNfcEmail] = useState('')
+  const [nfcPoints, setNfcPoints] = useState('1000')
+  const [nfcTagId, setNfcTagId] = useState('')
+  const [nfcBusy, setNfcBusy] = useState(false)
+  const [nfcMessage, setNfcMessage] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/admin/gamification')
@@ -70,6 +76,36 @@ export default function AdminGamificationPage() {
       .catch((e) => setError(e instanceof Error ? e.message : 'Betöltési hiba'))
       .finally(() => setLoading(false))
   }, [])
+
+  const handleNfcGrant = async (e: FormEvent) => {
+    e.preventDefault()
+    setNfcBusy(true)
+    setNfcMessage(null)
+    try {
+      const res = await fetch('/api/admin/gamification/nfc-gift', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: nfcEmail.trim(),
+          points: Number(nfcPoints),
+          nfcTagId: nfcTagId.trim() || undefined,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data?.error || 'NFC jóváírás sikertelen')
+      }
+      const expires = data.expiresAt ? new Date(data.expiresAt).toLocaleDateString('hu-HU') : ''
+      setNfcMessage(
+        `Jóváírva: ${data.points} pont → ${data.email}${expires ? `, lejár: ${expires}` : ''}`
+      )
+      setNfcTagId('')
+    } catch (err) {
+      setNfcMessage(err instanceof Error ? err.message : 'NFC jóváírás sikertelen')
+    } finally {
+      setNfcBusy(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -120,6 +156,55 @@ export default function AdminGamificationPage() {
   return (
     <div className="space-y-8">
       <h1 className="text-2xl font-heading font-bold text-foreground">Gamification</h1>
+
+      <section className="rounded-xl border border-[var(--border)] bg-background p-5 space-y-3">
+        <h2 className="text-lg font-heading font-semibold text-foreground">NFC ajándékpont jóváírás</h2>
+        <p className="text-sm text-muted">
+          Az NFC-n beolvasott pontok a felhasználó nevére kerülnek, 1 pont = 1 Ft, teljesen
+          levásárolhatók a termékárra (szállítás mindig készpénz/kártya), és az aktiválástól 1 hónapig
+          érvényesek. Más kuponnal nem kombinálhatók.
+        </p>
+        <form onSubmit={handleNfcGrant} className="flex flex-wrap items-end gap-3">
+          <label className="text-sm">
+            <span className="block text-muted mb-1">Felhasználó e-mail</span>
+            <input
+              type="email"
+              required
+              value={nfcEmail}
+              onChange={(e) => setNfcEmail(e.target.value)}
+              className="rounded-lg border border-[var(--border)] bg-background px-3 py-2"
+            />
+          </label>
+          <label className="text-sm">
+            <span className="block text-muted mb-1">Pont (Ft)</span>
+            <input
+              type="number"
+              min={1}
+              required
+              value={nfcPoints}
+              onChange={(e) => setNfcPoints(e.target.value)}
+              className="w-28 rounded-lg border border-[var(--border)] bg-background px-3 py-2"
+            />
+          </label>
+          <label className="text-sm">
+            <span className="block text-muted mb-1">NFC azonosító (opcionális)</span>
+            <input
+              type="text"
+              value={nfcTagId}
+              onChange={(e) => setNfcTagId(e.target.value)}
+              className="rounded-lg border border-[var(--border)] bg-background px-3 py-2"
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={nfcBusy}
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+          >
+            {nfcBusy ? 'Jóváírás…' : 'Pontok jóváírása'}
+          </button>
+        </form>
+        {nfcMessage && <p className="text-sm text-foreground">{nfcMessage}</p>}
+      </section>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {statCards.map((card) => (

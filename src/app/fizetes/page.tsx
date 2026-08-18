@@ -85,6 +85,8 @@ export default function PaymentPage() {
     maxUsablePointsDiscountHuf: number
     maxUsablePoints: number
     balance: number
+    giftPointsAvailable: number
+    maxCoveragePercent: number
   } | null>(null)
   const { wallet, refresh: refreshWallet } = usePointWallet(!!userId)
   const { data: luckySpinData } = useLuckySpin(!!userId)
@@ -174,6 +176,7 @@ export default function PaymentPage() {
         ? {
             requestedDiscountHuf: pointsPreview.maxUsablePointsDiscountHuf,
             userBalance: pointsPreview.balance,
+            giftPointsAvailable: pointsPreview.giftPointsAvailable,
           }
         : undefined,
   })
@@ -302,6 +305,12 @@ export default function PaymentPage() {
     }
   }, [couponSelection.birthdayCode, selectedCouponIds])
 
+  useEffect(() => {
+    if (!usePoints) return
+    setSelectedCouponIds([])
+    setCouponCodeInput('')
+  }, [usePoints])
+
   const totalEur = hufToEur(cardTotalHuf)
 
   const handleCouponSelectionChange = async (next: SelectableCouponId[]) => {
@@ -390,6 +399,8 @@ export default function PaymentPage() {
             maxUsablePointsDiscountHuf: data.maxUsablePointsDiscountHuf ?? 0,
             maxUsablePoints: data.maxUsablePoints ?? 0,
             balance: data.balance ?? 0,
+            giftPointsAvailable: data.giftPointsAvailable ?? 0,
+            maxCoveragePercent: data.maxCoveragePercent ?? MAX_CART_POINTS_COVERAGE,
           })
         }
       })
@@ -490,9 +501,11 @@ export default function PaymentPage() {
                 }),
           },
           // Kedvezmény % NEM a kliensről – szerver couponCode + selectedCoupons alapján számol
-          couponCode: couponSelection.birthdayCode || couponCodeInput.trim() || undefined,
-          welcomeOfferAccepted: couponSelection.useWelcome ? true : undefined,
-          selectedCoupons: couponSelection.selectedIds,
+          couponCode: usePoints
+            ? undefined
+            : couponSelection.birthdayCode || couponCodeInput.trim() || undefined,
+          welcomeOfferAccepted: usePoints ? undefined : couponSelection.useWelcome ? true : undefined,
+          selectedCoupons: usePoints ? [] : couponSelection.selectedIds,
           pointsDiscountHuf: pointsDiscountHuf > 0 ? pointsDiscountHuf : undefined,
         }),
       })
@@ -578,6 +591,7 @@ export default function PaymentPage() {
     pointsDiscountHuf,
     pointsUsedPreview,
     pointsPreview?.balance,
+    usePoints,
     wallet?.balance,
     refreshWallet,
     router,
@@ -977,8 +991,9 @@ export default function PaymentPage() {
 
       <CouponSelector
         coupons={availableCoupons}
-        selectedIds={selectedCouponIds}
+        selectedIds={usePoints ? [] : selectedCouponIds}
         onChange={(next) => void handleCouponSelectionChange(next)}
+        disabled={usePoints}
         title={t('payment.couponSelectorTitle') || 'Elérhető kuponok'}
         hint={
           t('payment.couponSelectorHint') ||
@@ -1023,14 +1038,20 @@ export default function PaymentPage() {
               {t('payment.usePoints')
                 .replace('{points}', String(pointsPreview.maxUsablePoints))
                 .replace('{huf}', pointsPreview.maxUsablePointsDiscountHuf.toLocaleString('hu-HU'))
-                .replace('{percent}', String(Math.round(MAX_CART_POINTS_COVERAGE * 100)))}
+                .replace(
+                  '{percent}',
+                  String(Math.round((pointsPreview.maxCoveragePercent ?? MAX_CART_POINTS_COVERAGE) * 100))
+                )}
             </span>
           </label>
           <p className="text-xs text-muted mt-2 ml-7">
             {t('payment.pointsRate').replace('{rate}', String(POINTS_PER_HUF))}
           </p>
-          {userId && luckySpinDiscount.active && usePoints && (
-            <p className="text-xs text-accent mt-1 ml-7">{t('luckySpin.pointsBonusHint')}</p>
+          {usePoints && (
+            <p className="text-xs text-muted mt-1 ml-7">
+              {t('payment.pointsNoStackHint') ||
+                'A pontok más kuponnal vagy akcióval nem vonhatók össze. A szállítás mindig a vásárlót terheli.'}
+            </p>
           )}
         </section>
       )}
