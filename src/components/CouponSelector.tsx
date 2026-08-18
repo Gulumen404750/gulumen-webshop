@@ -76,7 +76,7 @@ export function CouponSelector({
         <p className="text-sm text-muted mt-1">
           {disabled
             ? t('payment.pointsNoStackHint') ||
-              'A pontok más kuponnal vagy akcióval nem vonhatók össze.'
+              'A pontok más kuponnal vagy akcióval nem vonhatók össze. 25 000 Ft felett, csak ponttal fizetve a szállítási díjat ki kell fizetni.'
             : resolvedHint}
         </p>
       </div>

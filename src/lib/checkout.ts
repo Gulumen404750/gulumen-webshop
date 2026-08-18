@@ -5,8 +5,8 @@
  * Sorrend:
  * 1. Regisztrációs / kupon kedvezmény (% vagy fix Ft) – csak teljes árú tételekre
  * 2. Szerencsekerék (15/20/25% a spin listában lévő termékek zárolt árából; +5% ponttal)
- * 3. Pontbeváltás (aktivitási pont max. 30%; ajándékpont a termékár 100%-a; más akcióval nem kombinálható)
- * 4. Szállítási díj (pontfizetésnél mindig a vásárlót terheli; a ponttal nem fedezett rész számlázandó)
+ * 3. Pontbeváltás (aktivitási és ajándékpont 1:1, a termékár 100%-áig; más akcióval nem kombinálható)
+ * 4. Szállítási díj (a pont nem fedezi; 25 000 Ft felett, csak ponttal fizetve is fizetendő)
  */
 
 import type { Product } from '@/lib/data'
@@ -92,7 +92,7 @@ export type PointsRedemptionInput = {
   giftPointsAvailable?: number
   /** Ajándékpont-tárca felhasználása (alap: igen). */
   spendGift?: boolean
-  /** Aktivitási pont-tárca felhasználása, 30%-os sapkával (alap: igen). */
+  /** Aktivitási pont-tárca felhasználása, 1:1 a termékár 100%-áig (alap: igen). */
   spendActivity?: boolean
 }
 
@@ -214,7 +214,7 @@ export function computeCouponDiscountHuf(
   return Math.min(fullPriceSubtotal, roundHuf(fixed + fromPercent))
 }
 
-/** 3. lépés: pontbeváltás – ajándékpont 100%, aktivitási pont max. 30%, soha nem a szállításra. */
+/** 3. lépés: pontbeváltás – ajándék- és aktivitási pont 1:1 a termékár 100%-áig, soha nem a szállításra. */
 export function computePointsRedemption(
   orderTotalAfterDiscountsHuf: number,
   input: PointsRedemptionInput
@@ -240,16 +240,20 @@ export function computePointsRedemption(
   }
 }
 
-/** 4. lépés: szállítási díj. Pontfizetésnél mindig fizetendő (a pont csak a termékárra megy). */
+/**
+ * 4. lépés: szállítási díj.
+ * A pont soha nem fedezi a szállítást. Ha a termékár teljesen ponttal van kifizetve
+ * (maradék 0), a szállítás akkor is fizetendő – 25 000 Ft feletti kosárnál is.
+ * Részleges pontfizetésnél a kártyán maradó termékár számít az ingyenes küszöbhöz.
+ */
 export function computeShippingHuf(
   merchandiseTotalHuf: number,
-  options?: { pointsUsed?: boolean; hasItems?: boolean }
+  options?: { hasItems?: boolean }
 ): number {
   const hasItems = options?.hasItems ?? merchandiseTotalHuf > 0
-  if (options?.pointsUsed) {
+  if (merchandiseTotalHuf <= 0) {
     return hasItems ? STANDARD_SHIPPING_FEE_HUF : 0
   }
-  if (merchandiseTotalHuf <= 0) return 0
   if (merchandiseTotalHuf >= FREE_SHIPPING_THRESHOLD) return 0
   return STANDARD_SHIPPING_FEE_HUF
 }
@@ -401,11 +405,13 @@ export function computeCheckoutTotals(params: ComputeCheckoutTotalsParams): Chec
 
   const merchandiseTotalHuf = Math.max(0, afterCouponAndLuckyHuf - pointsDiscountHuf)
   const shippingHuf = computeShippingHuf(merchandiseTotalHuf, {
-    pointsUsed: pointsUsed > 0,
     hasItems: lines.length > 0,
   })
   const finalTotalHuf = merchandiseTotalHuf + shippingHuf
-  const freeShippingRemainingHuf = computeFreeShippingRemainingHuf(merchandiseTotalHuf)
+  const freeShippingRemainingHuf =
+    merchandiseTotalHuf <= 0 && pointsUsed > 0
+      ? 0
+      : computeFreeShippingRemainingHuf(merchandiseTotalHuf)
 
   const stockSubtotal = lines
     .filter((l) => l.fulfillmentType === 'stock')

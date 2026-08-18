@@ -88,7 +88,7 @@ const checkoutBodySchema = z.object({
     )
     .min(1),
   customer: checkoutCustomerSchema,
-  /** Szerver validálja: ajándék 100%, aktivitási pont max. 30%. */
+  /** Szerver validálja: ajándék- és aktivitási pont 1:1, a termékár 100%-áig. */
   pointsDiscountHuf: z.number().int().min(0).optional(),
   useGiftPoints: z.boolean().optional(),
   useActivityPoints: z.boolean().optional(),

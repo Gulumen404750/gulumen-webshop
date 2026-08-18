@@ -812,7 +812,7 @@ export default function PaymentPage() {
                 )}
                 {activityPointsUsedPreview > 0 && (
                   <div className="flex justify-between text-accent">
-                    <span>{t('payment.activityPointsDiscount') || 'Aktivitási pont (max. 30%)'}</span>
+                    <span>{t('payment.activityPointsDiscount') || 'Aktivitási pont (1:1)'}</span>
                     <span className="tabular-nums">−{activityPointsUsedPreview.toLocaleString('hu-HU')} Ft</span>
                   </div>
                 )}
@@ -856,7 +856,7 @@ export default function PaymentPage() {
             {usePoints && (
               <p className="text-xs text-muted">
                 {t('payment.invoiceRemainderHint') ||
-                  'A ponttal nem fedezett termékár és a szállítási díj kerül számlára (kártyás fizetés).'}
+                  'A ponttal nem fedezett termékár kerül számlára. 25 000 Ft felett, ha csak ponttal fizetsz, a szállítási díjat kártyával kell rendezni.'}
               </p>
             )}
             <div className="flex justify-between font-heading font-bold text-lg text-foreground pt-2 mt-1">
@@ -1196,11 +1196,8 @@ export default function PaymentPage() {
                 {t('payment.useActivityPoints', {
                   points: String(pointsPreview.maxActivityDiscountHuf),
                   huf: pointsPreview.maxActivityDiscountHuf.toLocaleString('hu-HU'),
-                  percent: String(
-                    Math.round((pointsPreview.activityCoveragePercent ?? MAX_CART_POINTS_COVERAGE) * 100)
-                  ),
                 }) ||
-                  `Aktivitási pontok: max. ${pointsPreview.maxActivityDiscountHuf.toLocaleString('hu-HU')} Ft (kosár 30%-a)`}
+                  `Aktivitási pontok: ${pointsPreview.maxActivityDiscountHuf.toLocaleString('hu-HU')} Ft (1:1)`}
               </span>
             </label>
           )}
@@ -1210,7 +1207,7 @@ export default function PaymentPage() {
           {usePoints && (
             <p className="text-xs text-muted ml-7">
               {t('payment.pointsNoStackHint') ||
-                'A pontok más kuponnal vagy akcióval nem vonhatók össze. A szállítás mindig a vásárlót terheli.'}
+                'A pontok más kuponnal vagy akcióval nem vonhatók össze. 25 000 Ft felett, csak ponttal fizetve a szállítási díjat ki kell fizetni.'}
             </p>
           )}
         </section>

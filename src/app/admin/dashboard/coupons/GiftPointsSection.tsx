@@ -252,8 +252,9 @@ export function AdminGiftPointsSection({
           <h2 className="font-heading font-semibold text-foreground">Ajándékpontok / NFC kódok</h2>
           <p className="text-sm text-muted mt-1">
             Darabszámnyi egyszer használatos kód, egyedi claim URL, QR és NFC-re írható link.
-            Aktiváláskor a pontok a tárcába kerülnek (1 pont = 1 Ft, 1 hónap, más kuponnal nem
-            kombinálható).
+            Aktiváláskor a pontok a tárcába kerülnek (1 pont = 1 Ft, 1 hónap, a termékár 100%-áig).
+            25 000 Ft felett, csak ponttal fizetve a szállítási díjat ki kell fizetni. Más kuponnal nem
+            kombinálható.
           </p>
         </div>
         <button

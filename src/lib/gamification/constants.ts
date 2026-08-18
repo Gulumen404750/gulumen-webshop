@@ -27,8 +27,8 @@ export const POINTS_DAILY_LIKE_BONUS = 25
 /** 1 pont = 1 Ft. */
 export const POINTS_PER_HUF = 1
 
-/** Kosár max. ennyi %-a fizethető sima (böngészés/lájk) ponttal. */
-export const MAX_CART_POINTS_COVERAGE = 0.3
+/** Kosár max. ennyi %-a fizethető sima (böngészés/lájk) ponttal. 1:1, a termékár 100%-áig. */
+export const MAX_CART_POINTS_COVERAGE = 1
 
 /** NFC / ajándékpontok a termékár 100%-ára levásárolhatók. */
 export const GIFT_POINTS_MAX_COVERAGE = 1
@@ -100,7 +100,11 @@ export const LUCKY_SPIN_COOLDOWN_DAYS = 7
 /** Szerencsekerék: minimum kedvelt termék szám a pörgetéshez. */
 export const LUCKY_SPIN_MIN_LIKES = 20
 
-/** Ingyenes szállítás küszöb (Ft) – kedvezmények UTÁN. Pontfizetésnél a szállítás mindig fizetendő. */
+/**
+ * Ingyenes szállítás küszöb (Ft) – a kártyán maradó termékár alapján.
+ * Ha a rendelés csak ponttal van kifizetve (maradék termékár 0), a szállítás
+ * akkor is fizetendő, ha a kosár a küszöb felett van.
+ */
 export const FREE_SHIPPING_THRESHOLD = 25_000
 
 /** Standard szállítási díj (Ft), ha a végső összeg a küszöb alatt marad. */

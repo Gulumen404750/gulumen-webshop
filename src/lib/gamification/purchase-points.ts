@@ -70,7 +70,7 @@ export function splitWalletBalances(
 }
 
 /**
- * Pontbeváltás: NFC/ajándékpont a termékár 100%-áig, aktivitási pont max. 30%.
+ * Pontbeváltás: NFC/ajándék- és aktivitási pont 1:1 a termékár 100%-áig.
  * A szállítási díjat soha nem fedezi. spendGift / spendActivity: melyik tárcát költi a vevő.
  */
 export function computeMixedPointsRedemption(input: {

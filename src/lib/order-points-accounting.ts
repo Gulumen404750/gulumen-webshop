@@ -10,7 +10,7 @@ export const INTERNAL_POINTS_ACCOUNTING_NOTE =
   'Belső pontrendszer / Ajándékpont – belső elszámolás (nem pénzbeni profit)'
 
 export const ACTIVITY_POINTS_ACCOUNTING_NOTE =
-  'Aktivitási pont – belső elszámolás (nem pénzbeni profit), max. a termékár 30%-a'
+  'Aktivitási pont – belső elszámolás (nem pénzbeni profit), 1:1 a termékár 100%-áig'
 
 export const GIFT_POINTS_ACCOUNTING_NOTE =
   'Ajándékpont (NFC / kampány) – belső elszámolás (nem pénzbeni profit), 100%-ban levásárolható'

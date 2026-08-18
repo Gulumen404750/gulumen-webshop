@@ -91,13 +91,13 @@ describe('computeCouponDiscountHuf', () => {
 })
 
 describe('computePointsRedemption', () => {
-  it('limits regular points to 30% of order total at 1 pont = 1 Ft', () => {
+  it('lets regular points cover 100% of the product price at 1 pont = 1 Ft', () => {
     const result = computePointsRedemption(10_000, {
-      requestedDiscountHuf: 5_000,
+      requestedDiscountHuf: 10_000,
       userBalance: 50_000,
     })
-    expect(result.pointsDiscountHuf).toBe(3_000)
-    expect(result.pointsUsed).toBe(3_000)
+    expect(result.pointsDiscountHuf).toBe(10_000)
+    expect(result.pointsUsed).toBe(10_000)
   })
 
   it('lets NFC gift points cover the full merchandise amount', () => {
@@ -112,15 +112,15 @@ describe('computePointsRedemption', () => {
     expect(result.activityPointsUsed).toBe(0)
   })
 
-  it('applies activity 30% only to leftover merchandise after gift', () => {
+  it('lets activity points cover leftover merchandise after gift 1:1', () => {
     const result = computePointsRedemption(10_000, {
       requestedDiscountHuf: 10_000,
       userBalance: 10_000,
       giftPointsAvailable: 4_000,
     })
     expect(result.giftPointsUsed).toBe(4_000)
-    expect(result.activityPointsUsed).toBe(1_800)
-    expect(result.pointsDiscountHuf).toBe(5_800)
+    expect(result.activityPointsUsed).toBe(6_000)
+    expect(result.pointsDiscountHuf).toBe(10_000)
   })
 
   it('rejects redemption when balance is insufficient', () => {
@@ -147,10 +147,14 @@ describe('computeShippingHuf', () => {
     expect(computeShippingHuf(FREE_SHIPPING_THRESHOLD + 1)).toBe(0)
   })
 
-  it('charges shipping when paying with points even above the free-shipping threshold', () => {
+  it('charges shipping when the product is fully paid with points, even above the threshold', () => {
+    expect(computeShippingHuf(0, { hasItems: true })).toBe(STANDARD_SHIPPING_FEE_HUF)
+  })
+
+  it('still grants free shipping when leftover card merchandise is at or above the threshold', () => {
     expect(
-      computeShippingHuf(FREE_SHIPPING_THRESHOLD + 5_000, { pointsUsed: true, hasItems: true })
-    ).toBe(STANDARD_SHIPPING_FEE_HUF)
+      computeShippingHuf(FREE_SHIPPING_THRESHOLD + 5_000, { hasItems: true })
+    ).toBe(0)
   })
 })
 
@@ -275,7 +279,7 @@ describe('resolveCartLines', () => {
 })
 
 describe('computeCheckoutTotals', () => {
-  it('does not stack coupons with points and always charges shipping', () => {
+  it('does not stack coupons with points and charges shipping below the free-shipping leftover', () => {
     const lines = [
       line('stock-1', 2, 5_000, 'stock'),
       line('source-1', 1, 10_000, 'procurement'),
@@ -348,7 +352,7 @@ describe('computeCheckoutTotals', () => {
     expect(totals.freeShippingRemainingHuf).toBe(0)
   })
 
-  it('still charges shipping when points are used on a free-shipping cart', () => {
+  it('keeps free shipping when leftover card merchandise stays at or above the threshold', () => {
     const lines = [line('stock-1', 1, 40_000, 'stock')]
     const totals = computeCheckoutTotals({
       lines,
@@ -358,11 +362,27 @@ describe('computeCheckoutTotals', () => {
     })
     expect(totals.pointsDiscountHuf).toBe(3_000)
     expect(totals.merchandiseTotalHuf).toBe(37_000)
-    expect(totals.shippingHuf).toBe(STANDARD_SHIPPING_FEE_HUF)
-    expect(totals.finalTotalHuf).toBe(37_000 + STANDARD_SHIPPING_FEE_HUF)
+    expect(totals.shippingHuf).toBe(0)
+    expect(totals.finalTotalHuf).toBe(37_000)
     expect(totals.invoiceMerchandiseHuf).toBe(37_000)
+    expect(totals.invoiceShippingHuf).toBe(0)
+    expect(totals.invoiceTotalHuf).toBe(37_000)
+  })
+
+  it('charges shipping when an order over 25 000 Ft is paid only with points', () => {
+    const lines = [line('stock-1', 1, 40_000, 'stock')]
+    const totals = computeCheckoutTotals({
+      lines,
+      coupon: {},
+      luckySpin: null,
+      points: { requestedDiscountHuf: 40_000, userBalance: 50_000 },
+    })
+    expect(totals.pointsDiscountHuf).toBe(40_000)
+    expect(totals.merchandiseTotalHuf).toBe(0)
+    expect(totals.shippingHuf).toBe(STANDARD_SHIPPING_FEE_HUF)
+    expect(totals.invoiceMerchandiseHuf).toBe(0)
     expect(totals.invoiceShippingHuf).toBe(STANDARD_SHIPPING_FEE_HUF)
-    expect(totals.invoiceTotalHuf).toBe(37_000 + STANDARD_SHIPPING_FEE_HUF)
+    expect(totals.invoiceTotalHuf).toBe(STANDARD_SHIPPING_FEE_HUF)
   })
 
   it('splits gift vs activity and shows the unpaid remainder as invoice due', () => {
@@ -380,11 +400,11 @@ describe('computeCheckoutTotals', () => {
 
     expect(totals.couponDiscountHuf).toBe(0)
     expect(totals.giftPointsUsed).toBe(4_000)
-    expect(totals.activityPointsUsed).toBe(1_800)
-    expect(totals.pointsDiscountHuf).toBe(5_800)
-    expect(totals.invoiceMerchandiseHuf).toBe(4_200)
+    expect(totals.activityPointsUsed).toBe(6_000)
+    expect(totals.pointsDiscountHuf).toBe(10_000)
+    expect(totals.invoiceMerchandiseHuf).toBe(0)
     expect(totals.invoiceShippingHuf).toBe(STANDARD_SHIPPING_FEE_HUF)
-    expect(totals.invoiceTotalHuf).toBe(4_200 + STANDARD_SHIPPING_FEE_HUF)
+    expect(totals.invoiceTotalHuf).toBe(STANDARD_SHIPPING_FEE_HUF)
     expect(totals.inStock.giftPointsUsed).toBe(4_000)
     expect(totals.inStock.invoiceTotalHuf).toBe(totals.invoiceTotalHuf)
   })

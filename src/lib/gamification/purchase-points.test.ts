@@ -21,7 +21,7 @@ describe('splitWalletBalances', () => {
 })
 
 describe('computeMixedPointsRedemption', () => {
-  it('lets gift points cover 100% of merchandise and activity 30% of the leftover', () => {
+  it('lets gift points cover 100% of merchandise and activity the leftover 1:1', () => {
     const result = computeMixedPointsRedemption({
       merchandiseHuf: 10_000,
       requestedDiscountHuf: 10_000,
@@ -29,12 +29,12 @@ describe('computeMixedPointsRedemption', () => {
       giftPointsAvailable: 4_000,
     })
     expect(result.giftPointsUsed).toBe(4_000)
-    expect(result.activityPointsUsed).toBe(1_800)
-    expect(result.pointsDiscountHuf).toBe(5_800)
-    expect(result.pointsUsed).toBe(5_800)
+    expect(result.activityPointsUsed).toBe(6_000)
+    expect(result.pointsDiscountHuf).toBe(10_000)
+    expect(result.pointsUsed).toBe(10_000)
   })
 
-  it('does not apply the 30% cap to gift-only spend', () => {
+  it('does not cap gift-only spend below 100% of merchandise', () => {
     const result = computeMixedPointsRedemption({
       merchandiseHuf: 10_000,
       requestedDiscountHuf: 10_000,
@@ -51,18 +51,18 @@ describe('computeMixedPointsRedemption', () => {
     })
   })
 
-  it('keeps the 30% cap when only activity points are spent', () => {
+  it('lets activity points cover 100% when only activity is spent', () => {
     const result = computeMixedPointsRedemption({
       merchandiseHuf: 10_000,
       requestedDiscountHuf: 10_000,
       userBalance: 10_000,
-      giftPointsAvailable: 8_000,
+      giftPointsAvailable: 0,
       spendGift: false,
       spendActivity: true,
     })
     expect(result.giftPointsUsed).toBe(0)
-    expect(result.activityPointsUsed).toBe(2_000)
-    expect(result.pointsDiscountHuf).toBe(2_000)
+    expect(result.activityPointsUsed).toBe(10_000)
+    expect(result.pointsDiscountHuf).toBe(10_000)
   })
 
   it('never covers more than merchandise (shipping stays on the customer)', () => {

@@ -10,9 +10,9 @@ import {
   BROWSE_DAILY_TARGET_SECONDS,
   BROWSE_DAILY_MAX_BONUSES,
   BROWSE_BONUS_COOLDOWN_MS,
-  MAX_CART_POINTS_COVERAGE,
   POINTS_PER_HUF,
   LIKE_BONUS_WINDOW_MS,
+  FREE_SHIPPING_THRESHOLD,
 } from '@/lib/gamification/constants'
 import { Sparkles, Heart, Clock, Gift, ShoppingBag, Wallet } from 'lucide-react'
 import { useLocale } from '@/context/LocaleContext'
@@ -60,8 +60,8 @@ export function PointsGuide({ className = '' }: Props) {
       icon: ShoppingBag,
       title: t('gamification.mechanicsPurchaseTitle'),
       text: replace('gamification.mechanicsPurchase', {
-        percent: Math.round(MAX_CART_POINTS_COVERAGE * 100),
         rate: POINTS_PER_HUF,
+        shippingThreshold: FREE_SHIPPING_THRESHOLD.toLocaleString('hu-HU'),
       }),
     },
     {
