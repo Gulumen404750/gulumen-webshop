@@ -16,6 +16,11 @@ describe('PointsProgress profile coupons', () => {
     expect(src).toMatch(/max-h-56 overflow-y-auto/)
   })
 
+  it('opens the coupon list when a newly claimed coupon appears in the wallet', () => {
+    expect(src).toMatch(/hasNewActive/)
+    expect(src).toMatch(/setListOpen\(true\)/)
+  })
+
   it('does not hide the redeem button just because a coupon is already unused', () => {
     expect(src).toMatch(/wallet\?\.canRedeem/)
     expect(src).not.toMatch(/canRedeem && !wallet\?\.hasActiveCoupon/)

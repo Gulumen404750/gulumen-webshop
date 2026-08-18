@@ -4,7 +4,11 @@
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import type { CouponDiscount } from '@/lib/checkout'
 import { capCombinedCouponPercent } from '@/lib/coupon-config'
-import { claimCouponForUser } from '@/lib/coupon-claim'
+import {
+  claimCouponForUser,
+  isOwnerlessCoupon,
+  isUsageAutoDisabled,
+} from '@/lib/coupon-claim'
 
 export type ResolvedDbCoupon = {
   id: string
@@ -73,14 +77,17 @@ export async function previewCouponCode(params: {
   }
 
   if (!coupon.active) {
-    return { ok: false, error: 'Coupon is not active', code: 'coupon_inactive' }
+    const campaignAutoOff = isOwnerlessCoupon(coupon) && isUsageAutoDisabled(coupon)
+    if (!campaignAutoOff) {
+      return { ok: false, error: 'Coupon is not active', code: 'coupon_inactive' }
+    }
   }
 
   if (!isCouponInValidPeriod(coupon, now)) {
     return { ok: false, error: 'Coupon is outside its validity period', code: 'coupon_expired' }
   }
 
-  if (coupon.maxUses != null && coupon.usedCount >= coupon.maxUses) {
+  if (coupon.maxUses != null && coupon.usedCount >= coupon.maxUses && !isOwnerlessCoupon(coupon)) {
     return { ok: false, error: 'Coupon usage limit reached', code: 'coupon_exhausted' }
   }
 

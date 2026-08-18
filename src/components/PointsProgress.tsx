@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useLocale } from '@/context/LocaleContext'
 import { useDisplayMoney } from '@/hooks/useDisplayMoney'
@@ -51,6 +51,21 @@ export function PointsProgress({ className = '' }: Props) {
   const coupons = wallet?.coupons ?? []
   const activeCount = coupons.filter((c) => c.status === 'active').length
   const redeemableCount = wallet?.redeemableCount ?? (wallet?.canRedeem ? 1 : 0)
+  const seenCouponIds = useRef<Set<string> | null>(null)
+
+  useEffect(() => {
+    if (isLoading && !wallet) return
+    const ids = coupons.map((c) => c.id)
+    if (seenCouponIds.current == null) {
+      seenCouponIds.current = new Set(ids)
+      return
+    }
+    const hasNewActive = coupons.some(
+      (c) => c.status === 'active' && !seenCouponIds.current!.has(c.id)
+    )
+    seenCouponIds.current = new Set(ids)
+    if (hasNewActive) setListOpen(true)
+  }, [coupons, isLoading, wallet])
 
   const formatUntil = (iso: string | null) => {
     if (!iso) return t('gamification.couponNoExpiry')

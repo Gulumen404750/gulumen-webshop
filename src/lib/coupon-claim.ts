@@ -53,6 +53,21 @@ export function failClaim(code: CouponClaimErrorCode): Extract<CouponClaimResult
   return { ok: false, code, error: ERRORS[code] }
 }
 
+export function ownedCouponRedeemError(row: {
+  usedCount: number
+  maxUses: number | null
+}): { kind: 'coupon_error'; code: 'coupon_used' | 'coupon_already_claimed'; error: string } {
+  const state = interpretOwnedCoupon(row)
+  if (state === 'used') {
+    return { kind: 'coupon_error', code: 'coupon_used', error: ERRORS.coupon_used }
+  }
+  return {
+    kind: 'coupon_error',
+    code: 'coupon_already_claimed',
+    error: ERRORS.coupon_already_claimed,
+  }
+}
+
 export function personalClaimCode(templateCode: string, suffix: string): string {
   const base = templateCode.replace(/[^A-Z0-9-]/gi, '').toUpperCase().slice(0, 18) || 'CLAIM'
   const cleanSuffix = suffix.replace(/[^A-Z0-9]/gi, '').toUpperCase().slice(0, 8) || 'X'
@@ -68,9 +83,45 @@ export function interpretOwnedCoupon(row: {
   return 'already_claimed'
 }
 
+export function isOwnerlessCoupon(coupon: { userId: string | null }): boolean {
+  return !coupon.userId
+}
+
 export function isCampaignTemplate(coupon: { userId: string | null; source: string | null }): boolean {
   if (coupon.userId) return false
   return coupon.source !== 'gamification'
+}
+
+/** Sablon usedCount kimerült + auto-inaktív: régi globális felhasználás, ne tiltsa a per-user klónt. */
+export function isUsageAutoDisabled(coupon: {
+  active: boolean
+  usedCount: number
+  maxUses: number | null
+}): boolean {
+  if (coupon.active) return false
+  return coupon.maxUses != null && coupon.usedCount >= coupon.maxUses
+}
+
+/**
+ * Kampány / fix kód (NYAR2026): egyszer / fiók a személyes klónon.
+ * A sablon maxUses/usedCount NEM per-user limit – a globális kimerülés
+ * (pl. egy korábbi checkout) ne akadályozza a többi vásárló aktiválását.
+ */
+export function campaignTemplateBlocksNewClaim(
+  template: {
+    userId: string | null
+    active: boolean
+    usedCount: number
+    maxUses: number | null
+    validFrom: Date | null
+    validUntil: Date | null
+  },
+  now: Date
+): CouponClaimErrorCode | null {
+  if (!isOwnerlessCoupon(template)) return null
+  if (!isCouponInValidPeriod(template, now)) return 'coupon_expired'
+  if (!template.active && !isUsageAutoDisabled(template)) return 'coupon_inactive'
+  return null
 }
 
 function toClaimed(row: {
@@ -143,11 +194,8 @@ export async function claimCouponForUser(params: {
 
   if (found.userId) {
     if (found.userId !== userId) return failClaim('coupon_not_owned')
-    if (!found.active) {
-      return interpretOwnedCoupon(found) === 'used'
-        ? failClaim('coupon_used')
-        : failClaim('coupon_inactive')
-    }
+    if (interpretOwnedCoupon(found) === 'used') return failClaim('coupon_used')
+    if (!found.active) return failClaim('coupon_inactive')
     if (!isCouponInValidPeriod(found, now)) return failClaim('coupon_expired')
     return ownedResult(found, allowExistingUnused)
   }
@@ -155,13 +203,13 @@ export async function claimCouponForUser(params: {
   const existing = await prisma.coupon.findFirst({
     where: { userId, claimedFromCode: code },
   })
-  if (existing) return ownedResult(existing, allowExistingUnused)
-
-  if (!found.active) return failClaim('coupon_inactive')
-  if (!isCouponInValidPeriod(found, now)) return failClaim('coupon_expired')
-  if (found.maxUses != null && found.usedCount >= found.maxUses) {
-    return failClaim('coupon_exhausted')
+  if (existing) {
+    if (interpretOwnedCoupon(existing) === 'used') return failClaim('coupon_used')
+    return ownedResult(existing, allowExistingUnused)
   }
+
+  const blocked = campaignTemplateBlocksNewClaim(found, now)
+  if (blocked) return failClaim(blocked)
 
   try {
     const outcome = await prisma.$transaction(async (tx) => {
@@ -171,18 +219,10 @@ export async function claimCouponForUser(params: {
       if (again) return { row: again, created: false as const }
 
       const template = await tx.coupon.findUnique({ where: { id: found.id } })
-      if (!template || !template.active) return null
-      if (!isCouponInValidPeriod(template, now)) return null
-      if (template.maxUses != null && template.usedCount >= template.maxUses) return null
+      if (!template || template.userId) return { blocked: 'coupon_invalid' as const }
 
-      const newUsed = template.usedCount + 1
-      await tx.coupon.update({
-        where: { id: template.id },
-        data: {
-          usedCount: newUsed,
-          ...(template.maxUses != null && newUsed >= template.maxUses ? { active: false } : {}),
-        },
-      })
+      const blockedAgain = campaignTemplateBlocksNewClaim(template, now)
+      if (blockedAgain) return { blocked: blockedAgain }
 
       const suffix = randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase()
       const row = await tx.coupon.create({
@@ -204,7 +244,7 @@ export async function claimCouponForUser(params: {
       return { row, created: true as const }
     })
 
-    if (!outcome) return failClaim('coupon_exhausted')
+    if ('blocked' in outcome) return failClaim(outcome.blocked)
     if (!outcome.created) return ownedResult(outcome.row, allowExistingUnused)
     return { ok: true, coupon: toClaimed(outcome.row), created: true }
   } catch (e) {

@@ -1,9 +1,10 @@
 /**
  * Egy kódbevitő: ajándékpont-token / tételcímke, vagy admin százalékos/fix kupon.
- * Sorrend: egyedi token → Coupon tábla → ajándékpont tételcímke.
+ * Sorrend: egyedi token → saját aktivált kupon → Coupon sablon → ajándékpont tételcímke.
  */
-import { isDbConfigured } from '@/lib/prisma'
+import { prisma, isDbConfigured } from '@/lib/prisma'
 import { previewCouponCode, type CouponRedeemPreview } from '@/lib/coupon-checkout'
+import { ownedCouponRedeemError } from '@/lib/coupon-claim'
 import {
   findGiftPointCodeByToken,
   findUnclaimedGiftPointCodeByBatchLabel,
@@ -41,6 +42,16 @@ export async function lookupRedeemableCode(
   const giftByToken = await findGiftPointCodeByToken(code)
   if (giftByToken) {
     return { kind: 'gift_points', token: giftByToken.token, via: 'token' }
+  }
+
+  if (userId) {
+    const existing = await prisma.coupon.findFirst({
+      where: {
+        userId,
+        OR: [{ claimedFromCode: code }, { code }],
+      },
+    })
+    if (existing) return ownedCouponRedeemError(existing)
   }
 
   const coupon = await previewCouponCode({ couponCode: code, userId })

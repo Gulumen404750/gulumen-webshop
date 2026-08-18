@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'fs'
+import { join } from 'path'
 import { normalizeRedeemCode, pickRedeemKind } from './redeem-code'
 import { isCouponInValidPeriod } from './coupon-checkout'
 
@@ -64,5 +66,13 @@ describe('isCouponInValidPeriod', () => {
         now
       )
     ).toBe(false)
+  })
+})
+
+describe('lookupRedeemableCode claim-once wiring', () => {
+  it('checks the shopper existing personal clone before previewing the campaign template', () => {
+    const src = readFileSync(join(process.cwd(), 'src/lib/redeem-code.ts'), 'utf-8')
+    expect(src).toMatch(/ownedCouponRedeemError/)
+    expect(src).toMatch(/claimedFromCode: code/)
   })
 })
