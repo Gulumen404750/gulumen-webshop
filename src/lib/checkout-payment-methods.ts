@@ -99,3 +99,10 @@ export function resolvePaymentMode(
 }
 
 export const DEFAULT_CHECKOUT_PAYMENT_METHOD: CheckoutPaymentMethod = 'card'
+
+/** Klarna részletfizetés: a fizetendő végösszeg (kupon/pont után, szállítással) legalább ennyi. */
+export const KLARNA_MIN_AMOUNT_HUF = 35_000
+
+export function isKlarnaEligible(amountHuf: number): boolean {
+  return Number.isFinite(amountHuf) && amountHuf >= KLARNA_MIN_AMOUNT_HUF
+}

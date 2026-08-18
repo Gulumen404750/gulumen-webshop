@@ -11,7 +11,9 @@ describe('checkout API payment methods', () => {
     expect(src).toMatch(/resolveChargeCurrency/)
     expect(src).toMatch(/toStripeUnitAmount/)
     expect(src).toMatch(/resolvePaymentMode/)
-    expect(src).toMatch(/paymentMethod,/)
+    expect(src).toMatch(/isKlarnaEligible/)
+    expect(src).toMatch(/klarna_min_amount/)
+    expect(src).toMatch(/KLARNA_MIN_AMOUNT_HUF/)
   })
 
   it('still blocks coupon stacking before creating a payment', () => {

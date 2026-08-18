@@ -27,6 +27,8 @@ import { PaymentTrustBadges } from '@/components/PaymentTrustBadges'
 import { PaymentMethodPicker } from '@/components/PaymentMethodPicker'
 import {
   DEFAULT_CHECKOUT_PAYMENT_METHOD,
+  KLARNA_MIN_AMOUNT_HUF,
+  isKlarnaEligible,
   type CheckoutPaymentMethod,
 } from '@/lib/checkout-payment-methods'
 import { WELCOME_CHECKOUT_COUPON_PERCENT, capCombinedCouponPercent } from '@/lib/coupon-config'
@@ -284,6 +286,8 @@ export default function PaymentPage() {
   const cardTotalHuf = checkoutPreview.finalTotalHuf
   const invoiceMerchandiseHuf = checkoutPreview.invoiceMerchandiseHuf
   const invoiceTotalHuf = checkoutPreview.invoiceTotalHuf
+  const payableHuf = usePoints ? invoiceTotalHuf : cardTotalHuf
+  const klarnaEligible = isKlarnaEligible(payableHuf)
   const freeShippingRemainingHuf = checkoutPreview.freeShippingRemainingHuf
   const effectiveCouponDiscountHuf = couponDiscountOnTotal > 0 ? couponDiscountOnTotal : 0
 
@@ -593,6 +597,12 @@ export default function PaymentPage() {
     idempotencyKeyRef.current = null
   }, [paymentMethod])
 
+  useEffect(() => {
+    if (!klarnaEligible && paymentMethod === 'klarna') {
+      setPaymentMethod(DEFAULT_CHECKOUT_PAYMENT_METHOD)
+    }
+  }, [klarnaEligible, paymentMethod])
+
   const payButtonLabel =
     paymentMethod === 'paypal'
       ? t('payment.payWithPaypal')
@@ -606,6 +616,10 @@ export default function PaymentPage() {
 
   const handlePayByCard = useCallback(async () => {
     if (checkoutInFlightRef.current || loading || checkoutResult) return
+    if (paymentMethod === 'klarna' && !klarnaEligible) {
+      setError(t('payment.errorKlarnaMinAmount', { min: money(KLARNA_MIN_AMOUNT_HUF) }))
+      return
+    }
 
     setError(null)
     setCheckoutResult(null)
@@ -715,7 +729,14 @@ export default function PaymentPage() {
       const data = await res.json()
       if (!res.ok) {
         const isTimedOfferError = res.status === 400 && (data.code === 'timed_offer_unavailable' || data.error?.includes('timed'))
-        setError(isTimedOfferError ? t('payment.timedOfferNoLongerAvailable') : t('payment.errorCreateSession'))
+        const isKlarnaMinError = res.status === 400 && data.code === 'klarna_min_amount'
+        setError(
+          isKlarnaMinError
+            ? t('payment.errorKlarnaMinAmount', { min: money(KLARNA_MIN_AMOUNT_HUF) })
+            : isTimedOfferError
+              ? t('payment.timedOfferNoLongerAvailable')
+              : t('payment.errorCreateSession')
+        )
         idempotencyKeyRef.current = null
         checkoutInFlightRef.current = false
         setLoading(false)
@@ -787,6 +808,7 @@ export default function PaymentPage() {
     addressType,
     deliveryNotes,
     t,
+    money,
     cardTotalHuf,
     items,
     couponSelection,
@@ -798,6 +820,7 @@ export default function PaymentPage() {
     useGiftPoints,
     useActivityPoints,
     paymentMethod,
+    klarnaEligible,
     locale,
     wallet?.balance,
     refreshWallet,
@@ -1369,6 +1392,7 @@ export default function PaymentPage() {
           value={paymentMethod}
           onChange={setPaymentMethod}
           disabled={loading || !!checkoutResult}
+          unavailableMethods={klarnaEligible ? [] : ['klarna']}
           title={t('payment.methodsTitle')}
           expressBadge={t('payment.expressCheckoutBadge')}
           methods={{
@@ -1390,13 +1414,18 @@ export default function PaymentPage() {
             },
             klarna: {
               label: t('payment.methodKlarna'),
-              hint: t('payment.methodKlarnaHint', { amount: money(usePoints ? invoiceTotalHuf : cardTotalHuf) }),
+              hint: klarnaEligible
+                ? t('payment.methodKlarnaHint', { amount: money(payableHuf) })
+                : t('payment.methodKlarnaMinHint', {
+                    min: money(KLARNA_MIN_AMOUNT_HUF),
+                    amount: money(payableHuf),
+                  }),
             },
           }}
         />
-        {paymentMethod === 'klarna' && (
+        {paymentMethod === 'klarna' && klarnaEligible && (
           <p className="text-xs text-muted mb-3">
-            {t('payment.methodKlarnaNote', { amount: money(usePoints ? invoiceTotalHuf : cardTotalHuf) })}
+            {t('payment.methodKlarnaNote', { amount: money(payableHuf) })}
           </p>
         )}
         {userId && (

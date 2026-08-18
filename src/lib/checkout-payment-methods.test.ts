@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { FALLBACK_HUF_PER_EUR } from '@/lib/euro-rate'
 import {
   DEFAULT_CHECKOUT_PAYMENT_METHOD,
+  KLARNA_MIN_AMOUNT_HUF,
   forcesImmediateCapture,
   isCheckoutPaymentMethod,
   isExpressWalletMethod,
   isInstallmentPayment,
+  isKlarnaEligible,
   resolveChargeCurrency,
   resolvePaymentMode,
   stripeCheckoutAmountMatches,
@@ -66,6 +68,14 @@ describe('checkout payment methods', () => {
     expect(isInstallmentPayment('card')).toBe(false)
     expect(isInstallmentPayment('paypal')).toBe(false)
     expect(isInstallmentPayment(undefined)).toBe(false)
+  })
+
+  it('enables Klarna only from 35 000 Ft payable total', () => {
+    expect(KLARNA_MIN_AMOUNT_HUF).toBe(35_000)
+    expect(isKlarnaEligible(34_999)).toBe(false)
+    expect(isKlarnaEligible(35_000)).toBe(true)
+    expect(isKlarnaEligible(80_000)).toBe(true)
+    expect(isKlarnaEligible(Number.NaN)).toBe(false)
   })
 
   it('matches Stripe webhook amounts against the stored charge currency', () => {

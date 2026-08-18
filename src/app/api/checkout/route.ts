@@ -67,6 +67,8 @@ import { LOCALES } from '@/i18n/locales'
 import {
   CHECKOUT_PAYMENT_METHODS,
   DEFAULT_CHECKOUT_PAYMENT_METHOD,
+  KLARNA_MIN_AMOUNT_HUF,
+  isKlarnaEligible,
   resolveChargeCurrency,
   resolvePaymentMode,
   toStripeUnitAmount,
@@ -488,6 +490,17 @@ export async function POST(request: Request) {
 
   if (!hasInStock && !hasSourcing) {
     return NextResponse.json({ error: 'No valid items or invalid total' }, { status: 400 })
+  }
+
+  if (paymentMethod === 'klarna' && !isKlarnaEligible(totals.finalTotalHuf)) {
+    return NextResponse.json(
+      {
+        error: 'Klarna instalments require a higher order total',
+        code: 'klarna_min_amount',
+        minAmountHuf: KLARNA_MIN_AMOUNT_HUF,
+      },
+      { status: 400 }
+    )
   }
 
   let reservationIds: string[] = []

@@ -24,4 +24,12 @@ describe('checkout payment method picker', () => {
     expect(src).toMatch(/cashEarnHintInstallment/)
     expect(src).toMatch(/paymentMethod === 'klarna'/)
   })
+
+  it('disables Klarna below the 35 000 Ft payable minimum', () => {
+    expect(src).toMatch(/isKlarnaEligible/)
+    expect(src).toMatch(/KLARNA_MIN_AMOUNT_HUF/)
+    expect(src).toMatch(/unavailableMethods=\{klarnaEligible \? \[\] : \['klarna'\]\}/)
+    expect(src).toMatch(/methodKlarnaMinHint/)
+    expect(src).toMatch(/errorKlarnaMinAmount/)
+  })
 })
