@@ -726,22 +726,27 @@ export default function PaymentPage() {
           locale,
         }),
       })
-      const data = await res.json()
+      const data = await res.json().catch(() => ({} as { code?: string; error?: string }))
       if (!res.ok) {
         const isTimedOfferError = res.status === 400 && (data.code === 'timed_offer_unavailable' || data.error?.includes('timed'))
         const isKlarnaMinError = res.status === 400 && data.code === 'klarna_min_amount'
         const isStripeConfigError = data.code === 'stripe_not_configured'
         const isStripeSessionError = data.code === 'stripe_session_failed'
+        const isOrderFailed = data.code === 'checkout_order_failed' || data.code === 'out_of_stock'
+        const detail = typeof data.error === 'string' ? data.error.trim() : ''
+        const base = isKlarnaMinError
+          ? t('payment.errorKlarnaMinAmount', { min: money(KLARNA_MIN_AMOUNT_HUF) })
+          : isTimedOfferError
+            ? t('payment.timedOfferNoLongerAvailable')
+            : isStripeConfigError
+              ? t('payment.errorStripeNotConfigured')
+              : isStripeSessionError || isOrderFailed
+                ? t('payment.errorStripeSession')
+                : t('payment.errorCreateSession')
         setError(
-          isKlarnaMinError
-            ? t('payment.errorKlarnaMinAmount', { min: money(KLARNA_MIN_AMOUNT_HUF) })
-            : isTimedOfferError
-              ? t('payment.timedOfferNoLongerAvailable')
-              : isStripeConfigError
-                ? t('payment.errorStripeNotConfigured')
-                : isStripeSessionError
-                  ? t('payment.errorStripeSession')
-                  : t('payment.errorCreateSession')
+          detail && !isKlarnaMinError && !isTimedOfferError && detail !== 'Validation failed'
+            ? `${base} (${detail})`
+            : base
         )
         idempotencyKeyRef.current = null
         checkoutInFlightRef.current = false

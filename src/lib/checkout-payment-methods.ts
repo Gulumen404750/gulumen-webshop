@@ -3,8 +3,9 @@
  * és külső finanszírozott részletfizetés (Klarna a Stripe-on).
  *
  * Belső elszámolás mindig HUF. A Stripe-terhelés:
- *  - HU locale → HUF (zero-decimal)
- *  - EN/DE/RO → EUR (cent)
+ *  - Kártya / Apple Pay / Google Pay + HU locale → HUF
+ *  - EN/DE/RO → EUR
+ *  - PayPal mindig EUR (a Stripe PayPal nem támogat HUF-ot)
  *  - Klarna mindig EUR (a Stripe Klarna nem támogat HUF-ot)
  */
 import type { Locale } from '@/i18n/locales'
@@ -29,13 +30,17 @@ export function isCheckoutPaymentMethod(value: string): value is CheckoutPayment
   return (CHECKOUT_PAYMENT_METHODS as readonly string[]).includes(value)
 }
 
-/** PayPal, kártya és mobiltárca: a felület valutája. Klarna: mindig EUR. */
+/** PayPal és Klarna: mindig EUR. Kártya/tárca: a felület valutája. */
 export function resolveChargeCurrency(
   paymentMethod: CheckoutPaymentMethod,
   locale: Locale
 ): ChargeCurrency {
-  if (paymentMethod === 'klarna') return 'eur'
+  if (paymentMethod === 'klarna' || paymentMethod === 'paypal') return 'eur'
   return locale === 'hu' ? 'huf' : 'eur'
+}
+
+export function isStripeCurrencyUnsupportedMessage(message: string): boolean {
+  return /currency|not supported|presentment|invalid.*huf|\bhuf\b/i.test(message)
 }
 
 /** Stripe unit amount: HUF = forint, EUR = cent. */

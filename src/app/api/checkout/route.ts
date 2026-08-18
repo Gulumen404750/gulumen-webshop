@@ -69,6 +69,7 @@ import {
   DEFAULT_CHECKOUT_PAYMENT_METHOD,
   KLARNA_MIN_AMOUNT_HUF,
   isKlarnaEligible,
+  isStripeCurrencyUnsupportedMessage,
   resolveChargeCurrency,
   resolvePaymentMode,
   toStripeUnitAmount,
@@ -580,7 +581,12 @@ export async function POST(request: Request) {
         { status: 409 }
       )
     }
-    throw err
+    logger.error({ err, paymentMethod }, 'checkout: createCheckoutOrders failed')
+    const message = err instanceof Error ? err.message : 'Could not create order'
+    return NextResponse.json(
+      { error: message, code: 'checkout_order_failed' },
+      { status: 500 }
+    )
   }
 
   const sourcingOrder = createdOrders.find((o) => o.orderType === 'sourcing')
@@ -619,48 +625,85 @@ export async function POST(request: Request) {
 
     const mode = resolvePaymentMode(order.orderType!, paymentMethod)
     const isCapture = mode === 'capture'
-    const chargeAmount = toStripeUnitAmount(order.totalHuf, chargeCurrency, fxRate)
+    let usedCurrency = chargeCurrency
+    let usedAmount = toStripeUnitAmount(order.totalHuf, usedCurrency, fxRate)
     const tx = await createPaymentTransaction({
       orderId: order.id,
       provider: provider.name,
       mode,
-      amount: chargeAmount,
-      currency: chargeCurrency,
+      amount: usedAmount,
+      currency: usedCurrency,
       status: 'pending',
     })
+    let usedTxId = tx.id
 
-    const params = {
-      transactionId: tx.id,
-      amount: chargeAmount,
-      currency: chargeCurrency,
+    const paymentParams = (transactionId: string, amount: number, currency: typeof usedCurrency) => ({
+      transactionId,
+      amount,
+      currency,
       orderId: order.id,
       orderGroupId,
       customer: { email: customerSnapshot.email, name: customerSnapshot.name },
       paymentMethod,
       locale: checkoutLocale,
-    }
+    })
 
     let result
     try {
-      if (isCapture) {
-        result = await provider.createCapturePayment(params)
-      } else {
-        result = await provider.createAuthorizationPayment(params)
-      }
+      const first = paymentParams(usedTxId, usedAmount, usedCurrency)
+      result = isCapture
+        ? await provider.createCapturePayment(first)
+        : await provider.createAuthorizationPayment(first)
     } catch (err) {
       const stripeErr = err instanceof StripeCheckoutError ? err : null
-      logger.error(
-        { err, orderId: order.id, paymentMethod },
-        'checkout: payment session create failed'
-      )
-      return NextResponse.json(
-        {
-          error: stripeErr?.message || 'Could not start Stripe Checkout',
-          code: stripeErr?.code || 'stripe_session_failed',
+      const message = stripeErr?.message || (err instanceof Error ? err.message : '')
+      if (usedCurrency === 'huf' && isStripeCurrencyUnsupportedMessage(message)) {
+        logger.warn({ err, orderId: order.id, paymentMethod }, 'checkout: HUF Stripe session failed, retrying EUR')
+        usedCurrency = 'eur'
+        usedAmount = toStripeUnitAmount(order.totalHuf, 'eur', fxRate)
+        const eurTx = await createPaymentTransaction({
           orderId: order.id,
-        },
-        { status: 502 }
-      )
+          provider: provider.name,
+          mode,
+          amount: usedAmount,
+          currency: 'eur',
+          status: 'pending',
+        })
+        usedTxId = eurTx.id
+        try {
+          const retry = paymentParams(usedTxId, usedAmount, 'eur')
+          result = isCapture
+            ? await provider.createCapturePayment(retry)
+            : await provider.createAuthorizationPayment(retry)
+        } catch (retryErr) {
+          const retryStripe = retryErr instanceof StripeCheckoutError ? retryErr : null
+          logger.error(
+            { err: retryErr, orderId: order.id, paymentMethod },
+            'checkout: EUR Stripe session retry failed'
+          )
+          return NextResponse.json(
+            {
+              error: retryStripe?.message || 'Could not start Stripe Checkout',
+              code: retryStripe?.code || 'stripe_session_failed',
+              orderId: order.id,
+            },
+            { status: 502 }
+          )
+        }
+      } else {
+        logger.error(
+          { err, orderId: order.id, paymentMethod },
+          'checkout: payment session create failed'
+        )
+        return NextResponse.json(
+          {
+            error: stripeErr?.message || 'Could not start Stripe Checkout',
+            code: stripeErr?.code || 'stripe_session_failed',
+            orderId: order.id,
+          },
+          { status: 502 }
+        )
+      }
     }
 
     if (result.type === 'redirect') {
@@ -668,7 +711,7 @@ export async function POST(request: Request) {
         orderId: order.id,
         orderType: order.orderType!,
         mode,
-        transactionId: tx.id,
+        transactionId: usedTxId,
         type: 'redirect',
         url: result.url,
       })
@@ -677,7 +720,7 @@ export async function POST(request: Request) {
         orderId: order.id,
         orderType: order.orderType!,
         mode,
-        transactionId: tx.id,
+        transactionId: usedTxId,
         type: 'client_secret',
         clientSecret: result.clientSecret,
       })
@@ -686,7 +729,7 @@ export async function POST(request: Request) {
         orderId: order.id,
         orderType: order.orderType!,
         mode,
-        transactionId: tx.id,
+        transactionId: usedTxId,
         type: 'pending',
         message: result.message,
       })

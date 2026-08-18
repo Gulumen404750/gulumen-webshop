@@ -8,6 +8,7 @@ import {
   isExpressWalletMethod,
   isInstallmentPayment,
   isKlarnaEligible,
+  isStripeCurrencyUnsupportedMessage,
   resolveChargeCurrency,
   resolvePaymentMode,
   stripeCheckoutAmountMatches,
@@ -27,18 +28,21 @@ describe('checkout payment methods', () => {
     expect(DEFAULT_CHECKOUT_PAYMENT_METHOD).toBe('card')
   })
 
-  it('charges HUF for Hungarian PayPal/card/wallets and EUR otherwise', () => {
-    expect(resolveChargeCurrency('paypal', 'hu')).toBe('huf')
+  it('charges HUF for Hungarian card/wallets; PayPal and Klarna always EUR', () => {
     expect(resolveChargeCurrency('card', 'hu')).toBe('huf')
     expect(resolveChargeCurrency('apple_pay', 'hu')).toBe('huf')
     expect(resolveChargeCurrency('google_pay', 'en')).toBe('eur')
+    expect(resolveChargeCurrency('paypal', 'hu')).toBe('eur')
     expect(resolveChargeCurrency('paypal', 'de')).toBe('eur')
     expect(resolveChargeCurrency('card', 'ro')).toBe('eur')
-  })
-
-  it('always charges Klarna in EUR (Stripe Klarna has no HUF)', () => {
     expect(resolveChargeCurrency('klarna', 'hu')).toBe('eur')
     expect(resolveChargeCurrency('klarna', 'en')).toBe('eur')
+  })
+
+  it('detects Stripe currency-unsupported errors for HUF fallback', () => {
+    expect(isStripeCurrencyUnsupportedMessage('The currency huf is not supported')).toBe(true)
+    expect(isStripeCurrencyUnsupportedMessage('Invalid presentment currency')).toBe(true)
+    expect(isStripeCurrencyUnsupportedMessage('card declined')).toBe(false)
   })
 
   it('converts HUF totals to Stripe zero-decimal HUF and EUR cents', () => {

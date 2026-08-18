@@ -16,6 +16,8 @@ describe('checkout API payment methods', () => {
     expect(src).toMatch(/KLARNA_MIN_AMOUNT_HUF/)
     expect(src).toMatch(/StripeCheckoutError/)
     expect(src).toMatch(/stripe_session_failed/)
+    expect(src).toMatch(/isStripeCurrencyUnsupportedMessage/)
+    expect(src).toMatch(/retrying EUR/)
   })
 
   it('still blocks coupon stacking before creating a payment', () => {
