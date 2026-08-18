@@ -191,16 +191,22 @@ async function elevateOrderIfPending(orderId: string): Promise<void> {
 }
 
 function summarizeFinalizeResults(
-  results: Array<{ balanceAfter?: number; burned?: { pointsUsed?: number } }>
+  results: Array<{
+    balanceAfter?: number
+    burned?: { pointsUsed?: number; pointsEarned?: number }
+  }>
 ) {
   let pointsUsed = 0
+  let pointsEarned = 0
   let balance: number | undefined
   for (const r of results) {
     pointsUsed += r.burned?.pointsUsed ?? 0
+    pointsEarned += r.burned?.pointsEarned ?? 0
     if (typeof r.balanceAfter === 'number') balance = r.balanceAfter
   }
   return {
     pointsUsed,
+    pointsEarned,
     ...(typeof balance === 'number' ? { balance } : {}),
   }
 }

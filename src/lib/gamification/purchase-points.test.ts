@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   computeMixedPointsRedemption,
   splitWalletBalances,
+  cashPaidHufToEarnPoints,
 } from './purchase-points'
 
 describe('splitWalletBalances', () => {
@@ -74,5 +75,22 @@ describe('computeMixedPointsRedemption', () => {
     })
     expect(result.pointsDiscountHuf).toBe(1_000)
     expect(result.giftPointsUsed).toBe(1_000)
+  })
+})
+
+describe('cashPaidHufToEarnPoints', () => {
+  it('gives 1 point per 100 HUF paid with money', () => {
+    expect(cashPaidHufToEarnPoints(0)).toBe(0)
+    expect(cashPaidHufToEarnPoints(99)).toBe(0)
+    expect(cashPaidHufToEarnPoints(100)).toBe(1)
+    expect(cashPaidHufToEarnPoints(199)).toBe(1)
+    expect(cashPaidHufToEarnPoints(250)).toBe(2)
+    expect(cashPaidHufToEarnPoints(10_099)).toBe(100)
+    expect(cashPaidHufToEarnPoints(25_000)).toBe(250)
+  })
+
+  it('ignores invalid amounts', () => {
+    expect(cashPaidHufToEarnPoints(-500)).toBe(0)
+    expect(cashPaidHufToEarnPoints(Number.NaN)).toBe(0)
   })
 })

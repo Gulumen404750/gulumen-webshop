@@ -1215,6 +1215,12 @@ export default function PaymentPage() {
 
       <section className="mb-8 p-4 rounded-xl border-2 border-[var(--border)] bg-[var(--card-bg)]">
         <p className="text-sm text-muted mb-3">{t('payment.cardOnly')}</p>
+        {userId && (
+          <p className="text-xs text-emerald-600 dark:text-emerald-400 mb-3">
+            {t('payment.cashEarnHint') ||
+              'Bejelentkezve, kártyás fizetésnél 100 Ft = 1 pont, sikeres fizetés után.'}
+          </p>
+        )}
         <p className="text-xs text-muted mb-4">{t('payment.secureNote')}</p>
         {error && (
           <p className="text-red-600 dark:text-red-400 text-sm mb-4" role="alert">

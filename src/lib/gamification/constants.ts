@@ -110,11 +110,16 @@ export const FREE_SHIPPING_THRESHOLD = 25_000
 /** Standard szállítási díj (Ft), ha a végső összeg a küszöb alatt marad. */
 export const STANDARD_SHIPPING_FEE_HUF = 1_990
 
+/** Kártyás / készpénzes fizetés: ennyi Ft után jár 1 pont (sikeres fizetés után). */
+export const PURCHASE_EARN_HUF_PER_POINT = 100
+
 export const POINT_TX_TYPES = {
   BROWSE_5MIN: 'BROWSE_5MIN',
   LIKE_DAILY_BONUS: 'LIKE_DAILY_BONUS',
   REDEEM_COUPON: 'REDEEM_COUPON',
   PURCHASE_REDEEM: 'PURCHASE_REDEEM',
+  /** Kártyás / készpénzes vásárlás után: 100 Ft = 1 pont. */
+  PURCHASE_EARN: 'PURCHASE_EARN',
   LUCKY_SPIN_BONUS: 'LUCKY_SPIN_BONUS',
   REVERSAL: 'REVERSAL',
   ADMIN_ADJUST: 'ADMIN_ADJUST',

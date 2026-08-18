@@ -2,6 +2,7 @@ import {
   GIFT_POINTS_MAX_COVERAGE,
   MAX_CART_POINTS_COVERAGE,
   POINTS_PER_HUF,
+  PURCHASE_EARN_HUF_PER_POINT,
 } from './constants'
 import { getPointBalance } from './point-ledger'
 import { getAvailableGiftPoints } from './gift-points'
@@ -19,6 +20,12 @@ export function maxPointsDiscountHuf(
   coverage = MAX_CART_POINTS_COVERAGE
 ): number {
   return Math.max(0, Math.floor(cartTotalHuf * coverage))
+}
+
+/** Sikeres kártyás fizetés: 100 Ft = 1 pont. A ponttal fedezett rész nem jár. */
+export function cashPaidHufToEarnPoints(paidHuf: number): number {
+  if (!Number.isFinite(paidHuf) || paidHuf < PURCHASE_EARN_HUF_PER_POINT) return 0
+  return Math.floor(paidHuf / PURCHASE_EARN_HUF_PER_POINT)
 }
 
 export type PurchasePointsValidation = {

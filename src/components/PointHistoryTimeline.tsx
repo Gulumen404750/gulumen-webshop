@@ -33,6 +33,8 @@ function getTypeMeta(
       return { label: t('gamification.historyTypeGift'), icon: Gift }
     case 'PURCHASE_REDEEM':
       return { label: t('gamification.historyTypePurchase'), icon: Sparkles }
+    case 'PURCHASE_EARN':
+      return { label: t('gamification.historyTypePurchaseEarn'), icon: Sparkles }
     case 'REVERSAL':
       return { label: t('gamification.historyTypeReversal'), icon: RotateCcw }
     default:

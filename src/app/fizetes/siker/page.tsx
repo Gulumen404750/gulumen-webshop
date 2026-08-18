@@ -68,6 +68,7 @@ export default function PaymentSuccessPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [gaveUp, setGaveUp] = useState(false)
+  const [pointsEarned, setPointsEarned] = useState(0)
   const pollCountRef = useRef(0)
   const didClearCartRef = useRef(false)
   const didFinalizeRewardsRef = useRef(false)
@@ -124,8 +125,12 @@ export default function PaymentSuccessPage() {
         const data = (await res.json().catch(() => ({}))) as {
           balance?: number
           pointsUsed?: number
+          pointsEarned?: number
         }
         markUsed()
+        if (typeof data.pointsEarned === 'number' && data.pointsEarned > 0) {
+          setPointsEarned(data.pointsEarned)
+        }
         if (typeof data.balance === 'number') {
           void syncPointWalletAfterPayment(data.balance)
         } else {
@@ -286,6 +291,12 @@ export default function PaymentSuccessPage() {
           {t('payment.successTitle')}
         </h1>
         <p className="text-muted mb-6">{t('payment.successMessage')}</p>
+        {pointsEarned > 0 && (
+          <p className="text-sm text-emerald-600 dark:text-emerald-400 -mt-4 mb-6">
+            {t('payment.pointsEarnedSuccess', { points: String(pointsEarned) }) ||
+              `+${pointsEarned} pont jóváírva a kártyás fizetés után.`}
+          </p>
+        )}
         <section className="mb-8 space-y-6">
           {stockOrder && (
             <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
@@ -404,6 +415,12 @@ export default function PaymentSuccessPage() {
             {t('payment.successTitle')}
           </h1>
           <p className="text-muted mb-6">{t('payment.successMessage')}</p>
+          {pointsEarned > 0 && (
+            <p className="text-sm text-emerald-600 dark:text-emerald-400 -mt-4 mb-6">
+              {t('payment.pointsEarnedSuccess', { points: String(pointsEarned) }) ||
+                `+${pointsEarned} pont jóváírva a kártyás fizetés után.`}
+            </p>
+          )}
         </>
       )}
 

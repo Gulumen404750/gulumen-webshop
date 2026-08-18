@@ -13,8 +13,9 @@ import {
   POINTS_PER_HUF,
   LIKE_BONUS_WINDOW_MS,
   FREE_SHIPPING_THRESHOLD,
+  PURCHASE_EARN_HUF_PER_POINT,
 } from '@/lib/gamification/constants'
-import { Sparkles, Heart, Clock, Gift, ShoppingBag, Wallet } from 'lucide-react'
+import { Sparkles, Heart, Clock, Gift, ShoppingBag, Wallet, Coins } from 'lucide-react'
 import { useLocale } from '@/context/LocaleContext'
 
 type Props = {
@@ -54,6 +55,14 @@ export function PointsGuide({ className = '' }: Props) {
         count: DAILY_LIKE_TARGET,
         points: POINTS_DAILY_LIKE_BONUS,
         hours: likeWindowHours,
+      }),
+    },
+    {
+      icon: Coins,
+      title: t('gamification.mechanicsCashbackTitle'),
+      text: replace('gamification.mechanicsCashback', {
+        huf: PURCHASE_EARN_HUF_PER_POINT,
+        points: 1,
       }),
     },
     {

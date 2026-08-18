@@ -6,9 +6,10 @@ import { prisma, isDbConfigured } from '@/lib/prisma'
 import { recordCouponUsageOnPayment } from '@/lib/coupon-checkout'
 import { markUserPromoCouponUsed, markUserPromoCouponsUsed } from '@/lib/promo-coupons'
 import { markWelcomeCouponRedeemed } from '@/lib/welcome-checkout-offer'
-import { applyPointDelta } from '@/lib/gamification/point-ledger'
+import { applyPointDelta, GamificationSuspendedError } from '@/lib/gamification/point-ledger'
 import { consumeGiftPointsForOrder } from '@/lib/gamification/gift-points'
 import { POINT_TX_TYPES } from '@/lib/gamification/constants'
+import { cashPaidHufToEarnPoints } from '@/lib/gamification/purchase-points'
 import { internalPointsLedgerMetadata } from '@/lib/order-points-accounting'
 import { logger } from '@/lib/logger'
 import { revalidateUserProfile } from '@/lib/revalidate-user-profile'
@@ -24,6 +25,12 @@ export const APPLIED_COUPON_KINDS = [
 export type AppliedCouponKind = (typeof APPLIED_COUPON_KINDS)[number]
 
 const PAID_LIKE_STATUSES = new Set(['paid', 'sourcing_pending', 'fulfilled'])
+
+/** Bejelentkezett vevő: a kártyán fizetett összeg 100 Ft-onként 1 pont. Vendég: 0. */
+function cashEarnPointsForOrder(order: { userId: string | null; totalHuf: number }): number {
+  if (!order.userId) return 0
+  return cashPaidHufToEarnPoints(order.totalHuf)
+}
 
 export function parseAppliedCoupons(value: unknown): AppliedCouponKind[] {
   if (!Array.isArray(value)) return []
@@ -49,6 +56,7 @@ export type FinalizeOrderRewardsResult = {
     promoKinds: AppliedCouponKind[]
     welcome: boolean
     pointsUsed: number
+    pointsEarned: number
   }
 }
 
@@ -62,6 +70,7 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
     promoKinds: [] as AppliedCouponKind[],
     welcome: false,
     pointsUsed: 0,
+    pointsEarned: 0,
   }
 
   if (!isDbConfigured()) {
@@ -79,6 +88,7 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
       pointsUsed: true,
       pointsDiscountHuf: true,
       giftPointsUsed: true,
+      totalHuf: true,
       appliedCoupons: true,
       rewardsFinalized: true,
       orderGroupId: true,
@@ -107,7 +117,12 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
       }
     }
     revalidateUserProfile()
-    return { ok: true, alreadyFinalized: true, balanceAfter, burned: emptyBurn }
+    return {
+      ok: true,
+      alreadyFinalized: true,
+      balanceAfter,
+      burned: { ...emptyBurn, pointsEarned: cashEarnPointsForOrder(order) },
+    }
   }
 
   // Optimistic claim – párhuzamos webhook + siker oldal ne fusson kétszer
@@ -116,7 +131,11 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
     data: { rewardsFinalized: true },
   })
   if (claimed.count === 0) {
-    return { ok: true, alreadyFinalized: true, burned: emptyBurn }
+    return {
+      ok: true,
+      alreadyFinalized: true,
+      burned: { ...emptyBurn, pointsEarned: cashEarnPointsForOrder(order) },
+    }
   }
 
   const applied = parseAppliedCoupons(order.appliedCoupons)
@@ -125,6 +144,7 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
     promoKinds: [],
     welcome: false,
     pointsUsed: 0,
+    pointsEarned: 0,
   }
 
   try {
@@ -217,11 +237,41 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
       }
     }
 
+    // 5) Kártyás / készpénzes rész: 100 Ft = 1 pont, sikeres fizetés után.
+    // Ponttal fedezett termékár nem jár (order.totalHuf = számlázandó kártyás összeg).
+    if (order.userId) {
+      const earned = cashPaidHufToEarnPoints(order.totalHuf)
+      if (earned > 0) {
+        try {
+          const earnResult = await applyPointDelta({
+            userId: order.userId,
+            delta: earned,
+            type: POINT_TX_TYPES.PURCHASE_EARN,
+            idempotencyKey: `purchase-earn:${orderId}`,
+            reason: `Vásárlási pont: ${order.totalHuf} Ft kártyás fizetés (100 Ft = 1 pont)`,
+            referenceType: 'order',
+            referenceId: orderId,
+            metadata: {
+              orderId,
+              paidHuf: order.totalHuf,
+              pointsEarned: earned,
+              pointsUsed,
+            },
+          })
+          burned.pointsEarned = earned
+          balanceAfter = earnResult.wallet?.balance ?? balanceAfter
+        } catch (err) {
+          if (!(err instanceof GamificationSuspendedError)) throw err
+          logger.warn({ orderId, userId: order.userId }, 'purchase earn skipped: gamification suspended')
+        }
+      }
+    }
+
     revalidateUserProfile()
 
     logger.info(
       { orderId, burned, applied, balanceAfter },
-      'finalizeOrderRewards: coupons burned and points deducted'
+      'finalizeOrderRewards: coupons burned, points deducted, cash earn credited'
     )
     return { ok: true, burned, balanceAfter }
   } catch (err) {

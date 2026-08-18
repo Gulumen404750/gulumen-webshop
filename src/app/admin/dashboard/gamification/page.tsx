@@ -35,6 +35,7 @@ const TX_TYPE_LABELS: Record<string, string> = {
   LIKE_DAILY_BONUS: 'Kedvenc bónusz',
   REDEEM_COUPON: 'Kupon beváltás',
   PURCHASE_REDEEM: 'Vásárlás (pont)',
+  PURCHASE_EARN: 'Vásárlási pont',
   LUCKY_SPIN_BONUS: 'Szerencsekerék',
   REVERSAL: 'Visszavonás',
   ADMIN_ADJUST: 'Admin módosítás',
