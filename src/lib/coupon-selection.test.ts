@@ -30,6 +30,26 @@ describe('coupon selection + 20% cap', () => {
     )
   })
 
+  it('lists a redeemed gamification coupon in available checkout coupons', () => {
+    const withPointsCoupon = buildPromoCoupons({
+      catClaimed: false,
+      registrationClaimed: false,
+      gamification: { code: 'GLM-ABCDEF123456', percent: 10 },
+      labels: { ...labels, gamification: 'Pontból váltott kupon (10%)' },
+    })
+    expect(withPointsCoupon).toEqual([
+      expect.objectContaining({
+        id: 'gamification',
+        percent: 0.1,
+        code: 'GLM-ABCDEF123456',
+      }),
+    ])
+    const selected = calculateSelectedCouponPercent(withPointsCoupon, ['gamification'])
+    expect(selected.finalPercent).toBeCloseTo(0.1)
+    expect(selected.gamificationCode).toBe('GLM-ABCDEF123456')
+    expect(selected.useGamification).toBe(true)
+  })
+
   it('allows cat + registration (15%) in launch stacking mode', () => {
     const result = calculateSelectedCouponPercent(coupons, ['cat', 'registration'])
     expect(result.finalPercent).toBeCloseTo(0.15)

@@ -245,6 +245,7 @@
     "couponCatRegStackBlocked": "Cat and registration coupons cannot be combined right now – choose one.",
     "couponCappedHint": "max. 20%",
     "couponCatLabel": "Cat game coupon",
+    "couponGamificationLabel": "Points coupon ({percent}%)",
     "couponRegistrationLabel": "Registration coupon",
     "couponScopeHint": "The coupon applies to the entire cart, including promotional items, on top of the Lucky Spin discount.",
     "shippingFee": "Shipping fee",

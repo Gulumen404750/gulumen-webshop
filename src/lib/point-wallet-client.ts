@@ -13,6 +13,8 @@ export type PointWalletData = {
   canRedeem: boolean
   hasActiveCoupon: boolean
   activeCouponCode: string | null
+  activeCouponPercent?: number | null
+  activeCouponValidUntil?: string | null
   suspended: boolean
   giftPointsAvailable?: number
   giftBalance?: number

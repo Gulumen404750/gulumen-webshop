@@ -245,6 +245,7 @@
     "couponCatRegStackBlocked": "Katzen- und Registrierungs-Gutschein sind derzeit nicht kombinierbar – wähle einen.",
     "couponCappedHint": "max. 20%",
     "couponCatLabel": "Katzen-Spiel-Gutschein",
+    "couponGamificationLabel": "Punkte-Gutschein ({percent}%)",
     "couponRegistrationLabel": "Registrierungs-Gutschein",
     "couponScopeHint": "Der Gutschein gilt für den gesamten Warenkorb, auch für Aktionsartikel – zusätzlich zum Glücksrad-Rabatt.",
     "shippingFee": "Versandkosten",

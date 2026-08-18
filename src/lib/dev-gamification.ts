@@ -168,6 +168,8 @@ export function devGetWallet(userId: string) {
     canRedeem,
     hasActiveCoupon: false,
     activeCouponCode: null,
+    activeCouponPercent: null,
+    activeCouponValidUntil: null,
     suspended: wallet.gamificationSuspended,
     giftPointsAvailable: 0,
     giftBalance: 0,

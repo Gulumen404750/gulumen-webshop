@@ -61,7 +61,14 @@ import {
   toOrderCustomerSnapshot,
 } from '@/lib/checkout-customer'
 
-const selectedCouponEnum = z.enum(['cat', 'registration', 'loyalty', 'welcome', 'birthday'])
+const selectedCouponEnum = z.enum([
+  'cat',
+  'registration',
+  'loyalty',
+  'welcome',
+  'birthday',
+  'gamification',
+])
 
 const checkoutBodySchema = z.object({
   items: z
@@ -207,8 +214,6 @@ export async function POST(request: Request) {
     }
   }
 
-  if (couponCodeTrimmed) selectedCoupons.add('birthday')
-
   if (requestedPointsHuf > 0) {
     if (!session || !checkoutUserId) {
       return NextResponse.json({ error: 'Login required to use points' }, { status: 401 })
@@ -345,6 +350,11 @@ export async function POST(request: Request) {
     }
     appliedCouponId = resolved.coupon.id
     appliedCouponCode = resolved.coupon.code
+    if (resolved.coupon.source === 'gamification') {
+      selectedCoupons.add('gamification')
+    } else if (resolved.coupon.source === 'birthday') {
+      selectedCoupons.add('birthday')
+    }
     if (resolved.discount.fixedHuf && resolved.discount.fixedHuf > 0) {
       fixedHufFromDb = resolved.discount.fixedHuf
     } else if (resolved.discount.percent && resolved.discount.percent > 0) {

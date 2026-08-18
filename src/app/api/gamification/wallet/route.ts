@@ -48,8 +48,17 @@ export async function GET(request: Request) {
     const [wallet, activeCoupon, giftPointsAvailable, giftExpiresAt] = await Promise.all([
       prisma.userPointWallet.findUnique({ where: { userId } }),
       prisma.coupon.findFirst({
-        where: { userId, source: 'gamification', active: true },
-        select: { code: true, validUntil: true },
+        where: {
+          userId,
+          source: 'gamification',
+          active: true,
+          usedCount: 0,
+          AND: [
+            { OR: [{ validFrom: null }, { validFrom: { lte: new Date() } }] },
+            { OR: [{ validUntil: null }, { validUntil: { gt: new Date() } }] },
+          ],
+        },
+        select: { code: true, validUntil: true, discountType: true, discountValue: true },
       }),
       getAvailableGiftPoints(userId),
       getSoonestGiftExpiry(userId),
@@ -71,6 +80,8 @@ export async function GET(request: Request) {
         canRedeem,
         hasActiveCoupon: Boolean(activeCoupon),
         activeCouponCode: activeCoupon?.code ?? null,
+        activeCouponPercent: activeCoupon?.discountValue ?? null,
+        activeCouponValidUntil: activeCoupon?.validUntil?.toISOString() ?? null,
         suspended: wallet?.gamificationSuspended ?? false,
         giftPointsAvailable,
         giftBalance,

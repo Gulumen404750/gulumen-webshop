@@ -245,6 +245,7 @@
     "couponCatRegStackBlocked": "A macska és a regisztrációs kupon most nem kombinálható – válassz egyet.",
     "couponCappedHint": "max. 20%",
     "couponCatLabel": "Macska játék kupon",
+    "couponGamificationLabel": "Pontból váltott kupon ({percent}%)",
     "couponRegistrationLabel": "Regisztrációs kupon",
     "couponScopeHint": "A kupon a teljes kosárra érvényes, az akciós termékekre is – a Szerencsekerék kedvezményen felül.",
     "shippingFee": "Szállítási díj",

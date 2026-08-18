@@ -119,6 +119,9 @@ export function CouponSelector({
                   {coupon.code && (
                     <span className="block text-xs text-muted mt-0.5 font-mono">{coupon.code}</span>
                   )}
+                  {coupon.hint && (
+                    <span className="block text-xs text-muted mt-0.5">{coupon.hint}</span>
+                  )}
                   {wouldExceed && (
                     <span className="block text-xs text-amber-600 dark:text-amber-400 mt-1">
                       {blockedByStack ? stackBlockedText : resolvedCap}

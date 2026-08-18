@@ -31,6 +31,7 @@ import { GiftPointClaimForm } from '@/components/GiftPointClaimForm'
 import {
   buildPromoCoupons,
   calculateSelectedCouponPercent,
+  canToggleCoupon,
   type SelectableCouponId,
 } from '@/lib/coupon-selection'
 
@@ -134,6 +135,31 @@ export default function PaymentPage() {
 
   const lockedLines = applyLuckySpinLockedPrices(cartLines, luckySpinRecord)
 
+  const gamificationCoupon = useMemo(() => {
+    if (!wallet?.hasActiveCoupon || !wallet.activeCouponCode) return null
+    const validUntil = wallet.activeCouponValidUntil
+      ? new Date(wallet.activeCouponValidUntil).toLocaleDateString(locale)
+      : undefined
+    return {
+      code: wallet.activeCouponCode,
+      percent: wallet.activeCouponPercent ?? 10,
+      validUntil,
+    }
+  }, [
+    wallet?.hasActiveCoupon,
+    wallet?.activeCouponCode,
+    wallet?.activeCouponPercent,
+    wallet?.activeCouponValidUntil,
+    locale,
+  ])
+  const gamificationPercentDisplay = Math.round(
+    gamificationCoupon
+      ? gamificationCoupon.percent > 1
+        ? gamificationCoupon.percent
+        : gamificationCoupon.percent * 100
+      : 10
+  )
+
   const availableCoupons = useMemo(
     () =>
       buildPromoCoupons({
@@ -148,6 +174,7 @@ export default function PaymentPage() {
               validUntil: birthdayCouponBanner.validUntil,
             }
           : null,
+        gamification: gamificationCoupon,
         labels: {
           cat: t('payment.couponCatLabel') || 'Macska játék kupon',
           registration: t('payment.couponRegistrationLabel') || 'Regisztrációs kupon',
@@ -158,6 +185,9 @@ export default function PaymentPage() {
           birthday: t('payment.birthdayCouponTitle', {
             percent: birthdayCouponBanner?.percent ?? 15,
           }) || 'Születésnapi kupon',
+          gamification:
+            t('payment.couponGamificationLabel', { percent: gamificationPercentDisplay }) ||
+            `Pontból váltott kupon (${gamificationPercentDisplay}%)`,
         },
       }),
     [
@@ -166,6 +196,8 @@ export default function PaymentPage() {
       loyaltyPercent,
       welcomeOfferEligible,
       birthdayCouponBanner,
+      gamificationCoupon,
+      gamificationPercentDisplay,
       t,
     ]
   )
@@ -319,14 +351,37 @@ export default function PaymentPage() {
     }
   }, [userId, guestEmail])
 
-  // Birthday kód szinkron a kijelöléssel
+  // Birthday / pontból váltott kód szinkron a kijelöléssel
   useEffect(() => {
-    if (couponSelection.birthdayCode) {
-      setCouponCodeInput(couponSelection.birthdayCode)
-    } else if (!selectedCouponIds.includes('birthday')) {
+    const dbCode = couponSelection.birthdayCode || couponSelection.gamificationCode
+    if (dbCode) {
+      setCouponCodeInput(dbCode)
+      return
+    }
+    if (!selectedCouponIds.includes('birthday') && !selectedCouponIds.includes('gamification')) {
       setCouponCodeInput('')
     }
-  }, [couponSelection.birthdayCode, selectedCouponIds])
+  }, [couponSelection.birthdayCode, couponSelection.gamificationCode, selectedCouponIds])
+
+  const autoSelectedGamificationRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (usePoints) {
+      autoSelectedGamificationRef.current = null
+      return
+    }
+    const code = gamificationCoupon?.code
+    if (!code) {
+      autoSelectedGamificationRef.current = null
+      return
+    }
+    if (autoSelectedGamificationRef.current === code) return
+    autoSelectedGamificationRef.current = code
+    setSelectedCouponIds((prev) => {
+      if (prev.includes('gamification')) return prev
+      if (!canToggleCoupon(availableCoupons, new Set(prev), 'gamification', true)) return prev
+      return [...prev, 'gamification']
+    })
+  }, [gamificationCoupon?.code, availableCoupons, usePoints])
 
   useEffect(() => {
     if (!usePoints) return
@@ -533,7 +588,10 @@ export default function PaymentPage() {
           // Kedvezmény % NEM a kliensről – szerver couponCode + selectedCoupons alapján számol
           couponCode: usePoints
             ? undefined
-            : couponSelection.birthdayCode || couponCodeInput.trim() || undefined,
+            : couponSelection.birthdayCode ||
+              couponSelection.gamificationCode ||
+              couponCodeInput.trim() ||
+              undefined,
           welcomeOfferAccepted: usePoints ? undefined : couponSelection.useWelcome ? true : undefined,
           selectedCoupons: usePoints ? [] : couponSelection.selectedIds,
           pointsDiscountHuf: pointsDiscountHuf > 0 ? pointsDiscountHuf : undefined,

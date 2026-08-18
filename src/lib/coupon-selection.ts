@@ -23,6 +23,7 @@ export type SelectableCouponId =
   | 'loyalty'
   | 'welcome'
   | 'birthday'
+  | 'gamification'
 
 export type SelectableCoupon = {
   id: SelectableCouponId
@@ -44,13 +45,23 @@ export type CouponSelectionResult = {
   finalPercent: number
   capped: boolean
   birthdayCode?: string
+  gamificationCode?: string
   useWelcome: boolean
   useLoyalty: boolean
   useCat: boolean
   useRegistration: boolean
+  useGamification: boolean
 }
 
 export { MAX_COMBINED_COUPON_PERCENT, capCombinedCouponPercent }
+
+/** DB kupon % (10) vagy tört (0.1) → 0–1. */
+export function normalizeCouponPercent(percent: number | undefined, fallback: number): number {
+  if (typeof percent === 'number' && Number.isFinite(percent) && percent > 0) {
+    return percent > 1 ? percent / 100 : percent
+  }
+  return fallback
+}
 
 /** Összegzés plafonnal. */
 export function calculateSelectedCouponPercent(
@@ -62,6 +73,7 @@ export function calculateSelectedCouponPercent(
   const rawPercent = picked.reduce((s, c) => s + (c.percent > 0 ? c.percent : 0), 0)
   const finalPercent = capCombinedCouponPercent(rawPercent)
   const birthday = picked.find((c) => c.id === 'birthday')
+  const gamification = picked.find((c) => c.id === 'gamification')
 
   return {
     selectedIds: picked.map((c) => c.id),
@@ -69,10 +81,12 @@ export function calculateSelectedCouponPercent(
     finalPercent,
     capped: rawPercent > MAX_COMBINED_COUPON_PERCENT + 1e-9,
     birthdayCode: birthday?.code,
+    gamificationCode: gamification?.code,
     useWelcome: selected.has('welcome'),
     useLoyalty: selected.has('loyalty'),
     useCat: selected.has('cat'),
     useRegistration: selected.has('registration'),
+    useGamification: selected.has('gamification'),
   }
 }
 
@@ -104,12 +118,14 @@ export function buildPromoCoupons(input: {
   loyaltyPercent?: number
   welcomeEligible?: boolean
   birthday?: { code: string; percent?: number; validUntil?: string } | null
+  gamification?: { code: string; percent?: number; validUntil?: string } | null
   labels: {
     cat: string
     registration: string
     loyalty: string
     welcome: string
     birthday: string
+    gamification?: string
   }
 }): SelectableCoupon[] {
   const out: SelectableCoupon[] = []
@@ -143,18 +159,23 @@ export function buildPromoCoupons(input: {
     })
   }
   if (input.birthday?.code) {
-    const p =
-      typeof input.birthday.percent === 'number' && input.birthday.percent > 0
-        ? input.birthday.percent > 1
-          ? input.birthday.percent / 100
-          : input.birthday.percent
-        : BIRTHDAY_COUPON_PERCENT
+    const p = normalizeCouponPercent(input.birthday.percent, BIRTHDAY_COUPON_PERCENT)
     out.push({
       id: 'birthday',
       label: input.labels.birthday,
       percent: p,
       code: input.birthday.code,
       hint: input.birthday.validUntil,
+    })
+  }
+  if (input.gamification?.code) {
+    const p = normalizeCouponPercent(input.gamification.percent, 0.1)
+    out.push({
+      id: 'gamification',
+      label: input.labels.gamification || 'Pontból váltott kupon',
+      percent: p,
+      code: input.gamification.code,
+      hint: input.gamification.validUntil,
     })
   }
   return out

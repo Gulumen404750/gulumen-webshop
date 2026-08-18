@@ -219,6 +219,7 @@
     "couponCatRegStackBlocked": "Cuponul pisică și cel de înregistrare nu se pot combina acum – alege unul.",
     "couponCappedHint": "max. 20%",
     "couponCatLabel": "Cupon joc pisică",
+    "couponGamificationLabel": "Cupon din puncte ({percent}%)",
     "couponRegistrationLabel": "Cupon de înregistrare",
     "couponScopeHint": "Cuponul se aplică întregului coș, inclusiv produselor promoționale – peste reducerea Roții norocului.",
     "shippingFee": "Cost livrare",
