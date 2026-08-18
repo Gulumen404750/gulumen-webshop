@@ -198,6 +198,28 @@ export async function findGiftPointCodeByToken(token: string) {
   })
 }
 
+/** Admin címke (pl. AJANDEK5000): első még fel nem használt token a tételből. */
+export async function findUnclaimedGiftPointCodeByBatchLabel(batchCode: string) {
+  if (!isDbConfigured()) return null
+  const labels = Array.from(
+    new Set(
+      [batchCode.trim().toUpperCase(), normalizeGiftPointToken(batchCode)].filter(
+        (s) => s.length > 0
+      )
+    )
+  )
+  if (labels.length === 0) return null
+  return prisma.giftPointCode.findFirst({
+    where: {
+      claimedAt: null,
+      active: true,
+      batch: { code: { in: labels }, active: true },
+    },
+    orderBy: { createdAt: 'asc' },
+    include: { batch: true },
+  })
+}
+
 export async function previewGiftPointCode(
   token: string,
   now: Date = new Date()

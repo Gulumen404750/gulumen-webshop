@@ -28,7 +28,7 @@ export function dbCouponToDiscount(coupon: {
   return { percent: capCombinedCouponPercent(coupon.discountValue / 100) }
 }
 
-function isCouponInValidPeriod(
+export function isCouponInValidPeriod(
   coupon: { validFrom: Date | null; validUntil: Date | null },
   now: Date
 ): boolean {
@@ -37,18 +37,30 @@ function isCouponInValidPeriod(
   return true
 }
 
-/** DB kupon keresés és validálás – nem kombinálható loyalty / macska kuponnal. */
-export async function resolveCheckoutCoupon(params: {
+const OWNER_SOURCES = new Set(['gamification', 'registration', 'abandoned_cart', 'birthday'])
+
+export type CouponRedeemPreview = {
+  id: string
+  code: string
+  discountType: string
+  discountValue: number
+  minOrderHuf: number | null
+  validUntil: Date | null
+  source: string | null
+  userId: string | null
+}
+
+/** Kuponkód előnézet (min. rendelés nélkül) – profil / kódbeváltó. */
+export async function previewCouponCode(params: {
   couponCode: string
-  checkoutUserId: string | null
-  subtotalHuf: number
+  userId: string | null
   now?: Date
-}): Promise<ResolveCheckoutCouponResult> {
+}): Promise<{ ok: true; coupon: CouponRedeemPreview } | { ok: false; error: string; code: string }> {
   if (!isDbConfigured()) {
     return { ok: false, error: 'Coupon checkout requires database', code: 'coupon_unavailable' }
   }
 
-  const code = params.couponCode.trim().toUpperCase()
+  const code = params.couponCode.trim().toUpperCase().replace(/\s+/g, '')
   if (!code) {
     return { ok: false, error: 'Invalid coupon code', code: 'coupon_invalid' }
   }
@@ -71,31 +83,68 @@ export async function resolveCheckoutCoupon(params: {
     return { ok: false, error: 'Coupon usage limit reached', code: 'coupon_exhausted' }
   }
 
-  if (coupon.minOrderHuf != null && params.subtotalHuf < coupon.minOrderHuf) {
-    return {
-      ok: false,
-      error: `Minimum order amount is ${coupon.minOrderHuf} HUF`,
-      code: 'coupon_min_order',
-    }
-  }
-
-  const ownerSources = new Set(['gamification', 'registration', 'abandoned_cart', 'birthday'])
-  if (coupon.userId && ownerSources.has(coupon.source ?? '')) {
-    if (!params.checkoutUserId) {
+  if (coupon.userId && OWNER_SOURCES.has(coupon.source ?? '')) {
+    if (!params.userId) {
       return { ok: false, error: 'Login required for this coupon', code: 'coupon_login_required' }
     }
-    if (coupon.userId !== params.checkoutUserId) {
+    if (coupon.userId !== params.userId) {
       return { ok: false, error: 'Coupon does not belong to this account', code: 'coupon_not_owned' }
     }
   }
 
+  return {
+    ok: true,
+    coupon: {
+      id: coupon.id,
+      code: coupon.code,
+      discountType: coupon.discountType,
+      discountValue: coupon.discountValue,
+      minOrderHuf: coupon.minOrderHuf,
+      validUntil: coupon.validUntil,
+      source: coupon.source,
+      userId: coupon.userId,
+    },
+  }
+}
+
+/** DB kupon keresés és validálás – nem kombinálható loyalty / macska kuponnal. */
+export async function resolveCheckoutCoupon(params: {
+  couponCode: string
+  checkoutUserId: string | null
+  subtotalHuf: number
+  now?: Date
+}): Promise<ResolveCheckoutCouponResult> {
+  if (!isDbConfigured()) {
+    return { ok: false, error: 'Coupon checkout requires database', code: 'coupon_unavailable' }
+  }
+
+  const code = params.couponCode.trim().toUpperCase()
+  if (!code) {
+    return { ok: false, error: 'Invalid coupon code', code: 'coupon_invalid' }
+  }
+
+  const preview = await previewCouponCode({
+    couponCode: code,
+    userId: params.checkoutUserId,
+    now: params.now,
+  })
+  if (!preview.ok) return preview
+
+  if (preview.coupon.minOrderHuf != null && params.subtotalHuf < preview.coupon.minOrderHuf) {
+    return {
+      ok: false,
+      error: `Minimum order amount is ${preview.coupon.minOrderHuf} HUF`,
+      code: 'coupon_min_order',
+    }
+  }
+
   const resolved: ResolvedDbCoupon = {
-    id: coupon.id,
-    code: coupon.code,
-    discountType: coupon.discountType,
-    discountValue: coupon.discountValue,
-    source: coupon.source,
-    userId: coupon.userId,
+    id: preview.coupon.id,
+    code: preview.coupon.code,
+    discountType: preview.coupon.discountType,
+    discountValue: preview.coupon.discountValue,
+    source: preview.coupon.source,
+    userId: preview.coupon.userId,
   }
 
   return { ok: true, coupon: resolved, discount: dbCouponToDiscount(resolved) }

@@ -346,9 +346,9 @@ export function AdminGiftPointsSection({
             </h2>
             <p className="text-sm text-muted mb-4">
               Minden darabhoz egyedi azonosító és <code className="font-mono">/claim/…</code> URL
-              készül. A QR / NFC ugyanezt a linket írja. Aktiváláskor a kód egyszer használatosra
-              válik, a pont 1 hónapig költhető, más akcióval nem vonható össze, a szállítás a
-              vásárlót terheli.
+              készül. A vevő beírhatja a tétel címkéjét (pl. AJANDEK5000) vagy az egyedi tokent a
+              profilon / fizetésnél. A QR / NFC ugyanezt a linket írja. Aktiváláskor a kód egyszer
+              használatosra válik, a pont 1 hónapig költhető, más akcióval nem vonható össze.
             </p>
 
             {formError && (
@@ -367,6 +367,9 @@ export function AdminGiftPointsSection({
                   className="mt-1 w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 font-mono text-foreground"
                   placeholder="PL. AJANDEK5000"
                 />
+                <span className="mt-1 block text-xs text-muted">
+                  Ezt a címkét is be lehet váltani a profilon vagy a fizetésnél (egy fel nem használt tokennel).
+                </span>
               </label>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

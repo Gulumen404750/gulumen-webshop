@@ -6,13 +6,25 @@ import { useAuth } from '@/context/AuthContext'
 import { useLocale } from '@/context/LocaleContext'
 import { POINT_WALLET_SWR_KEY } from '@/lib/point-wallet-client'
 import { mutate } from 'swr'
+import { writeTypedCoupon, type StoredTypedCoupon } from '@/lib/typed-coupon-storage'
 
-type ClaimSuccess = {
+export type GiftClaimSuccess = {
+  kind: 'gift_points'
   points: number
   expiresAt: string
   balanceAfter: number | null
   alreadyClaimedByYou?: boolean
 }
+
+export type CouponClaimSuccess = {
+  kind: 'coupon'
+  code: string
+  discountType: 'percent' | 'fixed'
+  discountValue: number
+  minOrderHuf: number | null
+}
+
+export type CodeRedeemSuccess = GiftClaimSuccess | CouponClaimSuccess
 
 type Props = {
   /** Előre kitöltött token (QR /claim oldal). */
@@ -20,7 +32,7 @@ type Props = {
   /** Elrejti a token mezőt, ha a token az URL-ből jön. */
   hideTokenInput?: boolean
   className?: string
-  onSuccess?: (result: ClaimSuccess) => void
+  onSuccess?: (result: CodeRedeemSuccess) => void
 }
 
 export function GiftPointClaimForm({
@@ -34,7 +46,8 @@ export function GiftPointClaimForm({
   const [token, setToken] = useState(initialToken)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<ClaimSuccess | null>(null)
+  const [giftSuccess, setGiftSuccess] = useState<GiftClaimSuccess | null>(null)
+  const [couponSuccess, setCouponSuccess] = useState<CouponClaimSuccess | null>(null)
 
   const nextPath =
     typeof window !== 'undefined'
@@ -44,23 +57,20 @@ export function GiftPointClaimForm({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-    setSuccess(null)
+    setGiftSuccess(null)
+    setCouponSuccess(null)
     const trimmed = token.trim()
     if (!trimmed) {
       setError(t('giftClaim.errorRequired'))
       return
     }
-    if (!isLoggedIn) {
-      setError(t('giftClaim.loginRequired'))
-      return
-    }
     setBusy(true)
     try {
-      const res = await fetch('/api/gift-points/claim', {
+      const res = await fetch('/api/codes/redeem', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: trimmed }),
+        body: JSON.stringify({ code: trimmed }),
       })
       const data = await res.json().catch(() => ({}))
       if (res.status === 401) {
@@ -71,13 +81,33 @@ export function GiftPointClaimForm({
         setError(typeof data.error === 'string' ? data.error : t('giftClaim.errorGeneric'))
         return
       }
-      const result: ClaimSuccess = {
+      if (data.kind === 'coupon') {
+        const result: CouponClaimSuccess = {
+          kind: 'coupon',
+          code: String(data.code || trimmed).toUpperCase(),
+          discountType: data.discountType === 'fixed' ? 'fixed' : 'percent',
+          discountValue: Number(data.discountValue) || 0,
+          minOrderHuf: typeof data.minOrderHuf === 'number' ? data.minOrderHuf : null,
+        }
+        const stored: StoredTypedCoupon = {
+          code: result.code,
+          discountType: result.discountType,
+          discountValue: result.discountValue,
+          minOrderHuf: result.minOrderHuf,
+        }
+        writeTypedCoupon(stored)
+        setCouponSuccess(result)
+        onSuccess?.(result)
+        return
+      }
+      const result: GiftClaimSuccess = {
+        kind: 'gift_points',
         points: Number(data.points) || 0,
         expiresAt: typeof data.expiresAt === 'string' ? data.expiresAt : '',
         balanceAfter: typeof data.balanceAfter === 'number' ? data.balanceAfter : null,
         alreadyClaimedByYou: data.alreadyClaimedByYou === true,
       }
-      setSuccess(result)
+      setGiftSuccess(result)
       await mutate(POINT_WALLET_SWR_KEY)
       onSuccess?.(result)
     } catch {
@@ -115,16 +145,29 @@ export function GiftPointClaimForm({
             {error}
           </p>
         )}
-        {success && (
+        {giftSuccess && (
           <p className="text-sm text-green-700 dark:text-green-400" role="status">
-            {success.alreadyClaimedByYou
-              ? t('giftClaim.alreadyYours', { points: success.points })
-              : t('giftClaim.success', { points: success.points })}
-            {success.expiresAt
+            {giftSuccess.alreadyClaimedByYou
+              ? t('giftClaim.alreadyYours', { points: giftSuccess.points })
+              : t('giftClaim.success', { points: giftSuccess.points })}
+            {giftSuccess.expiresAt
               ? ` ${t('giftClaim.expires', {
-                  date: new Date(success.expiresAt).toLocaleDateString(),
+                  date: new Date(giftSuccess.expiresAt).toLocaleDateString(),
                 })}`
               : ''}
+          </p>
+        )}
+        {couponSuccess && (
+          <p className="text-sm text-green-700 dark:text-green-400" role="status">
+            {couponSuccess.discountType === 'fixed'
+              ? t('giftClaim.couponSuccessFixed', {
+                  amount: couponSuccess.discountValue.toLocaleString('hu-HU'),
+                  code: couponSuccess.code,
+                })
+              : t('giftClaim.couponSuccessPercent', {
+                  percent: couponSuccess.discountValue,
+                  code: couponSuccess.code,
+                })}
           </p>
         )}
 
@@ -138,15 +181,15 @@ export function GiftPointClaimForm({
               {t('profile.loginCta')}
             </Link>
           </p>
-        ) : (
-          <button
-            type="submit"
-            disabled={busy || (!token.trim() && hideTokenInput)}
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-          >
-            {busy ? t('giftClaim.submitting') : t('giftClaim.submit')}
-          </button>
-        )}
+        ) : null}
+
+        <button
+          type="submit"
+          disabled={busy || (!token.trim() && hideTokenInput)}
+          className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+        >
+          {busy ? t('giftClaim.submitting') : t('giftClaim.submit')}
+        </button>
       </form>
     </section>
   )

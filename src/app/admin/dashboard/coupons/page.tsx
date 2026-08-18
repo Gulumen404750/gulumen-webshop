@@ -208,6 +208,9 @@ function CouponModal({
               className="mt-1 w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground font-mono"
               placeholder="PL. NYAR2026"
             />
+            <span className="mt-1 block text-xs text-muted">
+              Ezt a kódot írja be a vevő a profilon vagy a fizetésnél.
+            </span>
           </label>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

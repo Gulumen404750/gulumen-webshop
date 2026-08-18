@@ -237,6 +237,7 @@
     "luckySpinDiscountLine": "Szerencsekerék ({percent}%)",
     "couponDiscountLine": "Kuponkedvezmény",
     "couponDiscountWithCode": "Kupon ({percent}%)",
+    "couponDiscountFixed": "Kupon {code} (−{amount} Ft)",
     "loyaltyDiscountLine": "Hűségkedvezmény ({percent}%)",
     "couponSelectorTitle": "Elérhető kuponok",
     "couponSelectorHint": "Válaszd ki manuálisan a kedvezményt. A kuponok nem vonhatók össze; a legnagyobb beváltható kedvezmény 15%.",
@@ -260,6 +261,7 @@
     "couponApplied": "Aktív kupon: {percent}%",
     "couponAlreadyActive": "A kupon már érvényesítve van a rendelésben.",
     "couponInvalid": "Érvénytelen kuponkód.",
+    "couponRemove": "Eltávolítás",
     "couponWillApplyAtCheckout": "A kuponkódot a fizetéskor ellenőrizzük és érvényesítjük.",
     "couponNoneAvailable": "Nincs beváltható kupon. A 5%-os ajándék kupon a főoldalon aktiválható.",
     "birthdayCouponTitle": "{percent}% exkluzív kuponod aktív",
@@ -561,10 +563,10 @@
     "historyDevNote": "Helyi fejlesztői módban a ponttörténet csak adatbázissal érhető el."
   },
   "giftClaim": {
-    "title": "Ajándékpont beváltása",
-    "hint": "Írd be a kódot, vagy olvasd be a QR / NFC linket. A pontok azonnal a tárcádba kerülnek (1 pont = 1 Ft), a kód egyszer használatos, és az aktiválástól 1 hónapig költhető. Más kuponnal nem vonható össze. 25 000 Ft felett, csak ponttal fizetve a szállítási díjat ki kell fizetni.",
+    "title": "Kupon vagy ajándékpont beváltása",
+    "hint": "Írd be az admin kuponkódot, az ajándékpont-kódot vagy a tétel címkéjét, vagy olvasd be a QR / NFC linket. Százalékos / fix kupon a fizetésnél érvényesül. Ajándékpont: 1 pont = 1 Ft, egyszer használatos, 1 hónapig költhető. Más kuponnal nem vonható össze.",
     "codeLabel": "Kód / azonosító",
-    "codePlaceholder": "pl. ABCD2345EFGH",
+    "codePlaceholder": "pl. NYAR2026 vagy ABCD2345EFGH",
     "submit": "Aktiválás",
     "submitting": "Aktiválás…",
     "errorRequired": "Add meg a kódot.",
@@ -580,7 +582,9 @@
     "previewExpired": "A kód beváltási ideje lejárt.",
     "previewNotYet": "Ez a kód még nem váltható be.",
     "previewAvailable": "{points} pont vár aktiválásra.",
-    "previewUsed": "Ez a kód már fel lett használva."
+    "previewUsed": "Ez a kód már fel lett használva.",
+    "couponSuccessPercent": "{percent}% kupon aktiválva ({code}). A fizetésnél fel tudod használni.",
+    "couponSuccessFixed": "{amount} Ft kedvezmény aktiválva ({code}). A fizetésnél fel tudod használni."
   },
   "luckySpin": {
     "title": "Szerencsekerék",

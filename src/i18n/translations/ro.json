@@ -211,6 +211,7 @@
     "luckySpinDiscountLine": "Roata norocului ({percent}%)",
     "couponDiscountLine": "Reducere cupon",
     "couponDiscountWithCode": "Cupon ({percent}%)",
+    "couponDiscountFixed": "Cupon {code} (−{amount} Ft)",
     "loyaltyDiscountLine": "Reducere fidelitate ({percent}%)",
     "couponSelectorTitle": "Cupoane disponibile",
     "couponSelectorHint": "Selectează manual o reducere. Cupoanele nu se combină; reducerea maximă care poate fi folosită este 15%.",
@@ -234,6 +235,7 @@
     "couponApplied": "Cupon activ: {percent}%",
     "couponAlreadyActive": "Cuponul este deja aplicat la această comandă.",
     "couponInvalid": "Cod cupon invalid.",
+    "couponRemove": "Elimină",
     "couponWillApplyAtCheckout": "Codul va fi verificat și aplicat la plată.",
     "birthdayCouponTitle": "Cuponul tău exclusiv de {percent}% este activ",
     "birthdayCouponHint": "Cod: {code} · valabil până la {date}. Se aplică automat la plată.",
@@ -572,10 +574,10 @@
     "historyDevNote": "Istoricul punctelor este disponibil în modul dev local doar cu bază de date."
   },
   "giftClaim": {
-    "title": "Valorifică punctele cadou",
-    "hint": "Introdu codul sau scanează linkul QR / NFC. Punctele sunt creditate imediat în portofel (1 punct = 1 Ft). Codul este de unică folosință și poate fi cheltuit 1 lună de la activare. Nu se combină cu alte promoții. Dacă comanda depășește 25.000 Ft și e plătită doar cu puncte, transportul trebuie plătit.",
+    "title": "Valorifică cupon sau puncte cadou",
+    "hint": "Introdu codul de cupon admin, codul de puncte cadou sau eticheta lotului, ori scanează linkul QR / NFC. Cupoanele procentuale / fixe se aplică la plată. Puncte cadou: 1 punct = 1 Ft, o singură folosire, 1 lună. Nu se combină cu alte cupoane.",
     "codeLabel": "Cod / identificator",
-    "codePlaceholder": "ex. ABCD2345EFGH",
+    "codePlaceholder": "ex. NYAR2026 sau ABCD2345EFGH",
     "submit": "Activează",
     "submitting": "Se activează…",
     "errorRequired": "Introdu codul.",
@@ -591,7 +593,9 @@
     "previewExpired": "Perioada de valorificare a expirat.",
     "previewNotYet": "Acest cod nu poate fi valorificat încă.",
     "previewAvailable": "{points} puncte gata de activare.",
-    "previewUsed": "Acest cod a fost deja folosit."
+    "previewUsed": "Acest cod a fost deja folosit.",
+    "couponSuccessPercent": "Cupon de {percent}% activat ({code}). Îl poți folosi la plată.",
+    "couponSuccessFixed": "Reducere de {amount} Ft activată ({code}). O poți folosi la plată."
   },
   "luckySpin": {
     "title": "Roata Norocului",

@@ -237,6 +237,7 @@
     "luckySpinDiscountLine": "Lucky Spin ({percent}%)",
     "couponDiscountLine": "Coupon discount",
     "couponDiscountWithCode": "Coupon ({percent}%)",
+    "couponDiscountFixed": "Coupon {code} (−{amount} HUF)",
     "loyaltyDiscountLine": "Loyalty discount ({percent}%)",
     "couponSelectorTitle": "Available coupons",
     "couponSelectorHint": "Select one discount. Coupons cannot be combined; the maximum redeemable discount is 15%.",
@@ -260,6 +261,7 @@
     "couponApplied": "Active coupon: {percent}%",
     "couponAlreadyActive": "Coupon is already applied to this order.",
     "couponInvalid": "Invalid coupon code.",
+    "couponRemove": "Remove",
     "couponWillApplyAtCheckout": "We’ll validate and apply this coupon code at checkout.",
     "birthdayCouponTitle": "Your {percent}% exclusive coupon is ready",
     "birthdayCouponHint": "Code: {code} · valid until {date}. Applied automatically at checkout.",
@@ -587,10 +589,10 @@
     "historyDevNote": "Point history is only available with a database in local dev mode."
   },
   "giftClaim": {
-    "title": "Redeem gift points",
-    "hint": "Enter the code or scan the QR / NFC link. Points are credited to your wallet immediately (1 point = 1 HUF). The code is single-use and spendable for 1 month from activation. It cannot be combined with other promotions. If the order is over 25,000 HUF and paid only with points, shipping must be paid.",
+    "title": "Redeem a coupon or gift points",
+    "hint": "Enter an admin coupon code, gift-point code or batch label, or scan the QR / NFC link. Percent / fixed coupons apply at checkout. Gift points: 1 point = 1 HUF, single-use, spendable for 1 month. Cannot be combined with other coupons.",
     "codeLabel": "Code / ID",
-    "codePlaceholder": "e.g. ABCD2345EFGH",
+    "codePlaceholder": "e.g. NYAR2026 or ABCD2345EFGH",
     "submit": "Activate",
     "submitting": "Activating…",
     "errorRequired": "Enter the code.",
@@ -606,7 +608,9 @@
     "previewExpired": "This code’s claim window has expired.",
     "previewNotYet": "This code cannot be claimed yet.",
     "previewAvailable": "{points} points ready to activate.",
-    "previewUsed": "This code has already been used."
+    "previewUsed": "This code has already been used.",
+    "couponSuccessPercent": "{percent}% coupon activated ({code}). You can use it at checkout.",
+    "couponSuccessFixed": "{amount} HUF off activated ({code}). You can use it at checkout."
   },
   "luckySpin": {
     "title": "Lucky Wheel",

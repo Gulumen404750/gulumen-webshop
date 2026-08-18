@@ -25,15 +25,17 @@ import {
 import { GIFT_POINTS_MAX_COVERAGE } from '@/lib/gamification/constants'
 import { getLuckySpinNextTierRemaining } from '@/lib/gamification/lucky-spin'
 import { PaymentTrustBadges } from '@/components/PaymentTrustBadges'
-import { WELCOME_CHECKOUT_COUPON_PERCENT } from '@/lib/coupon-config'
+import { WELCOME_CHECKOUT_COUPON_PERCENT, capCombinedCouponPercent } from '@/lib/coupon-config'
 import { CouponSelector } from '@/components/CouponSelector'
 import { GiftPointClaimForm } from '@/components/GiftPointClaimForm'
+import type { CodeRedeemSuccess } from '@/components/GiftPointClaimForm'
 import {
   buildPromoCoupons,
   calculateSelectedCouponPercent,
   canToggleCoupon,
   type SelectableCouponId,
 } from '@/lib/coupon-selection'
+import { readTypedCoupon, writeTypedCoupon, type StoredTypedCoupon } from '@/lib/typed-coupon-storage'
 
 function createCheckoutIdempotencyKey(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -71,6 +73,7 @@ export default function PaymentPage() {
   const [useGiftPoints, setUseGiftPoints] = useState(false)
   const [useActivityPoints, setUseActivityPoints] = useState(false)
   const [couponCodeInput, setCouponCodeInput] = useState('')
+  const [typedCoupon, setTypedCoupon] = useState<StoredTypedCoupon | null>(null)
   const [selectedCouponIds, setSelectedCouponIds] = useState<SelectableCouponId[]>([])
   const [birthdayCouponBanner, setBirthdayCouponBanner] = useState<{
     code: string
@@ -207,13 +210,23 @@ export default function PaymentPage() {
     [availableCoupons, selectedCouponIds]
   )
 
-  const effectiveCouponPercent = couponSelection.finalPercent
+  const effectiveCouponPercent = typedCoupon
+    ? typedCoupon.discountType === 'percent'
+      ? capCombinedCouponPercent(typedCoupon.discountValue / 100)
+      : 0
+    : couponSelection.finalPercent
 
   const usePoints = useGiftPoints || useActivityPoints
 
   const checkoutPreview = computeCheckoutTotals({
     lines: lockedLines,
-    coupon: { percent: effectiveCouponPercent },
+    coupon: usePoints
+      ? { percent: 0 }
+      : typedCoupon
+        ? typedCoupon.discountType === 'fixed'
+          ? { fixedHuf: typedCoupon.discountValue }
+          : { percent: effectiveCouponPercent }
+        : { percent: effectiveCouponPercent },
     luckySpin: luckySpinRecord,
     points:
       usePoints && pointsPreview
@@ -351,8 +364,12 @@ export default function PaymentPage() {
     }
   }, [userId, guestEmail])
 
-  // Birthday / pontból váltott kód szinkron a kijelöléssel
+  // Birthday / pontból váltott kód szinkron a kijelöléssel – begépelt admin kódot ne törölje
   useEffect(() => {
+    if (typedCoupon) {
+      setCouponCodeInput(typedCoupon.code)
+      return
+    }
     const dbCode = couponSelection.birthdayCode || couponSelection.gamificationCode
     if (dbCode) {
       setCouponCodeInput(dbCode)
@@ -361,11 +378,11 @@ export default function PaymentPage() {
     if (!selectedCouponIds.includes('birthday') && !selectedCouponIds.includes('gamification')) {
       setCouponCodeInput('')
     }
-  }, [couponSelection.birthdayCode, couponSelection.gamificationCode, selectedCouponIds])
+  }, [couponSelection.birthdayCode, couponSelection.gamificationCode, selectedCouponIds, typedCoupon])
 
   const autoSelectedGamificationRef = useRef<string | null>(null)
   useEffect(() => {
-    if (usePoints) {
+    if (usePoints || typedCoupon) {
       autoSelectedGamificationRef.current = null
       return
     }
@@ -382,17 +399,57 @@ export default function PaymentPage() {
       if (!canToggleCoupon(availableCoupons, new Set(prev), 'gamification', true)) return prev
       return ['gamification']
     })
-  }, [gamificationCoupon?.code, availableCoupons, usePoints])
+  }, [gamificationCoupon?.code, availableCoupons, usePoints, typedCoupon])
 
   useEffect(() => {
     if (!usePoints) return
     setSelectedCouponIds([])
-    setCouponCodeInput('')
   }, [usePoints])
+
+  useEffect(() => {
+    const stored = readTypedCoupon()
+    if (stored) {
+      setTypedCoupon(stored)
+      setSelectedCouponIds([])
+    }
+  }, [])
 
   const totalEur = hufToEur(cardTotalHuf)
 
+  const applyTypedCoupon = (coupon: StoredTypedCoupon) => {
+    setTypedCoupon(coupon)
+    writeTypedCoupon(coupon)
+    setSelectedCouponIds([])
+    setCouponCodeInput(coupon.code)
+    setUseGiftPoints(false)
+    setUseActivityPoints(false)
+  }
+
+  const clearTypedCoupon = () => {
+    setTypedCoupon(null)
+    writeTypedCoupon(null)
+    setCouponCodeInput('')
+  }
+
+  const handleRedeemedCode = (result: CodeRedeemSuccess) => {
+    if (result.kind === 'gift_points') {
+      void refreshWallet()
+      setSelectedCouponIds([])
+      clearTypedCoupon()
+      setUseGiftPoints(true)
+      setUseActivityPoints(false)
+      return
+    }
+    applyTypedCoupon({
+      code: result.code,
+      discountType: result.discountType,
+      discountValue: result.discountValue,
+      minOrderHuf: result.minOrderHuf,
+    })
+  }
+
   const handleCouponSelectionChange = async (next: SelectableCouponId[]) => {
+    if (next.length > 0) clearTypedCoupon()
     setWelcomeOfferError(null)
     const turningWelcomeOn = next.includes('welcome') && !selectedCouponIds.includes('welcome')
     if (turningWelcomeOn) {
@@ -589,12 +646,13 @@ export default function PaymentPage() {
           // Kedvezmény % NEM a kliensről – szerver couponCode + selectedCoupons alapján számol
           couponCode: usePoints
             ? undefined
-            : couponSelection.birthdayCode ||
+            : typedCoupon?.code ||
+              couponSelection.birthdayCode ||
               couponSelection.gamificationCode ||
               couponCodeInput.trim() ||
               undefined,
-          welcomeOfferAccepted: usePoints ? undefined : couponSelection.useWelcome ? true : undefined,
-          selectedCoupons: usePoints ? [] : couponSelection.selectedIds,
+          welcomeOfferAccepted: usePoints || typedCoupon ? undefined : couponSelection.useWelcome ? true : undefined,
+          selectedCoupons: usePoints || typedCoupon ? [] : couponSelection.selectedIds,
           pointsDiscountHuf: pointsDiscountHuf > 0 ? pointsDiscountHuf : undefined,
           useGiftPoints: usePoints ? useGiftPoints : undefined,
           useActivityPoints: usePoints ? useActivityPoints : undefined,
@@ -785,9 +843,14 @@ export default function PaymentPage() {
                   <div className="flex justify-between text-discount">
                     <span className="inline-flex items-center gap-1.5">
                       <span>
-                        {t('payment.couponDiscountWithCode', {
-                          percent: Math.round(effectiveCouponPercent * 100),
-                        })}
+                        {typedCoupon?.discountType === 'fixed'
+                          ? t('payment.couponDiscountFixed', {
+                              amount: typedCoupon.discountValue.toLocaleString('hu-HU'),
+                              code: typedCoupon.code,
+                            }) || `Kupon (${typedCoupon.code})`
+                          : t('payment.couponDiscountWithCode', {
+                              percent: Math.round(effectiveCouponPercent * 100),
+                            })}
                         {couponSelection.capped
                           ? ` (${t('payment.couponCappedHint') || 'max. 15%'})`
                           : ''}
@@ -1108,13 +1171,31 @@ export default function PaymentPage() {
 
       <GiftPointClaimForm
         className="mb-8"
-        onSuccess={() => {
-          void refreshWallet()
-          setSelectedCouponIds([])
-          setUseGiftPoints(true)
-          setUseActivityPoints(false)
-        }}
+        onSuccess={handleRedeemedCode}
       />
+
+      {typedCoupon && !usePoints && (
+        <div className="mb-4 -mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-accent/40 bg-accent/5 px-4 py-3">
+          <p className="text-sm text-foreground">
+            {typedCoupon.discountType === 'fixed'
+              ? t('giftClaim.couponSuccessFixed', {
+                  amount: typedCoupon.discountValue.toLocaleString('hu-HU'),
+                  code: typedCoupon.code,
+                })
+              : t('giftClaim.couponSuccessPercent', {
+                  percent: typedCoupon.discountValue,
+                  code: typedCoupon.code,
+                })}
+          </p>
+          <button
+            type="button"
+            onClick={clearTypedCoupon}
+            className="text-xs font-medium text-accent hover:underline"
+          >
+            {t('payment.couponRemove') || 'Eltávolítás'}
+          </button>
+        </div>
+      )}
 
       <CouponSelector
         coupons={availableCoupons}

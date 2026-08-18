@@ -237,6 +237,7 @@
     "luckySpinDiscountLine": "Glücksrad ({percent}%)",
     "couponDiscountLine": "Gutscheinrabatt",
     "couponDiscountWithCode": "Gutschein ({percent}%)",
+    "couponDiscountFixed": "Gutschein {code} (−{amount} Ft)",
     "loyaltyDiscountLine": "Treuerabatt ({percent}%)",
     "couponSelectorTitle": "Verfügbare Gutscheine",
     "couponSelectorHint": "Wähle manuell einen Rabatt. Gutscheine sind nicht kombinierbar; der maximale einlösbare Rabatt beträgt 15%.",
@@ -260,6 +261,7 @@
     "couponApplied": "Aktiver Gutschein: {percent}%",
     "couponAlreadyActive": "Gutschein ist bereits auf diese Bestellung angewendet.",
     "couponInvalid": "Ungültiger Gutscheincode.",
+    "couponRemove": "Entfernen",
     "couponWillApplyAtCheckout": "Der Code wird beim Bezahlen geprüft und angewendet.",
     "birthdayCouponTitle": "Dein {percent}% Exklusivgutschein ist aktiv",
     "birthdayCouponHint": "Code: {code} · gültig bis {date}. Wird an der Kasse automatisch angewendet.",
@@ -587,10 +589,10 @@
     "historyDevNote": "Punkteverlauf ist im lokalen Dev-Modus nur mit Datenbank verfügbar."
   },
   "giftClaim": {
-    "title": "Geschenkpunkte einlösen",
-    "hint": "Code eingeben oder QR-/NFC-Link scannen. Die Punkte werden sofort dem Wallet gutgeschrieben (1 Punkt = 1 Ft). Der Code ist einmalig und ab Aktivierung 1 Monat gültig. Nicht mit anderen Aktionen kombinierbar. Liegt die Bestellung über 25.000 Ft und wird nur mit Punkten bezahlt, ist der Versand zu zahlen.",
+    "title": "Gutschein oder Geschenkpunkte einlösen",
+    "hint": "Admin-Gutscheincode, Geschenkpunkt-Code oder Chargen-Label eingeben oder QR-/NFC-Link scannen. Prozent-/Fixgutscheine gelten an der Kasse. Geschenkpunkte: 1 Punkt = 1 Ft, einmalig, 1 Monat gültig. Nicht mit anderen Gutscheinen kombinierbar.",
     "codeLabel": "Code / ID",
-    "codePlaceholder": "z. B. ABCD2345EFGH",
+    "codePlaceholder": "z. B. NYAR2026 oder ABCD2345EFGH",
     "submit": "Aktivieren",
     "submitting": "Aktivieren…",
     "errorRequired": "Bitte den Code eingeben.",
@@ -606,7 +608,9 @@
     "previewExpired": "Die Einlösefrist dieses Codes ist abgelaufen.",
     "previewNotYet": "Dieser Code kann noch nicht eingelöst werden.",
     "previewAvailable": "{points} Punkte bereit zur Aktivierung.",
-    "previewUsed": "Dieser Code wurde bereits verwendet."
+    "previewUsed": "Dieser Code wurde bereits verwendet.",
+    "couponSuccessPercent": "{percent}%-Gutschein aktiviert ({code}). Du kannst ihn an der Kasse nutzen.",
+    "couponSuccessFixed": "{amount} Ft Rabatt aktiviert ({code}). Du kannst ihn an der Kasse nutzen."
   },
   "luckySpin": {
     "title": "Glücksrad",

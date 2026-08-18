@@ -36,7 +36,8 @@ import {
 import { getSession, resolveSessionUserId } from '@/lib/auth'
 import { getPointBalance } from '@/lib/gamification/point-ledger'
 import { getAvailableGiftPoints } from '@/lib/gamification/gift-points'
-import { claimGiftPointCode, findGiftPointCodeByToken } from '@/lib/gamification/gift-point-codes'
+import { claimGiftPointCode } from '@/lib/gamification/gift-point-codes'
+import { lookupRedeemableCode } from '@/lib/redeem-code'
 import {
   MAX_CART_POINTS_COVERAGE,
   POINTS_PER_HUF,
@@ -184,15 +185,15 @@ export async function POST(request: Request) {
     balanceAfter: number | null
   } | null = null
   if (couponCodeTrimmed) {
-    const giftCode = await findGiftPointCodeByToken(couponCodeTrimmed)
-    if (giftCode) {
+    const looked = await lookupRedeemableCode(couponCodeTrimmed, checkoutUserId)
+    if (looked.kind === 'gift_points') {
       if (!checkoutUserId) {
         return NextResponse.json(
           { error: 'Login required to claim gift points', code: 'gift_code_login_required' },
           { status: 401 }
         )
       }
-      const claimed = await claimGiftPointCode({ token: couponCodeTrimmed, userId: checkoutUserId })
+      const claimed = await claimGiftPointCode({ token: looked.token, userId: checkoutUserId })
       if (!claimed.ok) {
         const errors: Record<string, { status: number; error: string; code: string }> = {
           not_found: { status: 400, error: 'Invalid gift point code', code: 'gift_code_invalid' },
