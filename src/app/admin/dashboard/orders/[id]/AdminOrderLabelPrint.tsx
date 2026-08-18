@@ -84,6 +84,18 @@ export function AdminOrderLabelPrint({ order }: { order: LabelOrderData }) {
             min-height: 70mm !important;
             page-break-inside: avoid;
           }
+          .shipping-label img {
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
+          }
+          .shipping-label-logo {
+            width: 48px !important;
+            height: 48px !important;
+            max-width: 48px !important;
+            flex-shrink: 0 !important;
+            border-radius: 50% !important;
+            object-fit: cover !important;
+          }
           @page {
             size: A4;
             margin: 10mm;

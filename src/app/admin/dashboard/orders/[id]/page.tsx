@@ -14,6 +14,8 @@ import {
 } from '@/lib/admin-order-badges'
 import { formatAddressTypeLabel } from '@/lib/checkout-customer'
 import { buildProductionJobPayload, orderItemSpecForAdmin } from '@/lib/production-payload'
+import { shippingLabelItemsFromOrderItems, shippingLabelQrText } from '@/lib/shipping-label'
+import { generateShippingLabelQrDataUrl } from '@/lib/shipping-label-qr'
 
 export const dynamic = 'force-dynamic'
 
@@ -49,6 +51,8 @@ export default async function AdminOrderDetailPage({ params }: Props) {
     paidAt: order.paidAt?.toISOString() ?? null,
     items: order.items,
   })
+  const labelItems = shippingLabelItemsFromOrderItems(order.items)
+  const qrDataUrl = await generateShippingLabelQrDataUrl(shippingLabelQrText(order.id, labelItems))
 
   const kind = getAdminOrderVisualKind(order.status, order.printedAt)
   const kindClasses = adminOrderKindClasses(kind)
@@ -258,11 +262,8 @@ export default async function AdminOrderDetailPage({ params }: Props) {
             shippingHouseNumber: order.shippingHouseNumber,
             deliveryNotes: order.deliveryNotes,
             addressType: order.addressType,
-            items: order.items.map((i) => ({
-              name: i.name,
-              productId: i.productId,
-              qty: i.qty,
-            })),
+            items: labelItems,
+            qrDataUrl,
             printedAt: order.printedAt?.toISOString() ?? null,
           }}
         />

@@ -6,6 +6,7 @@ import { AdminOrdersListSkeleton } from '@/components/AdminTableSkeleton'
 import { AdminOrderStatusBadge } from '@/components/admin/AdminOrderStatusBadge'
 import { ShippingLabelCard } from '@/components/admin/ShippingLabelCard'
 import { getOrderPrintRowStyles, isOrderPrinted } from '@/lib/admin-order-badges'
+import { shippingLabelItemsFromOrderItems, shippingLabelQrText } from '@/lib/shipping-label'
 
 type Order = {
   id: string
@@ -28,7 +29,14 @@ type Order = {
   printedAt: string | null
   shippingAddressChangedAt: string | null
   amountPaid: number | null
-  items: { productId: string; qty: number; name: string | null; priceHuf: number }[]
+  items: {
+    productId: string
+    qty: number
+    name: string | null
+    priceHuf: number
+    sku?: string | null
+    parameters?: unknown
+  }[]
 }
 
 export default function AdminOrdersPage() {
@@ -41,11 +49,13 @@ export default function AdminOrdersPage() {
   const [bulkPrinting, setBulkPrinting] = useState(false)
   const [bulkError, setBulkError] = useState<string | null>(null)
   const [showBulkPreview, setShowBulkPreview] = useState(false)
+  const [bulkQrByOrderId, setBulkQrByOrderId] = useState<Record<string, string>>({})
 
   useEffect(() => {
     setLoading(true)
     setSelectedIds(new Set())
     setShowBulkPreview(false)
+    setBulkQrByOrderId({})
     const params = new URLSearchParams()
     if (statusFilter) params.set('status', statusFilter)
     fetch(`/api/admin/orders?${params}`)
@@ -151,6 +161,15 @@ export default function AdminOrdersPage() {
       setOrders((prev) =>
         prev.map((o) => (idSet.has(o.id) ? { ...o, printedAt: o.printedAt ?? printedAt } : o))
       )
+      const { generateShippingLabelQrDataUrl } = await import('@/lib/shipping-label-qr')
+      const qrEntries = await Promise.all(
+        selectedOrders.map(async (o) => {
+          const items = shippingLabelItemsFromOrderItems(o.items)
+          const url = await generateShippingLabelQrDataUrl(shippingLabelQrText(o.id, items))
+          return [o.id, url] as const
+        })
+      )
+      setBulkQrByOrderId(Object.fromEntries(qrEntries))
       await new Promise((r) => setTimeout(r, 80))
       window.print()
     } catch (e) {
@@ -317,11 +336,8 @@ export default function AdminOrdersPage() {
                   shippingHouseNumber: o.shippingHouseNumber,
                   deliveryNotes: o.deliveryNotes,
                   addressType: o.addressType,
-                  items: o.items.map((i) => ({
-                    name: i.name,
-                    productId: i.productId,
-                    qty: i.qty,
-                  })),
+                  items: shippingLabelItemsFromOrderItems(o.items),
+                  qrDataUrl: bulkQrByOrderId[o.id] ?? null,
                 }}
               />
             </div>
@@ -358,6 +374,18 @@ export default function AdminOrdersPage() {
           .shipping-label {
             max-width: 100mm !important;
             min-height: 70mm !important;
+          }
+          .shipping-label img {
+            print-color-adjust: exact !important;
+            -webkit-print-color-adjust: exact !important;
+          }
+          .shipping-label-logo {
+            width: 48px !important;
+            height: 48px !important;
+            max-width: 48px !important;
+            flex-shrink: 0 !important;
+            border-radius: 50% !important;
+            object-fit: cover !important;
           }
           @page {
             size: A4;
