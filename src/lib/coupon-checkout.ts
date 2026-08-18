@@ -115,7 +115,7 @@ export async function previewCouponCode(params: {
   }
 }
 
-/** DB kupon keresés és validálás – nem kombinálható loyalty / macska kuponnal. */
+/** DB kupon keresés és validálás. A fix Ft kupon összevonható egy százalékos kuponnal. */
 export async function resolveCheckoutCoupon(params: {
   couponCode: string
   checkoutUserId: string | null
@@ -183,6 +183,7 @@ const PAID_STATUSES = new Set(['paid', 'sourcing_pending'])
 /**
  * Sikeres fizetés után: usedCount +1, egyszer rendelés-csoportonként.
  * Capture (paid) és authorize (sourcing_pending) esetén is meghívandó.
+ * Fix Ft kupon: a fel nem használt maradék nem íródik jóvá, a kupon teljesen kimerül.
  */
 export async function recordCouponUsageOnPayment(orderId: string): Promise<void> {
   if (!isDbConfigured()) return

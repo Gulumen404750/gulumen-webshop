@@ -1,6 +1,6 @@
 /**
  * Hűségkedvezmény: emailhez kötött, minősített fizetett vásárlásszám alapján.
- * 50 000 Ft+ kártyás fizetésenként +1%, max. 8%. Nem összevonható más kuponnal.
+ * 50 000 Ft+ kártyás fizetésenként +1%, max. 8%. Összevonható kuponnal és ponttal.
  * Élesben Prisma LoyaltyRecord (Railway); DATABASE_URL nélkül JSON fallback.
  */
 import { prisma, isDbConfigured } from '@/lib/prisma'

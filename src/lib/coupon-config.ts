@@ -17,9 +17,10 @@ export const BIRTHDAY_COUPON_PERCENT = 0.15
 export const BIRTHDAY_COUPON_VALID_DAYS = 7
 
 /**
- * Egy kupon legnagyobb beváltható kedvezménye (0–1).
- * A kuponok nem vonhatók össze; a checkouton egyszerre csak egy kupon érvényes.
- * A hűségkedvezmény (1–8%) ettől független, automatikus alapkedvezmény.
+ * Egy százalékos kupon legnagyobb beváltható kedvezménye (0–1).
+ * A százalékos kuponok egymással nem vonhatók össze; a checkouton egyszerre egy % kupon érvényes.
+ * A fix forintos kupon (ajándék / admin) összevonható egy százalékos kuponnal,
+ * a hűségkedvezménnyel és a Szerencsekerékkel. A hűség (1–8%) automatikus alapkedvezmény.
  */
 export const MAX_COMBINED_COUPON_PERCENT = 0.15
 
@@ -47,7 +48,7 @@ export function capLoyaltyPercent(percent: number): number {
   return Math.min(fraction, MAX_LOYALTY_COUPON_PERCENT)
 }
 
-/** Kizárólagos (nem hűség) kuponok – ezek egymással nem vonhatók össze. */
+/** Kizárólagos (nem hűség) kuponok – a százalékos kuponok egymással nem vonhatók össze. */
 export function exclusiveCouponIds(selectedIds: Iterable<string>): Set<string> {
   const exclusive = new Set<string>()
   for (const id of selectedIds) {
@@ -56,9 +57,26 @@ export function exclusiveCouponIds(selectedIds: Iterable<string>): Set<string> {
   return exclusive
 }
 
-/** true, ha egynél több nem-hűség kupon van kijelölve (összevonás tilos). */
-export function isCouponStackingBlocked(selectedIds: Iterable<string>): boolean {
-  return exclusiveCouponIds(selectedIds).size > 1
+export type CouponStackingOptions = {
+  /** Ezek az azonosítók fix Ft kuponok – egy százalékos kuponnal összevonhatók. */
+  fixedIds?: Iterable<string>
+}
+
+/** true, ha egynél több százalékos (nem fix Ft) kupon van kijelölve. */
+export function isCouponStackingBlocked(
+  selectedIds: Iterable<string>,
+  options?: CouponStackingOptions
+): boolean {
+  const exclusive = exclusiveCouponIds(selectedIds)
+  if (options?.fixedIds) {
+    for (const id of options.fixedIds) exclusive.delete(id)
+  }
+  return exclusive.size > 1
+}
+
+/** true, ha a kedvezmény fix forintos (ajándék / admin) kupon. */
+export function isFixedCouponDiscount(discount: { fixedHuf?: number; percent?: number }): boolean {
+  return Boolean(discount.fixedHuf && discount.fixedHuf > 0)
 }
 
 /** true, ha a macska + regisztrációs kupon együtt tilos a kijelölésben / checkouton. */

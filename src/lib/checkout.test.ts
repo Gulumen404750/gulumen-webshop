@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   computeCheckoutTotals,
   computeCouponDiscountHuf,
+  applyFixedCouponHuf,
   computePointsRedemption,
   computeShippingHuf,
   calculateDiscount,
@@ -84,9 +85,10 @@ describe('computeCouponDiscountHuf', () => {
     expect(computeCouponDiscountHuf(lines, { percent: 0.1 }, spinIds)).toBe(1_000)
   })
 
-  it('caps coupon at full-price subtotal', () => {
+  it('caps percent coupon at full-price subtotal', () => {
     const lines = [line('a', 1, 500)]
-    expect(computeCouponDiscountHuf(lines, { percent: 0.5, fixedHuf: 400 })).toBe(500)
+    expect(computeCouponDiscountHuf(lines, { percent: 0.5 })).toBe(250)
+    expect(computeCouponDiscountHuf(lines, { percent: 2 })).toBe(500)
   })
 })
 
@@ -435,6 +437,51 @@ describe('computeCheckoutTotals', () => {
     expect(totals.couponDiscountHuf).toBe(0)
     expect(totals.pointsDiscountHuf).toBe(2_000)
     expect(totals.merchandiseTotalHuf).toBe(7_800)
+  })
+
+  it('stacks a fixed HUF coupon with a percentage coupon and loyalty', () => {
+    const lines = [line('stock-1', 1, 20_000, 'stock')]
+    const totals = computeCheckoutTotals({
+      lines,
+      coupon: { percent: 0.1, fixedHuf: 5_000 },
+      luckySpin: null,
+      loyaltyPercent: 0.05,
+    })
+    expect(totals.loyaltyDiscountHuf).toBe(1_000)
+    expect(totals.percentCouponDiscountHuf).toBe(2_000)
+    expect(totals.fixedCouponDiscountHuf).toBe(5_000)
+    expect(totals.fixedCouponUnusedHuf).toBe(0)
+    expect(totals.merchandiseTotalHuf).toBe(12_000)
+  })
+
+  it('applies a fixed coupon after Lucky Spin and drops the unused remainder', () => {
+    const spin = {
+      id: 'spin-1',
+      userId: 'u1',
+      weekId: '2026-W01',
+      productIds: ['spin-1'],
+      priceSnapshot: { 'spin-1': 10_000 },
+      generatedAt: new Date('2026-01-01'),
+      expiresAt: new Date('2099-01-01'),
+    }
+    const lines = [line('spin-1', 1, 10_000, 'stock')]
+    const totals = computeCheckoutTotals({
+      lines,
+      coupon: { fixedHuf: 15_000 },
+      luckySpin: spin,
+    })
+    expect(totals.luckySpinDiscountHuf).toBe(1_500)
+    expect(totals.fixedCouponDiscountHuf).toBe(8_500)
+    expect(totals.fixedCouponUnusedHuf).toBe(6_500)
+    expect(totals.merchandiseTotalHuf).toBe(0)
+  })
+})
+
+describe('applyFixedCouponHuf', () => {
+  it('uses the coupon in full and forfeits leftover value', () => {
+    expect(applyFixedCouponHuf(8_000, 15_000)).toEqual({ appliedHuf: 8_000, unusedHuf: 7_000 })
+    expect(applyFixedCouponHuf(20_000, 15_000)).toEqual({ appliedHuf: 15_000, unusedHuf: 0 })
+    expect(applyFixedCouponHuf(0, 15_000)).toEqual({ appliedHuf: 0, unusedHuf: 15_000 })
   })
 })
 

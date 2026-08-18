@@ -3,6 +3,8 @@
 import {
   MAX_COMBINED_COUPON_PERCENT,
   canToggleCoupon,
+  isFixedSelectableCoupon,
+  nextCouponSelection,
   type SelectableCoupon,
   type SelectableCouponId,
 } from '@/lib/coupon-selection'
@@ -47,11 +49,11 @@ export function CouponSelector({
     if (disabled) return
     const turningOn = !selected.has(id)
     if (!turningOn) {
-      onChange(selectedIds.filter((item) => item !== id))
+      onChange(nextCouponSelection(coupons, selected, id, false))
       return
     }
-    if (!canToggleCoupon(coupons, new Set(), id, true)) return
-    onChange([id])
+    if (!canToggleCoupon(coupons, selected, id, true)) return
+    onChange(nextCouponSelection(coupons, selected, id, true))
   }
 
   if (coupons.length === 0) {
@@ -77,15 +79,16 @@ export function CouponSelector({
       <ul className="space-y-2">
         {coupons.map((coupon) => {
           const checked = selected.has(coupon.id)
-          const cannotSelectAlone =
-            !checked && !canToggleCoupon(coupons, new Set(), coupon.id, true)
+          const cannotSelect =
+            !checked && !canToggleCoupon(coupons, selected, coupon.id, true)
+          const isFixed = isFixedSelectableCoupon(coupon)
           return (
             <li key={coupon.id}>
               <label
                 className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
                   checked
                     ? 'border-accent bg-accent/5'
-                    : cannotSelectAlone
+                    : cannotSelect
                       ? 'border-[var(--border)] opacity-50 cursor-not-allowed'
                       : 'border-[var(--border)] hover:border-accent/40'
                 }`}
@@ -94,15 +97,17 @@ export function CouponSelector({
                   type="checkbox"
                   className="mt-1 w-4 h-4 rounded border-[var(--border)] text-accent focus:ring-accent"
                   checked={checked}
-                  disabled={disabled || cannotSelectAlone}
+                  disabled={disabled || cannotSelect}
                   onChange={() => toggle(coupon.id)}
                 />
                 <span className="flex-1 min-w-0">
                   <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                     <span className="text-sm font-medium text-foreground">{coupon.label}</span>
-                    <span className="text-sm font-semibold text-discount tabular-nums">
-                      −{Math.round(coupon.percent * 100)}%
-                    </span>
+                    {!isFixed && (
+                      <span className="text-sm font-semibold text-discount tabular-nums">
+                        −{Math.round(coupon.percent * 100)}%
+                      </span>
+                    )}
                   </span>
                   {coupon.code && (
                     <span className="block text-xs text-muted mt-0.5 font-mono">{coupon.code}</span>
@@ -110,7 +115,7 @@ export function CouponSelector({
                   {coupon.hint && (
                     <span className="block text-xs text-muted mt-0.5">{coupon.hint}</span>
                   )}
-                  {cannotSelectAlone && (
+                  {cannotSelect && (
                     <span className="block text-xs text-amber-600 dark:text-amber-400 mt-1">
                       {resolvedCap}
                     </span>
@@ -122,7 +127,7 @@ export function CouponSelector({
         })}
       </ul>
 
-      {selectedIds.length > 0 && (
+      {selectedIds.length > 0 && selectedPercentDisplay > 0 && (
         <p className="text-sm text-foreground">
           {t('payment.couponSelectedLabel')}{' '}
           <strong className="text-discount">

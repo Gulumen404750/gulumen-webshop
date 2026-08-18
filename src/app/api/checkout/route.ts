@@ -21,6 +21,7 @@ import {
   REGISTRATION_COUPON_PERCENT,
   isCatRegistrationStackBlocked,
   isCouponStackingBlocked,
+  isFixedCouponDiscount,
 } from '@/lib/coupon-config'
 import { rateLimit } from '@/lib/rate-limit'
 import {
@@ -115,7 +116,7 @@ const checkoutBodySchema = z.object({
   couponCode: z.string().min(1).optional(),
   /** Checkout welcome 10% + hírlevél ajánlat (manuális kijelölés). */
   welcomeOfferAccepted: z.boolean().optional(),
-  /** Manuálisan kiválasztott szerver-validált kuponok (cat/registration/welcome). A hűség automatikus. */
+  /** Manuálisan kiválasztott szerver-validált kuponok (cat/registration/welcome + opcionális fix Ft). A hűség automatikus. */
   selectedCoupons: z.array(selectedCouponEnum).max(2).optional(),
   /** Kártya, PayPal, Apple Pay, Google Pay vagy Klarna. */
   paymentMethod: z.enum(CHECKOUT_PAYMENT_METHODS).optional(),
@@ -326,14 +327,23 @@ export async function POST(request: Request) {
 
   const cartSubtotalHuf = lines.reduce((s, l) => s + l.priceHuf * l.qty, 0)
 
-  // Manuális kupon: egyszerre egy, max. 15%. A hűség ettől független, automatikus.
+  // Manuális kupon: egy % (max. 15%) + opcionális fix Ft. A hűség ettől független, automatikus.
   let combinedPercent = 0
   let fixedHufFromDb = 0
   const loyaltyEmail = (session?.email || customer.email).trim().toLowerCase()
   const loyaltyRecord = loyaltyEmail ? await getLoyaltyByEmail(loyaltyEmail) : null
   const loyaltyPercent = capLoyaltyPercent(loyaltyRecord?.loyaltyPercent ?? 0)
 
-  if (isCouponStackingBlocked(selectedCoupons) || isCatRegistrationStackBlocked(selectedCoupons)) {
+  if (isCatRegistrationStackBlocked(selectedCoupons)) {
+    return NextResponse.json(
+      {
+        code: 'coupon_stack_disabled',
+        error: 'Coupons cannot be combined',
+      },
+      { status: 400 }
+    )
+  }
+  if (!couponCodeTrimmed && isCouponStackingBlocked(selectedCoupons)) {
     return NextResponse.json(
       {
         code: 'coupon_stack_disabled',
@@ -383,18 +393,6 @@ export async function POST(request: Request) {
   }
 
   if (couponCodeTrimmed) {
-    const nonDbSelected = Array.from(selectedCoupons).filter(
-      (id) => id !== 'birthday' && id !== 'gamification' && id !== 'loyalty'
-    )
-    if (nonDbSelected.length > 0) {
-      return NextResponse.json(
-        {
-          code: 'coupon_stack_disabled',
-          error: 'Coupons cannot be combined',
-        },
-        { status: 400 }
-      )
-    }
     const resolved = await resolveCheckoutCoupon({
       couponCode: couponCodeTrimmed,
       checkoutUserId,
@@ -406,11 +404,16 @@ export async function POST(request: Request) {
     }
     appliedCouponId = resolved.coupon.id
     appliedCouponCode = resolved.coupon.code
+    const isFixed = isFixedCouponDiscount(resolved.discount)
     if (resolved.coupon.source === 'gamification') {
       selectedCoupons.add('gamification')
     } else if (resolved.coupon.source === 'birthday') {
       selectedCoupons.add('birthday')
-    } else if (selectedCoupons.size > 0) {
+    }
+    const fixedIds = isFixed
+      ? [resolved.coupon.source === 'birthday' ? 'birthday' : 'gamification']
+      : []
+    if (isCouponStackingBlocked(selectedCoupons, { fixedIds })) {
       return NextResponse.json(
         {
           code: 'coupon_stack_disabled',
@@ -419,17 +422,22 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
-    if (isCouponStackingBlocked(selectedCoupons)) {
-      return NextResponse.json(
-        {
-          code: 'coupon_stack_disabled',
-          error: 'Coupons cannot be combined',
-        },
-        { status: 400 }
+    if (!isFixed) {
+      const otherPercentFlags = Array.from(selectedCoupons).filter(
+        (id) => id !== 'birthday' && id !== 'gamification' && id !== 'loyalty'
       )
+      if (otherPercentFlags.length > 0) {
+        return NextResponse.json(
+          {
+            code: 'coupon_stack_disabled',
+            error: 'Coupons cannot be combined',
+          },
+          { status: 400 }
+        )
+      }
     }
-    if (resolved.discount.fixedHuf && resolved.discount.fixedHuf > 0) {
-      fixedHufFromDb = resolved.discount.fixedHuf
+    if (isFixed) {
+      fixedHufFromDb = resolved.discount.fixedHuf ?? 0
     } else if (resolved.discount.percent && resolved.discount.percent > 0) {
       combinedPercent += resolved.discount.percent
     }

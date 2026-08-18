@@ -1,5 +1,5 @@
 /**
- * Manuális kuponválasztás: egyszerre egy kupon, max. 15%.
+ * Manuális kuponválasztás: egy százalékos kupon (max. 15%) + opcionális fix Ft kupon.
  * A hűségkedvezmény nem kuponválasztás: automatikus, más kedvezményre ráépül.
  */
 
@@ -47,6 +47,14 @@ export function toCheckoutSelectedCouponId(id: SelectableCouponId): SelectableCo
   return isGamificationCouponId(id) ? 'gamification' : id
 }
 
+export function isFixedSelectableCoupon(coupon: Pick<SelectableCoupon, 'fixedHuf'> | undefined): boolean {
+  return Boolean(coupon && coupon.fixedHuf && coupon.fixedHuf > 0)
+}
+
+export function isDbSelectableCouponId(id: string): boolean {
+  return id === 'birthday' || isGamificationCouponId(id)
+}
+
 export type SelectableCoupon = {
   id: SelectableCouponId
   /** Megjelenített cím. */
@@ -71,6 +79,7 @@ export type CouponSelectionResult = {
   birthdayCode?: string
   gamificationCode?: string
   gamificationFixedHuf?: number
+  hasFixedCoupon: boolean
   useWelcome: boolean
   useLoyalty: boolean
   useCat: boolean
@@ -98,7 +107,9 @@ export function calculateSelectedCouponPercent(
   const rawPercent = picked.reduce((s, c) => s + (c.percent > 0 ? c.percent : 0), 0)
   const finalPercent = capCombinedCouponPercent(rawPercent)
   const birthday = picked.find((c) => c.id === 'birthday')
-  const gamification = picked.find((c) => isGamificationCouponId(c.id))
+  const gamificationPicked = picked.filter((c) => isGamificationCouponId(c.id))
+  const gamificationFixed = gamificationPicked.find((c) => isFixedSelectableCoupon(c))
+  const gamification = gamificationFixed ?? gamificationPicked[0]
 
   return {
     selectedIds: picked.map((c) => c.id),
@@ -107,7 +118,8 @@ export function calculateSelectedCouponPercent(
     capped: rawPercent > MAX_COMBINED_COUPON_PERCENT + 1e-9,
     birthdayCode: birthday?.code,
     gamificationCode: gamification?.code,
-    gamificationFixedHuf: gamification?.fixedHuf,
+    gamificationFixedHuf: gamificationFixed?.fixedHuf,
+    hasFixedCoupon: Boolean(gamificationFixed),
     useWelcome: selected.has('welcome'),
     useLoyalty: false,
     useCat: selected.has('cat'),
@@ -117,7 +129,48 @@ export function calculateSelectedCouponPercent(
 }
 
 /**
- * Új kupon kijelölése: összevonás tilos, és egy kupon sem lépheti át a 15%-ot.
+ * Következő kijelölés: a százalékos kuponok egymást váltják, a fix Ft kupon megmaradhat mellettük.
+ * Két DB-kupon (születésnap / tárca) egyszerre nem él – a most bekapcsolt marad.
+ */
+export function nextCouponSelection(
+  coupons: SelectableCoupon[],
+  selectedIds: ReadonlySet<SelectableCouponId>,
+  toggleId: SelectableCouponId,
+  turningOn: boolean
+): SelectableCouponId[] {
+  if (!turningOn) {
+    return [...selectedIds].filter((id) => id !== toggleId)
+  }
+  if (toggleId === 'loyalty') {
+    return Array.from(new Set<SelectableCouponId>([...selectedIds, toggleId]))
+  }
+
+  const byId = new Map(coupons.map((c) => [c.id, c]))
+  const toggling = byId.get(toggleId)
+  const addingFixed = isFixedSelectableCoupon(toggling)
+  const addingDb = isDbSelectableCouponId(toggleId)
+  const next = new Set(selectedIds)
+  next.add(toggleId)
+
+  for (const id of [...next]) {
+    if (id === toggleId || id === 'loyalty') continue
+    const existing = byId.get(id)
+    const existingFixed = isFixedSelectableCoupon(existing)
+    if (addingDb && isDbSelectableCouponId(id)) {
+      next.delete(id)
+      continue
+    }
+    if (!addingFixed && !existingFixed) {
+      next.delete(id)
+    }
+  }
+
+  return [...next]
+}
+
+/**
+ * Új kupon kijelölése: két százalékos kupon nem élhet együtt (a második leváltja az elsőt),
+ * a fix Ft kupon viszont összevonható egy százalékos kuponnal. A 15%-os plafon megmarad.
  * A leválasztás (deselect) mindig engedélyezett.
  */
 export function canToggleCoupon(
@@ -129,12 +182,10 @@ export function canToggleCoupon(
   if (!turningOn) return true
   if (toggleId === 'loyalty') return true
   if (selectedIds.has(toggleId)) return true
-  const next = new Set(selectedIds)
-  next.add(toggleId)
-  if (isCouponStackingBlocked(next) || isCatRegistrationStackBlocked(next)) return false
+  const next = nextCouponSelection(coupons, selectedIds, toggleId, true)
   const raw = coupons
-    .filter((c) => next.has(c.id) && c.id !== 'loyalty')
-    .reduce((s, c) => s + c.percent, 0)
+    .filter((c) => next.includes(c.id) && c.id !== 'loyalty')
+    .reduce((s, c) => s + (c.percent > 0 ? c.percent : 0), 0)
   return raw <= MAX_COMBINED_COUPON_PERCENT + 1e-9
 }
 

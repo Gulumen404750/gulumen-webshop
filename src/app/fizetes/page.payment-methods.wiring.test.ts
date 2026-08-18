@@ -14,10 +14,11 @@ describe('checkout payment method picker', () => {
     expect(src).toMatch(/methodKlarnaNote/)
   })
 
-  it('keeps points vs coupon stacking independent of the new payment methods', () => {
+  it('keeps percent vs points stacking independent of the new payment methods', () => {
     expect(src).toMatch(/usePoints\s*\?\s*t\('payment.cashEarnHintPointsUsed'\)/)
     expect(src).toMatch(/usePoints \? \[\] : selectedCouponIds/)
     expect(src).toMatch(/disabled=\{usePoints\}/)
+    expect(src).toMatch(/typedCoupon\?\.discountType === 'percent'/)
   })
 
   it('does not promise purchase earn on Klarna instalments', () => {

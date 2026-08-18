@@ -39,8 +39,8 @@ import {
   buildPromoCoupons,
   calculateSelectedCouponPercent,
   canToggleCoupon,
-  gamificationCouponId,
   isGamificationCouponId,
+  nextCouponSelection,
   toCheckoutSelectedCouponId,
   type SelectableCouponId,
 } from '@/lib/coupon-selection'
@@ -234,11 +234,15 @@ export default function PaymentPage() {
     [availableCoupons, selectedCouponIds]
   )
 
-  const effectiveCouponPercent = typedCoupon
-    ? typedCoupon.discountType === 'percent'
+  const effectiveCouponPercent =
+    typedCoupon?.discountType === 'percent'
       ? capCombinedCouponPercent(typedCoupon.discountValue / 100)
-      : 0
-    : couponSelection.finalPercent
+      : couponSelection.finalPercent
+
+  const effectiveFixedHuf =
+    typedCoupon?.discountType === 'fixed'
+      ? typedCoupon.discountValue
+      : couponSelection.gamificationFixedHuf
 
   const usePoints = useGiftPoints || useActivityPoints
 
@@ -248,13 +252,10 @@ export default function PaymentPage() {
     lines: lockedLines,
     coupon: usePoints
       ? { percent: 0 }
-      : typedCoupon
-        ? typedCoupon.discountType === 'fixed'
-          ? { fixedHuf: typedCoupon.discountValue }
-          : { percent: effectiveCouponPercent }
-        : couponSelection.gamificationFixedHuf
-          ? { fixedHuf: couponSelection.gamificationFixedHuf }
-          : { percent: effectiveCouponPercent },
+      : {
+          percent: effectiveCouponPercent,
+          ...(effectiveFixedHuf && effectiveFixedHuf > 0 ? { fixedHuf: effectiveFixedHuf } : {}),
+        },
     luckySpin: luckySpinRecord,
     loyaltyPercent: loyaltyFraction,
     points:
@@ -290,6 +291,11 @@ export default function PaymentPage() {
   const klarnaEligible = isKlarnaEligible(payableHuf)
   const freeShippingRemainingHuf = checkoutPreview.freeShippingRemainingHuf
   const effectiveCouponDiscountHuf = couponDiscountOnTotal > 0 ? couponDiscountOnTotal : 0
+  const percentCouponDiscountHuf = checkoutPreview.percentCouponDiscountHuf
+  const fixedCouponDiscountHuf = checkoutPreview.fixedCouponDiscountHuf
+  const fixedCouponUnusedHuf = checkoutPreview.fixedCouponUnusedHuf
+  const showFixedRemainderWarning =
+    !usePoints && Boolean(effectiveFixedHuf && effectiveFixedHuf > 0) && fixedCouponUnusedHuf > 0
 
   const spinProductIds = useMemo(
     () => new Set(luckySpinRecord?.productIds ?? []),
@@ -418,25 +424,31 @@ export default function PaymentPage() {
 
   const autoSelectedGamificationRef = useRef<string | null>(null)
   useEffect(() => {
-    if (usePoints || typedCoupon) {
+    if (usePoints || typedCoupon?.discountType === 'percent') {
       autoSelectedGamificationRef.current = null
       return
     }
-    const first = gamificationCoupons[0]
-    if (!first?.code) {
+    const firstFixed = availableCoupons.find(
+      (c) => isGamificationCouponId(c.id) && (c.fixedHuf ?? 0) > 0
+    )
+    const first = firstFixed ?? availableCoupons.find((c) => isGamificationCouponId(c.id))
+    if (!first) {
       autoSelectedGamificationRef.current = null
       return
     }
-    const selectionId = gamificationCouponId(first.code)
+    if (typedCoupon?.discountType === 'fixed' && (first.fixedHuf ?? 0) > 0) {
+      return
+    }
+    const selectionId = first.id
     if (autoSelectedGamificationRef.current === selectionId) return
     autoSelectedGamificationRef.current = selectionId
     setSelectedCouponIds((prev) => {
       if (prev.some((id) => isGamificationCouponId(id))) return prev
-      if (prev.length > 0) return prev
+      if (prev.length > 0 && !(first.fixedHuf && first.fixedHuf > 0)) return prev
       if (!canToggleCoupon(availableCoupons, new Set(prev), selectionId, true)) return prev
-      return [selectionId]
+      return nextCouponSelection(availableCoupons, new Set(prev), selectionId, true)
     })
-  }, [gamificationCoupons, availableCoupons, usePoints, typedCoupon])
+  }, [availableCoupons, usePoints, typedCoupon])
 
   useEffect(() => {
     if (!usePoints) return
@@ -447,7 +459,9 @@ export default function PaymentPage() {
     const stored = readTypedCoupon()
     if (stored) {
       setTypedCoupon(stored)
-      setSelectedCouponIds([])
+      if (stored.discountType !== 'fixed') {
+        setSelectedCouponIds([])
+      }
     }
   }, [])
 
@@ -456,7 +470,11 @@ export default function PaymentPage() {
   const applyTypedCoupon = (coupon: StoredTypedCoupon) => {
     setTypedCoupon(coupon)
     writeTypedCoupon(coupon)
-    setSelectedCouponIds([])
+    setSelectedCouponIds((prev) =>
+      coupon.discountType === 'fixed'
+        ? prev.filter((id) => !isGamificationCouponId(id) && id !== 'birthday')
+        : []
+    )
     setCouponCodeInput(coupon.code)
     setUseGiftPoints(false)
     setUseActivityPoints(false)
@@ -487,7 +505,12 @@ export default function PaymentPage() {
   }
 
   const handleCouponSelectionChange = async (next: SelectableCouponId[]) => {
-    if (next.length > 0) clearTypedCoupon()
+    const pickedDbCoupon = next.some((id) => isGamificationCouponId(id) || id === 'birthday')
+    if (next.length > 0 && typedCoupon?.discountType !== 'fixed') {
+      clearTypedCoupon()
+    } else if (typedCoupon?.discountType === 'fixed' && pickedDbCoupon) {
+      clearTypedCoupon()
+    }
     setWelcomeOfferError(null)
     const turningWelcomeOn = next.includes('welcome') && !selectedCouponIds.includes('welcome')
     if (turningWelcomeOn) {
@@ -713,8 +736,10 @@ export default function PaymentPage() {
               couponSelection.gamificationCode ||
               couponCodeInput.trim() ||
               undefined,
-          welcomeOfferAccepted: usePoints || typedCoupon ? undefined : couponSelection.useWelcome ? true : undefined,
-          selectedCoupons: usePoints || typedCoupon
+          welcomeOfferAccepted: usePoints || typedCoupon?.discountType === 'percent'
+            ? undefined
+            : couponSelection.useWelcome ? true : undefined,
+          selectedCoupons: usePoints || typedCoupon?.discountType === 'percent'
             ? []
             : couponSelection.selectedIds
                 .filter((id) => id !== 'loyalty')
@@ -922,7 +947,8 @@ export default function PaymentPage() {
           {(luckySpinDiscount.discountHuf > 0 ||
             effectiveCouponDiscountHuf > 0 ||
             loyaltyDiscountHuf > 0 ||
-            pointsDiscountHuf > 0) && (
+            pointsDiscountHuf > 0 ||
+            showFixedRemainderWarning) && (
             <div className="border-t border-[var(--border)] pt-3">
               <h3 className="font-heading font-semibold text-foreground mb-2">{t('payment.discountsSection')}</h3>
               <div className="space-y-1.5">
@@ -942,22 +968,13 @@ export default function PaymentPage() {
                     <span className="tabular-nums">−{money(luckySpinDiscount.discountHuf)}</span>
                   </div>
                 )}
-                {effectiveCouponDiscountHuf > 0 && (
+                {percentCouponDiscountHuf > 0 && (
                   <div className="flex justify-between text-discount">
                     <span className="inline-flex items-center gap-1.5">
                       <span>
-                        {typedCoupon?.discountType === 'fixed' || couponSelection.gamificationFixedHuf
-                          ? t('payment.couponDiscountFixed', {
-                              amount: money(
-                                typedCoupon?.discountType === 'fixed'
-                                  ? typedCoupon.discountValue
-                                  : couponSelection.gamificationFixedHuf ?? 0
-                              ),
-                              code: typedCoupon?.code || couponSelection.gamificationCode || '',
-                            })
-                          : t('payment.couponDiscountWithCode', {
-                              percent: Math.round(effectiveCouponPercent * 100),
-                            })}
+                        {t('payment.couponDiscountWithCode', {
+                          percent: Math.round(effectiveCouponPercent * 100),
+                        })}
                         {couponSelection.capped
                           ? ` (${t('payment.couponCappedHint')})`
                           : ''}
@@ -971,7 +988,25 @@ export default function PaymentPage() {
                         i
                       </button>
                     </span>
-                    <span className="tabular-nums">−{money(effectiveCouponDiscountHuf)}</span>
+                    <span className="tabular-nums">−{money(percentCouponDiscountHuf)}</span>
+                  </div>
+                )}
+                {(fixedCouponDiscountHuf > 0 || showFixedRemainderWarning) && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-discount">
+                      <span>
+                        {t('payment.couponDiscountFixed', {
+                          amount: money(effectiveFixedHuf ?? 0),
+                          code: typedCoupon?.code || couponSelection.gamificationCode || '',
+                        })}
+                      </span>
+                      <span className="tabular-nums">−{money(fixedCouponDiscountHuf)}</span>
+                    </div>
+                    {showFixedRemainderWarning && (
+                      <p className="text-xs text-amber-700 dark:text-amber-400" role="status">
+                        {t('payment.couponFixedRemainderWarning')}
+                      </p>
+                    )}
                   </div>
                 )}
                 {giftPointsUsedPreview > 0 && (
@@ -1281,25 +1316,33 @@ export default function PaymentPage() {
       />
 
       {typedCoupon && !usePoints && (
-        <div className="mb-4 -mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-accent/40 bg-accent/5 px-4 py-3">
-          <p className="text-sm text-foreground">
-            {typedCoupon.discountType === 'fixed'
-              ? t('giftClaim.couponSuccessFixed', {
-                  amount: money(typedCoupon.discountValue),
-                  code: typedCoupon.code,
-                })
-              : t('giftClaim.couponSuccessPercent', {
-                  percent: typedCoupon.discountValue,
-                  code: typedCoupon.code,
-                })}
-          </p>
-          <button
-            type="button"
-            onClick={clearTypedCoupon}
-            className="text-xs font-medium text-accent hover:underline"
-          >
-            {t('payment.couponRemove')}
-          </button>
+        <div className="mb-4 -mt-4 space-y-2 rounded-xl border border-accent/40 bg-accent/5 px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm text-foreground">
+              {typedCoupon.discountType === 'fixed'
+                ? t('giftClaim.couponSuccessFixed', {
+                    amount: money(typedCoupon.discountValue),
+                    code: typedCoupon.code,
+                  })
+                : t('giftClaim.couponSuccessPercent', {
+                    percent: typedCoupon.discountValue,
+                    code: typedCoupon.code,
+                  })}
+            </p>
+            <button
+              type="button"
+              onClick={clearTypedCoupon}
+              className="text-xs font-medium text-accent hover:underline"
+            >
+              {t('payment.couponRemove')}
+            </button>
+          </div>
+          {typedCoupon.discountType === 'fixed' && showFixedRemainderWarning && (
+            <p className="text-xs text-amber-700 dark:text-amber-400" role="status">
+              {t('payment.couponFixedRemainderWarning')}{' '}
+              {t('payment.couponFixedRemainderHint')}
+            </p>
+          )}
         </div>
       )}
 
@@ -1328,6 +1371,11 @@ export default function PaymentPage() {
         selectedPercentDisplay={Math.round(couponSelection.finalPercent * 100)}
         capped={couponSelection.capped}
       />
+      {showFixedRemainderWarning && !typedCoupon && (
+        <p className="text-xs text-amber-700 dark:text-amber-400 -mt-4 mb-6" role="status">
+          {t('payment.couponFixedRemainderWarning')} {t('payment.couponFixedRemainderHint')}
+        </p>
+      )}
       {welcomeOfferBusy && (
         <p className="text-xs text-muted -mt-6 mb-6 flex items-center gap-1.5">
           <Loader2 className="w-3.5 h-3.5 animate-spin" />

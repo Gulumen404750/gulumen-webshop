@@ -29,5 +29,7 @@ describe('checkout API payment methods', () => {
     const paymentIdx = src.indexOf('resolvePaymentMode')
     expect(stackIdx).toBeGreaterThan(0)
     expect(paymentIdx).toBeGreaterThan(stackIdx)
+    expect(src).toMatch(/isFixedCouponDiscount/)
+    expect(src).toMatch(/fixedIds/)
   })
-})
+

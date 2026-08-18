@@ -5,6 +5,7 @@ import {
   canToggleCoupon,
   gamificationCouponId,
   MAX_COMBINED_COUPON_PERCENT,
+  nextCouponSelection,
 } from '@/lib/coupon-selection'
 import { ALLOW_CAT_REGISTRATION_STACK, isCouponStackingBlocked, capLoyaltyPercent } from '@/lib/coupon-config'
 
@@ -16,7 +17,7 @@ const labels = {
   birthday: 'Születésnap 15%',
 }
 
-describe('coupon selection: no stacking, 15% cap', () => {
+describe('coupon selection: 15% cap, fixed HUF stacking', () => {
   const coupons = buildPromoCoupons({
     catClaimed: true,
     registrationClaimed: true,
@@ -47,10 +48,11 @@ describe('coupon selection: no stacking, 15% cap', () => {
     expect(ALLOW_CAT_REGISTRATION_STACK).toBe(false)
   })
 
-  it('lets loyalty sit beside a single exclusive coupon', () => {
+  it('keeps percent stacking disabled on the server even if loyalty is marked', () => {
     expect(isCouponStackingBlocked(['loyalty'])).toBe(false)
     expect(isCouponStackingBlocked(['loyalty', 'gamification'])).toBe(false)
     expect(isCouponStackingBlocked(['cat', 'registration'])).toBe(true)
+    expect(isCouponStackingBlocked(['cat', 'gamification'], { fixedIds: ['gamification'] })).toBe(false)
     expect(capLoyaltyPercent(1)).toBeCloseTo(0.01)
     expect(capLoyaltyPercent(8)).toBeCloseTo(0.08)
     expect(capLoyaltyPercent(0.03)).toBeCloseTo(0.03)
@@ -99,7 +101,10 @@ describe('coupon selection: no stacking, 15% cap', () => {
     expect(pickedOld.finalPercent).toBeCloseTo(0.1)
     expect(
       canToggleCoupon(listed, new Set([gamificationCouponId('GLM-NEW')]), gamificationCouponId('GLM-OLD'), true)
-    ).toBe(false)
+    ).toBe(true)
+    expect(
+      nextCouponSelection(listed, new Set([gamificationCouponId('GLM-NEW')]), gamificationCouponId('GLM-OLD'), true)
+    ).toEqual([gamificationCouponId('GLM-OLD')])
   })
 
   it('applies a single cat or registration coupon without stacking', () => {
@@ -134,19 +139,41 @@ describe('coupon selection: no stacking, 15% cap', () => {
     expect(selected.capped).toBe(false)
   })
 
-  it('blocks selecting a second exclusive coupon, even if loyalty is also marked', () => {
+  it('replaces a percent coupon instead of stacking two percents', () => {
     const withBirthday = new Set(['birthday'] as const)
     const withReg = new Set(['registration'] as const)
     const withCat = new Set(['cat'] as const)
     const withLoyaltyAndReg = new Set(['loyalty', 'registration'] as const)
-    expect(canToggleCoupon(coupons, withBirthday, 'cat', true)).toBe(false)
-    expect(canToggleCoupon(coupons, withBirthday, 'registration', true)).toBe(false)
-    expect(canToggleCoupon(coupons, withReg, 'cat', true)).toBe(false)
-    expect(canToggleCoupon(coupons, withCat, 'registration', true)).toBe(false)
-    expect(canToggleCoupon(coupons, withReg, 'welcome', true)).toBe(false)
+    expect(nextCouponSelection(coupons, withBirthday, 'cat', true)).toEqual(['cat'])
+    expect(nextCouponSelection(coupons, withBirthday, 'registration', true)).toEqual(['registration'])
+    expect(nextCouponSelection(coupons, withReg, 'cat', true)).toEqual(['cat'])
+    expect(nextCouponSelection(coupons, withCat, 'registration', true)).toEqual(['registration'])
+    expect(nextCouponSelection(coupons, withReg, 'welcome', true)).toEqual(['welcome'])
     expect(canToggleCoupon(coupons, withReg, 'cat', false)).toBe(true)
-    expect(canToggleCoupon(coupons, withLoyaltyAndReg, 'birthday', true)).toBe(false)
+    expect(nextCouponSelection(coupons, withLoyaltyAndReg, 'birthday', true).sort()).toEqual(
+      ['birthday', 'loyalty'].sort()
+    )
     expect(canToggleCoupon(coupons, new Set(['loyalty'] as const), 'birthday', true)).toBe(true)
+  })
+
+  it('lets a fixed HUF coupon sit beside one percentage coupon', () => {
+    const listed = buildPromoCoupons({
+      catClaimed: true,
+      registrationClaimed: false,
+      gamification: { code: 'NYAR2026-475D59', fixedHuf: 15_000 },
+      labels: { ...labels, gamification: 'Ajándék kupon' },
+    })
+    const fixedId = gamificationCouponId('NYAR2026-475D59')
+    expect(listed.find((c) => c.id === fixedId)?.fixedHuf).toBe(15_000)
+    expect(canToggleCoupon(listed, new Set([fixedId]), 'cat', true)).toBe(true)
+    expect(nextCouponSelection(listed, new Set([fixedId]), 'cat', true).sort()).toEqual(['cat', fixedId].sort())
+    const stacked = calculateSelectedCouponPercent(listed, ['cat', fixedId])
+    expect(stacked.finalPercent).toBeCloseTo(0.05)
+    expect(stacked.gamificationFixedHuf).toBe(15_000)
+    expect(stacked.hasFixedCoupon).toBe(true)
+    expect(nextCouponSelection(listed, new Set(['cat', fixedId]), 'registration', true).sort()).toEqual(
+      ['registration', fixedId].sort()
+    )
   })
 
   it('caps a 20% gamification coupon to 15% so it remains selectable', () => {
