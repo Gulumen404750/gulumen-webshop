@@ -15,6 +15,9 @@ export type PointWalletData = {
   activeCouponCode: string | null
   suspended: boolean
   giftPointsAvailable?: number
+  giftBalance?: number
+  activityBalance?: number
+  giftExpiresAt?: string | null
   giftPointValidityDays?: number
   gamificationEnabled?: boolean
   mode?: 'dev'
@@ -101,12 +104,22 @@ export function clearPendingPointsRedeem() {
 
 export function withDeductedBalance(
   prev: PointWalletData,
-  pointsUsed: number
+  pointsUsed: number,
+  giftPointsUsed = 0
 ): PointWalletData {
   const nextBalance = Math.max(0, prev.balance - pointsUsed)
+  const giftBefore = prev.giftBalance ?? prev.giftPointsAvailable ?? 0
+  const giftUsed = Math.min(Math.max(0, Math.floor(giftPointsUsed)), giftBefore, pointsUsed)
+  const nextGift = Math.max(0, giftBefore - giftUsed)
+  const activityBefore =
+    prev.activityBalance ?? Math.max(0, prev.balance - giftBefore)
+  const nextActivity = Math.max(0, activityBefore - (pointsUsed - giftUsed))
   return {
     ...prev,
     balance: nextBalance,
+    giftPointsAvailable: nextGift,
+    giftBalance: nextGift,
+    activityBalance: nextActivity,
     lifetimeRedeemed: (prev.lifetimeRedeemed ?? 0) + pointsUsed,
     canRedeem:
       nextBalance >= prev.redeemThreshold && !prev.suspended && !prev.hasActiveCoupon,

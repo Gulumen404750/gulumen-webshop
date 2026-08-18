@@ -21,6 +21,7 @@ const PUBLIC_ORDER_KEYS = [
   'paidAt',
   'pointsDiscountHuf',
   'pointsUsed',
+  'giftPointsUsed',
   'couponId',
   'appliedCoupons',
   'rewardsFinalized',

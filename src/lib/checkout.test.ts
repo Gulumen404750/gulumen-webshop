@@ -107,6 +107,19 @@ describe('computePointsRedemption', () => {
     })
     expect(result.pointsDiscountHuf).toBe(10_000)
     expect(result.pointsUsed).toBe(10_000)
+    expect(result.giftPointsUsed).toBe(10_000)
+    expect(result.activityPointsUsed).toBe(0)
+  })
+
+  it('applies activity 30% only to leftover merchandise after gift', () => {
+    const result = computePointsRedemption(10_000, {
+      requestedDiscountHuf: 10_000,
+      userBalance: 10_000,
+      giftPointsAvailable: 4_000,
+    })
+    expect(result.giftPointsUsed).toBe(4_000)
+    expect(result.activityPointsUsed).toBe(1_800)
+    expect(result.pointsDiscountHuf).toBe(5_800)
   })
 
   it('rejects redemption when balance is insufficient', () => {
@@ -114,7 +127,12 @@ describe('computePointsRedemption', () => {
       requestedDiscountHuf: 1_000,
       userBalance: 0,
     })
-    expect(result).toEqual({ pointsDiscountHuf: 0, pointsUsed: 0 })
+    expect(result).toEqual({
+      pointsDiscountHuf: 0,
+      pointsUsed: 0,
+      giftPointsUsed: 0,
+      activityPointsUsed: 0,
+    })
   })
 })
 
@@ -341,5 +359,32 @@ describe('computeCheckoutTotals', () => {
     expect(totals.merchandiseTotalHuf).toBe(37_000)
     expect(totals.shippingHuf).toBe(STANDARD_SHIPPING_FEE_HUF)
     expect(totals.finalTotalHuf).toBe(37_000 + STANDARD_SHIPPING_FEE_HUF)
+    expect(totals.invoiceMerchandiseHuf).toBe(37_000)
+    expect(totals.invoiceShippingHuf).toBe(STANDARD_SHIPPING_FEE_HUF)
+    expect(totals.invoiceTotalHuf).toBe(37_000 + STANDARD_SHIPPING_FEE_HUF)
+  })
+
+  it('splits gift vs activity and shows the unpaid remainder as invoice due', () => {
+    const lines = [line('stock-1', 1, 10_000, 'stock')]
+    const totals = computeCheckoutTotals({
+      lines,
+      coupon: { percent: 0.1 },
+      luckySpin: null,
+      points: {
+        requestedDiscountHuf: 10_000,
+        userBalance: 10_000,
+        giftPointsAvailable: 4_000,
+      },
+    })
+
+    expect(totals.couponDiscountHuf).toBe(0)
+    expect(totals.giftPointsUsed).toBe(4_000)
+    expect(totals.activityPointsUsed).toBe(1_800)
+    expect(totals.pointsDiscountHuf).toBe(5_800)
+    expect(totals.invoiceMerchandiseHuf).toBe(4_200)
+    expect(totals.invoiceShippingHuf).toBe(STANDARD_SHIPPING_FEE_HUF)
+    expect(totals.invoiceTotalHuf).toBe(4_200 + STANDARD_SHIPPING_FEE_HUF)
+    expect(totals.inStock.giftPointsUsed).toBe(4_000)
+    expect(totals.inStock.invoiceTotalHuf).toBe(totals.invoiceTotalHuf)
   })
 })

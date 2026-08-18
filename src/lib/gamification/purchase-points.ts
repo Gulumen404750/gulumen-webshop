@@ -27,6 +27,7 @@ export type PurchasePointsValidation = {
   pointsUsed: number
   cardTotalHuf: number
   giftPointsUsed: number
+  activityPointsUsed: number
 } | {
   ok: false
   error: string
@@ -36,32 +37,63 @@ export type PointsRedemptionBreakdown = {
   pointsDiscountHuf: number
   pointsUsed: number
   giftPointsUsed: number
+  activityPointsUsed: number
+}
+
+export type WalletBalanceSplit = {
+  giftBalance: number
+  activityBalance: number
 }
 
 function roundSpend(n: number): number {
   return Math.max(0, Math.floor(n))
 }
 
+const ZERO_REDEMPTION: PointsRedemptionBreakdown = {
+  pointsDiscountHuf: 0,
+  pointsUsed: 0,
+  giftPointsUsed: 0,
+  activityPointsUsed: 0,
+}
+
+/** A teljes tárcaegyenlegből az ajándék maradék a gift grant, a többi aktivitási pont. */
+export function splitWalletBalances(
+  totalBalance: number,
+  giftPointsAvailable: number
+): WalletBalanceSplit {
+  const total = roundSpend(totalBalance)
+  const giftBalance = Math.min(total, roundSpend(giftPointsAvailable))
+  return {
+    giftBalance,
+    activityBalance: Math.max(0, total - giftBalance),
+  }
+}
+
 /**
- * Pontbeváltás: NFC/ajándékpont a termékár 100%-áig, sima pont max. 30%.
- * A szállítási díjat soha nem fedezi.
+ * Pontbeváltás: NFC/ajándékpont a termékár 100%-áig, aktivitási pont max. 30%.
+ * A szállítási díjat soha nem fedezi. spendGift / spendActivity: melyik tárcát költi a vevő.
  */
 export function computeMixedPointsRedemption(input: {
   merchandiseHuf: number
   requestedDiscountHuf: number
   userBalance: number
   giftPointsAvailable: number
+  spendGift?: boolean
+  spendActivity?: boolean
 }): PointsRedemptionBreakdown {
   const merchandiseHuf = roundSpend(input.merchandiseHuf)
-  if (merchandiseHuf <= 0 || input.requestedDiscountHuf <= 0) {
-    return { pointsDiscountHuf: 0, pointsUsed: 0, giftPointsUsed: 0 }
+  const spendGift = input.spendGift !== false
+  const spendActivity = input.spendActivity !== false
+  if (merchandiseHuf <= 0 || input.requestedDiscountHuf <= 0 || (!spendGift && !spendActivity)) {
+    return { ...ZERO_REDEMPTION }
   }
 
-  const giftAvailable = Math.min(
-    roundSpend(input.giftPointsAvailable),
-    roundSpend(input.userBalance)
+  const { giftBalance, activityBalance } = splitWalletBalances(
+    input.userBalance,
+    input.giftPointsAvailable
   )
-  const regularAvailable = Math.max(0, roundSpend(input.userBalance) - giftAvailable)
+  const giftAvailable = spendGift ? giftBalance : 0
+  const regularAvailable = spendActivity ? activityBalance : 0
 
   const giftCapHuf = maxPointsDiscountHuf(merchandiseHuf, GIFT_POINTS_MAX_COVERAGE)
   const giftUseHuf = Math.min(
@@ -81,14 +113,17 @@ export function computeMixedPointsRedemption(input: {
   )
 
   const pointsDiscountHuf = giftUseHuf + regularUseHuf
-  const pointsUsed = hufToPoints(pointsDiscountHuf)
+  const giftPointsUsed = hufToPoints(giftUseHuf)
+  const activityPointsUsed = hufToPoints(regularUseHuf)
+  const pointsUsed = giftPointsUsed + activityPointsUsed
   if (pointsUsed <= 0) {
-    return { pointsDiscountHuf: 0, pointsUsed: 0, giftPointsUsed: 0 }
+    return { ...ZERO_REDEMPTION }
   }
   return {
     pointsDiscountHuf,
     pointsUsed,
-    giftPointsUsed: hufToPoints(giftUseHuf),
+    giftPointsUsed,
+    activityPointsUsed,
   }
 }
 
@@ -96,7 +131,8 @@ export function computeMixedPointsRedemption(input: {
 export async function validatePurchasePoints(
   userId: string,
   cartTotalHuf: number,
-  requestedPointsDiscountHuf: number
+  requestedPointsDiscountHuf: number,
+  options?: { spendGift?: boolean; spendActivity?: boolean }
 ): Promise<PurchasePointsValidation> {
   if (cartTotalHuf <= 0) {
     return { ok: false, error: 'Invalid cart total' }
@@ -108,6 +144,7 @@ export async function validatePurchasePoints(
       pointsUsed: 0,
       cardTotalHuf: cartTotalHuf,
       giftPointsUsed: 0,
+      activityPointsUsed: 0,
     }
   }
 
@@ -120,6 +157,8 @@ export async function validatePurchasePoints(
     requestedDiscountHuf: requestedPointsDiscountHuf,
     userBalance: balance,
     giftPointsAvailable,
+    spendGift: options?.spendGift,
+    spendActivity: options?.spendActivity,
   })
 
   if (redemption.pointsUsed <= 0) {
@@ -129,6 +168,7 @@ export async function validatePurchasePoints(
       pointsUsed: 0,
       cardTotalHuf: cartTotalHuf,
       giftPointsUsed: 0,
+      activityPointsUsed: 0,
     }
   }
 
@@ -142,6 +182,7 @@ export async function validatePurchasePoints(
     pointsUsed: redemption.pointsUsed,
     cardTotalHuf: cartTotalHuf - redemption.pointsDiscountHuf,
     giftPointsUsed: redemption.giftPointsUsed,
+    activityPointsUsed: redemption.activityPointsUsed,
   }
 }
 

@@ -3,13 +3,18 @@ import { getSession, resolveSessionUserId } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
 import { isDbConfigured } from '@/lib/prisma'
 import { getPointBalance } from '@/lib/gamification/point-ledger'
-import { getAvailableGiftPoints } from '@/lib/gamification/gift-points'
+import { getAvailableGiftPoints, getSoonestGiftExpiry } from '@/lib/gamification/gift-points'
 import {
   maxPointsDiscountHuf,
   hufToPoints,
   computeMixedPointsRedemption,
+  splitWalletBalances,
 } from '@/lib/gamification/purchase-points'
-import { MAX_CART_POINTS_COVERAGE, POINTS_PER_HUF } from '@/lib/gamification/constants'
+import {
+  GIFT_POINTS_MAX_COVERAGE,
+  MAX_CART_POINTS_COVERAGE,
+  POINTS_PER_HUF,
+} from '@/lib/gamification/constants'
 
 /**
  * GET /api/gamification/purchase-preview?cartTotalHuf=50000
@@ -36,25 +41,56 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Invalid cartTotalHuf' }, { status: 400 })
   }
 
-  const maxDiscountHuf = maxPointsDiscountHuf(cartTotalHuf)
   const balance = isDbConfigured() ? await getPointBalance(userId) : 0
   const giftPointsAvailable = isDbConfigured() ? await getAvailableGiftPoints(userId) : 0
-  const redemption = computeMixedPointsRedemption({
+  const giftExpiresAt = isDbConfigured() ? await getSoonestGiftExpiry(userId) : null
+  const { giftBalance, activityBalance } = splitWalletBalances(balance, giftPointsAvailable)
+
+  const giftOnly = computeMixedPointsRedemption({
+    merchandiseHuf: cartTotalHuf,
+    requestedDiscountHuf: cartTotalHuf,
+    userBalance: balance,
+    giftPointsAvailable,
+    spendGift: true,
+    spendActivity: false,
+  })
+  const activityOnly = computeMixedPointsRedemption({
+    merchandiseHuf: cartTotalHuf,
+    requestedDiscountHuf: cartTotalHuf,
+    userBalance: balance,
+    giftPointsAvailable,
+    spendGift: false,
+    spendActivity: true,
+  })
+  const combined = computeMixedPointsRedemption({
     merchandiseHuf: cartTotalHuf,
     requestedDiscountHuf: cartTotalHuf,
     userBalance: balance,
     giftPointsAvailable,
   })
-  const usableDiscountHuf = redemption.pointsDiscountHuf
+  const usableDiscountHuf = combined.pointsDiscountHuf
+  const maxDiscountHuf = maxPointsDiscountHuf(cartTotalHuf)
 
   return NextResponse.json({
     balance,
     giftPointsAvailable,
+    giftBalance,
+    activityBalance,
+    giftExpiresAt: giftExpiresAt?.toISOString() ?? null,
     cartTotalHuf,
     maxPointsDiscountHuf: maxDiscountHuf,
     maxUsablePointsDiscountHuf: usableDiscountHuf,
     maxUsablePoints: hufToPoints(usableDiscountHuf),
+    maxGiftDiscountHuf: giftOnly.pointsDiscountHuf,
+    maxGiftPoints: giftOnly.giftPointsUsed,
+    maxActivityDiscountHuf: activityOnly.pointsDiscountHuf,
+    maxActivityPoints: activityOnly.activityPointsUsed,
+    giftPointsUsed: combined.giftPointsUsed,
+    activityPointsUsed: combined.activityPointsUsed,
+    invoiceMerchandiseHuf: Math.max(0, Math.floor(cartTotalHuf) - usableDiscountHuf),
     pointsPerHuf: POINTS_PER_HUF,
-    maxCoveragePercent: giftPointsAvailable > 0 ? 1 : MAX_CART_POINTS_COVERAGE,
+    giftCoveragePercent: GIFT_POINTS_MAX_COVERAGE,
+    activityCoveragePercent: MAX_CART_POINTS_COVERAGE,
+    maxCoveragePercent: giftPointsAvailable > 0 ? GIFT_POINTS_MAX_COVERAGE : MAX_CART_POINTS_COVERAGE,
   })
 }

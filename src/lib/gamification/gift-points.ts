@@ -75,6 +75,14 @@ export async function getAvailableGiftPoints(
   return sumAvailableGiftPoints(grants, now)
 }
 
+export async function getSoonestGiftExpiry(
+  userId: string,
+  now: Date = new Date()
+): Promise<Date | null> {
+  const grants = await listActiveGiftGrants(userId, now)
+  return grants[0]?.expiresAt ?? null
+}
+
 export async function listActiveGiftGrants(
   userId: string,
   now: Date = new Date()

@@ -13,7 +13,14 @@ import {
   hasShippingAddressChanged,
 } from '@/lib/admin-order-badges'
 import { formatAddressTypeLabel } from '@/lib/checkout-customer'
-import { INTERNAL_POINTS_ACCOUNTING_NOTE, orderUsedInternalPoints } from '@/lib/order-points-accounting'
+import {
+  ACTIVITY_POINTS_ACCOUNTING_NOTE,
+  GIFT_POINTS_ACCOUNTING_NOTE,
+  INTERNAL_POINTS_ACCOUNTING_NOTE,
+  INVOICE_DUE_LABEL,
+  invoiceAmountsForOrder,
+  orderUsedInternalPoints,
+} from '@/lib/order-points-accounting'
 import { buildProductionJobPayload, orderItemSpecForAdmin } from '@/lib/production-payload'
 import { shippingLabelItemsFromOrderItems, shippingLabelQrText } from '@/lib/shipping-label'
 import { generateShippingLabelQrDataUrl } from '@/lib/shipping-label-qr'
@@ -99,15 +106,48 @@ export default async function AdminOrderDetailPage({ params }: Props) {
         <p><span className="font-medium">Típus:</span> {order.orderType ?? '–'}</p>
         <p><span className="font-medium">Csoport ID:</span> {order.orderGroupId ?? '–'}</p>
         <p><span className="font-medium">Összeg:</span> {order.totalHuf.toLocaleString('hu-HU')} Ft (kedvezmény: {order.discountHuf} Ft)</p>
-        {(order.pointsUsed > 0 || order.pointsDiscountHuf > 0) && (
-          <p>
-            <span className="font-medium">Pont:</span>{' '}
-            {order.pointsUsed} pont (−{order.pointsDiscountHuf.toLocaleString('hu-HU')} Ft)
-          </p>
-        )}
-        {orderUsedInternalPoints(order) && (
-          <p className="text-sm font-medium text-sky-200">{INTERNAL_POINTS_ACCOUNTING_NOTE}</p>
-        )}
+        {(() => {
+          const invoice = invoiceAmountsForOrder(order)
+          if (!orderUsedInternalPoints(order) && invoice.invoiceTotalHuf === order.totalHuf) {
+            return null
+          }
+          return (
+            <div className="space-y-1 text-sm">
+              {invoice.internalGiftHuf > 0 && (
+                <p>
+                  <span className="font-medium">Ajándékpont:</span>{' '}
+                  {invoice.internalGiftHuf.toLocaleString('hu-HU')} Ft — {GIFT_POINTS_ACCOUNTING_NOTE}
+                </p>
+              )}
+              {invoice.internalActivityHuf > 0 && (
+                <p>
+                  <span className="font-medium">Aktivitási pont:</span>{' '}
+                  {invoice.internalActivityHuf.toLocaleString('hu-HU')} Ft — {ACTIVITY_POINTS_ACCOUNTING_NOTE}
+                </p>
+              )}
+              {invoice.internalGiftHuf === 0 && invoice.internalActivityHuf === 0 && orderUsedInternalPoints(order) && (
+                <p>
+                  <span className="font-medium">Pont:</span>{' '}
+                  {order.pointsUsed} pont (−{order.pointsDiscountHuf.toLocaleString('hu-HU')} Ft)
+                </p>
+              )}
+              <p>
+                <span className="font-medium">Számlázandó termék:</span>{' '}
+                {invoice.invoiceMerchandiseHuf.toLocaleString('hu-HU')} Ft
+              </p>
+              <p>
+                <span className="font-medium">Szállítási díj (számla):</span>{' '}
+                {invoice.invoiceShippingHuf.toLocaleString('hu-HU')} Ft
+              </p>
+              <p className="font-medium text-amber-100">
+                {INVOICE_DUE_LABEL}: {invoice.invoiceTotalHuf.toLocaleString('hu-HU')} Ft
+              </p>
+              {orderUsedInternalPoints(order) && (
+                <p className="text-sm font-medium text-sky-200">{INTERNAL_POINTS_ACCOUNTING_NOTE}</p>
+              )}
+            </div>
+          )
+        })()}
         <p><span className="font-medium">Fizetve:</span> {order.paidAt ? new Date(order.paidAt).toLocaleString('hu-HU') : '–'} {order.amountPaid != null && `(${order.amountPaid} ${order.currencyPaid ?? 'HUF'})`}</p>
         <p><span className="font-medium">Email:</span> {order.customerEmail ?? '–'}</p>
         <p><span className="font-medium">Címke:</span> {order.printedAt ? `kinyomtatva (${new Date(order.printedAt).toLocaleString('hu-HU')})` : 'még nincs nyomtatva'}</p>

@@ -93,6 +93,10 @@ export async function GET(request: Request) {
       },
       pointsUsed: true,
       pointsDiscountHuf: true,
+      giftPointsUsed: true,
+      subtotalHuf: true,
+      discountHuf: true,
+      totalHuf: true,
     },
   })
 

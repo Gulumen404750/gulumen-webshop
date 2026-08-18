@@ -26,9 +26,12 @@ describe('orders CSV export', () => {
     expect(csv.charCodeAt(0)).toBe(0xfeff)
     const [header] = csvLines(csv)
     expect(header).toBe(ORDERS_CSV_HEADERS.join(';'))
-    expect(header.split(';')).toHaveLength(16)
+    expect(header.split(';')).toHaveLength(21)
     expect(header).toContain('Rendelés ID')
     expect(header).toContain('SKU / Termékkód')
+    expect(header).toContain('Ajándékpont (Ft)')
+    expect(header).toContain('Aktivitási pont (Ft)')
+    expect(header).toContain('Számlázandó (Ft)')
     expect(header).toContain('Elszámolás')
     expect(header).not.toContain(',')
   })
@@ -81,6 +84,11 @@ describe('orders CSV export', () => {
         'in_stock',
         '0',
         '0',
+        '0',
+        '0',
+        '0',
+        '0',
+        '0',
         'Pénzbeni fizetés',
       ].join(';')
     )
@@ -107,7 +115,7 @@ describe('orders CSV export', () => {
     expect(row).toContain('ord_empty')
     expect(row).toContain('Fizetés folyamatban')
     expect(row).toContain('sourcing')
-    expect(row.split(';')).toHaveLength(16)
+    expect(row.split(';')).toHaveLength(21)
   })
 
   it('quotes fields that contain semicolons, quotes or newlines', () => {
@@ -161,7 +169,7 @@ describe('orders CSV export', () => {
     expect(row).toContain(';1;1890;1890;')
   })
 
-  it('marks internal points payments as non-cash profit for accounting', () => {
+  it('marks internal points payments as non-cash profit and shows the invoice remainder', () => {
     const csv = buildOrdersCsv([
       {
         id: 'ord_points',
@@ -170,21 +178,25 @@ describe('orders CSV export', () => {
         customerEmail: 'p@example.com',
         status: 'paid',
         orderType: 'in_stock',
-        pointsUsed: 4500,
-        pointsDiscountHuf: 4500,
+        subtotalHuf: 10_000,
+        discountHuf: 0,
+        totalHuf: 6_190,
+        pointsUsed: 5_800,
+        pointsDiscountHuf: 5_800,
+        giftPointsUsed: 4_000,
         items: [
           {
             name: 'Kuka',
             sku: 'GUL-1',
             qty: 1,
-            priceHuf: 4500,
+            priceHuf: 10_000,
             fulfillmentType: 'stock',
           },
         ],
       },
     ])
     const [, row] = csvLines(csv)
-    expect(row).toContain(';4500;4500;')
+    expect(row).toContain(';5800;5800;4000;1800;4200;1990;6190;')
     expect(row).toContain('Belső pontrendszer / Ajándékpont – belső elszámolás (nem pénzbeni profit)')
   })
 })

@@ -3,7 +3,8 @@ import { getSession, resolveSessionUserId } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { REDEEM_THRESHOLD_MIN, GIFT_POINT_VALIDITY_DAYS } from '@/lib/gamification/constants'
-import { getAvailableGiftPoints } from '@/lib/gamification/gift-points'
+import { getAvailableGiftPoints, getSoonestGiftExpiry } from '@/lib/gamification/gift-points'
+import { splitWalletBalances } from '@/lib/gamification/purchase-points'
 import { processPendingPointEvents } from '@/lib/gamification/point-event-queue'
 
 export const dynamic = 'force-dynamic'
@@ -44,16 +45,18 @@ export async function GET(request: Request) {
   try {
     await processPendingPointEvents(10, userId)
 
-    const [wallet, activeCoupon, giftPointsAvailable] = await Promise.all([
+    const [wallet, activeCoupon, giftPointsAvailable, giftExpiresAt] = await Promise.all([
       prisma.userPointWallet.findUnique({ where: { userId } }),
       prisma.coupon.findFirst({
         where: { userId, source: 'gamification', active: true },
         select: { code: true, validUntil: true },
       }),
       getAvailableGiftPoints(userId),
+      getSoonestGiftExpiry(userId),
     ])
 
     const balance = wallet?.balance ?? 0
+    const { giftBalance, activityBalance } = splitWalletBalances(balance, giftPointsAvailable)
     const canRedeem =
       balance >= REDEEM_THRESHOLD_MIN &&
       !wallet?.gamificationSuspended &&
@@ -70,6 +73,9 @@ export async function GET(request: Request) {
         activeCouponCode: activeCoupon?.code ?? null,
         suspended: wallet?.gamificationSuspended ?? false,
         giftPointsAvailable,
+        giftBalance,
+        activityBalance,
+        giftExpiresAt: giftExpiresAt?.toISOString() ?? null,
         giftPointValidityDays: GIFT_POINT_VALIDITY_DAYS,
         gamificationEnabled: true,
       },

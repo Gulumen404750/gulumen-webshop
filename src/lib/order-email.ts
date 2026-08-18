@@ -9,6 +9,9 @@ import type { Order } from './orders'
 import { getOrderById, getOrdersByGroupId, ensureShippingEditToken } from './orders'
 import { prisma, isDbConfigured } from './prisma'
 import { FREE_SHIPPING_THRESHOLD } from './checkout'
+import {
+  invoiceAmountsForOrder,
+} from './order-points-accounting'
 import { sendMail } from './mail'
 import {
   getSupportInboxEmail,
@@ -254,11 +257,28 @@ function buildOrderBlockHtml(order: Order): string {
     )
     .join('')
   const shipping = orderShippingHuf(order)
+  const invoice = invoiceAmountsForOrder({
+    subtotalHuf: order.subtotalHuf,
+    discountHuf: order.discountHuf,
+    pointsDiscountHuf: order.pointsDiscountHuf ?? 0,
+    totalHuf: order.totalHuf,
+    pointsUsed: order.pointsUsed ?? 0,
+    giftPointsUsed: order.giftPointsUsed ?? 0,
+  })
   const discountParts: string[] = []
   if (order.discountHuf > 0) {
     discountParts.push(`<li>Kedvezmény: −${formatHuf(order.discountHuf)}</li>`)
   }
-  if ((order.pointsDiscountHuf ?? 0) > 0) {
+  if (invoice.internalGiftHuf > 0) {
+    discountParts.push(
+      `<li>Ajándékpont (−${formatHuf(invoice.internalGiftHuf)}) – belső elszámolás, nem számlázandó</li>`
+    )
+  }
+  if (invoice.internalActivityHuf > 0) {
+    discountParts.push(
+      `<li>Aktivitási pont (−${formatHuf(invoice.internalActivityHuf)}) – belső elszámolás, nem számlázandó</li>`
+    )
+  } else if ((order.pointsDiscountHuf ?? 0) > 0 && invoice.internalGiftHuf === 0) {
     discountParts.push(
       `<li>Pont kedvezmény (${order.pointsUsed ?? 0} pont): −${formatHuf(order.pointsDiscountHuf ?? 0)}</li>`
     )
@@ -274,6 +294,8 @@ function buildOrderBlockHtml(order: Order): string {
       <li>Részösszeg: ${formatHuf(order.subtotalHuf)}</li>
       ${discountParts.join('\n      ')}
       <li>Szállítási díj: ${shipping === 0 ? 'Ingyenes' : formatHuf(shipping)}</li>
+      <li>Számlázandó termék: ${formatHuf(invoice.invoiceMerchandiseHuf)}</li>
+      <li><strong>Számlázandó (kártya): ${formatHuf(invoice.invoiceTotalHuf)}</strong></li>
       <li><strong>Végösszeg:</strong> ${formatHuf(order.totalHuf)}</li>
     </ul>
     <p><strong>Várható teljesítés:</strong> ${escapeHtml(orderFulfillmentText(order))}</p>
@@ -327,6 +349,14 @@ export function buildOrderGroupConfirmationText(
 ): string {
   const blocks = orders.map((order) => {
     const shipping = orderShippingHuf(order)
+    const invoice = invoiceAmountsForOrder({
+      subtotalHuf: order.subtotalHuf,
+      discountHuf: order.discountHuf,
+      pointsDiscountHuf: order.pointsDiscountHuf ?? 0,
+      totalHuf: order.totalHuf,
+      pointsUsed: order.pointsUsed ?? 0,
+      giftPointsUsed: order.giftPointsUsed ?? 0,
+    })
     const items = order.items
       .map((i) => `- ${i.name || i.productId}: ${i.qty} db × ${formatHuf(i.priceHuf)}`)
       .join('\n')
@@ -337,10 +367,15 @@ export function buildOrderGroupConfirmationText(
       items,
       `Részösszeg: ${formatHuf(order.subtotalHuf)}`,
       order.discountHuf > 0 ? `Kedvezmény: −${formatHuf(order.discountHuf)}` : null,
-      (order.pointsDiscountHuf ?? 0) > 0
-        ? `Pont kedvezmény: −${formatHuf(order.pointsDiscountHuf ?? 0)}`
+      invoice.internalGiftHuf > 0
+        ? `Ajándékpont: −${formatHuf(invoice.internalGiftHuf)} (belső elszámolás)`
+        : null,
+      invoice.internalActivityHuf > 0
+        ? `Aktivitási pont: −${formatHuf(invoice.internalActivityHuf)} (belső elszámolás)`
         : null,
       `Szállítási díj: ${shipping === 0 ? 'Ingyenes' : formatHuf(shipping)}`,
+      `Számlázandó termék: ${formatHuf(invoice.invoiceMerchandiseHuf)}`,
+      `Számlázandó (kártya): ${formatHuf(invoice.invoiceTotalHuf)}`,
       `Végösszeg: ${formatHuf(order.totalHuf)}`,
       `Várható teljesítés: ${orderFulfillmentText(order)}`,
     ]

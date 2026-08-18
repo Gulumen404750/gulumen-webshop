@@ -169,6 +169,10 @@ export function devGetWallet(userId: string) {
     hasActiveCoupon: false,
     activeCouponCode: null,
     suspended: wallet.gamificationSuspended,
+    giftPointsAvailable: 0,
+    giftBalance: 0,
+    activityBalance: wallet.balance,
+    giftExpiresAt: null,
     gamificationEnabled: true,
     mode: 'dev' as const,
   }

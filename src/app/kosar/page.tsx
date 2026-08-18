@@ -14,6 +14,7 @@ import { useLocale } from '@/context/LocaleContext'
 import { useToast } from '@/context/ToastContext'
 import { useEuroRate } from '@/context/EuroRateContext'
 import { useLuckySpin } from '@/hooks/useLuckySpin'
+import { usePointWallet } from '@/hooks/usePointWallet'
 import { CheckoutSourcingModal } from '@/components/CheckoutSourcingModal'
 import { CartEmptyState } from '@/components/empty-states/CartEmptyState'
 import {
@@ -32,6 +33,7 @@ export default function CartPage() {
   const { toast } = useToast()
   const { hufToEur, formatEur } = useEuroRate()
   const { userId } = useAuth()
+  const { wallet } = usePointWallet(!!userId)
   const { data: luckySpinData } = useLuckySpin(!!userId)
   const { getOrdersCount, placeOrder, cancelOrder } = useSourcingDealOrders()
   const processedAddIdRef = useRef<string | null>(null)
@@ -468,6 +470,21 @@ export default function CartPage() {
           </div>
         )
       })()}
+
+      {userId && wallet && (wallet.balance > 0 || (wallet.giftPointsAvailable ?? 0) > 0) && (
+        <div className="mb-6 p-4 rounded-xl border border-accent/30 bg-accent/5 text-sm text-foreground">
+          <p className="font-medium mb-1">{t('gamification.pointsTitle')}</p>
+          <p className="text-muted">
+            {t('gamification.cartWalletHint', {
+              gift: String(wallet.giftBalance ?? wallet.giftPointsAvailable ?? 0),
+              activity: String(
+                wallet.activityBalance ??
+                  Math.max(0, (wallet.balance ?? 0) - (wallet.giftBalance ?? wallet.giftPointsAvailable ?? 0))
+              ),
+            })}
+          </p>
+        </div>
+      )}
 
       <div className="mb-6 flex flex-wrap items-center gap-4 text-sm text-muted">
         <span className="flex items-center gap-1">

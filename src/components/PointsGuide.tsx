@@ -14,7 +14,7 @@ import {
   POINTS_PER_HUF,
   LIKE_BONUS_WINDOW_MS,
 } from '@/lib/gamification/constants'
-import { Sparkles, Heart, Clock, Gift, ShoppingBag } from 'lucide-react'
+import { Sparkles, Heart, Clock, Gift, ShoppingBag, Wallet } from 'lucide-react'
 import { useLocale } from '@/context/LocaleContext'
 
 type Props = {
@@ -63,6 +63,11 @@ export function PointsGuide({ className = '' }: Props) {
         percent: Math.round(MAX_CART_POINTS_COVERAGE * 100),
         rate: POINTS_PER_HUF,
       }),
+    },
+    {
+      icon: Wallet,
+      title: t('gamification.mechanicsGiftTitle'),
+      text: t('gamification.mechanicsGift'),
     },
     {
       icon: Gift,

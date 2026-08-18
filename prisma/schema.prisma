@@ -239,10 +239,12 @@ model Order {
   cancelRequestedAt DateTime?
   userId             String?
   user              User?    @relation(fields: [userId], references: [id])
-  /// Ponttal fizetett összeg (Ft) – max. kosár 30%-a.
+  /// Ponttal fizetett összeg (Ft) – ajándék + aktivitási pont együtt.
   pointsDiscountHuf Int      @default(0)
   /// Levont pontok száma (checkout mentés).
   pointsUsed         Int      @default(0)
+  /// Ebből ajándékpont (NFC / kampány) – 100%-ban levásárolható, belső elszámolás.
+  giftPointsUsed     Int      @default(0)
   /// Checkout DB kupon (admin / gamification kód).
   couponId           String?
   coupon             Coupon?  @relation(fields: [couponId], references: [id], onDelete: SetNull)

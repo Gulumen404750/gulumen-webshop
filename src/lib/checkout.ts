@@ -5,8 +5,8 @@
  * Sorrend:
  * 1. Regisztrációs / kupon kedvezmény (% vagy fix Ft) – csak teljes árú tételekre
  * 2. Szerencsekerék (15/20/25% a spin listában lévő termékek zárolt árából; +5% ponttal)
- * 3. Pontbeváltás (sima pont max. 30%; NFC ajándékpont a termékár 100%-a; más akcióval nem kombinálható)
- * 4. Szállítási díj (pontfizetésnél mindig a vásárlót terheli; különben küszöb alatt STANDARD díj)
+ * 3. Pontbeváltás (aktivitási pont max. 30%; ajándékpont a termékár 100%-a; más akcióval nem kombinálható)
+ * 4. Szállítási díj (pontfizetésnél mindig a vásárlót terheli; a ponttal nem fedezett rész számlázandó)
  */
 
 import type { Product } from '@/lib/data'
@@ -89,6 +89,10 @@ export type PointsRedemptionInput = {
   userBalance: number
   /** NFC / ajándékpont – 100%-ban levásárolható a termékárra. */
   giftPointsAvailable?: number
+  /** Ajándékpont-tárca felhasználása (alap: igen). */
+  spendGift?: boolean
+  /** Aktivitási pont-tárca felhasználása, 30%-os sapkával (alap: igen). */
+  spendActivity?: boolean
 }
 
 export type CheckoutOrderSplit = {
@@ -98,9 +102,14 @@ export type CheckoutOrderSplit = {
   luckySpinDiscountHuf: number
   pointsDiscountHuf: number
   pointsUsed: number
+  giftPointsUsed: number
+  activityPointsUsed: number
   merchandiseTotalHuf: number
   shippingHuf: number
   totalHuf: number
+  invoiceMerchandiseHuf: number
+  invoiceShippingHuf: number
+  invoiceTotalHuf: number
 }
 
 export type CheckoutTotals = {
@@ -111,9 +120,15 @@ export type CheckoutTotals = {
   afterCouponAndLuckyHuf: number
   pointsDiscountHuf: number
   pointsUsed: number
+  giftPointsUsed: number
+  activityPointsUsed: number
   merchandiseTotalHuf: number
   shippingHuf: number
   finalTotalHuf: number
+  /** Ponttal nem fedezett termékár – ez kerül számlára (kártya). */
+  invoiceMerchandiseHuf: number
+  invoiceShippingHuf: number
+  invoiceTotalHuf: number
   freeShippingRemainingHuf: number
   luckySpin: LuckySpinDiscountResult
   inStock: CheckoutOrderSplit
@@ -200,18 +215,30 @@ export function computeCouponDiscountHuf(
   return Math.min(fullPriceSubtotal, roundHuf(fixed + fromPercent))
 }
 
-/** 3. lépés: pontbeváltás – ajándékpont 100%, sima pont max. 30%, soha nem a szállításra. */
+/** 3. lépés: pontbeváltás – ajándékpont 100%, aktivitási pont max. 30%, soha nem a szállításra. */
 export function computePointsRedemption(
   orderTotalAfterDiscountsHuf: number,
   input: PointsRedemptionInput
-): { pointsDiscountHuf: number; pointsUsed: number } {
+): {
+  pointsDiscountHuf: number
+  pointsUsed: number
+  giftPointsUsed: number
+  activityPointsUsed: number
+} {
   const mixed = computeMixedPointsRedemption({
     merchandiseHuf: orderTotalAfterDiscountsHuf,
     requestedDiscountHuf: input.requestedDiscountHuf,
     userBalance: input.userBalance,
     giftPointsAvailable: input.giftPointsAvailable ?? 0,
+    spendGift: input.spendGift,
+    spendActivity: input.spendActivity,
   })
-  return { pointsDiscountHuf: mixed.pointsDiscountHuf, pointsUsed: mixed.pointsUsed }
+  return {
+    pointsDiscountHuf: mixed.pointsDiscountHuf,
+    pointsUsed: mixed.pointsUsed,
+    giftPointsUsed: mixed.giftPointsUsed,
+    activityPointsUsed: mixed.activityPointsUsed,
+  }
 }
 
 /** 4. lépés: szállítási díj. Pontfizetésnél mindig fizetendő (a pont csak a termékárra megy). */
@@ -241,9 +268,14 @@ function emptySplit(): CheckoutOrderSplit {
     luckySpinDiscountHuf: 0,
     pointsDiscountHuf: 0,
     pointsUsed: 0,
+    giftPointsUsed: 0,
+    activityPointsUsed: 0,
     merchandiseTotalHuf: 0,
     shippingHuf: 0,
     totalHuf: 0,
+    invoiceMerchandiseHuf: 0,
+    invoiceShippingHuf: 0,
+    invoiceTotalHuf: 0,
   }
 }
 
@@ -259,6 +291,7 @@ function buildOrderSplit(
   luckySpinDiscountHuf: number,
   pointsDiscountHuf: number,
   pointsUsed: number,
+  giftPointsUsed: number,
   shippingHuf: number,
   combinedMerchandiseBeforeShipping: number,
   spinProductIds: ReadonlySet<string>
@@ -280,8 +313,11 @@ function buildOrderSplit(
     combinedMerchandiseBeforeShipping + pointsDiscountHuf
   )
   const pointsUsedShare = proportionalShare(pointsUsed, pointsShare, pointsDiscountHuf)
+  const giftPointsUsedShare = proportionalShare(giftPointsUsed, pointsShare, pointsDiscountHuf)
+  const activityPointsUsedShare = Math.max(0, pointsUsedShare - giftPointsUsedShare)
 
   const merchandiseTotalHuf = Math.max(0, subtotalHuf - couponShare - luckyShare - pointsShare)
+  const totalHuf = merchandiseTotalHuf + shippingHuf
 
   const items: OrderItem[] = splitLines.map((l) => ({
     productId: l.productId,
@@ -299,9 +335,14 @@ function buildOrderSplit(
     luckySpinDiscountHuf: luckyShare,
     pointsDiscountHuf: pointsShare,
     pointsUsed: pointsUsedShare,
+    giftPointsUsed: giftPointsUsedShare,
+    activityPointsUsed: activityPointsUsedShare,
     merchandiseTotalHuf,
     shippingHuf,
-    totalHuf: merchandiseTotalHuf + shippingHuf,
+    totalHuf,
+    invoiceMerchandiseHuf: merchandiseTotalHuf,
+    invoiceShippingHuf: shippingHuf,
+    invoiceTotalHuf: totalHuf,
   }
 }
 
@@ -349,10 +390,14 @@ export function computeCheckoutTotals(params: ComputeCheckoutTotalsParams): Chec
 
   let pointsDiscountHuf = 0
   let pointsUsed = 0
+  let giftPointsUsed = 0
+  let activityPointsUsed = 0
   if (points && points.requestedDiscountHuf > 0) {
     const redemption = computePointsRedemption(afterCouponAndLuckyHuf, points)
     pointsDiscountHuf = redemption.pointsDiscountHuf
     pointsUsed = redemption.pointsUsed
+    giftPointsUsed = redemption.giftPointsUsed
+    activityPointsUsed = redemption.activityPointsUsed
   }
 
   const merchandiseTotalHuf = Math.max(0, afterCouponAndLuckyHuf - pointsDiscountHuf)
@@ -377,6 +422,7 @@ export function computeCheckoutTotals(params: ComputeCheckoutTotalsParams): Chec
     luckySpinDiscountHuf,
     pointsDiscountHuf,
     pointsUsed,
+    giftPointsUsed,
     inStockShipping,
     merchandiseTotalHuf,
     spinProductIds
@@ -388,6 +434,7 @@ export function computeCheckoutTotals(params: ComputeCheckoutTotalsParams): Chec
     luckySpinDiscountHuf,
     pointsDiscountHuf,
     pointsUsed,
+    giftPointsUsed,
     sourcingShipping,
     merchandiseTotalHuf,
     spinProductIds
@@ -401,9 +448,14 @@ export function computeCheckoutTotals(params: ComputeCheckoutTotalsParams): Chec
     afterCouponAndLuckyHuf,
     pointsDiscountHuf,
     pointsUsed,
+    giftPointsUsed,
+    activityPointsUsed,
     merchandiseTotalHuf,
     shippingHuf,
     finalTotalHuf,
+    invoiceMerchandiseHuf: merchandiseTotalHuf,
+    invoiceShippingHuf: shippingHuf,
+    invoiceTotalHuf: finalTotalHuf,
     freeShippingRemainingHuf,
     luckySpin: wantsPoints
       ? { ...luckySpinResult, discountHuf: 0, discountPercent: 0, active: false }

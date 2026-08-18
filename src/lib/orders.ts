@@ -88,6 +88,7 @@ export type Order = {
   userId?: string
   pointsDiscountHuf?: number
   pointsUsed?: number
+  giftPointsUsed?: number
   couponId?: string
   couponUsageRecorded?: boolean
   /** Manuálisan kiválasztott kuponok (cat, birthday, welcome, …). */
@@ -244,6 +245,7 @@ function dbOrderToOrder(row: {
   userId: string | null
   pointsDiscountHuf: number
   pointsUsed: number
+  giftPointsUsed?: number | null
   couponId: string | null
   couponUsageRecorded: boolean
   appliedCoupons?: unknown
@@ -297,6 +299,7 @@ function dbOrderToOrder(row: {
     userId: row.userId ?? undefined,
     pointsDiscountHuf: row.pointsDiscountHuf,
     pointsUsed: row.pointsUsed,
+    giftPointsUsed: row.giftPointsUsed ?? 0,
     couponId: row.couponId ?? undefined,
     couponUsageRecorded: row.couponUsageRecorded,
     appliedCoupons,
@@ -665,6 +668,7 @@ export async function createCheckoutOrders(params: {
     totalHuf: number
     pointsDiscountHuf?: number
     pointsUsed?: number
+    giftPointsUsed?: number
   }
   sourcing?: {
     items: OrderItem[]
@@ -673,6 +677,7 @@ export async function createCheckoutOrders(params: {
     totalHuf: number
     pointsDiscountHuf?: number
     pointsUsed?: number
+    giftPointsUsed?: number
   }
   currency?: string
 }): Promise<Order[]> {
@@ -706,6 +711,7 @@ export async function createCheckoutOrders(params: {
             totalHuf: params.inStock.totalHuf,
             pointsDiscountHuf: params.inStock.pointsDiscountHuf ?? 0,
             pointsUsed: params.inStock.pointsUsed ?? 0,
+            giftPointsUsed: params.inStock.giftPointsUsed ?? 0,
             userId: params.userId ?? null,
             couponId: params.couponId ?? null,
             appliedCoupons,
@@ -728,6 +734,7 @@ export async function createCheckoutOrders(params: {
           totalHuf: params.inStock.totalHuf,
           pointsDiscountHuf: params.inStock.pointsDiscountHuf ?? 0,
           pointsUsed: params.inStock.pointsUsed ?? 0,
+          giftPointsUsed: params.inStock.giftPointsUsed ?? 0,
           userId: params.userId,
           couponId: params.couponId,
           appliedCoupons,
@@ -768,6 +775,7 @@ export async function createCheckoutOrders(params: {
             totalHuf: params.sourcing.totalHuf,
             pointsDiscountHuf: params.sourcing.pointsDiscountHuf ?? 0,
             pointsUsed: params.sourcing.pointsUsed ?? 0,
+            giftPointsUsed: params.sourcing.giftPointsUsed ?? 0,
             userId: params.userId ?? null,
             couponId: params.couponId ?? null,
             appliedCoupons,
@@ -790,6 +798,7 @@ export async function createCheckoutOrders(params: {
           totalHuf: params.sourcing.totalHuf,
           pointsDiscountHuf: params.sourcing.pointsDiscountHuf ?? 0,
           pointsUsed: params.sourcing.pointsUsed ?? 0,
+          giftPointsUsed: params.sourcing.giftPointsUsed ?? 0,
           userId: params.userId,
           couponId: params.couponId,
           appliedCoupons,
@@ -830,6 +839,9 @@ export async function createCheckoutOrders(params: {
       discountHuf: params.inStock.discountHuf,
       totalHuf: params.inStock.totalHuf,
       couponId: params.couponId,
+      pointsDiscountHuf: params.inStock.pointsDiscountHuf ?? 0,
+      pointsUsed: params.inStock.pointsUsed ?? 0,
+      giftPointsUsed: params.inStock.giftPointsUsed ?? 0,
       currency,
       shippingEditToken: generateShippingEditToken(),
       createdAt: new Date().toISOString(),
@@ -864,6 +876,9 @@ export async function createCheckoutOrders(params: {
       discountHuf: params.sourcing.discountHuf,
       totalHuf: params.sourcing.totalHuf,
       couponId: params.couponId,
+      pointsDiscountHuf: params.sourcing.pointsDiscountHuf ?? 0,
+      pointsUsed: params.sourcing.pointsUsed ?? 0,
+      giftPointsUsed: params.sourcing.giftPointsUsed ?? 0,
       currency,
       createdAt: new Date().toISOString(),
       shippingEditToken: generateShippingEditToken(),

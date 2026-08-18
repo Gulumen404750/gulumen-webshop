@@ -78,6 +78,7 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
       couponId: true,
       pointsUsed: true,
       pointsDiscountHuf: true,
+      giftPointsUsed: true,
       appliedCoupons: true,
       rewardsFinalized: true,
       orderGroupId: true,
@@ -176,6 +177,8 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
         metadata: internalPointsLedgerMetadata({
           orderId,
           pointsUsed,
+          giftPointsUsed: order.giftPointsUsed ?? 0,
+          activityPointsUsed: Math.max(0, pointsUsed - (order.giftPointsUsed ?? 0)),
           pointsDiscountHuf: order.pointsDiscountHuf ?? 0,
         }),
       })
@@ -183,7 +186,7 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
       balanceAfter = deltaResult.wallet?.balance
 
       try {
-        await consumeGiftPointsForOrder(order.userId, pointsUsed)
+        await consumeGiftPointsForOrder(order.userId, order.giftPointsUsed ?? 0)
       } catch {
         /* gift ledger is best-effort; wallet delta is source of truth */
       }

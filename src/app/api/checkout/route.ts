@@ -80,8 +80,10 @@ const checkoutBodySchema = z.object({
     )
     .min(1),
   customer: checkoutCustomerSchema,
-  /** Szerver validálja: max. kosár 30%-a, egyenleg ellenőrzés. */
+  /** Szerver validálja: ajándék 100%, aktivitási pont max. 30%. */
   pointsDiscountHuf: z.number().int().min(0).optional(),
+  useGiftPoints: z.boolean().optional(),
+  useActivityPoints: z.boolean().optional(),
   /** DB kupon kód – a kedvezmény % CSAK ebből / szerveroldali kuponlogikából jön. */
   couponCode: z.string().min(1).optional(),
   /** Checkout welcome 10% + hírlevél ajánlat (manuális kijelölés). */
@@ -135,10 +137,14 @@ export async function POST(request: Request) {
     items,
     customer,
     pointsDiscountHuf: requestedPointsHuf = 0,
+    useGiftPoints,
+    useActivityPoints,
     couponCode: bodyCouponCode,
     welcomeOfferAccepted,
     selectedCoupons: bodySelectedCoupons,
   } = parsed.data
+  const spendGift = useGiftPoints !== false
+  const spendActivity = useActivityPoints !== false
 
   // P0: kliens discountPercent / isDiscountActive SOHA nem alkalmazható.
   // Kedvezmény csak: DB couponCode + szerveroldali selectedCoupons (cat/reg/loyalty/welcome) konstans %.
@@ -380,11 +386,12 @@ export async function POST(request: Request) {
 
   let validatedPointsHuf = 0
   let giftPointsAvailable = 0
-  if (requestedPointsHuf > 0 && checkoutUserId) {
+  if (requestedPointsHuf > 0 && checkoutUserId && (spendGift || spendActivity)) {
     const validation = await validatePurchasePoints(
       checkoutUserId,
       prePointsTotals.afterCouponAndLuckyHuf,
-      requestedPointsHuf
+      requestedPointsHuf,
+      { spendGift, spendActivity }
     )
     if (!validation.ok) {
       return NextResponse.json({ error: validation.error }, { status: 400 })
@@ -403,6 +410,8 @@ export async function POST(request: Request) {
             requestedDiscountHuf: validatedPointsHuf,
             userBalance: await getPointBalance(checkoutUserId),
             giftPointsAvailable,
+            spendGift,
+            spendActivity,
           }
         : undefined,
     now,
@@ -460,6 +469,7 @@ export async function POST(request: Request) {
             totalHuf: Math.max(0, inStock.totalHuf),
             pointsDiscountHuf: inStock.pointsDiscountHuf,
             pointsUsed: inStock.pointsUsed,
+            giftPointsUsed: inStock.giftPointsUsed,
           }
         : undefined,
       sourcing: hasSourcing
@@ -470,6 +480,7 @@ export async function POST(request: Request) {
             totalHuf: Math.max(0, sourcing.totalHuf),
             pointsDiscountHuf: sourcing.pointsDiscountHuf,
             pointsUsed: sourcing.pointsUsed,
+            giftPointsUsed: sourcing.giftPointsUsed,
           }
         : undefined,
       currency,
@@ -631,7 +642,12 @@ export async function POST(request: Request) {
       ? {
           pointsDiscountHuf: totals.pointsDiscountHuf,
           pointsUsed: totals.pointsUsed,
+          giftPointsUsed: totals.giftPointsUsed,
+          activityPointsUsed: totals.activityPointsUsed,
           cardTotalHuf: totals.finalTotalHuf,
+          invoiceMerchandiseHuf: totals.invoiceMerchandiseHuf,
+          invoiceShippingHuf: totals.invoiceShippingHuf,
+          invoiceTotalHuf: totals.invoiceTotalHuf,
           maxPointsDiscountHuf: Math.floor(totals.afterCouponAndLuckyHuf * MAX_CART_POINTS_COVERAGE),
           pointsPerHuf: POINTS_PER_HUF,
           maxCoveragePercent: MAX_CART_POINTS_COVERAGE,
@@ -648,6 +664,9 @@ export async function POST(request: Request) {
       luckySpinDiscountHuf: totals.luckySpinDiscountHuf,
       merchandiseTotalHuf: totals.merchandiseTotalHuf,
       finalTotalHuf: totals.finalTotalHuf,
+      invoiceMerchandiseHuf: totals.invoiceMerchandiseHuf,
+      invoiceShippingHuf: totals.invoiceShippingHuf,
+      invoiceTotalHuf: totals.invoiceTotalHuf,
     },
   }
   await setIdempotentResponse(idemKey, payload, 200)

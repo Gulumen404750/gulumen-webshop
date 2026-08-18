@@ -22,6 +22,7 @@ import {
   MAX_CART_POINTS_COVERAGE,
   POINTS_PER_HUF,
 } from '@/lib/checkout'
+import { GIFT_POINTS_MAX_COVERAGE } from '@/lib/gamification/constants'
 import { getLuckySpinNextTierRemaining } from '@/lib/gamification/lucky-spin'
 import { PaymentTrustBadges } from '@/components/PaymentTrustBadges'
 import { WELCOME_CHECKOUT_COUPON_PERCENT } from '@/lib/coupon-config'
@@ -66,7 +67,8 @@ export default function PaymentPage() {
   const [billingHouseNumber, setBillingHouseNumber] = useState('')
   const [addressType, setAddressType] = useState<'home' | 'business'>('home')
   const [deliveryNotes, setDeliveryNotes] = useState('')
-  const [usePoints, setUsePoints] = useState(false)
+  const [useGiftPoints, setUseGiftPoints] = useState(false)
+  const [useActivityPoints, setUseActivityPoints] = useState(false)
   const [couponCodeInput, setCouponCodeInput] = useState('')
   const [selectedCouponIds, setSelectedCouponIds] = useState<SelectableCouponId[]>([])
   const [birthdayCouponBanner, setBirthdayCouponBanner] = useState<{
@@ -87,6 +89,13 @@ export default function PaymentPage() {
     maxUsablePoints: number
     balance: number
     giftPointsAvailable: number
+    giftBalance: number
+    activityBalance: number
+    giftExpiresAt: string | null
+    maxGiftDiscountHuf: number
+    maxActivityDiscountHuf: number
+    giftCoveragePercent: number
+    activityCoveragePercent: number
     maxCoveragePercent: number
   } | null>(null)
   const { wallet, refresh: refreshWallet } = usePointWallet(!!userId)
@@ -168,6 +177,8 @@ export default function PaymentPage() {
 
   const effectiveCouponPercent = couponSelection.finalPercent
 
+  const usePoints = useGiftPoints || useActivityPoints
+
   const checkoutPreview = computeCheckoutTotals({
     lines: lockedLines,
     coupon: { percent: effectiveCouponPercent },
@@ -175,9 +186,16 @@ export default function PaymentPage() {
     points:
       usePoints && pointsPreview
         ? {
-            requestedDiscountHuf: pointsPreview.maxUsablePointsDiscountHuf,
+            requestedDiscountHuf: Math.max(
+              pointsPreview.balance,
+              pointsPreview.maxUsablePointsDiscountHuf,
+              pointsPreview.maxGiftDiscountHuf,
+              pointsPreview.maxActivityDiscountHuf
+            ),
             userBalance: pointsPreview.balance,
-            giftPointsAvailable: pointsPreview.giftPointsAvailable,
+            giftPointsAvailable: pointsPreview.giftBalance || pointsPreview.giftPointsAvailable,
+            spendGift: useGiftPoints,
+            spendActivity: useActivityPoints,
           }
         : undefined,
   })
@@ -186,9 +204,13 @@ export default function PaymentPage() {
   const luckySpinDiscount = checkoutPreview.luckySpin
   const displayTotalHuf = checkoutPreview.afterCouponAndLuckyHuf
   const pointsDiscountHuf = checkoutPreview.pointsDiscountHuf
+  const giftPointsUsedPreview = checkoutPreview.giftPointsUsed
+  const activityPointsUsedPreview = checkoutPreview.activityPointsUsed
   const pointsUsedPreview = checkoutPreview.pointsUsed
   const shippingHuf = checkoutPreview.shippingHuf
   const cardTotalHuf = checkoutPreview.finalTotalHuf
+  const invoiceMerchandiseHuf = checkoutPreview.invoiceMerchandiseHuf
+  const invoiceTotalHuf = checkoutPreview.invoiceTotalHuf
   const freeShippingRemainingHuf = checkoutPreview.freeShippingRemainingHuf
   const effectiveCouponDiscountHuf = couponDiscountOnTotal > 0 ? couponDiscountOnTotal : 0
 
@@ -401,6 +423,13 @@ export default function PaymentPage() {
             maxUsablePoints: data.maxUsablePoints ?? 0,
             balance: data.balance ?? 0,
             giftPointsAvailable: data.giftPointsAvailable ?? 0,
+            giftBalance: data.giftBalance ?? data.giftPointsAvailable ?? 0,
+            activityBalance: data.activityBalance ?? Math.max(0, (data.balance ?? 0) - (data.giftPointsAvailable ?? 0)),
+            giftExpiresAt: data.giftExpiresAt ?? null,
+            maxGiftDiscountHuf: data.maxGiftDiscountHuf ?? 0,
+            maxActivityDiscountHuf: data.maxActivityDiscountHuf ?? 0,
+            giftCoveragePercent: data.giftCoveragePercent ?? GIFT_POINTS_MAX_COVERAGE,
+            activityCoveragePercent: data.activityCoveragePercent ?? MAX_CART_POINTS_COVERAGE,
             maxCoveragePercent: data.maxCoveragePercent ?? MAX_CART_POINTS_COVERAGE,
           })
         }
@@ -508,6 +537,8 @@ export default function PaymentPage() {
           welcomeOfferAccepted: usePoints ? undefined : couponSelection.useWelcome ? true : undefined,
           selectedCoupons: usePoints ? [] : couponSelection.selectedIds,
           pointsDiscountHuf: pointsDiscountHuf > 0 ? pointsDiscountHuf : undefined,
+          useGiftPoints: usePoints ? useGiftPoints : undefined,
+          useActivityPoints: usePoints ? useActivityPoints : undefined,
         }),
       })
       const data = await res.json()
@@ -593,6 +624,8 @@ export default function PaymentPage() {
     pointsUsedPreview,
     pointsPreview?.balance,
     usePoints,
+    useGiftPoints,
+    useActivityPoints,
     wallet?.balance,
     refreshWallet,
     router,
@@ -712,7 +745,19 @@ export default function PaymentPage() {
                     <span className="tabular-nums">−{effectiveCouponDiscountHuf.toLocaleString('hu-HU')} Ft</span>
                   </div>
                 )}
-                {pointsDiscountHuf > 0 && (
+                {giftPointsUsedPreview > 0 && (
+                  <div className="flex justify-between text-accent">
+                    <span>{t('payment.giftPointsDiscount') || 'Ajándékpont'}</span>
+                    <span className="tabular-nums">−{giftPointsUsedPreview.toLocaleString('hu-HU')} Ft</span>
+                  </div>
+                )}
+                {activityPointsUsedPreview > 0 && (
+                  <div className="flex justify-between text-accent">
+                    <span>{t('payment.activityPointsDiscount') || 'Aktivitási pont (max. 30%)'}</span>
+                    <span className="tabular-nums">−{activityPointsUsedPreview.toLocaleString('hu-HU')} Ft</span>
+                  </div>
+                )}
+                {pointsDiscountHuf > 0 && giftPointsUsedPreview === 0 && activityPointsUsedPreview === 0 && (
                   <div className="flex justify-between text-accent">
                     <span>{t('payment.pointsDiscount')}</span>
                     <span className="tabular-nums">−{pointsDiscountHuf.toLocaleString('hu-HU')} Ft</span>
@@ -723,6 +768,12 @@ export default function PaymentPage() {
           )}
 
           <div className="border-t border-[var(--border)] pt-3 space-y-1.5">
+            {usePoints && (
+              <div className="flex justify-between text-foreground">
+                <span>{t('payment.invoiceMerchandise') || 'Számlázandó termék'}</span>
+                <span className="tabular-nums">{invoiceMerchandiseHuf.toLocaleString('hu-HU')} Ft</span>
+              </div>
+            )}
             <div className="flex justify-between text-foreground">
               <span>{t('payment.shippingFee')}</span>
               <span className="tabular-nums">
@@ -743,10 +794,16 @@ export default function PaymentPage() {
             {freeShippingRemainingHuf === 0 && checkoutPreview.merchandiseTotalHuf > 0 && shippingHuf === 0 && (
               <p className="text-xs text-green-600 dark:text-green-400">{t('cart.freeShippingReached')}</p>
             )}
+            {usePoints && (
+              <p className="text-xs text-muted">
+                {t('payment.invoiceRemainderHint') ||
+                  'A ponttal nem fedezett termékár és a szállítási díj kerül számlára (kártyás fizetés).'}
+              </p>
+            )}
             <div className="flex justify-between font-heading font-bold text-lg text-foreground pt-2 mt-1">
-              <span>{t('payment.totalDue')}</span>
+              <span>{usePoints ? (t('payment.invoiceDue') || 'Számlázandó (kártya)') : t('payment.totalDue')}</span>
               <span className="tabular-nums">
-                {cardTotalHuf.toLocaleString('hu-HU')} Ft{' '}
+                {(usePoints ? invoiceTotalHuf : cardTotalHuf).toLocaleString('hu-HU')} Ft{' '}
                 <span className="text-muted text-sm font-normal">(€{formatEur(totalEur)})</span>
               </span>
             </div>
@@ -995,7 +1052,8 @@ export default function PaymentPage() {
         onSuccess={() => {
           void refreshWallet()
           setSelectedCouponIds([])
-          setUsePoints(true)
+          setUseGiftPoints(true)
+          setUseActivityPoints(false)
         }}
       />
 
@@ -1035,30 +1093,63 @@ export default function PaymentPage() {
         </p>
       )}
 
-      {userId && pointsPreview && pointsPreview.maxUsablePointsDiscountHuf > 0 && (
-        <section className="mb-8 p-4 rounded-xl border border-accent/30 bg-accent/5">
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={usePoints}
-              onChange={(e) => setUsePoints(e.target.checked)}
-              className="mt-1 w-4 h-4 rounded border-[var(--border)] text-accent focus:ring-accent"
-            />
-            <span className="text-sm text-foreground">
-              {t('payment.usePoints')
-                .replace('{points}', String(pointsPreview.maxUsablePoints))
-                .replace('{huf}', pointsPreview.maxUsablePointsDiscountHuf.toLocaleString('hu-HU'))
-                .replace(
-                  '{percent}',
-                  String(Math.round((pointsPreview.maxCoveragePercent ?? MAX_CART_POINTS_COVERAGE) * 100))
+      {userId && pointsPreview && (pointsPreview.giftBalance > 0 || pointsPreview.maxActivityDiscountHuf > 0) && (
+        <section className="mb-8 p-4 rounded-xl border border-accent/30 bg-accent/5 space-y-3">
+          <p className="text-sm font-medium text-foreground">
+            {t('payment.pointsWalletsTitle') || 'Pontok felhasználása'}
+          </p>
+          {pointsPreview.giftBalance > 0 && (
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useGiftPoints}
+                onChange={(e) => setUseGiftPoints(e.target.checked)}
+                className="mt-1 w-4 h-4 rounded border-[var(--border)] text-accent focus:ring-accent"
+              />
+              <span className="text-sm text-foreground">
+                {t('payment.useGiftPoints', {
+                  points: String(pointsPreview.maxGiftDiscountHuf || pointsPreview.giftBalance),
+                  huf: (pointsPreview.maxGiftDiscountHuf || pointsPreview.giftBalance).toLocaleString('hu-HU'),
+                }) ||
+                  `Ajándékpontok: ${pointsPreview.giftBalance} pont (−${(
+                    pointsPreview.maxGiftDiscountHuf || pointsPreview.giftBalance
+                  ).toLocaleString('hu-HU')} Ft, 100%)`}
+                {pointsPreview.giftExpiresAt && (
+                  <span className="block text-xs text-muted mt-0.5">
+                    {t('payment.giftPointsExpires', {
+                      date: new Date(pointsPreview.giftExpiresAt).toLocaleDateString(locale),
+                    }) ||
+                      `Érvényes ${new Date(pointsPreview.giftExpiresAt).toLocaleDateString(locale)}-ig`}
+                  </span>
                 )}
-            </span>
-          </label>
-          <p className="text-xs text-muted mt-2 ml-7">
+              </span>
+            </label>
+          )}
+          {pointsPreview.maxActivityDiscountHuf > 0 && (
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useActivityPoints}
+                onChange={(e) => setUseActivityPoints(e.target.checked)}
+                className="mt-1 w-4 h-4 rounded border-[var(--border)] text-accent focus:ring-accent"
+              />
+              <span className="text-sm text-foreground">
+                {t('payment.useActivityPoints', {
+                  points: String(pointsPreview.maxActivityDiscountHuf),
+                  huf: pointsPreview.maxActivityDiscountHuf.toLocaleString('hu-HU'),
+                  percent: String(
+                    Math.round((pointsPreview.activityCoveragePercent ?? MAX_CART_POINTS_COVERAGE) * 100)
+                  ),
+                }) ||
+                  `Aktivitási pontok: max. ${pointsPreview.maxActivityDiscountHuf.toLocaleString('hu-HU')} Ft (kosár 30%-a)`}
+              </span>
+            </label>
+          )}
+          <p className="text-xs text-muted ml-7">
             {t('payment.pointsRate').replace('{rate}', String(POINTS_PER_HUF))}
           </p>
           {usePoints && (
-            <p className="text-xs text-muted mt-1 ml-7">
+            <p className="text-xs text-muted ml-7">
               {t('payment.pointsNoStackHint') ||
                 'A pontok más kuponnal vagy akcióval nem vonhatók össze. A szállítás mindig a vásárlót terheli.'}
             </p>

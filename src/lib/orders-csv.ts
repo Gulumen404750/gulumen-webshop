@@ -5,7 +5,10 @@
 
 import { formatAdminOrderStatusLabel } from '@/lib/admin-order-badges'
 import { orderItemSpecForAdmin } from '@/lib/production-payload'
-import { formatInternalPointsSettlement } from '@/lib/order-points-accounting'
+import {
+  formatInternalPointsSettlement,
+  invoiceAmountsForOrder,
+} from '@/lib/order-points-accounting'
 
 export const ORDERS_CSV_SEPARATOR = ';'
 
@@ -25,6 +28,11 @@ export const ORDERS_CSV_HEADERS = [
   'Fizetési Típus / Típus',
   'Pont kedvezmény (Ft)',
   'Felhasznált pont',
+  'Ajándékpont (Ft)',
+  'Aktivitási pont (Ft)',
+  'Számlázandó termék (Ft)',
+  'Szállítási díj (Ft)',
+  'Számlázandó (Ft)',
   'Elszámolás',
 ] as const
 
@@ -47,6 +55,10 @@ export type OrdersCsvOrder = {
   items?: OrdersCsvItem[] | null
   pointsUsed?: number | null
   pointsDiscountHuf?: number | null
+  giftPointsUsed?: number | null
+  subtotalHuf?: number | null
+  discountHuf?: number | null
+  totalHuf?: number | null
 }
 
 export function escapeCsvField(value: string, separator = ORDERS_CSV_SEPARATOR): string {
@@ -96,6 +108,14 @@ function buildItemRow(order: OrdersCsvOrder, item: OrdersCsvItem | null): string
   const lineHuf = unitHuf * qty
   const pointsDiscountHuf = Math.max(0, Math.floor(order.pointsDiscountHuf ?? 0))
   const pointsUsed = Math.max(0, Math.floor(order.pointsUsed ?? 0))
+  const invoice = invoiceAmountsForOrder({
+    subtotalHuf: Math.max(0, Math.floor(order.subtotalHuf ?? 0)),
+    discountHuf: order.discountHuf ?? 0,
+    pointsDiscountHuf,
+    totalHuf: Math.max(0, Math.floor(order.totalHuf ?? 0)),
+    pointsUsed,
+    giftPointsUsed: order.giftPointsUsed ?? 0,
+  })
   return [
     csvCell(order.id),
     csvCell(formatOrdersCsvDateTime(order.createdAt)),
@@ -112,6 +132,11 @@ function buildItemRow(order: OrdersCsvOrder, item: OrdersCsvItem | null): string
     csvCell(formatOrdersCsvPaymentType(order.orderType, item?.fulfillmentType)),
     csvCell(pointsDiscountHuf),
     csvCell(pointsUsed),
+    csvCell(invoice.internalGiftHuf),
+    csvCell(invoice.internalActivityHuf),
+    csvCell(invoice.invoiceMerchandiseHuf),
+    csvCell(invoice.invoiceShippingHuf),
+    csvCell(invoice.invoiceTotalHuf),
     csvCell(formatInternalPointsSettlement(order)),
   ].join(ORDERS_CSV_SEPARATOR)
 }
