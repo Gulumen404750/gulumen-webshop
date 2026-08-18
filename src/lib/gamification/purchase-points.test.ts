@@ -3,6 +3,7 @@ import {
   computeMixedPointsRedemption,
   splitWalletBalances,
   cashPaidHufToEarnPoints,
+  purchaseEarnPointsForOrder,
 } from './purchase-points'
 
 describe('splitWalletBalances', () => {
@@ -92,5 +93,53 @@ describe('cashPaidHufToEarnPoints', () => {
   it('ignores invalid amounts', () => {
     expect(cashPaidHufToEarnPoints(-500)).toBe(0)
     expect(cashPaidHufToEarnPoints(Number.NaN)).toBe(0)
+  })
+})
+
+describe('purchaseEarnPointsForOrder', () => {
+  it('earns 1 point per 100 HUF on a pure card/cash order', () => {
+    expect(
+      purchaseEarnPointsForOrder({
+        userId: 'u1',
+        totalHuf: 6_190,
+        pointsUsed: 0,
+        giftPointsUsed: 0,
+        pointsDiscountHuf: 0,
+      })
+    ).toBe(61)
+  })
+
+  it('credits nothing when any points were spent on the order', () => {
+    expect(
+      purchaseEarnPointsForOrder({
+        userId: 'u1',
+        totalHuf: 6_190,
+        pointsUsed: 500,
+        giftPointsUsed: 0,
+        pointsDiscountHuf: 500,
+      })
+    ).toBe(0)
+    expect(
+      purchaseEarnPointsForOrder({
+        userId: 'u1',
+        totalHuf: 0,
+        pointsUsed: 10_000,
+        giftPointsUsed: 4_000,
+        pointsDiscountHuf: 10_000,
+      })
+    ).toBe(0)
+    expect(
+      purchaseEarnPointsForOrder({
+        userId: 'u1',
+        totalHuf: 1_990,
+        pointsUsed: 0,
+        giftPointsUsed: 200,
+        pointsDiscountHuf: 0,
+      })
+    ).toBe(0)
+  })
+
+  it('credits nothing for guests', () => {
+    expect(purchaseEarnPointsForOrder({ userId: null, totalHuf: 5_000 })).toBe(0)
   })
 })

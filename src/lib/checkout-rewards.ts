@@ -9,7 +9,7 @@ import { markWelcomeCouponRedeemed } from '@/lib/welcome-checkout-offer'
 import { applyPointDelta, GamificationSuspendedError } from '@/lib/gamification/point-ledger'
 import { consumeGiftPointsForOrder } from '@/lib/gamification/gift-points'
 import { POINT_TX_TYPES } from '@/lib/gamification/constants'
-import { cashPaidHufToEarnPoints } from '@/lib/gamification/purchase-points'
+import { purchaseEarnPointsForOrder } from '@/lib/gamification/purchase-points'
 import {
   applyLoyaltyForPaidOrder,
   getLoyaltyByEmail,
@@ -31,10 +31,15 @@ export type AppliedCouponKind = (typeof APPLIED_COUPON_KINDS)[number]
 
 const PAID_LIKE_STATUSES = new Set(['paid', 'sourcing_pending', 'fulfilled'])
 
-/** Bejelentkezett vevő: a kártyán fizetett összeg 100 Ft-onként 1 pont. Vendég: 0. */
-function cashEarnPointsForOrder(order: { userId: string | null; totalHuf: number }): number {
-  if (!order.userId) return 0
-  return cashPaidHufToEarnPoints(order.totalHuf)
+/** Bejelentkezett vevő: tiszta kártya/készpénz után 100 Ft-onként 1 pont. Pontfizetés: 0. */
+function cashEarnPointsForOrder(order: {
+  userId: string | null
+  totalHuf: number
+  pointsUsed?: number | null
+  pointsDiscountHuf?: number | null
+  giftPointsUsed?: number | null
+}): number {
+  return purchaseEarnPointsForOrder(order)
 }
 
 async function loyaltySnapshotForEmail(
@@ -268,10 +273,16 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
       }
     }
 
-    // 5) Kártyás / készpénzes rész: 100 Ft = 1 pont, sikeres fizetés után.
-    // Ponttal fedezett termékár nem jár (order.totalHuf = számlázandó kártyás összeg).
+    // 5) Csak tiszta kártyás/készpénzes fizetés után: 100 Ft = 1 pont.
+    // Ha a kosárban bármennyi pontot felhasználtak, extra pont nem jár.
     if (order.userId) {
-      const earned = cashPaidHufToEarnPoints(order.totalHuf)
+      const earned = cashEarnPointsForOrder({
+        userId: order.userId,
+        totalHuf: order.totalHuf,
+        pointsUsed,
+        pointsDiscountHuf: order.pointsDiscountHuf,
+        giftPointsUsed: order.giftPointsUsed,
+      })
       if (earned > 0) {
         try {
           const earnResult = await applyPointDelta({
@@ -279,7 +290,7 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
             delta: earned,
             type: POINT_TX_TYPES.PURCHASE_EARN,
             idempotencyKey: `purchase-earn:${orderId}`,
-            reason: `Vásárlási pont: ${order.totalHuf} Ft kártyás fizetés (100 Ft = 1 pont)`,
+            reason: `Vásárlási pont: ${order.totalHuf} Ft kártyás/készpénzes fizetés (100 Ft = 1 pont)`,
             referenceType: 'order',
             referenceId: orderId,
             metadata: {
@@ -303,7 +314,7 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
     const loyalty = await applyLoyaltyForPaidOrder(orderId)
     logger.info(
       { orderId, burned, applied, balanceAfter, loyalty },
-      'finalizeOrderRewards: coupons burned, points deducted, cash earn credited'
+      'finalizeOrderRewards: coupons burned, points deducted, cash-only earn credited'
     )
     return { ok: true, burned, balanceAfter, loyalty }
   } catch (err) {

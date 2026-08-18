@@ -1,3 +1,4 @@
+import { orderUsedInternalPoints } from '@/lib/order-points-accounting'
 import {
   GIFT_POINTS_MAX_COVERAGE,
   MAX_CART_POINTS_COVERAGE,
@@ -22,10 +23,28 @@ export function maxPointsDiscountHuf(
   return Math.max(0, Math.floor(cartTotalHuf * coverage))
 }
 
-/** Sikeres kártyás fizetés: 100 Ft = 1 pont. A ponttal fedezett rész nem jár. */
+/** Sikeres tiszta kártyás/készpénzes fizetés: 100 Ft = 1 pont. */
 export function cashPaidHufToEarnPoints(paidHuf: number): number {
   if (!Number.isFinite(paidHuf) || paidHuf < PURCHASE_EARN_HUF_PER_POINT) return 0
   return Math.floor(paidHuf / PURCHASE_EARN_HUF_PER_POINT)
+}
+
+/**
+ * Vásárlási pontjóváírás: csak akkor, ha a rendelésben NEM használtak pontot.
+ * Részleges/teljes pontfizetés után extra pont nem jár; csak tiszta kártya/készpénz.
+ */
+export function purchaseEarnPointsForOrder(order: {
+  userId?: string | null
+  totalHuf?: number | null
+  paidHuf?: number | null
+  pointsUsed?: number | null
+  pointsDiscountHuf?: number | null
+  giftPointsUsed?: number | null
+}): number {
+  if (!order.userId) return 0
+  if (orderUsedInternalPoints(order)) return 0
+  const paidHuf = order.paidHuf ?? order.totalHuf ?? 0
+  return cashPaidHufToEarnPoints(paidHuf)
 }
 
 export type PurchasePointsValidation = {

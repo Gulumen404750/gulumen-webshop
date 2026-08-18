@@ -1342,7 +1342,7 @@ export default function PaymentPage() {
         <p className="text-sm text-muted mb-3">{t('payment.cardOnly')}</p>
         {userId && (
           <p className="text-xs text-emerald-600 dark:text-emerald-400 mb-3">
-            {t('payment.cashEarnHint', copy)}
+            {usePoints ? t('payment.cashEarnHintPointsUsed') : t('payment.cashEarnHint', copy)}
           </p>
         )}
         <p className="text-xs text-muted mb-4">{t('payment.secureNote')}</p>

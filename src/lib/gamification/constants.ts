@@ -118,7 +118,7 @@ export const POINT_TX_TYPES = {
   LIKE_DAILY_BONUS: 'LIKE_DAILY_BONUS',
   REDEEM_COUPON: 'REDEEM_COUPON',
   PURCHASE_REDEEM: 'PURCHASE_REDEEM',
-  /** Kártyás / készpénzes vásárlás után: 100 Ft = 1 pont. */
+  /** Csak tiszta kártyás/készpénzes vásárlás után: 100 Ft = 1 pont. Pontfizetésnél nem jár. */
   PURCHASE_EARN: 'PURCHASE_EARN',
   LUCKY_SPIN_BONUS: 'LUCKY_SPIN_BONUS',
   REVERSAL: 'REVERSAL',

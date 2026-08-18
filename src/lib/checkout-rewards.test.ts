@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'fs'
+import { join } from 'path'
 import { parseAppliedCoupons } from '@/lib/checkout-rewards'
 
 describe('parseAppliedCoupons', () => {
@@ -30,5 +32,13 @@ describe('success-page finalize eligibility', () => {
     expect(actionable('payment_pending')).toBe(true)
     expect(actionable('paid')).toBe(true)
     expect(actionable('cancelled')).toBe(false)
+  })
+})
+
+describe('purchase earn gate', () => {
+  it('skips PURCHASE_EARN when the order used points', () => {
+    const src = readFileSync(join(process.cwd(), 'src/lib/checkout-rewards.ts'), 'utf-8')
+    expect(src).toMatch(/purchaseEarnPointsForOrder/)
+    expect(src).toMatch(/Ha a kosárban bármennyi pontot felhasználtak/)
   })
 })

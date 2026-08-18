@@ -11,4 +11,9 @@ describe('checkout coupon picker', () => {
     expect(src).toMatch(/wallet\?\.coupons/)
     expect(src).not.toMatch(/gamification: gamificationCoupon[^s]/)
   })
+
+  it('does not promise purchase earn when the shopper is spending points', () => {
+    expect(src).toMatch(/cashEarnHintPointsUsed/)
+    expect(src).toMatch(/usePoints \? t\('payment.cashEarnHintPointsUsed'\)/)
+  })
 })
