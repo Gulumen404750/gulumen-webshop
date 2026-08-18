@@ -38,16 +38,16 @@ export default function WishlistPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="font-heading text-2xl font-bold text-foreground mb-6">{t('wishlist.title') || 'Kedvencek'}</h1>
+      <h1 className="font-heading text-2xl font-bold text-foreground mb-6">{t('wishlist.title')}</h1>
       {!authChecked ? (
-        <p className="text-muted mb-4">{t('common.loading') || 'Betöltés…'}</p>
+        <p className="text-muted mb-4">{t('common.loading')}</p>
       ) : !isLoggedIn ? (
-        <p className="text-muted mb-4">{t('wishlist.loginRequired') || 'Jelentkezz be a kedveléshez.'}</p>
+        <p className="text-muted mb-4">{t('wishlist.loginRequired')}</p>
       ) : (
         <>
           <LuckySpinPanel />
           {showInitialLoading ? (
-            <p className="text-muted mb-4">{t('common.loading') || 'Betöltés…'}</p>
+            <p className="text-muted mb-4">{t('common.loading')}</p>
           ) : showEmpty ? (
             <WishlistEmptyState />
           ) : (

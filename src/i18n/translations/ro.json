@@ -146,7 +146,8 @@
     "mobileStickyBanner": "{count} produse în coș – {total}",
     "mobileStickyBannerAria": "Rezumat coș",
     "emptyStateTitle": "Coșul este gol",
-    "emptyStateCta": "Vezi ofertele"
+    "emptyStateCta": "Vezi ofertele",
+    "productFallback": "Produs"
   },
   "payment": {
     "title": "Plată",
@@ -475,7 +476,12 @@
       "needs_manual_review": "Verificare manuală",
       "pending": "În așteptare",
       "created": "Creată"
-    }
+    },
+    "editSaveFailed": "Adresa nu a putut fi salvată.",
+    "editNetworkError": "Eroare de rețea. Încearcă din nou.",
+    "editLockedClosed": "Comanda este închisă, adresa nu mai poate fi modificată.",
+    "editLockedPrinted": "Expedierea a început deja, adresa nu mai poate fi modificată.",
+    "editLockedStatus": "Adresa de livrare nu poate fi modificată în această stare."
   },
   "profile": {
     "title": "Profil",
@@ -613,7 +619,11 @@
     "previewAvailable": "{points} puncte gata de activare.",
     "previewUsed": "Acest cod a fost deja folosit.",
     "couponSuccessPercent": "Cupon de {percent}% activat ({code}). Îl poți folosi la plată.",
-    "couponSuccessFixed": "Reducere de {amount} activată ({code}). O poți folosi la plată."
+    "couponSuccessFixed": "Reducere de {amount} activată ({code}). O poți folosi la plată.",
+    "errorCouponInactive": "Acest cupon nu este activ momentan.",
+    "errorCouponExpired": "Cuponul a expirat.",
+    "errorCouponUsed": "Cuponul a fost deja folosit.",
+    "errorCouponWrongUser": "Acest cupon nu aparține acestui cont."
   },
   "luckySpin": {
     "title": "Roata Norocului",
@@ -680,7 +690,10 @@
     "saveError": "Salvare eșuată",
     "loading": "Se încarcă…",
     "optional": "opțional",
-    "imageN": "{name} – imaginea {n}"
+    "imageN": "{name} – imaginea {n}",
+    "googleRedirect": "Redirecționare către Google…",
+    "networkError": "Eroare de rețea. Încearcă din nou.",
+    "emailPlaceholder": "email@example.com"
   },
   "addToCartReason": {
     "previewStarts": "Previzualizare – vânzarea începe la {when}",
@@ -698,7 +711,29 @@
       "introAi": "Întrebări sau reclamații? Folosește butonul „Ai o întrebare? Te ajut!” din colțul din dreapta jos – asistența AI răspunde în maghiară, engleză, germană și română.",
       "introHuman": "Dacă vrei un agent uman (ex. reclamație, aspect juridic), cere transferul în chat – cu ID-ul comenzii și e-mailul tău.",
       "emailLabel": "E-mail:",
-      "frogAria": "Broască decorativă – trage pentru a o muta"
+      "frogAria": "Broască decorativă – trage pentru a o muta",
+      "formTitle": "Scrie-ne",
+      "formIntro": "Mesajul tău ajunge la asistență prin magazinul online. Adresă afișată:",
+      "nameLabel": "Nume",
+      "orderRefLabel": "Număr comandă (opțional)",
+      "messageLabel": "Mesaj",
+      "submit": "Trimite mesajul",
+      "submitting": "Se trimite…",
+      "success": "Mesajul tău a ajuns. Răspundem în curând.",
+      "error": {
+        "generic": "Trimiterea a eșuat.",
+        "network": "Eroare de rețea. Încearcă din nou.",
+        "rateLimited": "Prea multe cereri. Încearcă mai târziu.",
+        "invalidRequest": "Cerere invalidă.",
+        "nameRequired": "Introdu numele tău.",
+        "emailInvalid": "Este necesară o adresă de e-mail validă.",
+        "messageShort": "Scrie un mesaj scurt (cel puțin 10 caractere).",
+        "messageLong": "Mesajul este prea lung.",
+        "sendUnavailable": "Trimiterea mesajelor nu este disponibilă momentan. Încearcă mai târziu.",
+        "inboxUnconfigured": "Căsuța de asistență nu este configurată.",
+        "sendFailed": "Mesajul nu a putut fi trimis. Încearcă mai târziu.",
+        "server": "Eroare de server."
+      }
     },
     "registerTitle": "Înregistrare",
     "registerHaveAccount": "Ai deja cont?",
@@ -860,7 +895,8 @@
     "returnsTitle": "Returnare – Gulumen",
     "contactTitle": "Contact – Gulumen",
     "faqTitle": "Întrebări frecvente – Gulumen",
-    "aszfTitle": "Termeni – Gulumen"
+    "aszfTitle": "Termeni – Gulumen",
+    "giftClaimTitle": "Activează punctele cadou | Gulumen"
   },
   "condition": {
     "Új": "Nou",

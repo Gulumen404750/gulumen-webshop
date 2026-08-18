@@ -161,7 +161,8 @@
     "mobileStickyBanner": "{count} Artikel im Warenkorb – {total}",
     "mobileStickyBannerAria": "Warenkorb-Übersicht",
     "emptyStateTitle": "Dein Warenkorb ist leer",
-    "emptyStateCta": "Aktionen entdecken"
+    "emptyStateCta": "Aktionen entdecken",
+    "productFallback": "Produkt"
   },
   "payment": {
     "title": "Zahlung",
@@ -490,7 +491,12 @@
       "needs_manual_review": "Manuelle Prüfung",
       "pending": "Ausstehend",
       "created": "Erstellt"
-    }
+    },
+    "editSaveFailed": "Die Adresse konnte nicht gespeichert werden.",
+    "editNetworkError": "Netzwerkfehler. Bitte erneut versuchen.",
+    "editLockedClosed": "Die Bestellung ist abgeschlossen, die Adresse kann nicht mehr geändert werden.",
+    "editLockedPrinted": "Der Versand wurde bereits gestartet, die Adresse kann nicht mehr geändert werden.",
+    "editLockedStatus": "In diesem Status kann die Lieferadresse nicht geändert werden."
   },
   "profile": {
     "title": "Profil",
@@ -628,7 +634,11 @@
     "previewAvailable": "{points} Punkte bereit zur Aktivierung.",
     "previewUsed": "Dieser Code wurde bereits verwendet.",
     "couponSuccessPercent": "{percent}%-Gutschein aktiviert ({code}). Du kannst ihn an der Kasse nutzen.",
-    "couponSuccessFixed": "{amount} Rabatt aktiviert ({code}). Du kannst ihn an der Kasse nutzen."
+    "couponSuccessFixed": "{amount} Rabatt aktiviert ({code}). Du kannst ihn an der Kasse nutzen.",
+    "errorCouponInactive": "Dieser Gutschein ist derzeit nicht aktiv.",
+    "errorCouponExpired": "Dieser Gutschein ist abgelaufen.",
+    "errorCouponUsed": "Dieser Gutschein wurde bereits verwendet.",
+    "errorCouponWrongUser": "Dieser Gutschein gehört nicht zu diesem Konto."
   },
   "luckySpin": {
     "title": "Glücksrad",
@@ -695,7 +705,10 @@
     "saveError": "Speichern fehlgeschlagen",
     "loading": "Laden…",
     "optional": "optional",
-    "imageN": "{name} – Bild {n}"
+    "imageN": "{name} – Bild {n}",
+    "googleRedirect": "Weiterleitung zu Google…",
+    "networkError": "Netzwerkfehler. Bitte erneut versuchen.",
+    "emailPlaceholder": "email@example.com"
   },
   "addToCartReason": {
     "previewStarts": "Vorschau – Verkauf startet am {when}",
@@ -713,7 +726,29 @@
       "introAi": "Fragen oder Beschwerden? Nutze die Schaltfläche „Haben Sie eine Frage? Ich helfe!“ unten rechts – der KI-Support antwortet auf Ungarisch, Englisch, Deutsch und Rumänisch.",
       "introHuman": "Für einen menschlichen Ansprechpartner (z. B. Beschwerde, Rechtsfrage) bitte im Chat eine Übergabe anfordern – mit Bestell-ID und E-Mail.",
       "emailLabel": "E-Mail:",
-      "frogAria": "Dekorative Froschfigur – ziehen zum Verschieben"
+      "frogAria": "Dekorative Froschfigur – ziehen zum Verschieben",
+      "formTitle": "Schreiben Sie uns",
+      "formIntro": "Ihre Nachricht erreicht den Kundenservice über den Webshop. Angezeigte Adresse:",
+      "nameLabel": "Name",
+      "orderRefLabel": "Bestellnummer (optional)",
+      "messageLabel": "Nachricht",
+      "submit": "Nachricht senden",
+      "submitting": "Senden…",
+      "success": "Ihre Nachricht ist angekommen. Wir antworten in Kürze.",
+      "error": {
+        "generic": "Senden fehlgeschlagen.",
+        "network": "Netzwerkfehler. Bitte erneut versuchen.",
+        "rateLimited": "Zu viele Anfragen. Bitte später erneut versuchen.",
+        "invalidRequest": "Ungültige Anfrage.",
+        "nameRequired": "Bitte geben Sie Ihren Namen an.",
+        "emailInvalid": "Eine gültige E-Mail-Adresse ist erforderlich.",
+        "messageShort": "Bitte schreiben Sie eine kurze Nachricht (mindestens 10 Zeichen).",
+        "messageLong": "Die Nachricht ist zu lang.",
+        "sendUnavailable": "Nachrichtenversand ist derzeit nicht verfügbar. Bitte später versuchen.",
+        "inboxUnconfigured": "Das Support-Postfach ist nicht eingerichtet.",
+        "sendFailed": "Die Nachricht konnte nicht gesendet werden. Bitte später erneut versuchen.",
+        "server": "Serverfehler."
+      }
     },
     "registerTitle": "Registrierung",
     "registerHaveAccount": "Bereits ein Konto?",
@@ -860,7 +895,8 @@
     "returnsTitle": "Rückgabe – Gulumen",
     "contactTitle": "Kontakt – Gulumen",
     "faqTitle": "FAQ – Gulumen",
-    "aszfTitle": "AGB – Gulumen"
+    "aszfTitle": "AGB – Gulumen",
+    "giftClaimTitle": "Geschenkpunkte aktivieren | Gulumen"
   },
   "condition": {
     "Új": "Neu",

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useLocale } from '@/context/LocaleContext'
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -27,9 +28,11 @@ export function GoogleSignInButton({
   onClick,
   disabled,
   className,
-  pendingLabel = 'Átirányítás a Google-hez…',
+  pendingLabel,
 }: GoogleSignInButtonProps) {
+  const { t } = useLocale()
   const [pending, setPending] = useState(false)
+  const busyLabel = pendingLabel ?? t('common.googleRedirect')
 
   const handleClick = async () => {
     if (pending || disabled) return
@@ -56,7 +59,7 @@ export function GoogleSignInButton({
       }
     >
       <GoogleIcon className="w-5 h-5" />
-      {pending ? pendingLabel : label}
+      {pending ? busyLabel : label}
     </button>
   )
 }

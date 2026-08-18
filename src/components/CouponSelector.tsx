@@ -38,14 +38,12 @@ export function CouponSelector({
   const { t } = useLocale()
   const resolvedTitle = title ?? t('payment.couponSelectorTitle')
   const defaultHint =
-    t('payment.couponSelectorHint') ||
-    'Válaszd ki manuálisan a kedvezményt. A kuponok nem vonhatók össze; a legnagyobb beváltható kedvezmény 15%.'
+    t('payment.couponSelectorHint')
   const resolvedHint = hint ?? defaultHint
   const resolvedEmpty = emptyText ?? t('payment.couponSelectorEmpty')
   const resolvedCap = capReachedText ?? t('payment.couponCapReached')
   const stackBlockedText =
-    t('payment.couponCatRegStackBlocked') ||
-    'A kuponok nem vonhatók össze – válassz egyet.'
+    t('payment.couponCatRegStackBlocked')
   const selected = new Set(selectedIds)
 
   const toggle = (id: SelectableCouponId) => {
@@ -75,8 +73,7 @@ export function CouponSelector({
         <h2 className="font-heading text-lg font-semibold text-foreground">{resolvedTitle}</h2>
         <p className="text-sm text-muted mt-1">
           {disabled
-            ? t('payment.pointsNoStackHint') ||
-              'A pontok más kuponnal vagy akcióval nem vonhatók össze. 25 000 Ft felett, csak ponttal fizetve a szállítási díjat ki kell fizetni.'
+            ? t('payment.pointsNoStackHint')
             : resolvedHint}
         </p>
       </div>

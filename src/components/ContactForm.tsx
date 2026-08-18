@@ -1,12 +1,29 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useLocale } from '@/context/LocaleContext'
 
 type ContactFormProps = {
   supportEmail: string
 }
 
+const CONTACT_ERROR_KEYS = [
+  'rateLimited',
+  'invalidRequest',
+  'nameRequired',
+  'emailInvalid',
+  'messageShort',
+  'messageLong',
+  'sendUnavailable',
+  'inboxUnconfigured',
+  'sendFailed',
+  'server',
+  'generic',
+  'network',
+] as const
+
 export function ContactForm({ supportEmail }: ContactFormProps) {
+  const { t } = useLocale()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [orderRef, setOrderRef] = useState('')
@@ -14,6 +31,13 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+
+  const contactError = (code: string) => {
+    const key = CONTACT_ERROR_KEYS.includes(code as (typeof CONTACT_ERROR_KEYS)[number])
+      ? `pages.contact.error.${code}`
+      : 'pages.contact.error.generic'
+    return t(key)
+  }
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -48,16 +72,16 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setError(typeof data.error === 'string' ? data.error : 'Küldés sikertelen.')
+        setError(contactError(typeof data.code === 'string' ? data.code : 'generic'))
         return
       }
-      setSuccess(typeof data.message === 'string' ? data.message : 'Üzeneted megérkezett.')
+      setSuccess(t('pages.contact.success'))
       setName('')
       setEmail('')
       setOrderRef('')
       setMessage('')
     } catch {
-      setError('Hálózati hiba. Próbáld újra.')
+      setError(contactError('network'))
     } finally {
       setPending(false)
     }
@@ -66,11 +90,10 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
   return (
     <div className="mt-10 pt-8 border-t border-white/30 max-w-xl">
       <h2 className="font-heading text-xl font-bold text-white mb-2 drop-shadow-lg">
-        Írj nekünk
+        {t('pages.contact.formTitle')}
       </h2>
       <p className="text-gray-200 text-sm mb-4 drop-shadow">
-        Az üzeneted a webshop rendszerén keresztül érkezik az ügyfélszolgálatra (nem a
-        postmaster@gulumen.com MX-ére támaszkodik). Megjelenített cím:{' '}
+        {t('pages.contact.formIntro')}{' '}
         <a href={`mailto:${supportEmail}`} className="text-accent hover:underline font-medium">
           {supportEmail}
         </a>
@@ -78,7 +101,7 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
           <label htmlFor="contact-name" className="block text-sm text-gray-200 mb-1">
-            Név
+            {t('pages.contact.nameLabel')}
           </label>
           <input
             id="contact-name"
@@ -92,7 +115,7 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
         </div>
         <div>
           <label htmlFor="contact-email" className="block text-sm text-gray-200 mb-1">
-            E-mail
+            {t('pages.contact.emailLabel')}
           </label>
           <input
             id="contact-email"
@@ -106,7 +129,7 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
         </div>
         <div>
           <label htmlFor="contact-order" className="block text-sm text-gray-200 mb-1">
-            Rendelésszám (opcionális)
+            {t('pages.contact.orderRefLabel')}
           </label>
           <input
             id="contact-order"
@@ -119,7 +142,7 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
         </div>
         <div>
           <label htmlFor="contact-message" className="block text-sm text-gray-200 mb-1">
-            Üzenet
+            {t('pages.contact.messageLabel')}
           </label>
           <textarea
             id="contact-message"
@@ -147,7 +170,7 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
           disabled={pending}
           className="w-full py-3 px-4 bg-accent text-white font-heading font-semibold rounded-lg hover:opacity-90 disabled:opacity-50"
         >
-          {pending ? 'Küldés…' : 'Üzenet küldése'}
+          {pending ? t('pages.contact.submitting') : t('pages.contact.submit')}
         </button>
       </form>
     </div>

@@ -14,6 +14,7 @@ import { useCart } from '@/context/CartContext'
 import { useLocale } from '@/context/LocaleContext'
 import { useToast } from '@/context/ToastContext'
 import { useEuroRate } from '@/context/EuroRateContext'
+import { intlLocaleFor } from '@/lib/display-money'
 
 function formatCountdown(ms: number, format: (days: number, time: string) => string): string {
   const total = Math.max(0, ms)
@@ -139,7 +140,7 @@ export function SourcingDealBox({
 
   const saleFromDate = product.saleFrom ? new Date(product.saleFrom) : null
   const availableFromLabel =
-    saleFromDate?.toLocaleString('hu-HU', { dateStyle: 'short', timeStyle: 'short' }) ?? '—'
+    saleFromDate?.toLocaleString(intlLocaleFor(locale), { dateStyle: 'short', timeStyle: 'short' }) ?? '—'
 
   return (
     <div className="space-y-4">

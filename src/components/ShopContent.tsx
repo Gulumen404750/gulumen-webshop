@@ -237,7 +237,7 @@ export function ShopContent({ initialProducts }: ShopContentProps = {}) {
                 onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
                 className="px-6 py-3 border-2 border-[var(--border)] text-foreground font-medium rounded-lg hover:bg-[var(--border)] transition-colors"
               >
-                {t('common.loadMore') || 'Több betöltése'}
+                {t('common.loadMore')}
               </button>
             </div>
           )}

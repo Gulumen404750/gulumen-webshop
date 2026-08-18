@@ -78,14 +78,14 @@ export function Product360Viewer({ frames, productName, onClose }: Props) {
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4"
       role="dialog"
       aria-modal="true"
-      aria-label={t('product.view360') || '360° megtekintés'}
+      aria-label={t('product.view360')}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <button
         type="button"
         onClick={onClose}
         className="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
-        aria-label={t('buttons.close') || 'Bezárás'}
+        aria-label={t('buttons.close')}
       >
         <CloseIcon className="w-6 h-6" />
       </button>
@@ -94,7 +94,7 @@ export function Product360Viewer({ frames, productName, onClose }: Props) {
         type="button"
         onClick={(e) => { e.stopPropagation(); goPrev() }}
         className="absolute left-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
-        aria-label={t('product.prevImage') || 'Előző'}
+        aria-label={t('product.prevImage')}
       >
         <ChevronLeft className="w-6 h-6" />
       </button>
@@ -102,7 +102,7 @@ export function Product360Viewer({ frames, productName, onClose }: Props) {
         type="button"
         onClick={(e) => { e.stopPropagation(); goNext() }}
         className="absolute right-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
-        aria-label={t('product.nextImage') || 'Következő'}
+        aria-label={t('product.nextImage')}
       >
         <ChevronRight className="w-6 h-6" />
       </button>
@@ -125,7 +125,7 @@ export function Product360Viewer({ frames, productName, onClose }: Props) {
       </div>
 
       <p className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 text-white/90 text-sm">
-        {t('product.view360Hint') || 'Húzd balra-jobbra a forgatáshoz'}
+        {t('product.view360Hint')}
       </p>
       <p className="absolute bottom-10 left-1/2 -translate-x-1/2 z-10 text-white/70 text-xs">
         {frameIndex + 1} / {frames.length}

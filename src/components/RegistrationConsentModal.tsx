@@ -36,7 +36,7 @@ export function RegistrationConsentModal({ open, onConfirm }: Props) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!acceptPrivacy) {
-      setError(t('register.errorPrivacy') || 'A folytatáshoz fogadd el az ÁSZF-et és az adatkezelési tájékoztatót.')
+      setError(t('register.errorPrivacy'))
       return
     }
     onConfirm({ acceptPrivacy: true, acceptOffers })
@@ -51,11 +51,10 @@ export function RegistrationConsentModal({ open, onConfirm }: Props) {
     >
       <div className="w-full max-w-md rounded-xl border border-[var(--border)] bg-[var(--card-bg)] shadow-xl p-5 sm:p-6">
         <h2 id="registration-consent-title" className="font-heading text-lg font-bold text-foreground mb-2">
-          {t('register.consentModalTitle') || 'Regisztráció megerősítése'}
+          {t('register.consentModalTitle')}
         </h2>
         <p className="text-sm text-muted mb-4">
-          {t('register.consentModalIntro') ||
-            'Új fiók létrehozásához fogadd el az alábbiakat. A kupon igénylése nem kötelező.'}
+          {t('register.consentModalIntro')}
         </p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <RegistrationConsentFields
@@ -74,7 +73,7 @@ export function RegistrationConsentModal({ open, onConfirm }: Props) {
             type="submit"
             className="w-full py-3 bg-accent text-white font-heading font-semibold rounded-lg hover:opacity-90"
           >
-            {t('register.consentModalConfirm') || 'Folytatás'}
+            {t('register.consentModalConfirm')}
           </button>
         </form>
       </div>

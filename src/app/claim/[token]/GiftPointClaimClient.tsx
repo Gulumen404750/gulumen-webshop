@@ -6,6 +6,7 @@ import { useLocale } from '@/context/LocaleContext'
 import { useDisplayMoney } from '@/hooks/useDisplayMoney'
 import { GiftPointClaimForm } from '@/components/GiftPointClaimForm'
 import { GIFT_POINT_VALIDITY_DAYS } from '@/lib/gamification/constants'
+import { intlLocaleFor } from '@/lib/display-money'
 
 type Preview = {
   status: string
@@ -14,7 +15,7 @@ type Preview = {
 }
 
 export function GiftPointClaimClient({ token }: { token: string }) {
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   const { copy } = useDisplayMoney()
   const { isLoggedIn, authChecked } = useAuth()
   const [preview, setPreview] = useState<Preview | null>(null)
@@ -41,7 +42,7 @@ export function GiftPointClaimClient({ token }: { token: string }) {
   }, [token])
 
   const pointsLabel = preview?.points
-    ? `${preview.points.toLocaleString()} ${t('gamification.pointsUnit')}`
+    ? `${preview.points.toLocaleString(intlLocaleFor(locale))} ${t('gamification.pointsUnit')}`
     : null
 
   return (

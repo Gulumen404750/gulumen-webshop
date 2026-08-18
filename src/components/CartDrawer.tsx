@@ -178,7 +178,7 @@ export function CartDrawer({ isOpen, onClose }: Props) {
                       )}
                       {item.options?.colorName && (
                         <p className="text-foreground text-xs">
-                          <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>
+                          <span>{t('product.color')}: {item.options.colorName}</span>
                         </p>
                       )}
                       <p className="text-muted text-xs mt-0.5">

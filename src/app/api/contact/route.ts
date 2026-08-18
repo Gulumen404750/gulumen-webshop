@@ -21,6 +21,10 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;')
 }
 
+function jsonError(code: string, error: string, status: number) {
+  return NextResponse.json({ error, code }, { status })
+}
+
 /**
  * Kapcsolat űrlap → Resend → ügyfélszolgálati inbox (ADMIN_EMAIL / ORDER_SUPPORT_EMAIL).
  * Így a vásárlói üzenetek a postmaster@gulumen.com (ORDER_SUPPORT_EMAIL) inboxba érkeznek.
@@ -28,16 +32,13 @@ function escapeHtml(s: string): string {
 export async function POST(request: Request) {
   const limit = await rateLimit(request, { maxPerWindow: 8, windowMs: 60_000 })
   if (!limit.ok) {
-    return NextResponse.json(
-      { error: 'Túl sok kérés. Próbáld újra később.' },
-      { status: 429 }
-    )
+    return jsonError('rateLimited', 'Túl sok kérés. Próbáld újra később.', 429)
   }
 
   try {
     const body = await request.json().catch(() => null)
     if (!body || typeof body !== 'object') {
-      return NextResponse.json({ error: 'Érvénytelen kérés.' }, { status: 400 })
+      return jsonError('invalidRequest', 'Érvénytelen kérés.', 400)
     }
 
     const name = typeof body.name === 'string' ? body.name.trim() : ''
@@ -47,26 +48,20 @@ export async function POST(request: Request) {
       typeof body.orderRef === 'string' ? body.orderRef.trim().slice(0, MAX_ORDER_REF) : ''
 
     if (!name || name.length > MAX_NAME) {
-      return NextResponse.json({ error: 'Add meg a neved.' }, { status: 400 })
+      return jsonError('nameRequired', 'Add meg a neved.', 400)
     }
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return NextResponse.json({ error: 'Érvényes e-mail cím szükséges.' }, { status: 400 })
+      return jsonError('emailInvalid', 'Érvényes e-mail cím szükséges.', 400)
     }
     if (!message || message.length < 10) {
-      return NextResponse.json(
-        { error: 'Írj egy rövid üzenetet (legalább 10 karakter).' },
-        { status: 400 }
-      )
+      return jsonError('messageShort', 'Írj egy rövid üzenetet (legalább 10 karakter).', 400)
     }
     if (message.length > MAX_MESSAGE) {
-      return NextResponse.json({ error: 'Az üzenet túl hosszú.' }, { status: 400 })
+      return jsonError('messageLong', 'Az üzenet túl hosszú.', 400)
     }
 
     if (!isResendConfigured()) {
-      return NextResponse.json(
-        { error: 'Az üzenetküldés jelenleg nem elérhető. Próbáld később.' },
-        { status: 503 }
-      )
+      return jsonError('sendUnavailable', 'Az üzenetküldés jelenleg nem elérhető. Próbáld később.', 503)
     }
 
     const primary = getSupportInboxEmail()
@@ -74,10 +69,7 @@ export async function POST(request: Request) {
     const to = getAdminNotificationEmails().filter((e) => !isBlockedAdminNotifyEmail(e))
     if (to.length === 0) {
       console.error('[contact] Nincs admin címzett')
-      return NextResponse.json(
-        { error: 'Az ügyfélszolgálati postafiók nincs beállítva.' },
-        { status: 503 }
-      )
+      return jsonError('inboxUnconfigured', 'Az ügyfélszolgálati postafiók nincs beállítva.', 503)
     }
     // postmaster@gulumen.com a hivatalos cél – Resend küldi (MX hiányában is megkíséreljük).
     for (const r of to) warnIfSupportInboxUnreliable(r, 'contact recipient')
@@ -135,18 +127,16 @@ export async function POST(request: Request) {
 
     if (!anyOk) {
       console.error('[contact] all sends failed', lastError)
-      return NextResponse.json(
-        { error: 'Az üzenet küldése sikertelen. Próbáld újra később.' },
-        { status: 500 }
-      )
+      return jsonError('sendFailed', 'Az üzenet küldése sikertelen. Próbáld újra később.', 500)
     }
 
     return NextResponse.json({
       ok: true,
+      code: 'success',
       message: 'Üzeneted megérkezett. Hamarosan válaszolunk.',
     })
   } catch (err) {
     console.error('[contact] error', err)
-    return NextResponse.json({ error: 'Szerver hiba.' }, { status: 500 })
+    return jsonError('server', 'Szerver hiba.', 500)
   }
 }

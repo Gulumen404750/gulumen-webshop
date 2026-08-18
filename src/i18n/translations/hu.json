@@ -161,7 +161,8 @@
     "mobileStickyBanner": "{count} termék a kosaradban – {total}",
     "mobileStickyBannerAria": "Kosár összefoglaló",
     "emptyStateTitle": "Üres a kosár",
-    "emptyStateCta": "Böngéssz az akciók között"
+    "emptyStateCta": "Böngéssz az akciók között",
+    "productFallback": "Termék"
   },
   "payment": {
     "title": "Fizetés",
@@ -464,7 +465,12 @@
       "needs_manual_review": "Kézi ellenőrzés",
       "pending": "Függőben",
       "created": "Létrehozva"
-    }
+    },
+    "editSaveFailed": "A cím mentése sikertelen.",
+    "editNetworkError": "Hálózati hiba. Próbáld újra.",
+    "editLockedClosed": "A rendelés már lezárult, a cím nem módosítható.",
+    "editLockedPrinted": "A csomag feladása már elindult, a cím nem módosítható.",
+    "editLockedStatus": "Ebben a státuszban a szállítási cím nem módosítható."
   },
   "profile": {
     "title": "Profil",
@@ -602,7 +608,11 @@
     "previewAvailable": "{points} pont vár aktiválásra.",
     "previewUsed": "Ez a kód már fel lett használva.",
     "couponSuccessPercent": "{percent}% kupon aktiválva ({code}). A fizetésnél fel tudod használni.",
-    "couponSuccessFixed": "{amount} kedvezmény aktiválva ({code}). A fizetésnél fel tudod használni."
+    "couponSuccessFixed": "{amount} kedvezmény aktiválva ({code}). A fizetésnél fel tudod használni.",
+    "errorCouponInactive": "Ez a kupon jelenleg nem aktív.",
+    "errorCouponExpired": "A kupon érvényességi ideje lejárt.",
+    "errorCouponUsed": "A kupont már felhasználták.",
+    "errorCouponWrongUser": "Ez a kupon nem ehhez a fiókhoz tartozik."
   },
   "luckySpin": {
     "title": "Szerencsekerék",
@@ -695,7 +705,10 @@
     "saveError": "Mentés sikertelen",
     "loading": "Betöltés…",
     "optional": "opcionális",
-    "imageN": "{name} – {n}. kép"
+    "imageN": "{name} – {n}. kép",
+    "googleRedirect": "Átirányítás a Google-hez…",
+    "networkError": "Hálózati hiba. Próbáld újra.",
+    "emailPlaceholder": "email@pelda.hu"
   },
   "addToCartReason": {
     "previewStarts": "Előnézet – vásárlás ekkor indul: {when}",
@@ -713,7 +726,29 @@
       "introAi": "Kérdésed vagy panaszod van? Használd az oldal jobb alsó sarkában lévő „Kérdésed van? Segítek!” gombot – az AI ügyfélszolgálat magyarul, angolul, németül és románul válaszol.",
       "introHuman": "Ha emberi ügyintézőt szeretnél (pl. panasz, jogi ügy), a chatben kérj ügy átadását – add meg a rendelés azonosítót és e-mail címedet.",
       "emailLabel": "E-mail:",
-      "frogAria": "Dekoratív béka – húzd el a helyére"
+      "frogAria": "Dekoratív béka – húzd el a helyére",
+      "formTitle": "Írj nekünk",
+      "formIntro": "Az üzeneted a webshop rendszerén keresztül érkezik az ügyfélszolgálatra. Megjelenített cím:",
+      "nameLabel": "Név",
+      "orderRefLabel": "Rendelésszám (opcionális)",
+      "messageLabel": "Üzenet",
+      "submit": "Üzenet küldése",
+      "submitting": "Küldés…",
+      "success": "Üzeneted megérkezett. Hamarosan válaszolunk.",
+      "error": {
+        "generic": "Küldés sikertelen.",
+        "network": "Hálózati hiba. Próbáld újra.",
+        "rateLimited": "Túl sok kérés. Próbáld újra később.",
+        "invalidRequest": "Érvénytelen kérés.",
+        "nameRequired": "Add meg a neved.",
+        "emailInvalid": "Érvényes e-mail cím szükséges.",
+        "messageShort": "Írj egy rövid üzenetet (legalább 10 karakter).",
+        "messageLong": "Az üzenet túl hosszú.",
+        "sendUnavailable": "Az üzenetküldés jelenleg nem elérhető. Próbáld később.",
+        "inboxUnconfigured": "Az ügyfélszolgálati postafiók nincs beállítva.",
+        "sendFailed": "Az üzenet küldése sikertelen. Próbáld újra később.",
+        "server": "Szerver hiba."
+      }
     },
     "registerTitle": "Regisztráció",
     "registerHaveAccount": "Már van fiókod?",
@@ -860,7 +895,8 @@
     "returnsTitle": "Visszaküldés – Gulumen",
     "contactTitle": "Kapcsolat – Gulumen",
     "faqTitle": "GYIK – Gulumen",
-    "aszfTitle": "ÁSZF – Gulumen"
+    "aszfTitle": "ÁSZF – Gulumen",
+    "giftClaimTitle": "Ajándékpont aktiválása | Gulumen"
   },
   "condition": {
     "Új": "Új",

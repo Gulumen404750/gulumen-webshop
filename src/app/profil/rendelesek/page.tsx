@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation'
 import { Flame, Loader2 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useLocale } from '@/context/LocaleContext'
+import { useDisplayMoney } from '@/hooks/useDisplayMoney'
+import { intlLocaleFor } from '@/lib/display-money'
 import { CustomerOrderShippingEdit } from '@/components/CustomerOrderShippingEdit'
 
 type OrderRow = {
@@ -46,6 +48,7 @@ function statusLabel(status: string, t: (key: string) => string): string {
 
 export default function MyOrdersPage() {
   const { t, locale } = useLocale()
+  const { money } = useDisplayMoney()
   const { isLoggedIn, authChecked } = useAuth()
   const router = useRouter()
   const [orders, setOrders] = useState<OrderRow[]>([])
@@ -90,8 +93,7 @@ export default function MyOrdersPage() {
     )
   }
 
-  const dateLocale =
-    locale === 'hu' ? 'hu-HU' : locale === 'de' ? 'de-DE' : locale === 'ro' ? 'ro-RO' : 'en-GB'
+  const dateLocale = intlLocaleFor(locale)
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -143,7 +145,7 @@ export default function MyOrdersPage() {
                   {statusLabel(order.status, t)}
                 </p>
                 <p className="text-sm tabular-nums text-foreground mt-0.5">
-                  {order.totalHuf.toLocaleString('hu-HU')} Ft
+                  {money(order.totalHuf)}
                 </p>
               </div>
             </div>
@@ -155,7 +157,7 @@ export default function MyOrdersPage() {
                     {item.name || item.productId} × {item.qty}
                   </span>
                   <span className="tabular-nums text-muted shrink-0">
-                    {(item.priceHuf * item.qty).toLocaleString('hu-HU')} Ft
+                    {money(item.priceHuf * item.qty)}
                   </span>
                 </li>
               ))}
@@ -206,11 +208,13 @@ export default function MyOrdersPage() {
                   street: t('orders.editStreet'),
                   houseNumber: t('orders.editHouseNumber'),
                   notes: t('orders.editNotes'),
-                  save: t('orders.editSave'),
-                  saving: t('orders.editSaving'),
-                  cancel: t('orders.editCancel'),
-                  success: t('orders.editSuccess'),
-                  open: t('orders.editShippingOpen'),
+                save: t('orders.editSave'),
+                saving: t('orders.editSaving'),
+                cancel: t('orders.editCancel'),
+                success: t('orders.editSuccess'),
+                open: t('orders.editShippingOpen'),
+                saveFailed: t('orders.editSaveFailed'),
+                networkError: t('orders.editNetworkError'),
                 }}
                 onSaved={(next) => {
                   setOrders((prev) =>

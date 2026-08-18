@@ -285,7 +285,7 @@ export function Header() {
               <Link
                 href="/kedvencek"
                 className="hidden md:flex p-2 rounded-lg text-muted hover:text-foreground hover:bg-[var(--border)]"
-                aria-label={t('wishlist.title') || 'Kedvencek'}
+                aria-label={t('wishlist.title')}
               >
                 <HeartIcon className="w-5 h-5" />
               </Link>
@@ -344,7 +344,7 @@ export function Header() {
                 onClick={() => setMobileNavOpen((o) => !o)}
                 aria-expanded={mobileNavOpen}
                 aria-controls="mobile-nav-panel"
-                aria-label={mobileNavOpen ? t('buttons.close') || 'Menü bezárása' : t('nav.menu') || 'Menü'}
+                aria-label={mobileNavOpen ? t('buttons.close') : t('nav.menu')}
               >
                 {mobileNavOpen ? <CloseIcon className="w-6 h-6" /> : <HamburgerIcon className="w-6 h-6" />}
               </button>
@@ -356,7 +356,7 @@ export function Header() {
             <nav
               id="mobile-nav-panel"
               className="md:hidden border-t border-[var(--border)] py-3 pb-4 max-h-[min(70vh,calc(100dvh-3.5rem))] overflow-y-auto overscroll-contain"
-              aria-label={t('nav.menu') || 'Menü'}
+              aria-label={t('nav.menu')}
             >
               <ul className="flex flex-col gap-1">
                 <li>
@@ -473,7 +473,7 @@ export function Header() {
                     onClick={closeMobileNav}
                   >
                     <HeartIcon className="w-5 h-5" />
-                    {t('wishlist.title') || 'Kedvencek'}
+                    {t('wishlist.title')}
                   </Link>
                 </li>
                 <li>

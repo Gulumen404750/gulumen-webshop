@@ -43,7 +43,7 @@ export default function RegistrationPage() {
   const handleGoogleRegister = async () => {
     setError(null)
     if (!acceptPrivacy) {
-      setError(t('register.errorPrivacy') || 'A regisztrációhoz fogadd el az ÁSZF-et és az adatkezelési tájékoztatót.')
+      setError(t('register.errorPrivacy'))
       return
     }
     await loginWithGoogle({
@@ -66,11 +66,11 @@ export default function RegistrationPage() {
       return
     }
     if (!password || password.length < 8) {
-      setError(t('register.errorPassword') || 'A jelszónak legalább 8 karakter hosszúnak kell lennie.')
+      setError(t('register.errorPassword'))
       return
     }
     if (!acceptPrivacy) {
-      setError(t('register.errorPrivacy') || 'A regisztrációhoz fogadd el az ÁSZF-et és az adatkezelési tájékoztatót.')
+      setError(t('register.errorPrivacy'))
       return
     }
     const result = await register(
@@ -81,15 +81,8 @@ export default function RegistrationPage() {
       birthDate.trim() || null
     )
     if (!result.ok) {
-      const msg = result.error ?? ''
-      const already =
-        /már regisztráltak|already registered|already exists|409/i.test(msg) ||
-        msg.includes('Ezzel az e-mail')
       setError(
-        already
-          ? t('register.errorEmailTaken') ||
-            'Ezzel az e-mail címmel már regisztráltak. Jelentkezz be.'
-          : msg || (t('register.errorGeneric') || 'Regisztráció sikertelen')
+        result.error === 'email_taken' ? t('register.errorEmailTaken') : t('register.errorGeneric')
       )
       return
     }
@@ -135,7 +128,7 @@ export default function RegistrationPage() {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="email@pelda.hu"
+            placeholder={t('common.emailPlaceholder')}
             className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
             autoComplete="email"
           />
@@ -219,11 +212,11 @@ export default function RegistrationPage() {
             <span className="w-full border-t border-[var(--border)]" />
           </span>
           <span className="relative flex justify-center text-xs uppercase text-muted">
-            {t('profile.or') || 'vagy'}
+            {t('profile.or')}
           </span>
         </div>
         <GoogleSignInButton
-          label={t('register.withGoogle') || 'Regisztráció Google-lel'}
+          label={t('register.withGoogle')}
           onClick={handleGoogleRegister}
         />
       </form>

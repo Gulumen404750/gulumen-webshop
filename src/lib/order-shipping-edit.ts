@@ -40,16 +40,16 @@ export function canCustomerEditShippingAddress(order: {
   printedAt?: string | Date | null
 }): { ok: true } | { ok: false; reason: string } {
   if (LOCKED_STATUSES.has(order.status)) {
-    return { ok: false, reason: 'A rendelés már lezárult, a cím nem módosítható.' }
+    return { ok: false, reason: 'order_closed' }
   }
   if (order.printedAt) {
     return {
       ok: false,
-      reason: 'A csomag feladása / címkenyomtatás már elindult, a cím nem módosítható.',
+      reason: 'already_printed',
     }
   }
   if (!EDITABLE_STATUSES.has(order.status)) {
-    return { ok: false, reason: 'Ebben a státuszban a szállítási cím nem módosítható.' }
+    return { ok: false, reason: 'status_locked' }
   }
   return { ok: true }
 }

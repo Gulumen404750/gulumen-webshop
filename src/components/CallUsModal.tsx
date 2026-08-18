@@ -44,14 +44,14 @@ export function CallUsModal({ isOpen, onClose }: Props) {
       const phoneTrim = phone.trim()
       if (!nameTrim || !phoneTrim) {
         setStatus('error')
-        setErrorMessage(t('callUs.callbackErrorRequired') || 'Név és telefonszám kötelező.')
+        setErrorMessage(t('callUs.callbackErrorRequired'))
         return
       }
       setStatus('sending')
       setErrorMessage('')
       try {
         const preferredTimeValue = immediatePreferred
-          ? (t('callUs.callbackOptionImmediate') || 'Azonnali (5–10 percen belül)')
+          ? (t('callUs.callbackOptionImmediate'))
           : callbackDate && callbackHour
             ? `${callbackDate.replace(/-/g, '.')}. ${callbackHour}:00`
             : undefined
@@ -68,7 +68,7 @@ export function CallUsModal({ isOpen, onClose }: Props) {
         const data = await res.json().catch(() => ({}))
         if (!res.ok) {
           setStatus('error')
-          setErrorMessage(data?.error || t('callUs.callbackError') || 'A kérés sikertelen.')
+          setErrorMessage(t('callUs.callbackError'))
           return
         }
         setStatus('success')
@@ -80,7 +80,7 @@ export function CallUsModal({ isOpen, onClose }: Props) {
         setCallbackHour('')
       } catch {
         setStatus('error')
-        setErrorMessage(t('callUs.callbackError') || 'A kérés sikertelen.')
+        setErrorMessage(t('callUs.callbackError'))
       }
     },
     [name, phone, topic, immediatePreferred, callbackDate, callbackHour, t]
@@ -230,7 +230,7 @@ export function CallUsModal({ isOpen, onClose }: Props) {
                       className="w-4 h-4 text-accent border-[var(--border)]"
                     />
                     <span className="text-sm text-foreground">
-                      {t('callUs.callbackOptionImmediate') || 'Azonnali (5–10 percen belül)'}
+                      {t('callUs.callbackOptionImmediate')}
                     </span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -242,7 +242,7 @@ export function CallUsModal({ isOpen, onClose }: Props) {
                       className="w-4 h-4 text-accent border-[var(--border)]"
                     />
                     <span className="text-sm text-foreground">
-                      {t('callUs.callbackOptionLater') || 'Később (válassz dátumot és órát)'}
+                      {t('callUs.callbackOptionLater')}
                     </span>
                   </label>
                 </div>
@@ -250,7 +250,7 @@ export function CallUsModal({ isOpen, onClose }: Props) {
                   <div className="mt-3 flex flex-wrap gap-3">
                     <div className="flex-1 min-w-[140px]">
                       <label htmlFor="callback-date" className="block text-xs font-medium text-muted mb-1">
-                        {t('callUs.callbackDate') || 'Dátum'}
+                        {t('callUs.callbackDate')}
                       </label>
                       <input
                         id="callback-date"
@@ -263,7 +263,7 @@ export function CallUsModal({ isOpen, onClose }: Props) {
                     </div>
                     <div className="w-24">
                       <label htmlFor="callback-hour" className="block text-xs font-medium text-muted mb-1">
-                        {t('callUs.callbackHour') || 'Óra'}
+                        {t('callUs.callbackHour')}
                       </label>
                       <select
                         id="callback-hour"

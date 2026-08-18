@@ -27,6 +27,23 @@ export type CouponClaimSuccess = {
 
 export type CodeRedeemSuccess = GiftClaimSuccess | CouponClaimSuccess
 
+const REDEEM_ERROR_KEYS: Record<string, string> = {
+  gift_code_invalid: 'giftClaim.previewNotFound',
+  gift_code_used: 'giftClaim.previewUsed',
+  gift_code_inactive: 'giftClaim.previewInactive',
+  gift_code_expired: 'giftClaim.previewExpired',
+  gift_code_not_yet_valid: 'giftClaim.previewNotYet',
+  code_invalid: 'giftClaim.previewNotFound',
+  code_required: 'giftClaim.errorRequired',
+  login_required: 'giftClaim.loginRequired',
+  db_unavailable: 'giftClaim.errorGeneric',
+  gift_code_failed: 'giftClaim.errorGeneric',
+  coupon_inactive: 'giftClaim.errorCouponInactive',
+  coupon_expired: 'giftClaim.errorCouponExpired',
+  coupon_used: 'giftClaim.errorCouponUsed',
+  coupon_wrong_user: 'giftClaim.errorCouponWrongUser',
+}
+
 type Props = {
   /** Előre kitöltött token (QR /claim oldal). */
   initialToken?: string
@@ -80,7 +97,7 @@ export function GiftPointClaimForm({
         return
       }
       if (!res.ok) {
-        setError(typeof data.error === 'string' ? data.error : t('giftClaim.errorGeneric'))
+        setError(t(REDEEM_ERROR_KEYS[String(data.code)] ?? 'giftClaim.errorGeneric'))
         return
       }
       if (data.kind === 'coupon') {

@@ -161,7 +161,8 @@
     "mobileStickyBanner": "{count} items in your cart – {total}",
     "mobileStickyBannerAria": "Cart summary",
     "emptyStateTitle": "Your cart is empty",
-    "emptyStateCta": "Browse our deals"
+    "emptyStateCta": "Browse our deals",
+    "productFallback": "Product"
   },
   "payment": {
     "title": "Payment",
@@ -490,7 +491,12 @@
       "needs_manual_review": "Needs review",
       "pending": "Pending",
       "created": "Created"
-    }
+    },
+    "editSaveFailed": "Could not save the address.",
+    "editNetworkError": "Network error. Please try again.",
+    "editLockedClosed": "This order is closed, so the address can no longer be changed.",
+    "editLockedPrinted": "Dispatch has already started, so the address can no longer be changed.",
+    "editLockedStatus": "The shipping address cannot be changed in this order status."
   },
   "profile": {
     "title": "Profile",
@@ -628,7 +634,11 @@
     "previewAvailable": "{points} points ready to activate.",
     "previewUsed": "This code has already been used.",
     "couponSuccessPercent": "{percent}% coupon activated ({code}). You can use it at checkout.",
-    "couponSuccessFixed": "{amount} off activated ({code}). You can use it at checkout."
+    "couponSuccessFixed": "{amount} off activated ({code}). You can use it at checkout.",
+    "errorCouponInactive": "This coupon is not currently active.",
+    "errorCouponExpired": "This coupon has expired.",
+    "errorCouponUsed": "This coupon has already been used.",
+    "errorCouponWrongUser": "This coupon does not belong to this account."
   },
   "luckySpin": {
     "title": "Lucky Wheel",
@@ -695,7 +705,10 @@
     "saveError": "Save failed",
     "loading": "Loading…",
     "optional": "optional",
-    "imageN": "{name} – image {n}"
+    "imageN": "{name} – image {n}",
+    "googleRedirect": "Redirecting to Google…",
+    "networkError": "Network error. Please try again.",
+    "emailPlaceholder": "email@example.com"
   },
   "addToCartReason": {
     "previewStarts": "Preview – sale starts at {when}",
@@ -713,7 +726,29 @@
       "introAi": "Have a question or complaint? Use the “Have a question? I can help!” button in the bottom-right corner – our AI support answers in Hungarian, English, German and Romanian.",
       "introHuman": "If you prefer a human agent (e.g. complaint, legal matter), ask for handover in the chat – include your order ID and email.",
       "emailLabel": "Email:",
-      "frogAria": "Decorative frog – drag it around"
+      "frogAria": "Decorative frog – drag it around",
+      "formTitle": "Write to us",
+      "formIntro": "Your message reaches customer support through the webshop. Displayed address:",
+      "nameLabel": "Name",
+      "orderRefLabel": "Order number (optional)",
+      "messageLabel": "Message",
+      "submit": "Send message",
+      "submitting": "Sending…",
+      "success": "Your message has arrived. We will reply soon.",
+      "error": {
+        "generic": "Could not send the message.",
+        "network": "Network error. Please try again.",
+        "rateLimited": "Too many requests. Please try again later.",
+        "invalidRequest": "Invalid request.",
+        "nameRequired": "Please enter your name.",
+        "emailInvalid": "A valid email address is required.",
+        "messageShort": "Please write a short message (at least 10 characters).",
+        "messageLong": "The message is too long.",
+        "sendUnavailable": "Messaging is currently unavailable. Please try later.",
+        "inboxUnconfigured": "The support inbox is not configured.",
+        "sendFailed": "Could not send the message. Please try again later.",
+        "server": "Server error."
+      }
     },
     "registerTitle": "Registration",
     "registerHaveAccount": "Already have an account?",
@@ -860,7 +895,8 @@
     "returnsTitle": "Returns – Gulumen",
     "contactTitle": "Contact – Gulumen",
     "faqTitle": "FAQ – Gulumen",
-    "aszfTitle": "Terms – Gulumen"
+    "aszfTitle": "Terms – Gulumen",
+    "giftClaimTitle": "Activate gift points | Gulumen"
   },
   "condition": {
     "Új": "New",

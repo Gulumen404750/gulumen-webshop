@@ -177,18 +177,16 @@ export default function PaymentPage() {
           : null,
         gamification: gamificationCoupon,
         labels: {
-          cat: t('payment.couponCatLabel') || 'Macska játék kupon',
-          registration: t('payment.couponRegistrationLabel') || 'Regisztrációs kupon',
-          loyalty: t('payment.loyaltyDiscountLine', { percent: loyaltyPercent }) || `Hűségkedvezmény (${loyaltyPercent}%)`,
+          cat: t('payment.couponCatLabel'),
+          registration: t('payment.couponRegistrationLabel'),
+          loyalty: t('payment.loyaltyDiscountLine', { percent: loyaltyPercent }),
           welcome: t('payment.welcomeOfferDiscountLine', {
             percent: Math.round(WELCOME_CHECKOUT_COUPON_PERCENT * 100),
-          }) || 'Hírlevél welcome kedvezmény (10%)',
+          }),
           birthday: t('payment.birthdayCouponTitle', {
             percent: birthdayCouponBanner?.percent ?? 15,
-          }) || 'Születésnapi kupon',
-          gamification:
-            t('payment.couponGamificationLabel', { percent: gamificationPercentDisplay }) ||
-            `Pontból váltott kupon (${gamificationPercentDisplay}%)`,
+          }),
+          gamification: t('payment.couponGamificationLabel', { percent: gamificationPercentDisplay }),
         },
       }),
     [
@@ -458,8 +456,7 @@ export default function PaymentPage() {
       const email = (userId || guestEmail).trim().toLowerCase()
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         setWelcomeOfferError(
-          t('payment.welcomeOfferEmailRequired') ||
-            'A 10% kedvezményhez add meg az e-mail címed (vendég vásárlás).'
+          t('payment.welcomeOfferEmailRequired')
         )
         return
       }
@@ -473,11 +470,11 @@ export default function PaymentPage() {
         })
         const data = await res.json().catch(() => ({}))
         if (!res.ok) {
-          setWelcomeOfferError(data.error || t('payment.welcomeOfferError') || 'Az ajánlat nem elérhető.')
+          setWelcomeOfferError(t('payment.welcomeOfferError'))
           return
         }
       } catch {
-        setWelcomeOfferError(t('payment.welcomeOfferError') || 'Az ajánlat nem elérhető.')
+        setWelcomeOfferError(t('payment.welcomeOfferError'))
         return
       } finally {
         setWelcomeOfferBusy(false)
@@ -564,20 +561,20 @@ export default function PaymentPage() {
     setError(null)
     setCheckoutResult(null)
     if (!userId && !guestEmail.trim()) {
-      setError(t('payment.emailRequired') || 'E-mail cím kötelező a rendeléshez.')
+      setError(t('payment.emailRequired'))
       return
     }
     const email = userId || guestEmail.trim()
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError(t('payment.emailInvalid') || 'Érvényes e-mail címet adj meg.')
+      setError(t('payment.emailInvalid'))
       return
     }
     if (!customerName.trim()) {
-      setError(t('payment.nameRequired') || 'A teljes név kötelező.')
+      setError(t('payment.nameRequired'))
       return
     }
     if (!customerPhone.trim() || customerPhone.trim().length < 7) {
-      setError(t('payment.phoneRequired') || 'Érvényes telefonszám kötelező.')
+      setError(t('payment.phoneRequired'))
       return
     }
     if (
@@ -586,7 +583,7 @@ export default function PaymentPage() {
       !shippingStreet.trim() ||
       !shippingHouseNumber.trim()
     ) {
-      setError(t('payment.shippingRequired') || 'A szállítási cím minden mezője kötelező.')
+      setError(t('payment.shippingRequired'))
       return
     }
     if (
@@ -596,7 +593,7 @@ export default function PaymentPage() {
         !billingStreet.trim() ||
         !billingHouseNumber.trim())
     ) {
-      setError(t('payment.billingRequired') || 'A számlázási cím minden mezője kötelező.')
+      setError(t('payment.billingRequired'))
       return
     }
 
@@ -665,7 +662,7 @@ export default function PaymentPage() {
       const data = await res.json()
       if (!res.ok) {
         const isTimedOfferError = res.status === 400 && (data.code === 'timed_offer_unavailable' || data.error?.includes('timed'))
-        setError(isTimedOfferError ? t('payment.timedOfferNoLongerAvailable') : (data.error || t('payment.errorCreateSession')))
+        setError(isTimedOfferError ? t('payment.timedOfferNoLongerAvailable') : t('payment.errorCreateSession'))
         idempotencyKeyRef.current = null
         checkoutInFlightRef.current = false
         setLoading(false)
@@ -865,7 +862,7 @@ export default function PaymentPage() {
                               percent: Math.round(effectiveCouponPercent * 100),
                             })}
                         {couponSelection.capped
-                          ? ` (${t('payment.couponCappedHint') || 'max. 15%'})`
+                          ? ` (${t('payment.couponCappedHint')})`
                           : ''}
                       </span>
                       <button
@@ -882,13 +879,13 @@ export default function PaymentPage() {
                 )}
                 {giftPointsUsedPreview > 0 && (
                   <div className="flex justify-between text-accent">
-                    <span>{t('payment.giftPointsDiscount') || 'Ajándékpont'}</span>
+                    <span>{t('payment.giftPointsDiscount')}</span>
                     <span className="tabular-nums">−{money(giftPointsUsedPreview)}</span>
                   </div>
                 )}
                 {activityPointsUsedPreview > 0 && (
                   <div className="flex justify-between text-accent">
-                    <span>{t('payment.activityPointsDiscount') || 'Aktivitási pont (1:1)'}</span>
+                    <span>{t('payment.activityPointsDiscount')}</span>
                     <span className="tabular-nums">−{money(activityPointsUsedPreview)}</span>
                   </div>
                 )}
@@ -905,7 +902,7 @@ export default function PaymentPage() {
           <div className="border-t border-[var(--border)] pt-3 space-y-1.5">
             {usePoints && (
               <div className="flex justify-between text-foreground">
-                <span>{t('payment.invoiceMerchandise') || 'Számlázandó termék'}</span>
+                <span>{t('payment.invoiceMerchandise')}</span>
                 <span className="tabular-nums">{money(invoiceMerchandiseHuf)}</span>
               </div>
             )}
@@ -935,7 +932,7 @@ export default function PaymentPage() {
               </p>
             )}
             <div className="flex justify-between font-heading font-bold text-lg text-foreground pt-2 mt-1">
-              <span>{usePoints ? (t('payment.invoiceDue') || 'Számlázandó (kártya)') : t('payment.totalDue')}</span>
+              <span>{usePoints ? (t('payment.invoiceDue')) : t('payment.totalDue')}</span>
               <span className="tabular-nums">
                 {money(usePoints ? invoiceTotalHuf : cardTotalHuf)}{' '}
                 {locale === 'hu' && (
@@ -949,18 +946,18 @@ export default function PaymentPage() {
 
       <section className="mb-8 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] space-y-4">
         <h2 className="font-heading text-lg font-semibold text-foreground">
-          {t('payment.customerDetailsTitle') || 'Szállítási adatok'}
+          {t('payment.customerDetailsTitle')}
         </h2>
         <p className="text-xs text-muted -mt-2">
           {userId
-            ? t('payment.customerDetailsLoggedInHint') || 'A rendeléshez add meg a kapcsolattartási és szállítási adatokat.'
-            : t('payment.guestCheckoutNote') || 'Regisztráció opcionális. A rendeléshez add meg az adataidat.'}
+            ? t('payment.customerDetailsLoggedInHint')
+            : t('payment.guestCheckoutNote')}
         </p>
 
         {!userId && (
           <div>
             <label htmlFor="guest-email" className="block text-sm font-medium text-foreground mb-1">
-              {t('payment.emailLabel') || 'E-mail'} <span className="text-muted">*</span>
+              {t('payment.emailLabel')} <span className="text-muted">*</span>
             </label>
             <input
               id="guest-email"
@@ -978,7 +975,7 @@ export default function PaymentPage() {
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <label htmlFor="checkout-name" className="block text-sm font-medium text-foreground mb-1">
-              {t('payment.fullNameLabel') || 'Teljes név'} <span className="text-muted">*</span>
+              {t('payment.fullNameLabel')} <span className="text-muted">*</span>
             </label>
             <input
               id="checkout-name"
@@ -992,7 +989,7 @@ export default function PaymentPage() {
           </div>
           <div className="sm:col-span-2">
             <label htmlFor="checkout-phone" className="block text-sm font-medium text-foreground mb-1">
-              {t('payment.phoneLabel') || 'Telefonszám'} <span className="text-muted">*</span>
+              {t('payment.phoneLabel')} <span className="text-muted">*</span>
             </label>
             <input
               id="checkout-phone"
@@ -1009,12 +1006,12 @@ export default function PaymentPage() {
 
         <div>
           <h3 className="text-sm font-semibold text-foreground mb-3">
-            {t('payment.shippingAddressTitle') || 'Szállítási cím'}
+            {t('payment.shippingAddressTitle')}
           </h3>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label htmlFor="checkout-shipping-postal" className="block text-sm font-medium text-foreground mb-1">
-                {t('payment.postalCodeLabel') || 'Irányítószám'} *
+                {t('payment.postalCodeLabel')} *
               </label>
               <input
                 id="checkout-shipping-postal"
@@ -1028,7 +1025,7 @@ export default function PaymentPage() {
             </div>
             <div>
               <label htmlFor="checkout-shipping-city" className="block text-sm font-medium text-foreground mb-1">
-                {t('payment.cityLabel') || 'Város'} *
+                {t('payment.cityLabel')} *
               </label>
               <input
                 id="checkout-shipping-city"
@@ -1042,7 +1039,7 @@ export default function PaymentPage() {
             </div>
             <div>
               <label htmlFor="checkout-shipping-street" className="block text-sm font-medium text-foreground mb-1">
-                {t('payment.streetLabel') || 'Utca'} *
+                {t('payment.streetLabel')} *
               </label>
               <input
                 id="checkout-shipping-street"
@@ -1056,7 +1053,7 @@ export default function PaymentPage() {
             </div>
             <div>
               <label htmlFor="checkout-shipping-house" className="block text-sm font-medium text-foreground mb-1">
-                {t('payment.houseNumberLabel') || 'Házszám'} *
+                {t('payment.houseNumberLabel')} *
               </label>
               <input
                 id="checkout-shipping-house"
@@ -1070,7 +1067,7 @@ export default function PaymentPage() {
             </div>
             <div className="sm:col-span-2">
               <label htmlFor="checkout-address-type" className="block text-sm font-medium text-foreground mb-1">
-                {t('payment.addressTypeLabel') || 'Cím típusa'}
+                {t('payment.addressTypeLabel')}
               </label>
               <select
                 id="checkout-address-type"
@@ -1078,13 +1075,13 @@ export default function PaymentPage() {
                 onChange={(e) => setAddressType(e.target.value === 'business' ? 'business' : 'home')}
                 className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
               >
-                <option value="home">{t('payment.addressTypeHome') || 'Lakás / Magáncím'}</option>
-                <option value="business">{t('payment.addressTypeBusiness') || 'Cég / Munkahely'}</option>
+                <option value="home">{t('payment.addressTypeHome')}</option>
+                <option value="business">{t('payment.addressTypeBusiness')}</option>
               </select>
             </div>
             <div className="sm:col-span-2">
               <label htmlFor="checkout-delivery-notes" className="block text-sm font-medium text-foreground mb-1">
-                {t('payment.deliveryNotesLabel') || 'Megjegyzés a futárnak / Cím pontosítása'}{' '}
+                {t('payment.deliveryNotesLabel')}{' '}
                 <span className="text-muted font-normal">({t('common.optional')})</span>
               </label>
               <textarea
@@ -1094,14 +1091,12 @@ export default function PaymentPage() {
                 rows={3}
                 maxLength={500}
                 placeholder={
-                  t('payment.deliveryNotesPlaceholder') ||
-                  'Pl. kapukód, emelet, ajtó, csengő neve…'
+                  t('payment.deliveryNotesPlaceholder')
                 }
                 className="w-full px-4 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground resize-y min-h-[5rem]"
               />
               <p className="mt-1.5 text-xs text-muted">
-                {t('payment.deliveryNotesHint') ||
-                  'Segítség a futárnak: kapukód, emelet/ajtó, csengő neve, kapu színe, munkahely neve.'}
+                {t('payment.deliveryNotesHint')}
               </p>
             </div>
           </div>
@@ -1116,19 +1111,19 @@ export default function PaymentPage() {
             className="mt-1 w-4 h-4 rounded border-[var(--border)] text-accent focus:ring-accent"
           />
           <span className="text-sm text-foreground">
-            {t('payment.billingSameAsShipping') || 'A számlázási cím megegyezik a szállítási címmel'}
+            {t('payment.billingSameAsShipping')}
           </span>
         </label>
 
         {!billingSameAsShipping && (
           <div>
             <h3 className="text-sm font-semibold text-foreground mb-3">
-              {t('payment.billingAddressTitle') || 'Számlázási cím'}
+              {t('payment.billingAddressTitle')}
             </h3>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label htmlFor="checkout-billing-postal" className="block text-sm font-medium text-foreground mb-1">
-                  {t('payment.postalCodeLabel') || 'Irányítószám'} *
+                  {t('payment.postalCodeLabel')} *
                 </label>
                 <input
                   id="checkout-billing-postal"
@@ -1141,7 +1136,7 @@ export default function PaymentPage() {
               </div>
               <div>
                 <label htmlFor="checkout-billing-city" className="block text-sm font-medium text-foreground mb-1">
-                  {t('payment.cityLabel') || 'Város'} *
+                  {t('payment.cityLabel')} *
                 </label>
                 <input
                   id="checkout-billing-city"
@@ -1154,7 +1149,7 @@ export default function PaymentPage() {
               </div>
               <div>
                 <label htmlFor="checkout-billing-street" className="block text-sm font-medium text-foreground mb-1">
-                  {t('payment.streetLabel') || 'Utca'} *
+                  {t('payment.streetLabel')} *
                 </label>
                 <input
                   id="checkout-billing-street"
@@ -1167,7 +1162,7 @@ export default function PaymentPage() {
               </div>
               <div>
                 <label htmlFor="checkout-billing-house" className="block text-sm font-medium text-foreground mb-1">
-                  {t('payment.houseNumberLabel') || 'Házszám'} *
+                  {t('payment.houseNumberLabel')} *
                 </label>
                 <input
                   id="checkout-billing-house"
@@ -1206,7 +1201,7 @@ export default function PaymentPage() {
             onClick={clearTypedCoupon}
             className="text-xs font-medium text-accent hover:underline"
           >
-            {t('payment.couponRemove') || 'Eltávolítás'}
+            {t('payment.couponRemove')}
           </button>
         </div>
       )}
@@ -1225,15 +1220,13 @@ export default function PaymentPage() {
         selectedIds={usePoints ? [] : selectedCouponIds}
         onChange={(next) => void handleCouponSelectionChange(next)}
         disabled={usePoints}
-        title={t('payment.couponSelectorTitle') || 'Elérhető kuponok'}
+        title={t('payment.couponSelectorTitle')}
         hint={
-          t('payment.couponSelectorHint') ||
-          'Válaszd ki manuálisan a kedvezményt. A kuponok nem vonhatók össze; a legnagyobb beváltható kedvezmény 15%.'
+          t('payment.couponSelectorHint')
         }
-        emptyText={t('payment.couponSelectorEmpty') || 'Jelenleg nincs felhasználható kuponod.'}
+        emptyText={t('payment.couponSelectorEmpty')}
         capReachedText={
-          t('payment.couponCapReached') ||
-          'A kuponok nem vonhatók össze; a legnagyobb beváltható kedvezmény 15%.'
+          t('payment.couponCapReached')
         }
         selectedPercentDisplay={Math.round(couponSelection.finalPercent * 100)}
         capped={couponSelection.capped}
@@ -1241,7 +1234,7 @@ export default function PaymentPage() {
       {welcomeOfferBusy && (
         <p className="text-xs text-muted -mt-6 mb-6 flex items-center gap-1.5">
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          {t('payment.welcomeOfferSaving') || 'Kedvezmény aktiválása…'}
+          {t('payment.welcomeOfferSaving')}
         </p>
       )}
       {welcomeOfferError && (
@@ -1251,15 +1244,14 @@ export default function PaymentPage() {
       )}
       {!userId && selectedCouponIds.includes('welcome') && !guestEmail.trim() && (
         <p className="text-xs text-muted -mt-4 mb-6">
-          {t('payment.welcomeOfferEmailHint') ||
-            'Vendégként előbb add meg az e-mail címed a fenti mezőben.'}
+          {t('payment.welcomeOfferEmailHint')}
         </p>
       )}
 
       {userId && pointsPreview && (pointsPreview.giftBalance > 0 || pointsPreview.maxActivityDiscountHuf > 0) && (
         <section className="mb-8 p-4 rounded-xl border border-accent/30 bg-accent/5 space-y-3">
           <p className="text-sm font-medium text-foreground">
-            {t('payment.pointsWalletsTitle') || 'Pontok felhasználása'}
+            {t('payment.pointsWalletsTitle')}
           </p>
           {pointsPreview.giftBalance > 0 && (
             <label className="flex items-start gap-3 cursor-pointer">
@@ -1329,16 +1321,16 @@ export default function PaymentPage() {
           <div className="mb-4 p-4 rounded-lg bg-[var(--border)]/50 space-y-2" role="status">
             {checkoutResult.payments.some((p) => p.orderType === 'in_stock') && (
               <p className="text-sm text-foreground">
-                {t('checkout.statusStock') || 'Raktári termékek: fizetés feldolgozása…'}
+                {t('checkout.statusStock')}
               </p>
             )}
             {checkoutResult.payments.some((p) => p.orderType === 'sourcing') && (
               <p className="text-sm text-foreground">
-                {t('checkout.statusSourcing') || 'Limitált beszerzés: fizetés zárolása…'}
+                {t('checkout.statusSourcing')}
               </p>
             )}
             <p className="text-xs text-muted mt-2">
-              {t('checkout.redirectToSummary') || 'Átirányítás a rendelés összefoglalóhoz…'}
+              {t('checkout.redirectToSummary')}
             </p>
           </div>
         )}
@@ -1356,7 +1348,7 @@ export default function PaymentPage() {
             {loading
               ? t('payment.redirecting')
               : checkoutResult
-                ? (t('checkout.redirecting') || 'Átirányítás…')
+                ? (t('checkout.redirecting'))
                 : t('payment.payWithCard')}
           </span>
         </button>

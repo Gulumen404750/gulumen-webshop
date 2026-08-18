@@ -17,13 +17,20 @@ describe('order-shipping-edit', () => {
 
   it('blocks edit after print or fulfillment', () => {
     expect(
-      canCustomerEditShippingAddress({ status: 'paid', printedAt: '2026-08-15T12:00:00.000Z' }).ok
-    ).toBe(false)
-    expect(canCustomerEditShippingAddress({ status: 'fulfilled', printedAt: null }).ok).toBe(false)
-    expect(canCustomerEditShippingAddress({ status: 'cancelled', printedAt: null }).ok).toBe(false)
-    expect(canCustomerEditShippingAddress({ status: 'payment_pending', printedAt: null }).ok).toBe(
-      false
-    )
+      canCustomerEditShippingAddress({ status: 'paid', printedAt: '2026-08-15T12:00:00.000Z' })
+    ).toEqual({ ok: false, reason: 'already_printed' })
+    expect(canCustomerEditShippingAddress({ status: 'fulfilled', printedAt: null })).toEqual({
+      ok: false,
+      reason: 'order_closed',
+    })
+    expect(canCustomerEditShippingAddress({ status: 'cancelled', printedAt: null })).toEqual({
+      ok: false,
+      reason: 'order_closed',
+    })
+    expect(canCustomerEditShippingAddress({ status: 'payment_pending', printedAt: null })).toEqual({
+      ok: false,
+      reason: 'status_locked',
+    })
   })
 
   it('detects address change flag', () => {
