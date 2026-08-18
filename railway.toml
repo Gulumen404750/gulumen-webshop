@@ -7,7 +7,7 @@
 #   npm run deploy:railway
 #
 # Vagy GitHub Actions: állítsd be a RAILWAY_TOKEN secretet (Railway → gulumen-webshop → Settings → Tokens).
-# Redeploy trigger: force Railway gulumen-webshop rebuild 2026-08-18T20:10.
+# Redeploy trigger: force Railway gulumen-webshop rebuild 2026-08-18T21:05.
 
 [build]
 builder = "nixpacks"
