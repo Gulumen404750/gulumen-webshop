@@ -14,6 +14,7 @@ function row(
   overrides: Partial<{
     id: string
     code: string
+    claimedFromCode?: string | null
     discountType: string
     discountValue: number
     active: boolean
@@ -60,6 +61,33 @@ describe('mapUserGamificationCoupon', () => {
     expect(mapped.status).toBe('active')
     expect(mapped.discountPercent).toBe(10)
     expect(mapped.code).toBe('GLM-AAAA11111111')
+    expect(mapped.checkoutCode).toBe('GLM-AAAA11111111')
+    expect(mapped.discountType).toBe('percent')
+  })
+
+  it('shows the campaign code for a claimed admin coupon', () => {
+    const mapped = mapUserGamificationCoupon(
+      row({
+        code: 'NYAR2026-A1B2C3',
+        claimedFromCode: 'NYAR2026',
+        discountType: 'percent',
+        discountValue: 15,
+      }),
+      now
+    )
+    expect(mapped.code).toBe('NYAR2026')
+    expect(mapped.checkoutCode).toBe('NYAR2026-A1B2C3')
+    expect(mapped.discountPercent).toBe(15)
+  })
+
+  it('does not invent a 10% rate for a fixed campaign coupon', () => {
+    const mapped = mapUserGamificationCoupon(
+      row({ discountType: 'fixed', discountValue: 2000 }),
+      now
+    )
+    expect(mapped.discountType).toBe('fixed')
+    expect(mapped.discountValue).toBe(2000)
+    expect(mapped.discountPercent).toBe(0)
   })
 
   it('maps a spent coupon as used', () => {

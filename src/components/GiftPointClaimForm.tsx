@@ -20,6 +20,7 @@ export type GiftClaimSuccess = {
 export type CouponClaimSuccess = {
   kind: 'coupon'
   code: string
+  checkoutCode?: string
   discountType: 'percent' | 'fixed'
   discountValue: number
   minOrderHuf: number | null
@@ -41,7 +42,11 @@ const REDEEM_ERROR_KEYS: Record<string, string> = {
   coupon_inactive: 'giftClaim.errorCouponInactive',
   coupon_expired: 'giftClaim.errorCouponExpired',
   coupon_used: 'giftClaim.errorCouponUsed',
+  coupon_exhausted: 'giftClaim.errorCouponUsed',
+  coupon_already_claimed: 'giftClaim.errorCouponAlreadyClaimed',
   coupon_wrong_user: 'giftClaim.errorCouponWrongUser',
+  coupon_not_owned: 'giftClaim.errorCouponWrongUser',
+  coupon_login_required: 'giftClaim.loginRequired',
 }
 
 type Props = {
@@ -104,18 +109,22 @@ export function GiftPointClaimForm({
         const result: CouponClaimSuccess = {
           kind: 'coupon',
           code: String(data.code || trimmed).toUpperCase(),
+          checkoutCode:
+            typeof data.checkoutCode === 'string' ? data.checkoutCode.toUpperCase() : undefined,
           discountType: data.discountType === 'fixed' ? 'fixed' : 'percent',
           discountValue: Number(data.discountValue) || 0,
           minOrderHuf: typeof data.minOrderHuf === 'number' ? data.minOrderHuf : null,
         }
         const stored: StoredTypedCoupon = {
-          code: result.code,
+          code: result.checkoutCode || result.code,
           discountType: result.discountType,
           discountValue: result.discountValue,
           minOrderHuf: result.minOrderHuf,
         }
         writeTypedCoupon(stored)
         setCouponSuccess(result)
+        setToken('')
+        await mutate(POINT_WALLET_SWR_KEY)
         onSuccess?.(result)
         return
       }

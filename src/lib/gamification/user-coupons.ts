@@ -2,14 +2,16 @@
  * Felhasználó saját, pontból váltott (gamification) kuponjai.
  */
 import { gamificationCouponAdminStatus } from './coupon-status'
-import { REDEEM_COUPON_PERCENT } from './constants'
 
 export type UserGamificationCouponStatus = 'active' | 'used' | 'expired' | 'inactive'
 
 export type UserGamificationCoupon = {
   id: string
   code: string
+  checkoutCode: string
   discountPercent: number
+  discountType: 'percent' | 'fixed'
+  discountValue: number
   status: UserGamificationCouponStatus
   usedCount: number
   maxUses: number | null
@@ -20,6 +22,7 @@ export type UserGamificationCoupon = {
 export type UserCouponRowInput = {
   id: string
   code: string
+  claimedFromCode?: string | null
   discountType: string
   discountValue: number
   active: boolean
@@ -33,7 +36,7 @@ export function discountPercentFromCoupon(discountType: string, discountValue: n
   if (discountType === 'percent' && discountValue > 0) {
     return discountValue > 1 ? discountValue : Math.round(discountValue * 100)
   }
-  return REDEEM_COUPON_PERCENT
+  return 0
 }
 
 function toIso(value: Date | string | null | undefined): string | null {
@@ -47,10 +50,14 @@ export function mapUserGamificationCoupon(
   row: UserCouponRowInput,
   now: Date = new Date()
 ): UserGamificationCoupon {
+  const displayCode = (row.claimedFromCode || row.code).toUpperCase()
   return {
     id: row.id,
-    code: row.code,
+    code: displayCode,
+    checkoutCode: row.code,
     discountPercent: discountPercentFromCoupon(row.discountType, row.discountValue),
+    discountType: row.discountType === 'fixed' ? 'fixed' : 'percent',
+    discountValue: row.discountValue,
     status: gamificationCouponAdminStatus(row, now),
     usedCount: row.usedCount,
     maxUses: row.maxUses,
@@ -102,14 +109,14 @@ export function redeemableCouponCount(
 }
 
 /** Aktív, még fel nem használt pontkuponok a fizetéshez. */
-export function listActiveCheckoutCoupons(
-  coupons: UserGamificationCoupon[]
-): UserGamificationCoupon[] {
+export function listActiveCheckoutCoupons<T extends { status: string }>(
+  coupons: T[]
+): T[] {
   return coupons.filter((c) => c.status === 'active')
 }
 
-export function pickActiveCheckoutCoupon(
-  coupons: UserGamificationCoupon[]
-): UserGamificationCoupon | null {
+export function pickActiveCheckoutCoupon<T extends { status: string }>(
+  coupons: T[]
+): T | null {
   return listActiveCheckoutCoupons(coupons)[0] ?? null
 }

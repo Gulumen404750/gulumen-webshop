@@ -55,12 +55,13 @@ export async function GET(request: Request) {
     const [wallet, gamificationCoupons, giftPointsAvailable, giftExpiresAt] = await Promise.all([
       prisma.userPointWallet.findUnique({ where: { userId } }),
       prisma.coupon.findMany({
-        where: { userId, source: 'gamification' },
+        where: { userId, source: { in: ['gamification', 'admin_claim'] } },
         orderBy: { createdAt: 'desc' },
         take: 50,
         select: {
           id: true,
           code: true,
+          claimedFromCode: true,
           discountType: true,
           discountValue: true,
           active: true,
