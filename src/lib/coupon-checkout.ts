@@ -3,7 +3,8 @@
  */
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import type { CouponDiscount } from '@/lib/checkout'
-import { capCombinedCouponPercent } from '@/lib/coupon-config'
+import { capCombinedCouponPercent, isFixedCouponDiscount } from '@/lib/coupon-config'
+import { Prisma } from '@prisma/client'
 import {
   claimCouponForUser,
   isOwnerlessCoupon,
@@ -74,6 +75,10 @@ export async function previewCouponCode(params: {
   const coupon = await prisma.coupon.findUnique({ where: { code } })
   if (!coupon) {
     return { ok: false, error: 'Coupon not found', code: 'coupon_invalid' }
+  }
+
+  if (coupon.consumed) {
+    return { ok: false, error: 'Coupon usage limit reached', code: 'coupon_exhausted' }
   }
 
   if (!coupon.active) {
@@ -178,64 +183,163 @@ export async function resolveCheckoutCoupon(params: {
   return { ok: true, coupon: resolved, discount: dbCouponToDiscount(resolved) }
 }
 
+export type ResolvedCheckoutCoupons = {
+  coupons: Array<{ coupon: ResolvedDbCoupon; discount: CouponDiscount }>
+  percent: number
+  fixedHuf: number
+  primaryCouponId: string | null
+  secondaryCouponId: string | null
+}
+
+/**
+ * Egy vagy két DB kupon: egy fix Ft + egy százalékos összevonható.
+ * Két százalékos vagy két fix kupon továbbra is tilos.
+ */
+export async function resolveCheckoutCoupons(params: {
+  couponCodes: string[]
+  checkoutUserId: string | null
+  subtotalHuf: number
+  now?: Date
+}): Promise<
+  | { ok: true; result: ResolvedCheckoutCoupons }
+  | { ok: false; error: string; code: string }
+> {
+  const unique: string[] = []
+  for (const raw of params.couponCodes) {
+    const code = raw.trim().toUpperCase()
+    if (!code || unique.includes(code)) continue
+    unique.push(code)
+    if (unique.length >= 2) break
+  }
+
+  const resolved: Array<{ coupon: ResolvedDbCoupon; discount: CouponDiscount }> = []
+  for (const code of unique) {
+    const one = await resolveCheckoutCoupon({
+      couponCode: code,
+      checkoutUserId: params.checkoutUserId,
+      subtotalHuf: params.subtotalHuf,
+      now: params.now,
+    })
+    if (!one.ok) return one
+    resolved.push({ coupon: one.coupon, discount: one.discount })
+  }
+
+  const fixed = resolved.filter((r) => isFixedCouponDiscount(r.discount))
+  const percent = resolved.filter((r) => !isFixedCouponDiscount(r.discount))
+  if (fixed.length > 1 || percent.length > 1) {
+    return { ok: false, error: 'Coupons cannot be combined', code: 'coupon_stack_disabled' }
+  }
+
+  const primary = fixed[0] ?? percent[0] ?? null
+  const secondary =
+    primary && resolved.length === 2
+      ? resolved.find((r) => r.coupon.id !== primary.coupon.id) ?? null
+      : null
+
+  return {
+    ok: true,
+    result: {
+      coupons: resolved,
+      percent: percent[0]?.discount.percent ?? 0,
+      fixedHuf: fixed[0]?.discount.fixedHuf ?? 0,
+      primaryCouponId: primary?.coupon.id ?? null,
+      secondaryCouponId: secondary?.coupon.id ?? null,
+    },
+  }
+}
+
 const PAID_STATUSES = new Set(['paid', 'sourcing_pending'])
+
+async function markCouponConsumedOnPayment(
+  tx: Prisma.TransactionClient,
+  couponId: string
+): Promise<void> {
+  const coupon = await tx.coupon.findUnique({ where: { id: couponId } })
+  if (!coupon) return
+  if (coupon.consumed) return
+
+  const alreadyExhausted = coupon.maxUses != null && coupon.usedCount >= coupon.maxUses
+  const isFixed = coupon.discountType === 'fixed'
+  const newUsedCount = alreadyExhausted ? coupon.usedCount : coupon.usedCount + 1
+  const exhausted = coupon.maxUses != null && newUsedCount >= coupon.maxUses
+  const fullyConsumed = isFixed || exhausted || (coupon.maxUses ?? 1) <= newUsedCount
+  await tx.coupon.update({
+    where: { id: coupon.id },
+    data: {
+      usedCount: newUsedCount,
+      ...(fullyConsumed
+        ? {
+            consumed: true,
+            ...(isFixed || exhausted ? { active: false } : {}),
+          }
+        : {}),
+    },
+  })
+}
 
 /**
  * Sikeres fizetés után: usedCount +1, egyszer rendelés-csoportonként.
  * Capture (paid) és authorize (sourcing_pending) esetén is meghívandó.
- * Fix Ft kupon: a fel nem használt maradék nem íródik jóvá, a kupon teljesen kimerül.
+ * Fix Ft kupon: a fel nem használt maradék nem íródik jóvá, nem kerül egyenlegre,
+ * a kupon consumed = true (teljes névérték felemésztve).
  */
 export async function recordCouponUsageOnPayment(orderId: string): Promise<void> {
   if (!isDbConfigured()) return
 
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    select: { id: true, couponId: true, orderGroupId: true, couponUsageRecorded: true, status: true },
+    select: {
+      id: true,
+      couponId: true,
+      secondaryCouponId: true,
+      orderGroupId: true,
+      couponUsageRecorded: true,
+      status: true,
+    },
   })
-  if (!order?.couponId || order.couponUsageRecorded) return
+  if (!order) return
+  if ((!order.couponId && !order.secondaryCouponId) || order.couponUsageRecorded) return
   if (!PAID_STATUSES.has(order.status)) return
 
   await prisma.$transaction(async (tx) => {
     const fresh = await tx.order.findUnique({
       where: { id: orderId },
-      select: { couponId: true, orderGroupId: true, couponUsageRecorded: true, status: true },
+      select: {
+        couponId: true,
+        secondaryCouponId: true,
+        orderGroupId: true,
+        couponUsageRecorded: true,
+        status: true,
+      },
     })
-    if (!fresh?.couponId || fresh.couponUsageRecorded) return
+    if (!fresh || fresh.couponUsageRecorded) return
     if (!PAID_STATUSES.has(fresh.status)) return
+    if (!fresh.couponId && !fresh.secondaryCouponId) return
 
     if (fresh.orderGroupId) {
       const alreadyRecorded = await tx.order.findFirst({
         where: {
           orderGroupId: fresh.orderGroupId,
-          couponId: fresh.couponId,
           couponUsageRecorded: true,
         },
       })
       if (alreadyRecorded) {
         await tx.order.updateMany({
-          where: { orderGroupId: fresh.orderGroupId, couponId: fresh.couponId },
+          where: { orderGroupId: fresh.orderGroupId },
           data: { couponUsageRecorded: true },
         })
         return
       }
     }
 
-    const coupon = await tx.coupon.findUnique({ where: { id: fresh.couponId } })
-    if (!coupon) return
-    if (coupon.maxUses != null && coupon.usedCount >= coupon.maxUses) return
-
-    const newUsedCount = coupon.usedCount + 1
-    await tx.coupon.update({
-      where: { id: coupon.id },
-      data: {
-        usedCount: newUsedCount,
-        ...(coupon.maxUses != null && newUsedCount >= coupon.maxUses ? { active: false } : {}),
-      },
-    })
+    const ids = [fresh.couponId, fresh.secondaryCouponId].filter((id): id is string => Boolean(id))
+    for (const id of ids) {
+      await markCouponConsumedOnPayment(tx, id)
+    }
 
     if (fresh.orderGroupId) {
       await tx.order.updateMany({
-        where: { orderGroupId: fresh.orderGroupId, couponId: fresh.couponId },
+        where: { orderGroupId: fresh.orderGroupId },
         data: { couponUsageRecorded: true },
       })
     } else {

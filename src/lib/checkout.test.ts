@@ -3,6 +3,7 @@ import {
   computeCheckoutTotals,
   computeCouponDiscountHuf,
   applyFixedCouponHuf,
+  stackFixedThenPercent,
   computePointsRedemption,
   computeShippingHuf,
   calculateDiscount,
@@ -420,8 +421,8 @@ describe('computeCheckoutTotals', () => {
       loyaltyPercent: 0.01,
     })
     expect(totals.loyaltyDiscountHuf).toBe(100)
-    expect(totals.couponDiscountHuf).toBe(1_000)
-    expect(totals.merchandiseTotalHuf).toBe(8_900)
+    expect(totals.couponDiscountHuf).toBe(990)
+    expect(totals.merchandiseTotalHuf).toBe(8_910)
   })
 
   it('keeps loyalty when paying with points and zeros other coupons', () => {
@@ -439,7 +440,7 @@ describe('computeCheckoutTotals', () => {
     expect(totals.merchandiseTotalHuf).toBe(7_800)
   })
 
-  it('stacks a fixed HUF coupon with a percentage coupon and loyalty', () => {
+  it('applies loyalty first, then (cart - fixed) * (1 - percent)', () => {
     const lines = [line('stock-1', 1, 20_000, 'stock')]
     const totals = computeCheckoutTotals({
       lines,
@@ -448,13 +449,25 @@ describe('computeCheckoutTotals', () => {
       loyaltyPercent: 0.05,
     })
     expect(totals.loyaltyDiscountHuf).toBe(1_000)
-    expect(totals.percentCouponDiscountHuf).toBe(2_000)
     expect(totals.fixedCouponDiscountHuf).toBe(5_000)
+    expect(totals.percentCouponDiscountHuf).toBe(1_400)
     expect(totals.fixedCouponUnusedHuf).toBe(0)
-    expect(totals.merchandiseTotalHuf).toBe(12_000)
+    expect(totals.merchandiseTotalHuf).toBe(12_600)
   })
 
-  it('applies a fixed coupon after Lucky Spin and drops the unused remainder', () => {
+  it('uses (cart - 15 000 Ft) * (1 - 15%) for a stacked gift coupon and wheel percent', () => {
+    const lines = [line('stock-1', 1, 20_000, 'stock')]
+    const totals = computeCheckoutTotals({
+      lines,
+      coupon: { percent: 0.15, fixedHuf: 15_000 },
+      luckySpin: null,
+    })
+    expect(totals.fixedCouponDiscountHuf).toBe(15_000)
+    expect(totals.percentCouponDiscountHuf).toBe(750)
+    expect(totals.merchandiseTotalHuf).toBe(4_250)
+  })
+
+  it('applies a fixed coupon before Lucky Spin and drops the unused remainder', () => {
     const spin = {
       id: 'spin-1',
       userId: 'u1',
@@ -470,10 +483,27 @@ describe('computeCheckoutTotals', () => {
       coupon: { fixedHuf: 15_000 },
       luckySpin: spin,
     })
-    expect(totals.luckySpinDiscountHuf).toBe(1_500)
-    expect(totals.fixedCouponDiscountHuf).toBe(8_500)
-    expect(totals.fixedCouponUnusedHuf).toBe(6_500)
+    expect(totals.fixedCouponDiscountHuf).toBe(10_000)
+    expect(totals.fixedCouponUnusedHuf).toBe(5_000)
+    expect(totals.luckySpinDiscountHuf).toBe(0)
     expect(totals.merchandiseTotalHuf).toBe(0)
+  })
+})
+
+describe('stackFixedThenPercent', () => {
+  it('applies (cart - fixed) * (1 - percent) and forfeits leftover fixed value', () => {
+    expect(stackFixedThenPercent(20_000, 15_000, 0.15)).toEqual({
+      appliedFixedHuf: 15_000,
+      unusedFixedHuf: 0,
+      percentDiscountHuf: 750,
+      remainingHuf: 4_250,
+    })
+    expect(stackFixedThenPercent(8_000, 15_000, 0.15)).toEqual({
+      appliedFixedHuf: 8_000,
+      unusedFixedHuf: 7_000,
+      percentDiscountHuf: 0,
+      remainingHuf: 0,
+    })
   })
 })
 

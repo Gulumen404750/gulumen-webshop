@@ -78,6 +78,10 @@ export type CouponSelectionResult = {
   capped: boolean
   birthdayCode?: string
   gamificationCode?: string
+  /** Százalékos kupon kódja (születésnap / 15% GLM / Szerencsekerék). */
+  percentCouponCode?: string
+  /** Fix Ft kupon kódja. */
+  fixedCouponCode?: string
   gamificationFixedHuf?: number
   hasFixedCoupon: boolean
   useWelcome: boolean
@@ -109,7 +113,10 @@ export function calculateSelectedCouponPercent(
   const birthday = picked.find((c) => c.id === 'birthday')
   const gamificationPicked = picked.filter((c) => isGamificationCouponId(c.id))
   const gamificationFixed = gamificationPicked.find((c) => isFixedSelectableCoupon(c))
-  const gamification = gamificationFixed ?? gamificationPicked[0]
+  const gamificationPercent = gamificationPicked.find((c) => !isFixedSelectableCoupon(c))
+  const gamification = gamificationFixed ?? gamificationPercent ?? gamificationPicked[0]
+  const percentPicked =
+    picked.find((c) => c.percent > 0 && !isFixedSelectableCoupon(c)) ?? birthday ?? gamificationPercent
 
   return {
     selectedIds: picked.map((c) => c.id),
@@ -118,6 +125,8 @@ export function calculateSelectedCouponPercent(
     capped: rawPercent > MAX_COMBINED_COUPON_PERCENT + 1e-9,
     birthdayCode: birthday?.code,
     gamificationCode: gamification?.code,
+    percentCouponCode: percentPicked?.code,
+    fixedCouponCode: gamificationFixed?.code,
     gamificationFixedHuf: gamificationFixed?.fixedHuf,
     hasFixedCoupon: Boolean(gamificationFixed),
     useWelcome: selected.has('welcome'),
@@ -130,7 +139,7 @@ export function calculateSelectedCouponPercent(
 
 /**
  * Következő kijelölés: a százalékos kuponok egymást váltják, a fix Ft kupon megmaradhat mellettük.
- * Két DB-kupon (születésnap / tárca) egyszerre nem él – a most bekapcsolt marad.
+ * Egy fix + egy százalékos kupon (DB / Szerencsekerék / promo) együtt élhet.
  */
 export function nextCouponSelection(
   coupons: SelectableCoupon[],
@@ -148,7 +157,6 @@ export function nextCouponSelection(
   const byId = new Map(coupons.map((c) => [c.id, c]))
   const toggling = byId.get(toggleId)
   const addingFixed = isFixedSelectableCoupon(toggling)
-  const addingDb = isDbSelectableCouponId(toggleId)
   const next = new Set(selectedIds)
   next.add(toggleId)
 
@@ -156,7 +164,7 @@ export function nextCouponSelection(
     if (id === toggleId || id === 'loyalty') continue
     const existing = byId.get(id)
     const existingFixed = isFixedSelectableCoupon(existing)
-    if (addingDb && isDbSelectableCouponId(id)) {
+    if (addingFixed && existingFixed) {
       next.delete(id)
       continue
     }

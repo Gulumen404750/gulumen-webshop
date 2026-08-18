@@ -94,6 +94,8 @@ model Coupon {
   pointTransactionId String? @unique
   /// Kampánykód, amiből a személyes példány készült (pl. NYAR2026). Egyszer / user.
   claimedFromCode String?
+  /// Fix Ft kupon: a fizetés a teljes névértéket felemészti, maradék nem jár vissza.
+  consumed     Boolean   @default(false)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
   orders       Order[]
@@ -253,6 +255,8 @@ model Order {
   /// Checkout DB kupon (admin / gamification kód).
   couponId           String?
   coupon             Coupon?  @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  /// Második DB kupon, ha fix Ft + százalékos kupon együtt él.
+  secondaryCouponId  String?
   /// Sikeres fizetés után usedCount növelve (rendelés-csoportonként egyszer).
   couponUsageRecorded Boolean @default(false)
   /// Manuálisan kiválasztott kuponok a checkouton: ["cat","birthday","welcome",...].

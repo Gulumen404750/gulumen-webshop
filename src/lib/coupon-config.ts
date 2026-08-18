@@ -5,7 +5,7 @@ export const CAT_COUPON_PERCENT = 0.05
 export const REGISTRATION_COUPON_PERCENT = 0.1
 
 /** Éles deploy marker – Railway Watch Paths a src/** fájlokra figyel. */
-export const COUPON_STACKING_DEPLOY_MARKER = '2026-08-18T22:01'
+export const COUPON_STACKING_DEPLOY_MARKER = '2026-08-18T23:30'
 
 /**
  * Checkout welcome ajánlat: hírlevél feliratkozás → azonnali 10%.
@@ -22,8 +22,8 @@ export const BIRTHDAY_COUPON_VALID_DAYS = 7
 /**
  * Egy százalékos kupon legnagyobb beváltható kedvezménye (0–1).
  * A százalékos kuponok egymással nem vonhatók össze; a checkouton egyszerre egy % kupon érvényes.
- * A fix forintos kupon (ajándék / admin) összevonható egy százalékos kuponnal,
- * a hűségkedvezménnyel és a Szerencsekerékkel. A hűség (1–8%) automatikus alapkedvezmény.
+ * A fix forintos kupon (ajándék / admin) összevonható egy százalékos kuponnal:
+ * (kosár - fix) * (1 - százalék). A hűség (1–8%) automatikus alapkedvezmény.
  */
 export const MAX_COMBINED_COUPON_PERCENT = 0.15
 

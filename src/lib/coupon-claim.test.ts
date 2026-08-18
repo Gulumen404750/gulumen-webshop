@@ -20,6 +20,7 @@ describe('personalClaimCode', () => {
 describe('interpretOwnedCoupon', () => {
   it('treats a spent personal coupon as used, otherwise as already claimed', () => {
     expect(interpretOwnedCoupon({ usedCount: 1, maxUses: 1 })).toBe('used')
+    expect(interpretOwnedCoupon({ usedCount: 0, maxUses: 1, consumed: true })).toBe('used')
     expect(interpretOwnedCoupon({ usedCount: 0, maxUses: 1 })).toBe('already_claimed')
     expect(interpretOwnedCoupon({ usedCount: 0, maxUses: null })).toBe('already_claimed')
   })

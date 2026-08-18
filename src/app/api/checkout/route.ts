@@ -54,7 +54,7 @@ import {
   FREE_SHIPPING_THRESHOLD,
 } from '@/lib/checkout'
 import { maybeSendOrderGroupConfirmationEmail } from '@/lib/order-email'
-import { resolveCheckoutCoupon } from '@/lib/coupon-checkout'
+import { resolveCheckoutCoupons } from '@/lib/coupon-checkout'
 import { getUserPromoCouponState } from '@/lib/promo-coupons'
 import { acceptWelcomeCheckoutOffer } from '@/lib/welcome-checkout-offer'
 import { finalizeOrderRewards } from '@/lib/checkout-rewards'
@@ -114,6 +114,8 @@ const checkoutBodySchema = z.object({
   useActivityPoints: z.boolean().optional(),
   /** DB kupon kód – a kedvezmény % CSAK ebből / szerveroldali kuponlogikából jön. */
   couponCode: z.string().min(1).optional(),
+  /** Fix Ft + százalékos kupon együtt: max. két kód. */
+  couponCodes: z.array(z.string().min(1)).max(2).optional(),
   /** Checkout welcome 10% + hírlevél ajánlat (manuális kijelölés). */
   welcomeOfferAccepted: z.boolean().optional(),
   /** Manuálisan kiválasztott szerver-validált kuponok (cat/registration/welcome + opcionális fix Ft). A hűség automatikus. */
@@ -192,6 +194,7 @@ export async function POST(request: Request) {
     useGiftPoints,
     useActivityPoints,
     couponCode: bodyCouponCode,
+    couponCodes: bodyCouponCodes,
     welcomeOfferAccepted,
     selectedCoupons: bodySelectedCoupons,
     paymentMethod: bodyPaymentMethod,
@@ -217,7 +220,18 @@ export async function POST(request: Request) {
     )
   }
 
-  let couponCodeTrimmed = bodyCouponCode?.trim() ?? ''
+  const collectedCouponCodes: string[] = []
+  const pushCouponCode = (raw?: string) => {
+    const code = raw?.trim()
+    if (!code) return
+    const key = code.toUpperCase()
+    if (collectedCouponCodes.some((c) => c.toUpperCase() === key)) return
+    collectedCouponCodes.push(code)
+  }
+  pushCouponCode(bodyCouponCode)
+  for (const code of bodyCouponCodes ?? []) pushCouponCode(code)
+
+  let couponCodesForCheckout = [...collectedCouponCodes]
   const selectedCoupons = new Set(bodySelectedCoupons ?? [])
   selectedCoupons.delete('loyalty')
   if (welcomeOfferAccepted === true) selectedCoupons.add('welcome')
@@ -234,8 +248,9 @@ export async function POST(request: Request) {
     expiresAt: string
     balanceAfter: number | null
   } | null = null
-  if (couponCodeTrimmed) {
-    const looked = await lookupRedeemableCode(couponCodeTrimmed, checkoutUserId)
+  const remainingCouponCodes: string[] = []
+  for (const code of couponCodesForCheckout) {
+    const looked = await lookupRedeemableCode(code, checkoutUserId)
     if (looked.kind === 'gift_points') {
       if (!checkoutUserId) {
         return NextResponse.json(
@@ -262,9 +277,11 @@ export async function POST(request: Request) {
         expiresAt: claimed.expiresAt.toISOString(),
         balanceAfter: claimed.balanceAfter,
       }
-      couponCodeTrimmed = ''
+      continue
     }
+    remainingCouponCodes.push(code)
   }
+  couponCodesForCheckout = remainingCouponCodes
 
   if (requestedPointsHuf > 0) {
     if (!session || !checkoutUserId) {
@@ -316,6 +333,7 @@ export async function POST(request: Request) {
 
   let couponDiscount: CouponDiscount = { percent: 0 }
   let appliedCouponId: string | null = null
+  let appliedSecondaryCouponId: string | null = null
   let appliedCouponCode: string | null = null
 
   const luckySpin = checkoutUserId ? await getLuckySpinForCheckout(checkoutUserId, now) : null
@@ -343,7 +361,7 @@ export async function POST(request: Request) {
       { status: 400 }
     )
   }
-  if (!couponCodeTrimmed && isCouponStackingBlocked(selectedCoupons)) {
+  if (couponCodesForCheckout.length === 0 && isCouponStackingBlocked(selectedCoupons)) {
     return NextResponse.json(
       {
         code: 'coupon_stack_disabled',
@@ -392,9 +410,9 @@ export async function POST(request: Request) {
     combinedPercent += welcome.percent || WELCOME_CHECKOUT_COUPON_PERCENT
   }
 
-  if (couponCodeTrimmed) {
-    const resolved = await resolveCheckoutCoupon({
-      couponCode: couponCodeTrimmed,
+  if (couponCodesForCheckout.length > 0) {
+    const resolved = await resolveCheckoutCoupons({
+      couponCodes: couponCodesForCheckout,
       checkoutUserId,
       subtotalHuf: cartSubtotalHuf,
       now,
@@ -402,17 +420,22 @@ export async function POST(request: Request) {
     if (!resolved.ok) {
       return NextResponse.json({ code: resolved.code, error: resolved.error }, { status: 400 })
     }
-    appliedCouponId = resolved.coupon.id
-    appliedCouponCode = resolved.coupon.code
-    const isFixed = isFixedCouponDiscount(resolved.discount)
-    if (resolved.coupon.source === 'gamification') {
-      selectedCoupons.add('gamification')
-    } else if (resolved.coupon.source === 'birthday') {
-      selectedCoupons.add('birthday')
+    appliedCouponId = resolved.result.primaryCouponId
+    appliedSecondaryCouponId = resolved.result.secondaryCouponId
+    appliedCouponCode = resolved.result.coupons[0]?.coupon.code ?? null
+    const fixedIds: string[] = []
+    for (const entry of resolved.result.coupons) {
+      if (entry.coupon.source === 'gamification') {
+        selectedCoupons.add('gamification')
+        if (isFixedCouponDiscount(entry.discount)) fixedIds.push('gamification')
+      } else if (entry.coupon.source === 'birthday') {
+        selectedCoupons.add('birthday')
+        if (isFixedCouponDiscount(entry.discount)) fixedIds.push('birthday')
+      } else if (isFixedCouponDiscount(entry.discount)) {
+        selectedCoupons.add('gamification')
+        fixedIds.push('gamification')
+      }
     }
-    const fixedIds = isFixed
-      ? [resolved.coupon.source === 'birthday' ? 'birthday' : 'gamification']
-      : []
     if (isCouponStackingBlocked(selectedCoupons, { fixedIds })) {
       return NextResponse.json(
         {
@@ -422,7 +445,7 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
-    if (!isFixed) {
+    if (resolved.result.percent > 0) {
       const otherPercentFlags = Array.from(selectedCoupons).filter(
         (id) => id !== 'birthday' && id !== 'gamification' && id !== 'loyalty'
       )
@@ -436,21 +459,20 @@ export async function POST(request: Request) {
         )
       }
     }
-    if (isFixed) {
-      fixedHufFromDb = resolved.discount.fixedHuf ?? 0
-    } else if (resolved.discount.percent && resolved.discount.percent > 0) {
-      combinedPercent += resolved.discount.percent
+    fixedHufFromDb = resolved.result.fixedHuf
+    if (resolved.result.percent > 0) {
+      combinedPercent += resolved.result.percent
     }
   }
 
   const cappedPercent = capCombinedCouponPercent(combinedPercent)
-  if (!validateCouponPercent(cappedPercent, Boolean(checkoutUserId) || wantsWelcomeOffer || Boolean(couponCodeTrimmed))) {
+  if (!validateCouponPercent(cappedPercent, Boolean(checkoutUserId) || wantsWelcomeOffer || couponCodesForCheckout.length > 0)) {
     return NextResponse.json({ error: 'Invalid coupon discount' }, { status: 400 })
   }
 
   const hasPromoSelection =
     selectedCoupons.size > 0 ||
-    Boolean(couponCodeTrimmed) ||
+    couponCodesForCheckout.length > 0 ||
     cappedPercent > 0 ||
     fixedHufFromDb > 0
   if (requestedPointsHuf > 0 && hasPromoSelection) {
@@ -563,6 +585,7 @@ export async function POST(request: Request) {
     orderGroupId,
     userId: checkoutUserId ?? undefined,
     couponId: appliedCouponId ?? undefined,
+    secondaryCouponId: appliedSecondaryCouponId ?? undefined,
     appliedCoupons: appliedCouponsList,
     paymentMethod,
     customer: customerSnapshot,

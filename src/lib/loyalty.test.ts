@@ -54,5 +54,8 @@ describe('paidGroupQualifiesForLoyalty', () => {
         { totalHuf: 8_000, pointsUsed: 500, pointsDiscountHuf: 500 },
       ])
     ).toBe(false)
+    expect(
+      paidGroupQualifiesForLoyalty([{ totalHuf: 80_000, usedPoints: 1 }])
+    ).toBe(false)
   })
 })

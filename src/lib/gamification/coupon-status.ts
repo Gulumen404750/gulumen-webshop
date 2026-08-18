@@ -6,9 +6,11 @@ export function gamificationCouponAdminStatus(
     usedCount: number
     maxUses: number | null
     validUntil: Date | string | null
+    consumed?: boolean | null
   },
   now: Date = new Date()
 ): GamificationCouponStatus {
+  if (row.consumed) return 'used'
   const max = row.maxUses ?? 1
   if (row.usedCount >= max && max > 0) return 'used'
   const until = row.validUntil ? new Date(row.validUntil) : null

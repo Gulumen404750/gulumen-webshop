@@ -77,7 +77,9 @@ export function personalClaimCode(templateCode: string, suffix: string): string 
 export function interpretOwnedCoupon(row: {
   usedCount: number
   maxUses: number | null
+  consumed?: boolean | null
 }): 'used' | 'already_claimed' {
+  if (row.consumed) return 'used'
   const max = row.maxUses ?? 1
   if (max > 0 && row.usedCount >= max) return 'used'
   return 'already_claimed'

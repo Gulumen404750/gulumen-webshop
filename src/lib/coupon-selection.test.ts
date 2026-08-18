@@ -156,6 +156,34 @@ describe('coupon selection: 15% cap, fixed HUF stacking', () => {
     expect(canToggleCoupon(coupons, new Set(['loyalty'] as const), 'birthday', true)).toBe(true)
   })
 
+  it('lets a 15% wheel coupon sit beside a 15 000 Ft gift coupon', () => {
+    const listed = buildPromoCoupons({
+      catClaimed: false,
+      registrationClaimed: false,
+      birthday: { code: 'BDAY15', percent: 15 },
+      gamification: [
+        { code: 'NYAR2026-475D59', fixedHuf: 15_000 },
+        { code: 'SPIN15', percent: 15 },
+      ],
+      labels: { ...labels, gamification: 'Kupon' },
+    })
+    const fixedId = gamificationCouponId('NYAR2026-475D59')
+    const percentId = gamificationCouponId('SPIN15')
+    expect(canToggleCoupon(listed, new Set([fixedId]), percentId, true)).toBe(true)
+    expect(nextCouponSelection(listed, new Set([fixedId]), percentId, true).sort()).toEqual(
+      [fixedId, percentId].sort()
+    )
+    expect(nextCouponSelection(listed, new Set([fixedId]), 'birthday', true).sort()).toEqual(
+      ['birthday', fixedId].sort()
+    )
+    const stacked = calculateSelectedCouponPercent(listed, [fixedId, percentId])
+    expect(stacked.finalPercent).toBeCloseTo(0.15)
+    expect(stacked.gamificationFixedHuf).toBe(15_000)
+    expect(stacked.fixedCouponCode).toBe('NYAR2026-475D59')
+    expect(stacked.percentCouponCode).toBe('SPIN15')
+    expect(stacked.hasFixedCoupon).toBe(true)
+  })
+
   it('lets a fixed HUF coupon sit beside one percentage coupon', () => {
     const listed = buildPromoCoupons({
       catClaimed: true,

@@ -41,6 +41,7 @@ import {
   buildPromoCoupons,
   calculateSelectedCouponPercent,
   canToggleCoupon,
+  isFixedSelectableCoupon,
   isGamificationCouponId,
   nextCouponSelection,
   toCheckoutSelectedCouponId,
@@ -297,7 +298,9 @@ export default function PaymentPage() {
   const fixedCouponDiscountHuf = checkoutPreview.fixedCouponDiscountHuf
   const fixedCouponUnusedHuf = checkoutPreview.fixedCouponUnusedHuf
   const showFixedRemainderWarning =
-    !usePoints && Boolean(effectiveFixedHuf && effectiveFixedHuf > 0) && fixedCouponUnusedHuf > 0
+    !usePoints &&
+    Boolean(effectiveFixedHuf && effectiveFixedHuf > 0) &&
+    ((effectiveFixedHuf ?? 0) > checkoutPreview.subtotalHuf || fixedCouponUnusedHuf > 0)
 
   const spinProductIds = useMemo(
     () => new Set(luckySpinRecord?.productIds ?? []),
@@ -426,7 +429,7 @@ export default function PaymentPage() {
 
   const autoSelectedGamificationRef = useRef<string | null>(null)
   useEffect(() => {
-    if (usePoints || typedCoupon?.discountType === 'percent') {
+    if (usePoints) {
       autoSelectedGamificationRef.current = null
       return
     }
@@ -445,7 +448,11 @@ export default function PaymentPage() {
     if (autoSelectedGamificationRef.current === selectionId) return
     autoSelectedGamificationRef.current = selectionId
     setSelectedCouponIds((prev) => {
-      if (prev.some((id) => isGamificationCouponId(id))) return prev
+      const alreadyHasFixed = prev.some((id) =>
+        isFixedSelectableCoupon(availableCoupons.find((c) => c.id === id))
+      )
+      if (alreadyHasFixed && isFixedSelectableCoupon(first)) return prev
+      if (prev.some((id) => id === selectionId)) return prev
       if (prev.length > 0 && !(first.fixedHuf && first.fixedHuf > 0)) return prev
       if (!canToggleCoupon(availableCoupons, new Set(prev), selectionId, true)) return prev
       return nextCouponSelection(availableCoupons, new Set(prev), selectionId, true)
@@ -461,8 +468,10 @@ export default function PaymentPage() {
     const stored = readTypedCoupon()
     if (stored) {
       setTypedCoupon(stored)
-      if (stored.discountType !== 'fixed') {
-        setSelectedCouponIds([])
+      if (stored.discountType === 'percent') {
+        setSelectedCouponIds((prev) =>
+          prev.filter((id) => isFixedSelectableCoupon(availableCoupons.find((c) => c.id === id)))
+        )
       }
     }
   }, [])
@@ -472,11 +481,12 @@ export default function PaymentPage() {
   const applyTypedCoupon = (coupon: StoredTypedCoupon) => {
     setTypedCoupon(coupon)
     writeTypedCoupon(coupon)
-    setSelectedCouponIds((prev) =>
-      coupon.discountType === 'fixed'
-        ? prev.filter((id) => !isGamificationCouponId(id) && id !== 'birthday')
-        : []
-    )
+    setSelectedCouponIds((prev) => {
+      if (coupon.discountType === 'fixed') {
+        return prev.filter((id) => !isFixedSelectableCoupon(availableCoupons.find((c) => c.id === id)))
+      }
+      return prev.filter((id) => isFixedSelectableCoupon(availableCoupons.find((c) => c.id === id)))
+    })
     setCouponCodeInput(coupon.code)
     setUseGiftPoints(false)
     setUseActivityPoints(false)
@@ -507,10 +517,14 @@ export default function PaymentPage() {
   }
 
   const handleCouponSelectionChange = async (next: SelectableCouponId[]) => {
-    const pickedDbCoupon = next.some((id) => isGamificationCouponId(id) || id === 'birthday')
-    if (next.length > 0 && typedCoupon?.discountType !== 'fixed') {
+    const nextCoupons = next
+      .map((id) => availableCoupons.find((c) => c.id === id))
+      .filter((c): c is NonNullable<typeof c> => Boolean(c))
+    const nextHasFixed = nextCoupons.some((c) => isFixedSelectableCoupon(c))
+    const nextHasPercent = nextCoupons.some((c) => (c.percent ?? 0) > 0 && !isFixedSelectableCoupon(c))
+    if (typedCoupon?.discountType === 'fixed' && nextHasFixed) {
       clearTypedCoupon()
-    } else if (typedCoupon?.discountType === 'fixed' && pickedDbCoupon) {
+    } else if (typedCoupon?.discountType === 'percent' && nextHasPercent) {
       clearTypedCoupon()
     }
     setWelcomeOfferError(null)
@@ -734,14 +748,30 @@ export default function PaymentPage() {
           couponCode: usePoints
             ? undefined
             : typedCoupon?.code ||
+              couponSelection.fixedCouponCode ||
+              couponSelection.percentCouponCode ||
               couponSelection.birthdayCode ||
               couponSelection.gamificationCode ||
               couponCodeInput.trim() ||
               undefined,
-          welcomeOfferAccepted: usePoints || typedCoupon?.discountType === 'percent'
+          couponCodes: usePoints
+            ? undefined
+            : [
+                typedCoupon?.code,
+                couponSelection.fixedCouponCode,
+                couponSelection.percentCouponCode,
+                couponSelection.birthdayCode,
+                couponSelection.gamificationCode,
+                couponCodeInput.trim(),
+              ]
+                .map((code) => code?.trim())
+                .filter((code): code is string => Boolean(code))
+                .filter((code, index, all) => all.findIndex((c) => c.toUpperCase() === code.toUpperCase()) === index)
+                .slice(0, 2),
+          welcomeOfferAccepted: usePoints
             ? undefined
             : couponSelection.useWelcome ? true : undefined,
-          selectedCoupons: usePoints || typedCoupon?.discountType === 'percent'
+          selectedCoupons: usePoints
             ? []
             : couponSelection.selectedIds
                 .filter((id) => id !== 'loyalty')
@@ -1006,7 +1036,7 @@ export default function PaymentPage() {
                       <span className="tabular-nums">−{money(fixedCouponDiscountHuf)}</span>
                     </div>
                     {showFixedRemainderWarning && (
-                      <p className="text-xs text-amber-700 dark:text-amber-400" role="status">
+                      <p className="text-xs text-red-600 dark:text-red-400" role="alert">
                         {t('payment.couponFixedRemainderWarning')}
                       </p>
                     )}
@@ -1341,7 +1371,7 @@ export default function PaymentPage() {
             </button>
           </div>
           {typedCoupon.discountType === 'fixed' && showFixedRemainderWarning && (
-            <p className="text-xs text-amber-700 dark:text-amber-400" role="status">
+            <p className="text-xs text-red-600 dark:text-red-400" role="alert">
               {t('payment.couponFixedRemainderWarning')}{' '}
               {t('payment.couponFixedRemainderHint')}
             </p>
@@ -1375,7 +1405,7 @@ export default function PaymentPage() {
         capped={couponSelection.capped}
       />
       {showFixedRemainderWarning && !typedCoupon && (
-        <p className="text-xs text-amber-700 dark:text-amber-400 -mt-4 mb-6" role="status">
+        <p className="text-xs text-red-600 dark:text-red-400 -mt-4 mb-6" role="alert">
           {t('payment.couponFixedRemainderWarning')} {t('payment.couponFixedRemainderHint')}
         </p>
       )}

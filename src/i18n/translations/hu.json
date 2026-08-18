@@ -277,7 +277,7 @@
     "couponGamificationLabel": "Pontból váltott kupon ({percent}%)",
     "couponRegistrationLabel": "Regisztrációs kupon",
     "couponScopeHint": "A százalékos kupon a teljes árú tételekre érvényes. A fix forintos kupon a fennmaradó kosárösszegre – a hűségkedvezmény és a Szerencsekerék után.",
-    "couponFixedRemainderWarning": "Ez a kupon egyben felhasználható, és a fel nem használt maradék összeg elveszik.",
+    "couponFixedRemainderWarning": "Ez a kupon egyben kerül felhasználásra, a fel nem használt maradék érték elveszik.",
     "couponFixedRemainderHint": "A fel nem használt maradék nem írható jóvá és nem visszatéríthető – a kupon a fizetéssel teljesen kimerül.",
     "shippingFee": "Szállítási díj",
     "shippingFree": "{amount} (ingyenes)",

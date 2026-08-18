@@ -26,6 +26,8 @@ describe('checkout coupon picker', () => {
     expect(src).toMatch(/couponFixedRemainderWarning/)
     expect(src).toMatch(/fixedCouponUnusedHuf/)
     expect(src).toMatch(/showFixedRemainderWarning/)
+    expect(src).toMatch(/text-red-600/)
+    expect(src).toMatch(/couponCodes/)
   })
 })
 

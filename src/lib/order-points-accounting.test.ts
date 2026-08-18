@@ -17,6 +17,7 @@ describe('internal points accounting', () => {
     expect(orderUsedInternalPoints({ pointsUsed: 500, pointsDiscountHuf: 500 })).toBe(true)
     expect(orderUsedInternalPoints({ pointsUsed: 0, pointsDiscountHuf: 1 })).toBe(true)
     expect(orderUsedInternalPoints({ giftPointsUsed: 200 })).toBe(true)
+    expect(orderUsedInternalPoints({ usedPoints: 1 })).toBe(true)
   })
 
   it('treats any sibling with points as a points-paid transaction', () => {

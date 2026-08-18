@@ -3,6 +3,7 @@ import {
   computeMixedPointsRedemption,
   splitWalletBalances,
   cashPaidHufToEarnPoints,
+  earnPointsForCart,
   purchaseEarnPointsForOrder,
 } from './purchase-points'
 
@@ -93,6 +94,27 @@ describe('cashPaidHufToEarnPoints', () => {
   it('ignores invalid amounts', () => {
     expect(cashPaidHufToEarnPoints(-500)).toBe(0)
     expect(cashPaidHufToEarnPoints(Number.NaN)).toBe(0)
+  })
+})
+
+describe('earnPointsForCart zero-point rule', () => {
+  it('returns 0 immediately when cart.usedPoints > 0, including the 50k band', () => {
+    expect(
+      earnPointsForCart({
+        userId: 'u1',
+        usedPoints: 1,
+        paidHuf: 80_000,
+        totalHuf: 80_000,
+      })
+    ).toBe(0)
+    expect(
+      earnPointsForCart({
+        userId: 'u1',
+        usedPoints: 500,
+        pointsUsed: 0,
+        paidHuf: 55_000,
+      })
+    ).toBe(0)
   })
 })
 

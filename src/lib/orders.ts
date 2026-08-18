@@ -90,6 +90,7 @@ export type Order = {
   pointsUsed?: number
   giftPointsUsed?: number
   couponId?: string
+  secondaryCouponId?: string
   couponUsageRecorded?: boolean
   /** Manuálisan kiválasztott kuponok (cat, birthday, welcome, …). */
   appliedCoupons?: string[]
@@ -249,6 +250,7 @@ function dbOrderToOrder(row: {
   pointsUsed: number
   giftPointsUsed?: number | null
   couponId: string | null
+  secondaryCouponId?: string | null
   couponUsageRecorded: boolean
   appliedCoupons?: unknown
   paymentMethod?: string | null
@@ -304,6 +306,7 @@ function dbOrderToOrder(row: {
     pointsUsed: row.pointsUsed,
     giftPointsUsed: row.giftPointsUsed ?? 0,
     couponId: row.couponId ?? undefined,
+    secondaryCouponId: row.secondaryCouponId ?? undefined,
     couponUsageRecorded: row.couponUsageRecorded,
     appliedCoupons,
     paymentMethod: row.paymentMethod ?? undefined,
@@ -688,6 +691,7 @@ export async function createCheckoutOrders(params: {
   orderGroupId: string
   userId?: string
   couponId?: string
+  secondaryCouponId?: string
   /** Manuálisan kiválasztott kuponok a fizetésnél. */
   appliedCoupons?: string[]
   /** Checkout fizetési mód – részletfizetésnél nincs vásárlási pont. */
@@ -748,6 +752,7 @@ export async function createCheckoutOrders(params: {
             giftPointsUsed: params.inStock.giftPointsUsed ?? 0,
             userId: params.userId ?? null,
             couponId: params.couponId ?? null,
+            secondaryCouponId: params.secondaryCouponId ?? null,
             appliedCoupons,
             paymentMethod: paymentMethod ?? null,
             currency,
@@ -772,6 +777,7 @@ export async function createCheckoutOrders(params: {
           giftPointsUsed: params.inStock.giftPointsUsed ?? 0,
           userId: params.userId,
           couponId: params.couponId,
+          secondaryCouponId: params.secondaryCouponId,
           appliedCoupons,
           paymentMethod,
           currency,
@@ -814,6 +820,7 @@ export async function createCheckoutOrders(params: {
             giftPointsUsed: params.sourcing.giftPointsUsed ?? 0,
             userId: params.userId ?? null,
             couponId: params.couponId ?? null,
+            secondaryCouponId: params.secondaryCouponId ?? null,
             appliedCoupons,
             paymentMethod: paymentMethod ?? null,
             currency,
@@ -838,6 +845,7 @@ export async function createCheckoutOrders(params: {
           giftPointsUsed: params.sourcing.giftPointsUsed ?? 0,
           userId: params.userId,
           couponId: params.couponId,
+          secondaryCouponId: params.secondaryCouponId,
           appliedCoupons,
           paymentMethod,
           currency,
@@ -877,6 +885,7 @@ export async function createCheckoutOrders(params: {
       discountHuf: params.inStock.discountHuf,
       totalHuf: params.inStock.totalHuf,
       couponId: params.couponId,
+      secondaryCouponId: params.secondaryCouponId,
       pointsDiscountHuf: params.inStock.pointsDiscountHuf ?? 0,
       pointsUsed: params.inStock.pointsUsed ?? 0,
       giftPointsUsed: params.inStock.giftPointsUsed ?? 0,
@@ -916,6 +925,7 @@ export async function createCheckoutOrders(params: {
       discountHuf: params.sourcing.discountHuf,
       totalHuf: params.sourcing.totalHuf,
       couponId: params.couponId,
+      secondaryCouponId: params.secondaryCouponId,
       pointsDiscountHuf: params.sourcing.pointsDiscountHuf ?? 0,
       pointsUsed: params.sourcing.pointsUsed ?? 0,
       giftPointsUsed: params.sourcing.giftPointsUsed ?? 0,

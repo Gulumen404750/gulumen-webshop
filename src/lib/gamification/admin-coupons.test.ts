@@ -21,6 +21,21 @@ describe('gamificationCouponAdminStatus', () => {
     ).toBe('active')
   })
 
+  it('marks a consumed coupon as used even with leftover face value', () => {
+    expect(
+      gamificationCouponAdminStatus(
+        {
+          active: false,
+          usedCount: 1,
+          maxUses: 1,
+          consumed: true,
+          validUntil: '2026-09-17T12:00:00.000Z',
+        },
+        now
+      )
+    ).toBe('used')
+  })
+
   it('marks a spent coupon as used even if still active', () => {
     expect(
       gamificationCouponAdminStatus(

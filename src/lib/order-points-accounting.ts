@@ -20,11 +20,14 @@ export const CASH_SETTLEMENT_LABEL = 'Pénzbeni fizetés'
 export const INVOICE_DUE_LABEL = 'Számlázandó (kártya / számla)'
 
 export function orderUsedInternalPoints(order: {
+  /** Kosár / checkout alias a felhasznált pontokra. */
+  usedPoints?: number | null
   pointsUsed?: number | null
   pointsDiscountHuf?: number | null
   giftPointsUsed?: number | null
 }): boolean {
   return (
+    toNonNegInt(order.usedPoints) > 0 ||
     toNonNegInt(order.pointsUsed) > 0 ||
     toNonNegInt(order.pointsDiscountHuf) > 0 ||
     toNonNegInt(order.giftPointsUsed) > 0
@@ -34,6 +37,7 @@ export function orderUsedInternalPoints(order: {
 /** Rendeléscsoport: ha bármelyik tétel ponttal volt fizetve, a tranzakció nem tiszta kártyás. */
 export function anyOrderUsedInternalPoints(
   orders: Array<{
+    usedPoints?: number | null
     pointsUsed?: number | null
     pointsDiscountHuf?: number | null
     giftPointsUsed?: number | null

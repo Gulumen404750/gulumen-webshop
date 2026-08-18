@@ -66,6 +66,7 @@ export function getThresholdHuf(): number {
 export function paidGroupQualifiesForLoyalty(
   orders: Array<{
     totalHuf?: number | null
+    usedPoints?: number | null
     pointsUsed?: number | null
     pointsDiscountHuf?: number | null
     giftPointsUsed?: number | null

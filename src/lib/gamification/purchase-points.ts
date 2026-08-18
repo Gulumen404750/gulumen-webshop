@@ -30,6 +30,37 @@ export function cashPaidHufToEarnPoints(paidHuf: number): number {
   return Math.floor(paidHuf / PURCHASE_EARN_HUF_PER_POINT)
 }
 
+function toNonNegInt(value: number | null | undefined): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 0
+  return Math.max(0, Math.floor(value))
+}
+
+/**
+ * Zero-Point szabály: ha a kosárban / tranzakcióban bármennyi pont ment el
+ * (`cart.usedPoints > 0`), a jóváírandó vásárlási pont 0.
+ * Felülír minden kedvezményt, hűségsávot és az 50 000 Ft feletti küszöböt is.
+ */
+export function earnPointsForCart(cart: {
+  usedPoints?: number | null
+  pointsUsed?: number | null
+  pointsDiscountHuf?: number | null
+  giftPointsUsed?: number | null
+  paidHuf?: number | null
+  totalHuf?: number | null
+  userId?: string | null
+  paymentMethod?: string | null
+  groupUsedInternalPoints?: boolean
+}): number {
+  const usedPoints = toNonNegInt(cart.usedPoints) || toNonNegInt(cart.pointsUsed)
+  if (usedPoints > 0) return 0
+  if (!cart.userId) return 0
+  if (cart.groupUsedInternalPoints) return 0
+  if (orderUsedInternalPoints(cart)) return 0
+  if (isInstallmentPayment(cart.paymentMethod)) return 0
+  const paidHuf = cart.paidHuf ?? cart.totalHuf ?? 0
+  return cashPaidHufToEarnPoints(paidHuf)
+}
+
 /**
  * Vásárlási pontjóváírás: csak tiszta kártya / PayPal / mobiltárca.
  * Ha a tranzakcióban (ez a rendelés vagy a csoport bármelyik tagja) pont ment el,
@@ -39,6 +70,7 @@ export function purchaseEarnPointsForOrder(order: {
   userId?: string | null
   totalHuf?: number | null
   paidHuf?: number | null
+  usedPoints?: number | null
   pointsUsed?: number | null
   pointsDiscountHuf?: number | null
   giftPointsUsed?: number | null
@@ -46,12 +78,7 @@ export function purchaseEarnPointsForOrder(order: {
   /** true, ha a rendeléscsoport bármelyik tagján pontot használtak. */
   groupUsedInternalPoints?: boolean
 }): number {
-  if (!order.userId) return 0
-  if (order.groupUsedInternalPoints) return 0
-  if (orderUsedInternalPoints(order)) return 0
-  if (isInstallmentPayment(order.paymentMethod)) return 0
-  const paidHuf = order.paidHuf ?? order.totalHuf ?? 0
-  return cashPaidHufToEarnPoints(paidHuf)
+  return earnPointsForCart(order)
 }
 
 export type PurchasePointsValidation = {
