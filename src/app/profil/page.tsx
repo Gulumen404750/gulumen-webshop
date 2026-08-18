@@ -318,7 +318,7 @@ export default function ProfilePage() {
             {t('orders.title')}
           </Link>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 mb-6">
+        <div className="grid items-start gap-4 sm:grid-cols-2 mb-6">
           <PointsDisplay />
           <PointsProgress />
         </div>
