@@ -33,5 +33,8 @@ describe('checkout payment method picker', () => {
     expect(src).toMatch(/errorKlarnaMinAmount/)
     expect(src).toMatch(/errorStripeSession/)
     expect(src).toMatch(/errorStripeNotConfigured/)
+    expect(src).toMatch(/errorOutOfStock/)
+    expect(src).toMatch(/isOutOfStockError/)
+    expect(src).not.toMatch(/checkout_order_failed' \|\| data\.code === 'out_of_stock'/)
   })
 })

@@ -239,6 +239,7 @@
     "errorCreateSession": "Could not start checkout. Please try again.",
     "errorStripeNotConfigured": "Card payment is temporarily unavailable. Please try again later or contact support.",
     "errorStripeSession": "Could not open the secure Stripe payment page. Please try again.",
+    "errorOutOfStock": "This product is out of stock, or a previous payment attempt is holding it. Please try again.",
     "errorKlarnaMinAmount": "Instalments are available from {min}.",
     "timedOfferNoLongerAvailable": "One or more timed offers are no longer available (not started or expired). Please update your cart.",
     "usePoints": "Use points: {points} pts (−{amount}, max. {percent}%)",

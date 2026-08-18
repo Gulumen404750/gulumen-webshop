@@ -18,6 +18,10 @@ describe('checkout API payment methods', () => {
     expect(src).toMatch(/stripe_session_failed/)
     expect(src).toMatch(/isStripeCurrencyUnsupportedMessage/)
     expect(src).toMatch(/retrying EUR/)
+    expect(src).toMatch(/restoreCreatedCheckoutOrders/)
+    expect(src).toMatch(/releasePendingCheckoutHolds/)
+    expect(src).toMatch(/restored stock after Stripe session failure/)
+    expect(src).toMatch(/released pending holds after out_of_stock/)
   })
 
   it('still blocks coupon stacking before creating a payment', () => {

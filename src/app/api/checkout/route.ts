@@ -76,6 +76,10 @@ import {
 } from '@/lib/checkout-payment-methods'
 import { getConfiguredHufPerEur } from '@/lib/euro-rate'
 import { StripeCheckoutError } from '@/lib/stripe-provider'
+import {
+  releasePendingCheckoutHolds,
+  restoreCreatedCheckoutOrders,
+} from '@/lib/stuck-payments'
 
 const selectedCouponEnum = z.enum([
   'cat',
@@ -118,6 +122,26 @@ const checkoutBodySchema = z.object({
   /** Felület nyelve – HUF (hu) / EUR (en, de, ro) terheléshez. */
   locale: z.enum(LOCALES).optional(),
 })
+
+async function stripeSessionFailedResponse(
+  createdOrders: Array<{
+    id: string
+    orderType?: string | null
+    items: { productId: string; qty: number; fulfillmentType: string }[]
+  }>,
+  body: { error: string; code: string; orderId: string }
+) {
+  try {
+    const restored = await restoreCreatedCheckoutOrders(createdOrders)
+    logger.info(
+      { orderIds: createdOrders.map((o) => o.id), ...restored },
+      'checkout: restored stock after Stripe session failure'
+    )
+  } catch (err) {
+    logger.warn({ err }, 'checkout: stock restore after Stripe session failure failed')
+  }
+  return NextResponse.json(body, { status: 502 })
+}
 
 export async function POST(request: Request) {
   const idemKey = getIdempotencyKey(request)
@@ -527,40 +551,61 @@ export async function POST(request: Request) {
   const customerSnapshot = toOrderCustomerSnapshot(customer)
 
   const appliedCouponsList = Array.from(selectedCoupons)
+  const checkoutOrderParams = {
+    orderGroupId,
+    userId: checkoutUserId ?? undefined,
+    couponId: appliedCouponId ?? undefined,
+    appliedCoupons: appliedCouponsList,
+    paymentMethod,
+    customer: customerSnapshot,
+    inStock: hasInStock
+      ? {
+          items: inStock.items,
+          subtotalHuf: inStock.subtotalHuf,
+          discountHuf: inStock.couponDiscountHuf + inStock.luckySpinDiscountHuf,
+          totalHuf: Math.max(0, inStock.totalHuf),
+          pointsDiscountHuf: inStock.pointsDiscountHuf,
+          pointsUsed: inStock.pointsUsed,
+          giftPointsUsed: inStock.giftPointsUsed,
+        }
+      : undefined,
+    sourcing: hasSourcing
+      ? {
+          items: sourcing.items,
+          subtotalHuf: sourcing.subtotalHuf,
+          discountHuf: sourcing.couponDiscountHuf + sourcing.luckySpinDiscountHuf,
+          totalHuf: Math.max(0, sourcing.totalHuf),
+          pointsDiscountHuf: sourcing.pointsDiscountHuf,
+          pointsUsed: sourcing.pointsUsed,
+          giftPointsUsed: sourcing.giftPointsUsed,
+        }
+      : undefined,
+    currency,
+  }
 
   let createdOrders
   try {
-    createdOrders = await createCheckoutOrders({
-      orderGroupId,
-      userId: checkoutUserId ?? undefined,
-      couponId: appliedCouponId ?? undefined,
-      appliedCoupons: appliedCouponsList,
-      paymentMethod,
-      customer: customerSnapshot,
-      inStock: hasInStock
-        ? {
-            items: inStock.items,
-            subtotalHuf: inStock.subtotalHuf,
-            discountHuf: inStock.couponDiscountHuf + inStock.luckySpinDiscountHuf,
-            totalHuf: Math.max(0, inStock.totalHuf),
-            pointsDiscountHuf: inStock.pointsDiscountHuf,
-            pointsUsed: inStock.pointsUsed,
-            giftPointsUsed: inStock.giftPointsUsed,
-          }
-        : undefined,
-      sourcing: hasSourcing
-        ? {
-            items: sourcing.items,
-            subtotalHuf: sourcing.subtotalHuf,
-            discountHuf: sourcing.couponDiscountHuf + sourcing.luckySpinDiscountHuf,
-            totalHuf: Math.max(0, sourcing.totalHuf),
-            pointsDiscountHuf: sourcing.pointsDiscountHuf,
-            pointsUsed: sourcing.pointsUsed,
-            giftPointsUsed: sourcing.giftPointsUsed,
-          }
-        : undefined,
-      currency,
-    })
+    try {
+      createdOrders = await createCheckoutOrders(checkoutOrderParams)
+    } catch (err) {
+      if (!(err instanceof OutOfStockException)) throw err
+      const released = await releasePendingCheckoutHolds({
+        userId: checkoutUserId,
+        customerEmail: customerSnapshot.email,
+      })
+      if (released.cancelled === 0) throw err
+      logger.info(
+        {
+          userId: checkoutUserId,
+          email: customerSnapshot.email,
+          cancelled: released.cancelled,
+          stockRestored: released.stockRestored,
+          productId: err.productId,
+        },
+        'checkout: released pending holds after out_of_stock, retrying'
+      )
+      createdOrders = await createCheckoutOrders(checkoutOrderParams)
+    }
   } catch (err) {
     if (reservationIds.length > 0) {
       try {
@@ -681,28 +726,22 @@ export async function POST(request: Request) {
             { err: retryErr, orderId: order.id, paymentMethod },
             'checkout: EUR Stripe session retry failed'
           )
-          return NextResponse.json(
-            {
-              error: retryStripe?.message || 'Could not start Stripe Checkout',
-              code: retryStripe?.code || 'stripe_session_failed',
-              orderId: order.id,
-            },
-            { status: 502 }
-          )
+          return stripeSessionFailedResponse(createdOrders, {
+            error: retryStripe?.message || 'Could not start Stripe Checkout',
+            code: retryStripe?.code || 'stripe_session_failed',
+            orderId: order.id,
+          })
         }
       } else {
         logger.error(
           { err, orderId: order.id, paymentMethod },
           'checkout: payment session create failed'
         )
-        return NextResponse.json(
-          {
-            error: stripeErr?.message || 'Could not start Stripe Checkout',
-            code: stripeErr?.code || 'stripe_session_failed',
-            orderId: order.id,
-          },
-          { status: 502 }
-        )
+        return stripeSessionFailedResponse(createdOrders, {
+          error: stripeErr?.message || 'Could not start Stripe Checkout',
+          code: stripeErr?.code || 'stripe_session_failed',
+          orderId: order.id,
+        })
       }
     }
 

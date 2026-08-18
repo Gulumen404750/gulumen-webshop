@@ -63,6 +63,79 @@ export async function cancelPendingOrderWithStockRestore(
   return { cancelled, stockRestored, reservationsCanceled }
 }
 
+export type ReleasePendingCheckoutHoldsInput = {
+  userId?: string | null
+  customerEmail?: string | null
+  /** Ha meg van adva, csak ezeket a pending rendeléseket oldja fel. */
+  orderIds?: string[]
+}
+
+/**
+ * Sikertelen Stripe-session vagy újrapróbálás: a vevő payment_pending rendeléseit
+ * azonnal cancelled-re teszi, és visszaírja a lefoglalt in_stock készletet.
+ */
+export async function releasePendingCheckoutHolds(
+  options: ReleasePendingCheckoutHoldsInput
+): Promise<{ cancelled: number; stockRestored: number; reservationsCanceled: number }> {
+  if (!isDbConfigured()) {
+    return { cancelled: 0, stockRestored: 0, reservationsCanceled: 0 }
+  }
+
+  const orderIds = (options.orderIds ?? []).map((id) => id.trim()).filter(Boolean)
+  const userId = options.userId?.trim() || null
+  const customerEmail = options.customerEmail?.trim().toLowerCase() || null
+
+  const or: Array<{ userId: string } | { customerEmail: string }> = []
+  if (userId) or.push({ userId })
+  if (customerEmail) or.push({ customerEmail })
+
+  if (orderIds.length === 0 && or.length === 0) {
+    return { cancelled: 0, stockRestored: 0, reservationsCanceled: 0 }
+  }
+
+  const pending = await prisma.order.findMany({
+    where:
+      orderIds.length > 0
+        ? { status: 'payment_pending', id: { in: orderIds } }
+        : { status: 'payment_pending', OR: or },
+    include: { items: true },
+    orderBy: { createdAt: 'asc' },
+    take: 50,
+  })
+
+  return cancelPendingOrdersWithStockRestoreMany(pending)
+}
+
+export async function restoreCreatedCheckoutOrders(
+  orders: CancelPendingOrderInput[]
+): Promise<{ cancelled: number; stockRestored: number; reservationsCanceled: number }> {
+  return cancelPendingOrdersWithStockRestoreMany(orders)
+}
+
+async function cancelPendingOrdersWithStockRestoreMany(
+  orders: CancelPendingOrderInput[]
+): Promise<{ cancelled: number; stockRestored: number; reservationsCanceled: number }> {
+  let cancelled = 0
+  let stockRestored = 0
+  let reservationsCanceled = 0
+
+  for (const order of orders) {
+    try {
+      const result = await cancelPendingOrderWithStockRestore(order)
+      if (result.cancelled) cancelled += 1
+      stockRestored += result.stockRestored
+      reservationsCanceled += result.reservationsCanceled
+    } catch (err) {
+      logger.warn(
+        { orderId: order.id, err: err instanceof Error ? err.message : String(err) },
+        'pending checkout hold restore failed for order'
+      )
+    }
+  }
+
+  return { cancelled, stockRestored, reservationsCanceled }
+}
+
 export async function cleanupStuckPayments(options?: {
   olderThanMs?: number
   limit?: number
@@ -85,23 +158,5 @@ export async function cleanupStuckPayments(options?: {
     take: limit,
   })
 
-  let cancelled = 0
-  let stockRestored = 0
-  let reservationsCanceled = 0
-
-  for (const order of stuck) {
-    try {
-      const result = await cancelPendingOrderWithStockRestore(order)
-      if (result.cancelled) cancelled += 1
-      stockRestored += result.stockRestored
-      reservationsCanceled += result.reservationsCanceled
-    } catch (err) {
-      logger.warn(
-        { orderId: order.id, err: err instanceof Error ? err.message : String(err) },
-        'cleanupStuckPayments failed for order'
-      )
-    }
-  }
-
-  return { cancelled, stockRestored, reservationsCanceled }
+  return cancelPendingOrdersWithStockRestoreMany(stuck)
 }

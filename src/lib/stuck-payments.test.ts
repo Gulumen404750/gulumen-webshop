@@ -9,11 +9,12 @@ const mockPrisma = vi.hoisted(() => {
       updateMany: vi.fn(),
     },
   }
+  const findMany = vi.fn()
 
   return {
     prisma: {
       order: {
-        findMany: vi.fn(),
+        findMany,
         updateMany: tx.order.updateMany,
       },
       $transaction: vi.fn(async (fn: (t: typeof tx) => Promise<unknown>) => fn(tx)),
@@ -21,6 +22,7 @@ const mockPrisma = vi.hoisted(() => {
     tx,
     reset() {
       tx.order.updateMany.mockReset()
+      findMany.mockReset()
       mockRestore.mockClear()
       mockCancelReservations.mockClear()
     },
@@ -47,6 +49,8 @@ vi.mock('@/lib/logger', () => ({
 import {
   cancelPendingOrderWithStockRestore,
   cleanupStuckPayments,
+  releasePendingCheckoutHolds,
+  restoreCreatedCheckoutOrders,
 } from './stuck-payments'
 import { isDbConfigured } from '@/lib/prisma'
 
@@ -169,5 +173,107 @@ describe('cleanupStuckPayments', () => {
     expect(result.cancelled).toBe(2)
     expect(result.stockRestored).toBe(3)
     expect(mockRestore).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('releasePendingCheckoutHolds', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockPrisma.reset()
+    vi.mocked(isDbConfigured).mockReturnValue(true)
+  })
+
+  it('cancels the buyer payment_pending orders by userId or email and restores stock', async () => {
+    mockPrisma.prisma.order.findMany.mockResolvedValue([
+      {
+        id: 'hold-1',
+        orderType: 'in_stock',
+        items: [{ productId: 'sku-a', qty: 1, fulfillmentType: 'stock' }],
+      },
+    ])
+    mockPrisma.tx.order.updateMany.mockResolvedValue({ count: 1 })
+
+    const result = await releasePendingCheckoutHolds({
+      userId: 'user_1',
+      customerEmail: 'Buyer@Gulumen.com',
+    })
+
+    expect(mockPrisma.prisma.order.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          status: 'payment_pending',
+          OR: [{ userId: 'user_1' }, { customerEmail: 'buyer@gulumen.com' }],
+        },
+      })
+    )
+    expect(result).toEqual({
+      cancelled: 1,
+      stockRestored: 1,
+      reservationsCanceled: 0,
+    })
+  })
+
+  it('restores specific created checkout order ids after Stripe session failure', async () => {
+    mockPrisma.prisma.order.findMany.mockResolvedValue([
+      {
+        id: 'ord_new',
+        orderType: 'in_stock',
+        items: [{ productId: 'sku-a', qty: 2, fulfillmentType: 'stock' }],
+      },
+    ])
+    mockPrisma.tx.order.updateMany.mockResolvedValue({ count: 1 })
+
+    const result = await releasePendingCheckoutHolds({
+      orderIds: ['ord_new'],
+      userId: 'user_1',
+    })
+
+    expect(mockPrisma.prisma.order.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { status: 'payment_pending', id: { in: ['ord_new'] } },
+      })
+    )
+    expect(result.cancelled).toBe(1)
+    expect(result.stockRestored).toBe(2)
+  })
+
+  it('is a no-op without user, email or order ids', async () => {
+    const result = await releasePendingCheckoutHolds({})
+    expect(mockPrisma.prisma.order.findMany).not.toHaveBeenCalled()
+    expect(result).toEqual({ cancelled: 0, stockRestored: 0, reservationsCanceled: 0 })
+  })
+})
+
+describe('restoreCreatedCheckoutOrders', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockPrisma.reset()
+    vi.mocked(isDbConfigured).mockReturnValue(true)
+  })
+
+  it('CAS-cancels the just-created pending orders without a second findMany', async () => {
+    mockPrisma.tx.order.updateMany.mockResolvedValue({ count: 1 })
+
+    const result = await restoreCreatedCheckoutOrders([
+      {
+        id: 'ord_1',
+        orderType: 'in_stock',
+        items: [{ productId: 'p1', qty: 1, fulfillmentType: 'stock' }],
+      },
+      {
+        id: 'ord_2',
+        orderType: 'sourcing',
+        items: [{ productId: 'deal-1', qty: 1, fulfillmentType: 'procurement' }],
+      },
+    ])
+
+    expect(mockPrisma.prisma.order.findMany).not.toHaveBeenCalled()
+    expect(mockRestore).toHaveBeenCalledTimes(1)
+    expect(mockCancelReservations).toHaveBeenCalledWith('ord_2')
+    expect(result).toEqual({
+      cancelled: 2,
+      stockRestored: 1,
+      reservationsCanceled: 1,
+    })
   })
 })

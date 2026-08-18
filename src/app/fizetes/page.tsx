@@ -732,22 +732,26 @@ export default function PaymentPage() {
         const isKlarnaMinError = res.status === 400 && data.code === 'klarna_min_amount'
         const isStripeConfigError = data.code === 'stripe_not_configured'
         const isStripeSessionError = data.code === 'stripe_session_failed'
-        const isOrderFailed = data.code === 'checkout_order_failed' || data.code === 'out_of_stock'
+        const isOutOfStockError = data.code === 'out_of_stock'
+        const isOrderFailed = data.code === 'checkout_order_failed'
         const detail = typeof data.error === 'string' ? data.error.trim() : ''
         const base = isKlarnaMinError
           ? t('payment.errorKlarnaMinAmount', { min: money(KLARNA_MIN_AMOUNT_HUF) })
           : isTimedOfferError
             ? t('payment.timedOfferNoLongerAvailable')
-            : isStripeConfigError
-              ? t('payment.errorStripeNotConfigured')
-              : isStripeSessionError || isOrderFailed
-                ? t('payment.errorStripeSession')
-                : t('payment.errorCreateSession')
-        setError(
-          detail && !isKlarnaMinError && !isTimedOfferError && detail !== 'Validation failed'
-            ? `${base} (${detail})`
-            : base
-        )
+            : isOutOfStockError
+              ? t('payment.errorOutOfStock')
+              : isStripeConfigError
+                ? t('payment.errorStripeNotConfigured')
+                : isStripeSessionError || isOrderFailed
+                  ? t('payment.errorStripeSession')
+                  : t('payment.errorCreateSession')
+        const hideDetail =
+          isKlarnaMinError ||
+          isTimedOfferError ||
+          isOutOfStockError ||
+          detail === 'Validation failed'
+        setError(detail && !hideDetail ? `${base} (${detail})` : base)
         idempotencyKeyRef.current = null
         checkoutInFlightRef.current = false
         setLoading(false)

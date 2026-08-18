@@ -213,6 +213,7 @@
     "errorCreateSession": "Nu s-a putut deschide casieria. Încearcă din nou.",
     "errorStripeNotConfigured": "Plata cu cardul nu este disponibilă momentan. Încearcă mai târziu sau contactează suportul.",
     "errorStripeSession": "Nu s-a putut deschide pagina sigură de plată Stripe. Încearcă din nou.",
+    "errorOutOfStock": "Acest produs nu este în stoc sau o tentativă anterioară de plată îl rezervă. Încearcă din nou.",
     "errorKlarnaMinAmount": "Plata în rate este disponibilă de la {min}.",
     "timedOfferNoLongerAvailable": "Una sau mai multe oferte limitate în timp nu mai sunt disponibile (nu au început sau au expirat). Actualizează coșul.",
     "usePoints": "Folosește puncte: {points} pct (−{amount}, max. {percent}%)",
