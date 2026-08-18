@@ -16,6 +16,7 @@ import { ProductsPortalButton } from '@/components/ProductsPortalButton'
 import { usePointWallet } from '@/hooks/usePointWallet'
 import { applyStashedPointsRedeemOnce } from '@/lib/point-wallet-client'
 import { RecaptchaNotice } from '@/components/RecaptchaNotice'
+import { GiftPointClaimForm } from '@/components/GiftPointClaimForm'
 
 function NameProfileSection() {
   const { t } = useLocale()
@@ -317,6 +318,7 @@ export default function ProfilePage() {
           <PointsDisplay />
           <PointsProgress />
         </div>
+        <GiftPointClaimForm className="mb-6" />
         <PointsGuide className="mb-6" />
         <PointHistoryTimeline className="mb-6" />
         {registrationStatus === 'claimed' && (
@@ -403,7 +405,16 @@ export default function ProfilePage() {
       </form>
       <p className="mt-6 text-sm text-muted">
         {t('profile.noAccount')}{' '}
-        <Link href="/regisztracio" className="text-accent font-medium hover:underline">
+        <Link
+          href={
+            typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('next')
+              ? `/regisztracio?next=${encodeURIComponent(
+                  new URLSearchParams(window.location.search).get('next') || ''
+                )}`
+              : '/regisztracio'
+          }
+          className="text-accent font-medium hover:underline"
+        >
           {t('profile.registerLink')}
         </Link>
       </p>

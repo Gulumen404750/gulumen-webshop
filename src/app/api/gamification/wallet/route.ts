@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { getSession, resolveSessionUserId } from '@/lib/auth'
 import { rateLimit } from '@/lib/rate-limit'
 import { prisma, isDbConfigured } from '@/lib/prisma'
-import { REDEEM_THRESHOLD_MIN } from '@/lib/gamification/constants'
+import { REDEEM_THRESHOLD_MIN, GIFT_POINT_VALIDITY_DAYS } from '@/lib/gamification/constants'
+import { getAvailableGiftPoints } from '@/lib/gamification/gift-points'
 import { processPendingPointEvents } from '@/lib/gamification/point-event-queue'
 
 export const dynamic = 'force-dynamic'
@@ -43,12 +44,13 @@ export async function GET(request: Request) {
   try {
     await processPendingPointEvents(10, userId)
 
-    const [wallet, activeCoupon] = await Promise.all([
+    const [wallet, activeCoupon, giftPointsAvailable] = await Promise.all([
       prisma.userPointWallet.findUnique({ where: { userId } }),
       prisma.coupon.findFirst({
         where: { userId, source: 'gamification', active: true },
         select: { code: true, validUntil: true },
       }),
+      getAvailableGiftPoints(userId),
     ])
 
     const balance = wallet?.balance ?? 0
@@ -67,6 +69,8 @@ export async function GET(request: Request) {
         hasActiveCoupon: Boolean(activeCoupon),
         activeCouponCode: activeCoupon?.code ?? null,
         suspended: wallet?.gamificationSuspended ?? false,
+        giftPointsAvailable,
+        giftPointValidityDays: GIFT_POINT_VALIDITY_DAYS,
         gamificationEnabled: true,
       },
       { headers: NO_STORE_HEADERS }

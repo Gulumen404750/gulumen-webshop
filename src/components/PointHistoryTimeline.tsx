@@ -28,6 +28,11 @@ function getTypeMeta(
       return { label: t('gamification.historyTypeLike'), icon: Heart }
     case 'REDEEM_COUPON':
       return { label: t('gamification.historyTypeRedeem'), icon: Gift }
+    case 'NFC_GIFT':
+    case 'GIFT_POINT_CLAIM':
+      return { label: t('gamification.historyTypeGift'), icon: Gift }
+    case 'PURCHASE_REDEEM':
+      return { label: t('gamification.historyTypePurchase'), icon: Sparkles }
     case 'REVERSAL':
       return { label: t('gamification.historyTypeReversal'), icon: RotateCcw }
     default:

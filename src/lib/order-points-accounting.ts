@@ -23,3 +23,16 @@ export function formatInternalPointsSettlement(order: {
 }): string {
   return orderUsedInternalPoints(order) ? INTERNAL_POINTS_ACCOUNTING_NOTE : CASH_SETTLEMENT_LABEL
 }
+
+/** Ledger / grant metadata – a könyvelés ezeket a tételeket nem pénzbeni profitként kezeli. */
+export function internalPointsLedgerMetadata(
+  extra: Record<string, unknown> = {}
+): Record<string, unknown> {
+  return {
+    accountingKind: 'internal_points',
+    nonCashProfit: true,
+    rate: '1 pont = 1 Ft',
+    note: INTERNAL_POINTS_ACCOUNTING_NOTE,
+    ...extra,
+  }
+}

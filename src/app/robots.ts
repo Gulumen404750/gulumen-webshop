@@ -16,6 +16,8 @@ export default function robots(): MetadataRoute.Robots {
           '/profil',
           '/regisztracio',
           '/kedvencek',
+          '/claim',
+          '/claim/',
         ],
       },
     ],

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { AdminPromoCouponsSection } from './PromoCouponsSection'
+import { AdminGiftPointsSection } from './GiftPointsSection'
 
 type Coupon = {
   id: string
@@ -20,6 +21,7 @@ type Coupon = {
 type ActiveTab = 'all' | 'active' | 'inactive'
 
 type CouponFormData = {
+  kind: 'coupon' | 'gift_points'
   code: string
   discountType: 'percent' | 'fixed'
   discountValue: string
@@ -30,6 +32,7 @@ type CouponFormData = {
 }
 
 const emptyForm: CouponFormData = {
+  kind: 'coupon',
   code: '',
   discountType: 'percent',
   discountValue: '',
@@ -53,6 +56,7 @@ function localDatetimeToIso(local: string): string | null {
 
 function couponToForm(c: Coupon): CouponFormData {
   return {
+    kind: 'coupon',
     code: c.code,
     discountType: c.discountType === 'fixed' ? 'fixed' : 'percent',
     discountValue: String(c.discountValue),
@@ -132,9 +136,19 @@ type CouponModalProps = {
   onChange: (form: CouponFormData) => void
   onClose: () => void
   onSubmit: () => void
+  onSwitchToGiftPoints: () => void
 }
 
-function CouponModal({ mode, form, saving, formError, onChange, onClose, onSubmit }: CouponModalProps) {
+function CouponModal({
+  mode,
+  form,
+  saving,
+  formError,
+  onChange,
+  onClose,
+  onSubmit,
+  onSwitchToGiftPoints,
+}: CouponModalProps) {
   const set = <K extends keyof CouponFormData>(key: K, value: CouponFormData[K]) => {
     onChange({ ...form, [key]: value })
   }
@@ -153,8 +167,29 @@ function CouponModal({ mode, form, saving, formError, onChange, onClose, onSubmi
         aria-labelledby="coupon-modal-title"
       >
         <h2 id="coupon-modal-title" className="text-lg font-semibold text-foreground mb-4">
-          {mode === 'create' ? 'Új kupon' : 'Kupon szerkesztése'}
+          {mode === 'create' ? 'Új kupon / ajándékpont' : 'Kupon szerkesztése'}
         </h2>
+
+        {mode === 'create' && (
+          <label className="block mb-4">
+            <span className="text-sm font-medium text-foreground">Típus</span>
+            <select
+              value={form.kind}
+              onChange={(e) => {
+                const kind = e.target.value as CouponFormData['kind']
+                if (kind === 'gift_points') {
+                  onSwitchToGiftPoints()
+                  return
+                }
+                set('kind', kind)
+              }}
+              className="mt-1 w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
+            >
+              <option value="coupon">Százalékos / fix kupon</option>
+              <option value="gift_points">Ajándékpont (tárca, QR / NFC, egyszer használatos)</option>
+            </select>
+          </label>
+        )}
 
         {formError && (
           <div className="mb-4 rounded-lg border border-red-500/50 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-400">
@@ -234,14 +269,14 @@ function CouponModal({ mode, form, saving, formError, onChange, onClose, onSubmi
               />
             </label>
             <label className="block">
-              <span className="text-sm font-medium text-foreground">Max. felhasználás</span>
+              <span className="text-sm font-medium text-foreground">Max. felhasználás / darabszám</span>
               <input
                 type="number"
                 min={1}
                 value={form.maxUses}
                 onChange={(e) => set('maxUses', e.target.value)}
                 className="mt-1 w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"
-                placeholder="Üres = korlátlan"
+                placeholder="Üres = korlátlan (kupon); ajándékpontnál a darabszám"
               />
             </label>
           </div>
@@ -282,6 +317,7 @@ export default function AdminCouponsPage() {
   const [formError, setFormError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const [giftCreateKey, setGiftCreateKey] = useState(0)
 
   const loadCoupons = useCallback(() => {
     setError(null)
@@ -422,14 +458,23 @@ export default function AdminCouponsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-heading font-bold text-foreground">Kuponok / kedvezmények</h1>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-        >
-          Új kupon
-        </button>
+        <h1 className="text-2xl font-heading font-bold text-foreground">Kuponok / ajándékpontok</h1>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setGiftCreateKey((n) => n + 1)}
+            className="rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-medium text-foreground hover:bg-[var(--border)]/30"
+          >
+            Új ajándékpont
+          </button>
+          <button
+            type="button"
+            onClick={openCreate}
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+          >
+            Új kupon
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -474,6 +519,8 @@ export default function AdminCouponsPage() {
           <option value="cat">Macska (DB kód)</option>
         </select>
       </div>
+
+      <AdminGiftPointsSection createRequestKey={giftCreateKey} />
 
       <AdminPromoCouponsSection />
 
@@ -556,6 +603,10 @@ export default function AdminCouponsPage() {
           onChange={setForm}
           onClose={closeModal}
           onSubmit={handleSubmit}
+          onSwitchToGiftPoints={() => {
+            closeModal()
+            setGiftCreateKey((n) => n + 1)
+          }}
         />
       )}
     </div>

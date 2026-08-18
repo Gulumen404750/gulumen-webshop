@@ -14,6 +14,8 @@ export type PointWalletData = {
   hasActiveCoupon: boolean
   activeCouponCode: string | null
   suspended: boolean
+  giftPointsAvailable?: number
+  giftPointValidityDays?: number
   gamificationEnabled?: boolean
   mode?: 'dev'
 }

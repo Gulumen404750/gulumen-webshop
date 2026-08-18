@@ -9,6 +9,7 @@ import { markWelcomeCouponRedeemed } from '@/lib/welcome-checkout-offer'
 import { applyPointDelta } from '@/lib/gamification/point-ledger'
 import { consumeGiftPointsForOrder } from '@/lib/gamification/gift-points'
 import { POINT_TX_TYPES } from '@/lib/gamification/constants'
+import { internalPointsLedgerMetadata } from '@/lib/order-points-accounting'
 import { logger } from '@/lib/logger'
 import { revalidateUserProfile } from '@/lib/revalidate-user-profile'
 
@@ -172,11 +173,11 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
         reason: 'Pont felhasználás vásárláskor',
         referenceType: 'order',
         referenceId: orderId,
-        metadata: {
+        metadata: internalPointsLedgerMetadata({
           orderId,
           pointsUsed,
           pointsDiscountHuf: order.pointsDiscountHuf ?? 0,
-        },
+        }),
       })
       burned.pointsUsed = pointsUsed
       balanceAfter = deltaResult.wallet?.balance

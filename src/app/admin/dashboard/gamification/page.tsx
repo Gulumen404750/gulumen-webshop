@@ -39,6 +39,7 @@ const TX_TYPE_LABELS: Record<string, string> = {
   REVERSAL: 'Visszavonás',
   ADMIN_ADJUST: 'Admin módosítás',
   NFC_GIFT: 'NFC ajándékpont',
+  GIFT_POINT_CLAIM: 'Ajándékpont aktiválás',
 }
 
 function formatTxType(type: string): string {
