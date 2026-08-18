@@ -1,6 +1,6 @@
 /**
  * Manuális kuponválasztás: egyszerre egy kupon, max. 15%.
- * A checkout NEM alkalmaz automatikusan kupont – a vásárló jelöli ki.
+ * A hűségkedvezmény nem kuponválasztás: automatikus, más kedvezményre ráépül.
  */
 
 import {
@@ -11,12 +11,14 @@ import {
   REGISTRATION_COUPON_PERCENT,
   WELCOME_CHECKOUT_COUPON_PERCENT,
   capCombinedCouponPercent,
+  exclusiveCouponIds,
   isCatRegistrationStackBlocked,
   isCouponStackingBlocked,
 } from '@/lib/coupon-config'
 
 export {
   ALLOW_CAT_REGISTRATION_STACK,
+  exclusiveCouponIds,
   isCatRegistrationStackBlocked,
   isCouponStackingBlocked,
 }
@@ -73,7 +75,7 @@ export function calculateSelectedCouponPercent(
   selectedIds: ReadonlySet<string> | SelectableCouponId[]
 ): CouponSelectionResult {
   const selected = new Set(selectedIds)
-  const picked = coupons.filter((c) => selected.has(c.id))
+  const picked = coupons.filter((c) => selected.has(c.id) && c.id !== 'loyalty')
   const rawPercent = picked.reduce((s, c) => s + (c.percent > 0 ? c.percent : 0), 0)
   const finalPercent = capCombinedCouponPercent(rawPercent)
   const birthday = picked.find((c) => c.id === 'birthday')
@@ -87,7 +89,7 @@ export function calculateSelectedCouponPercent(
     birthdayCode: birthday?.code,
     gamificationCode: gamification?.code,
     useWelcome: selected.has('welcome'),
-    useLoyalty: selected.has('loyalty'),
+    useLoyalty: false,
     useCat: selected.has('cat'),
     useRegistration: selected.has('registration'),
     useGamification: selected.has('gamification'),
@@ -105,12 +107,13 @@ export function canToggleCoupon(
   turningOn: boolean
 ): boolean {
   if (!turningOn) return true
+  if (toggleId === 'loyalty') return true
   if (selectedIds.has(toggleId)) return true
   const next = new Set(selectedIds)
   next.add(toggleId)
   if (isCouponStackingBlocked(next) || isCatRegistrationStackBlocked(next)) return false
   const raw = coupons
-    .filter((c) => next.has(c.id))
+    .filter((c) => next.has(c.id) && c.id !== 'loyalty')
     .reduce((s, c) => s + c.percent, 0)
   return raw <= MAX_COMBINED_COUPON_PERCENT + 1e-9
 }
@@ -132,14 +135,6 @@ export function buildPromoCoupons(input: {
   }
 }): SelectableCoupon[] {
   const out: SelectableCoupon[] = []
-  const loyaltyPct = (input.loyaltyPercent ?? 0) / 100
-  if (loyaltyPct > 0) {
-    out.push({
-      id: 'loyalty',
-      label: input.labels.loyalty,
-      percent: loyaltyPct,
-    })
-  }
   if (input.catClaimed) {
     out.push({
       id: 'cat',

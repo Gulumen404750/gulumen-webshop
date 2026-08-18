@@ -5,7 +5,7 @@ import {
   canToggleCoupon,
   MAX_COMBINED_COUPON_PERCENT,
 } from '@/lib/coupon-selection'
-import { ALLOW_CAT_REGISTRATION_STACK } from '@/lib/coupon-config'
+import { ALLOW_CAT_REGISTRATION_STACK, isCouponStackingBlocked, capLoyaltyPercent } from '@/lib/coupon-config'
 
 const labels = {
   cat: 'Macska 5%',
@@ -25,29 +25,35 @@ describe('coupon selection: no stacking, 15% cap', () => {
     labels,
   })
 
-  it('lists available coupons', () => {
+  it('lists available coupons without loyalty (loyalty is automatic)', () => {
     expect(coupons.map((c) => c.id).sort()).toEqual(
-      ['birthday', 'cat', 'loyalty', 'registration', 'welcome'].sort()
+      ['birthday', 'cat', 'registration', 'welcome'].sort()
     )
+    expect(coupons.some((c) => c.id === 'loyalty')).toBe(false)
   })
 
-  it('lists loyalty first so the 1–8% discount is visible at checkout', () => {
-    expect(coupons[0]?.id).toBe('loyalty')
-    expect(coupons[0]?.percent).toBeCloseTo(0.05)
-  })
-
-  it('omits loyalty when the percent is still 0', () => {
-    const withoutLoyalty = buildPromoCoupons({
+  it('omits loyalty from the selectable list even when the percent is 5+', () => {
+    const withLoyalty = buildPromoCoupons({
       catClaimed: false,
       registrationClaimed: false,
-      loyaltyPercent: 0,
+      loyaltyPercent: 8,
       labels,
     })
-    expect(withoutLoyalty.some((c) => c.id === 'loyalty')).toBe(false)
+    expect(withLoyalty).toEqual([])
   })
 
   it('keeps coupon stacking disabled', () => {
     expect(ALLOW_CAT_REGISTRATION_STACK).toBe(false)
+  })
+
+  it('lets loyalty sit beside a single exclusive coupon', () => {
+    expect(isCouponStackingBlocked(['loyalty'])).toBe(false)
+    expect(isCouponStackingBlocked(['loyalty', 'gamification'])).toBe(false)
+    expect(isCouponStackingBlocked(['cat', 'registration'])).toBe(true)
+    expect(capLoyaltyPercent(1)).toBeCloseTo(0.01)
+    expect(capLoyaltyPercent(8)).toBeCloseTo(0.08)
+    expect(capLoyaltyPercent(0.03)).toBeCloseTo(0.03)
+    expect(capLoyaltyPercent(20)).toBeCloseTo(0.08)
   })
 
   it('lists a redeemed gamification coupon in available checkout coupons', () => {
@@ -102,16 +108,19 @@ describe('coupon selection: no stacking, 15% cap', () => {
     expect(selected.capped).toBe(false)
   })
 
-  it('blocks selecting a second coupon of any type', () => {
+  it('blocks selecting a second exclusive coupon, even if loyalty is also marked', () => {
     const withBirthday = new Set(['birthday'] as const)
     const withReg = new Set(['registration'] as const)
     const withCat = new Set(['cat'] as const)
+    const withLoyaltyAndReg = new Set(['loyalty', 'registration'] as const)
     expect(canToggleCoupon(coupons, withBirthday, 'cat', true)).toBe(false)
     expect(canToggleCoupon(coupons, withBirthday, 'registration', true)).toBe(false)
     expect(canToggleCoupon(coupons, withReg, 'cat', true)).toBe(false)
     expect(canToggleCoupon(coupons, withCat, 'registration', true)).toBe(false)
     expect(canToggleCoupon(coupons, withReg, 'welcome', true)).toBe(false)
     expect(canToggleCoupon(coupons, withReg, 'cat', false)).toBe(true)
+    expect(canToggleCoupon(coupons, withLoyaltyAndReg, 'birthday', true)).toBe(false)
+    expect(canToggleCoupon(coupons, new Set(['loyalty'] as const), 'birthday', true)).toBe(true)
   })
 
   it('caps a 20% gamification coupon to 15% so it remains selectable', () => {
