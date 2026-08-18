@@ -17,44 +17,35 @@ export const BIRTHDAY_COUPON_PERCENT = 0.15
 export const BIRTHDAY_COUPON_VALID_DAYS = 7
 
 /**
- * Manuálisan kiválasztott kuponok összesített kedvezményének plafonja (0–1).
- * Több kupon kombinálható, de az eredmény legfeljebb ennyi lehet.
+ * Egy kupon legnagyobb beváltható kedvezménye (0–1).
+ * A kuponok nem vonhatók össze; a checkouton egyszerre csak egy kupon érvényes.
  */
-export const MAX_COMBINED_COUPON_PERCENT = 0.2
+export const MAX_COMBINED_COUPON_PERCENT = 0.15
+
+/** UI / admin: 15. */
+export const MAX_COUPON_PERCENT_DISPLAY = Math.round(MAX_COMBINED_COUPON_PERCENT * 100)
 
 /**
- * Kezdeti időszak: a macska 5% + regisztrációs 10% együtt is igényelhető / alkalmazható
- * (összesen 15%, a MAX_COMBINED_COUPON_PERCENT plafonig).
- *
- * Később kikapcsolható:
- * - kódban: állítsd false-ra, VAGY
- * - env: ALLOW_CAT_REGISTRATION_STACK=0 / NEXT_PUBLIC_ALLOW_CAT_REGISTRATION_STACK=0
- *
- * Kikapcsolva: mindkettő igényelhető marad, de a checkouton egyszerre csak az egyik
- * választható (nem halmozódnak).
+ * @deprecated A kuponok nem vonhatók össze. A konstans kompatibilitás miatt marad, mindig false.
  */
-const STACK_ENV =
-  typeof process !== 'undefined'
-    ? process.env.NEXT_PUBLIC_ALLOW_CAT_REGISTRATION_STACK ??
-      process.env.ALLOW_CAT_REGISTRATION_STACK
-    : undefined
+export const ALLOW_CAT_REGISTRATION_STACK = false
 
-export const ALLOW_CAT_REGISTRATION_STACK: boolean =
-  STACK_ENV === undefined || STACK_ENV === ''
-    ? true
-    : !['0', 'false', 'no', 'off'].includes(STACK_ENV.trim().toLowerCase())
-
-/** Összesített kupon % plafonálása (pl. 0.25 → 0.20). */
+/** Kupon % plafonálása (pl. 0.25 → 0.15). */
 export function capCombinedCouponPercent(totalPercent: number): number {
   if (!Number.isFinite(totalPercent) || totalPercent <= 0) return 0
   return Math.min(totalPercent, MAX_COMBINED_COUPON_PERCENT)
+}
+
+/** true, ha egynél több kupon van kijelölve (összevonás tilos). */
+export function isCouponStackingBlocked(selectedIds: Iterable<string>): boolean {
+  const set = selectedIds instanceof Set ? selectedIds : new Set(selectedIds)
+  return set.size > 1
 }
 
 /** true, ha a macska + regisztrációs kupon együtt tilos a kijelölésben / checkouton. */
 export function isCatRegistrationStackBlocked(
   selectedIds: Iterable<string>
 ): boolean {
-  if (ALLOW_CAT_REGISTRATION_STACK) return false
   const set = selectedIds instanceof Set ? selectedIds : new Set(selectedIds)
   return set.has('cat') && set.has('registration')
 }
@@ -73,4 +64,8 @@ export function getWelcomeCheckoutCouponPercentDisplay(): number {
 export function getBirthdayCouponPercentDisplay(): number {
   if (BIRTHDAY_COUPON_PERCENT <= 0) return 0
   return Math.round(BIRTHDAY_COUPON_PERCENT * 100)
+}
+
+export function getMaxCouponPercentDisplay(): number {
+  return MAX_COUPON_PERCENT_DISPLAY
 }

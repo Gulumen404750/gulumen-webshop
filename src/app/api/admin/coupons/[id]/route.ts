@@ -4,6 +4,7 @@ import { requireAdminPermission } from '@/lib/admin-auth'
 import { logAdminAction } from '@/lib/admin-audit'
 import { alertBulkDeleteIfAnomalousSafe } from '@/lib/admin-anomaly-alert'
 import { z } from 'zod'
+import { MAX_COUPON_PERCENT_DISPLAY } from '@/lib/coupon-config'
 
 const discountTypeSchema = z.enum(['percent', 'fixed'])
 
@@ -13,10 +14,10 @@ function validateDiscountValue(
 ) {
   if (data.discountType === undefined || data.discountValue === undefined) return
   if (data.discountType === 'percent') {
-    if (data.discountValue < 1 || data.discountValue > 100) {
+    if (data.discountValue < 1 || data.discountValue > MAX_COUPON_PERCENT_DISPLAY) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Percent discount must be between 1 and 100',
+        message: `Percent discount must be between 1 and ${MAX_COUPON_PERCENT_DISPLAY}`,
         path: ['discountValue'],
       })
     }

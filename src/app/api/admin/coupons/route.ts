@@ -3,6 +3,7 @@ import { prisma, isDbConfigured } from '@/lib/prisma'
 import { requireAdminPermission } from '@/lib/admin-auth'
 import { logAdminAction } from '@/lib/admin-audit'
 import { z } from 'zod'
+import { MAX_COUPON_PERCENT_DISPLAY } from '@/lib/coupon-config'
 
 const discountTypeSchema = z.enum(['percent', 'fixed'])
 
@@ -11,10 +12,10 @@ function validateDiscountValue(
   ctx: z.RefinementCtx
 ) {
   if (data.discountType === 'percent') {
-    if (data.discountValue < 1 || data.discountValue > 100) {
+    if (data.discountValue < 1 || data.discountValue > MAX_COUPON_PERCENT_DISPLAY) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Percent discount must be between 1 and 100',
+        message: `Percent discount must be between 1 and ${MAX_COUPON_PERCENT_DISPLAY}`,
         path: ['discountValue'],
       })
     }

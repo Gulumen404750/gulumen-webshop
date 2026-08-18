@@ -178,10 +178,9 @@ function regOnlyStatus(userId: string | null): CatCouponStatus {
 function combinedPercent(userId: string | null): number {
   const cat = readCat(userId)
   const reg = readReg(userId)
-  let p = 0
-  if (cat?.status === 'claimed') p += CAT_COUPON_PERCENT
-  if (reg?.status === 'claimed') p += REGISTRATION_COUPON_PERCENT
-  return p
+  const catPercent = cat?.status === 'claimed' ? CAT_COUPON_PERCENT : 0
+  const regPercent = reg?.status === 'claimed' ? REGISTRATION_COUPON_PERCENT : 0
+  return Math.max(catPercent, regPercent)
 }
 
 export function CatCouponProvider({ children }: { children: ReactNode }) {

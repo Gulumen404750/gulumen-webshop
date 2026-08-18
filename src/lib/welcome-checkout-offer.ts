@@ -7,7 +7,6 @@
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { setMarketingOptIn, getMarketingStatus } from '@/lib/marketing-consent'
 import { claimUserPromoCoupon } from '@/lib/promo-coupons'
-import { getActivePromoDiscountPercent } from '@/lib/promo-coupons'
 import { WELCOME_CHECKOUT_COUPON_PERCENT } from '@/lib/coupon-config'
 
 function normalizeEmail(email: string): string {
@@ -139,14 +138,8 @@ export async function acceptWelcomeCheckoutOffer(params: {
     }
   }
 
-  // Már elfogadva (pending) → checkout újra alkalmazhatja a %-ot
+  // Már elfogadva (pending) → checkout újra alkalmazhatja a welcome 10%-ot
   if (eligibility.claimedPending) {
-    if (params.userId) {
-      const serverPercent = await getActivePromoDiscountPercent(params.userId)
-      if (serverPercent > 0) {
-        return { ok: true, percent: serverPercent, alreadyAccepted: true }
-      }
-    }
     return {
       ok: true,
       percent: WELCOME_CHECKOUT_COUPON_PERCENT,

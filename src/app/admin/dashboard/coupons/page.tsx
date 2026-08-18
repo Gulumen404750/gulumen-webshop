@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AdminPromoCouponsSection } from './PromoCouponsSection'
 import { AdminGiftPointsSection } from './GiftPointsSection'
+import { MAX_COUPON_PERCENT_DISPLAY } from '@/lib/coupon-config'
 
 type Coupon = {
   id: string
@@ -108,8 +109,8 @@ function validateForm(form: CouponFormData): string | null {
   if (!form.code.trim()) return 'A kuponkód kötelező.'
   const value = parseInt(form.discountValue, 10)
   if (Number.isNaN(value)) return 'Az érték kötelező és szám kell legyen.'
-  if (form.discountType === 'percent' && (value < 1 || value > 100)) {
-    return 'Százalékos kedvezmény: 1–100 között.'
+  if (form.discountType === 'percent' && (value < 1 || value > MAX_COUPON_PERCENT_DISPLAY)) {
+    return `Százalékos kedvezmény: 1–${MAX_COUPON_PERCENT_DISPLAY} között.`
   }
   if (form.discountType === 'fixed' && value < 1) return 'Fix kedvezmény: legalább 1 Ft.'
   if (form.minOrderHuf.trim()) {
@@ -226,7 +227,7 @@ function CouponModal({
               <input
                 type="number"
                 min={1}
-                max={form.discountType === 'percent' ? 100 : undefined}
+                max={form.discountType === 'percent' ? MAX_COUPON_PERCENT_DISPLAY : undefined}
                 value={form.discountValue}
                 onChange={(e) => set('discountValue', e.target.value)}
                 className="mt-1 w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground"

@@ -3,7 +3,7 @@ import { normalizeCartItem, type CartItem } from '@/lib/cart-storage'
 
 export const ABANDONED_CART_DAYS = 7
 export const ABANDONED_CART_OFFER_VALID_DAYS = 14
-export const ABANDONED_CART_OFFER_PERCENTS = [10, 15, 20, 25] as const
+export const ABANDONED_CART_OFFER_PERCENTS = [10, 15] as const
 
 export type AbandonedCartOfferPercent = (typeof ABANDONED_CART_OFFER_PERCENTS)[number]
 

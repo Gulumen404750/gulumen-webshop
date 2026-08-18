@@ -1,10 +1,11 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   buildPromoCoupons,
   calculateSelectedCouponPercent,
   canToggleCoupon,
   MAX_COMBINED_COUPON_PERCENT,
 } from '@/lib/coupon-selection'
+import { ALLOW_CAT_REGISTRATION_STACK } from '@/lib/coupon-config'
 
 const labels = {
   cat: 'Macska 5%',
@@ -14,7 +15,7 @@ const labels = {
   birthday: 'Születésnap 15%',
 }
 
-describe('coupon selection + 20% cap', () => {
+describe('coupon selection: no stacking, 15% cap', () => {
   const coupons = buildPromoCoupons({
     catClaimed: true,
     registrationClaimed: true,
@@ -28,6 +29,10 @@ describe('coupon selection + 20% cap', () => {
     expect(coupons.map((c) => c.id).sort()).toEqual(
       ['birthday', 'cat', 'loyalty', 'registration', 'welcome'].sort()
     )
+  })
+
+  it('keeps coupon stacking disabled', () => {
+    expect(ALLOW_CAT_REGISTRATION_STACK).toBe(false)
   })
 
   it('lists a redeemed gamification coupon in available checkout coupons', () => {
@@ -50,64 +55,59 @@ describe('coupon selection + 20% cap', () => {
     expect(selected.useGamification).toBe(true)
   })
 
-  it('allows cat + registration (15%) in launch stacking mode', () => {
-    const result = calculateSelectedCouponPercent(coupons, ['cat', 'registration'])
-    expect(result.finalPercent).toBeCloseTo(0.15)
-    expect(result.capped).toBe(false)
-    expect(result.useCat).toBe(true)
-    expect(result.useRegistration).toBe(true)
+  it('applies a single cat or registration coupon without stacking', () => {
+    const catOnly = calculateSelectedCouponPercent(coupons, ['cat'])
+    expect(catOnly.finalPercent).toBeCloseTo(0.05)
+    expect(catOnly.capped).toBe(false)
+
+    const registrationOnly = calculateSelectedCouponPercent(coupons, ['registration'])
+    expect(registrationOnly.finalPercent).toBeCloseTo(0.1)
+    expect(registrationOnly.capped).toBe(false)
   })
 
-  it('caps birthday + registration (25% → 20%)', () => {
+  it('caps stacked percents at 15% if both were sent', () => {
+    const result = calculateSelectedCouponPercent(coupons, ['cat', 'registration'])
+    expect(result.rawPercent).toBeCloseTo(0.15)
+    expect(result.finalPercent).toBeCloseTo(0.15)
+    expect(result.capped).toBe(false)
+  })
+
+  it('caps birthday + registration (25% → 15%)', () => {
     const result = calculateSelectedCouponPercent(coupons, ['birthday', 'registration'])
     expect(result.rawPercent).toBeCloseTo(0.25)
     expect(result.finalPercent).toBeCloseTo(MAX_COMBINED_COUPON_PERCENT)
     expect(result.capped).toBe(true)
   })
 
-  it('blocks toggle that would exceed 20%', () => {
-    const selected = new Set(['birthday', 'registration'] as const)
-    // already over if both selected via calculate; toggle adding cat to birthday+reg
+  it('allows birthday 15% alone', () => {
+    const empty = new Set<typeof coupons[number]['id']>()
+    expect(canToggleCoupon(coupons, empty, 'birthday', true)).toBe(true)
+    const selected = calculateSelectedCouponPercent(coupons, ['birthday'])
+    expect(selected.finalPercent).toBeCloseTo(0.15)
+    expect(selected.capped).toBe(false)
+  })
+
+  it('blocks selecting a second coupon of any type', () => {
     const withBirthday = new Set(['birthday'] as const)
-    expect(canToggleCoupon(coupons, withBirthday, 'cat', true)).toBe(true) // 20%
-    expect(canToggleCoupon(coupons, withBirthday, 'registration', true)).toBe(false) // 25%
-    expect(canToggleCoupon(coupons, selected, 'cat', false)).toBe(true) // deselect always ok
-  })
-
-  it('allows toggling cat onto registration when stacking is enabled (default)', async () => {
-    const withReg = new Set(['registration'] as const)
-    expect(canToggleCoupon(coupons, withReg, 'cat', true)).toBe(true)
-  })
-})
-
-describe('cat + registration stack flag off', () => {
-  beforeEach(() => {
-    vi.resetModules()
-    vi.stubEnv('ALLOW_CAT_REGISTRATION_STACK', '0')
-    vi.stubEnv('NEXT_PUBLIC_ALLOW_CAT_REGISTRATION_STACK', '0')
-  })
-
-  afterEach(() => {
-    vi.unstubAllEnvs()
-    vi.resetModules()
-  })
-
-  it('blocks selecting cat together with registration', async () => {
-    const { canToggleCoupon: canToggle, buildPromoCoupons: build } = await import(
-      '@/lib/coupon-selection'
-    )
-    const { ALLOW_CAT_REGISTRATION_STACK: allow } = await import('@/lib/coupon-config')
-    expect(allow).toBe(false)
-
-    const coupons = build({
-      catClaimed: true,
-      registrationClaimed: true,
-      labels,
-    })
     const withReg = new Set(['registration'] as const)
     const withCat = new Set(['cat'] as const)
-    expect(canToggle(coupons, withReg, 'cat', true)).toBe(false)
-    expect(canToggle(coupons, withCat, 'registration', true)).toBe(false)
-    expect(canToggle(coupons, withReg, 'cat', false)).toBe(true)
+    expect(canToggleCoupon(coupons, withBirthday, 'cat', true)).toBe(false)
+    expect(canToggleCoupon(coupons, withBirthday, 'registration', true)).toBe(false)
+    expect(canToggleCoupon(coupons, withReg, 'cat', true)).toBe(false)
+    expect(canToggleCoupon(coupons, withCat, 'registration', true)).toBe(false)
+    expect(canToggleCoupon(coupons, withReg, 'welcome', true)).toBe(false)
+    expect(canToggleCoupon(coupons, withReg, 'cat', false)).toBe(true)
+  })
+
+  it('caps a 20% gamification coupon to 15% so it remains selectable', () => {
+    const withHighCoupon = buildPromoCoupons({
+      catClaimed: false,
+      registrationClaimed: false,
+      gamification: { code: 'GLM-HIGH', percent: 20 },
+      labels: { ...labels, gamification: 'Pontból váltott kupon' },
+    })
+    expect(withHighCoupon[0]?.percent).toBeCloseTo(MAX_COMBINED_COUPON_PERCENT)
+    const empty = new Set<typeof withHighCoupon[number]['id']>()
+    expect(canToggleCoupon(withHighCoupon, empty, 'gamification', true)).toBe(true)
   })
 })

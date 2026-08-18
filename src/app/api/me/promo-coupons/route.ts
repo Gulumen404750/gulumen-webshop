@@ -30,9 +30,9 @@ export async function GET(request: Request) {
   }
 
   const state = await getUserPromoCouponState(userId)
-  let discountPercent = 0
-  if (state.cat === 'claimed') discountPercent += CAT_COUPON_PERCENT
-  if (state.registration === 'claimed') discountPercent += REGISTRATION_COUPON_PERCENT
+  const catPercent = state.cat === 'claimed' ? CAT_COUPON_PERCENT : 0
+  const registrationPercent = state.registration === 'claimed' ? REGISTRATION_COUPON_PERCENT : 0
+  const discountPercent = Math.max(catPercent, registrationPercent)
 
   return NextResponse.json({
     ...state,

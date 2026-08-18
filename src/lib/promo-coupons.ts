@@ -43,13 +43,12 @@ export async function getUserPromoCouponState(userId: string): Promise<UserPromo
   return state
 }
 
-/** Aktív (claimed) promo kuponok összesített %-a checkouthoz. */
+/** Aktív (claimed) promo kuponok közül a nagyobb % – a kuponok nem vonhatók össze. */
 export async function getActivePromoDiscountPercent(userId: string): Promise<number> {
   const state = await getUserPromoCouponState(userId)
-  let p = 0
-  if (state.cat === 'claimed') p += CAT_COUPON_PERCENT
-  if (state.registration === 'claimed') p += REGISTRATION_COUPON_PERCENT
-  return p
+  const cat = state.cat === 'claimed' ? CAT_COUPON_PERCENT : 0
+  const registration = state.registration === 'claimed' ? REGISTRATION_COUPON_PERCENT : 0
+  return Math.max(cat, registration)
 }
 
 export async function claimUserPromoCoupon(

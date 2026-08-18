@@ -19,6 +19,7 @@ import {
   CAT_COUPON_PERCENT,
   REGISTRATION_COUPON_PERCENT,
   isCatRegistrationStackBlocked,
+  isCouponStackingBlocked,
 } from '@/lib/coupon-config'
 import { rateLimit } from '@/lib/rate-limit'
 import {
@@ -96,7 +97,7 @@ const checkoutBodySchema = z.object({
   /** Checkout welcome 10% + hírlevél ajánlat (manuális kijelölés). */
   welcomeOfferAccepted: z.boolean().optional(),
   /** Manuálisan kiválasztott szerver-validált kuponok (cat/registration/loyalty) – NEM percent. */
-  selectedCoupons: z.array(selectedCouponEnum).optional(),
+  selectedCoupons: z.array(selectedCouponEnum).max(1).optional(),
 })
 
 export async function POST(request: Request) {
@@ -275,22 +276,23 @@ export async function POST(request: Request) {
 
   const cartSubtotalHuf = lines.reduce((s, l) => s + l.priceHuf * l.qty, 0)
 
-  // Manuális kuponválasztás: összeadás + 20% plafon. Nincs automatikus loyalty/promo.
+  // Manuális kuponválasztás: egyszerre egy kupon, max. 15%. Nincs automatikus loyalty/promo.
   let combinedPercent = 0
   let fixedHufFromDb = 0
+
+  if (isCouponStackingBlocked(selectedCoupons) || isCatRegistrationStackBlocked(selectedCoupons)) {
+    return NextResponse.json(
+      {
+        code: 'coupon_stack_disabled',
+        error: 'Coupons cannot be combined',
+      },
+      { status: 400 }
+    )
+  }
 
   if (selectedCoupons.has('cat') || selectedCoupons.has('registration')) {
     if (!checkoutUserId) {
       return NextResponse.json({ error: 'Login required for promo coupon' }, { status: 401 })
-    }
-    if (isCatRegistrationStackBlocked(selectedCoupons)) {
-      return NextResponse.json(
-        {
-          code: 'promo_coupon_stack_disabled',
-          error: 'Cat and registration coupons cannot be combined',
-        },
-        { status: 400 }
-      )
     }
     const state = await getUserPromoCouponState(checkoutUserId)
     if (selectedCoupons.has('cat')) {
@@ -339,6 +341,18 @@ export async function POST(request: Request) {
   }
 
   if (couponCodeTrimmed) {
+    const nonDbSelected = Array.from(selectedCoupons).filter(
+      (id) => id !== 'birthday' && id !== 'gamification'
+    )
+    if (nonDbSelected.length > 0) {
+      return NextResponse.json(
+        {
+          code: 'coupon_stack_disabled',
+          error: 'Coupons cannot be combined',
+        },
+        { status: 400 }
+      )
+    }
     const resolved = await resolveCheckoutCoupon({
       couponCode: couponCodeTrimmed,
       checkoutUserId,
@@ -354,6 +368,23 @@ export async function POST(request: Request) {
       selectedCoupons.add('gamification')
     } else if (resolved.coupon.source === 'birthday') {
       selectedCoupons.add('birthday')
+    } else if (selectedCoupons.size > 0) {
+      return NextResponse.json(
+        {
+          code: 'coupon_stack_disabled',
+          error: 'Coupons cannot be combined',
+        },
+        { status: 400 }
+      )
+    }
+    if (isCouponStackingBlocked(selectedCoupons)) {
+      return NextResponse.json(
+        {
+          code: 'coupon_stack_disabled',
+          error: 'Coupons cannot be combined',
+        },
+        { status: 400 }
+      )
     }
     if (resolved.discount.fixedHuf && resolved.discount.fixedHuf > 0) {
       fixedHufFromDb = resolved.discount.fixedHuf

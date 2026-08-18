@@ -100,8 +100,8 @@ export function AdminPromoCouponsSection() {
         <h2 className="font-heading font-semibold text-foreground">Regisztrációs és macska kuponok</h2>
         <p className="text-sm text-muted mt-1 leading-tight">
           Minden regisztrált felhasználó 5%-os (macska) és 10%-os (regisztráció + ajánlat elfogadás) kupon
-          állapota. Csak a szerveren naplózott aktiválások jelennek meg (régi localStorage-only claimek
-          nem).
+          állapota. A kuponok nem vonhatók össze, a legnagyobb beváltható kedvezmény 15%. Csak a szerveren
+          naplózott aktiválások jelennek meg (régi localStorage-only claimek nem).
         </p>
       </div>
 

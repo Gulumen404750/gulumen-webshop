@@ -1,7 +1,6 @@
 /**
- * Manuális kuponválasztás + 20% plafon.
+ * Manuális kuponválasztás: egyszerre egy kupon, max. 15%.
  * A checkout NEM alkalmaz automatikusan kupont – a vásárló jelöli ki.
- * Macska + regisztráció: ALLOW_CAT_REGISTRATION_STACK (kezdeti időszak: együtt 15%).
  */
 
 import {
@@ -13,9 +12,14 @@ import {
   WELCOME_CHECKOUT_COUPON_PERCENT,
   capCombinedCouponPercent,
   isCatRegistrationStackBlocked,
+  isCouponStackingBlocked,
 } from '@/lib/coupon-config'
 
-export { ALLOW_CAT_REGISTRATION_STACK, isCatRegistrationStackBlocked }
+export {
+  ALLOW_CAT_REGISTRATION_STACK,
+  isCatRegistrationStackBlocked,
+  isCouponStackingBlocked,
+}
 
 export type SelectableCouponId =
   | 'cat'
@@ -91,8 +95,7 @@ export function calculateSelectedCouponPercent(
 }
 
 /**
- * Új kupon kijelölése: ha átlépné a 20%-ot, nem engedjük (false).
- * Ha ALLOW_CAT_REGISTRATION_STACK=false, a macska + regisztráció együtt tilos.
+ * Új kupon kijelölése: összevonás tilos, és egy kupon sem lépheti át a 15%-ot.
  * A leválasztás (deselect) mindig engedélyezett.
  */
 export function canToggleCoupon(
@@ -105,7 +108,7 @@ export function canToggleCoupon(
   if (selectedIds.has(toggleId)) return true
   const next = new Set(selectedIds)
   next.add(toggleId)
-  if (isCatRegistrationStackBlocked(next)) return false
+  if (isCouponStackingBlocked(next) || isCatRegistrationStackBlocked(next)) return false
   const raw = coupons
     .filter((c) => next.has(c.id))
     .reduce((s, c) => s + c.percent, 0)
@@ -163,7 +166,7 @@ export function buildPromoCoupons(input: {
     out.push({
       id: 'birthday',
       label: input.labels.birthday,
-      percent: p,
+      percent: capCombinedCouponPercent(p),
       code: input.birthday.code,
       hint: input.birthday.validUntil,
     })
@@ -173,7 +176,7 @@ export function buildPromoCoupons(input: {
     out.push({
       id: 'gamification',
       label: input.labels.gamification || 'Pontból váltott kupon',
-      percent: p,
+      percent: capCombinedCouponPercent(p),
       code: input.gamification.code,
       hint: input.gamification.validUntil,
     })

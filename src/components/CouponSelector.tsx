@@ -1,10 +1,9 @@
 'use client'
 
 import {
-  ALLOW_CAT_REGISTRATION_STACK,
   MAX_COMBINED_COUPON_PERCENT,
   canToggleCoupon,
-  isCatRegistrationStackBlocked,
+  isCouponStackingBlocked,
   type SelectableCoupon,
   type SelectableCouponId,
 } from '@/lib/coupon-selection'
@@ -38,15 +37,15 @@ export function CouponSelector({
 }: Props) {
   const { t } = useLocale()
   const resolvedTitle = title ?? t('payment.couponSelectorTitle')
-  const defaultHint = ALLOW_CAT_REGISTRATION_STACK
-    ? t('payment.couponSelectorHint')
-    : t('payment.couponSelectorHintNoCatRegStack') || t('payment.couponSelectorHint')
+  const defaultHint =
+    t('payment.couponSelectorHint') ||
+    'Válaszd ki manuálisan a kedvezményt. A kuponok nem vonhatók össze; a legnagyobb beváltható kedvezmény 15%.'
   const resolvedHint = hint ?? defaultHint
   const resolvedEmpty = emptyText ?? t('payment.couponSelectorEmpty')
   const resolvedCap = capReachedText ?? t('payment.couponCapReached')
   const stackBlockedText =
     t('payment.couponCatRegStackBlocked') ||
-    'A macska és a regisztrációs kupon most nem kombinálható – válassz egyet.'
+    'A kuponok nem vonhatók össze – válassz egyet.'
   const selected = new Set(selectedIds)
 
   const toggle = (id: SelectableCouponId) => {
@@ -90,7 +89,7 @@ export function CouponSelector({
           const nextForStack = new Set(selected)
           nextForStack.add(coupon.id)
           const blockedByStack =
-            !checked && wouldExceed && isCatRegistrationStackBlocked(nextForStack)
+            !checked && wouldExceed && isCouponStackingBlocked(nextForStack)
           return (
             <li key={coupon.id}>
               <label

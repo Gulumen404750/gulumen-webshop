@@ -3,6 +3,7 @@
  */
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import type { CouponDiscount } from '@/lib/checkout'
+import { capCombinedCouponPercent } from '@/lib/coupon-config'
 
 export type ResolvedDbCoupon = {
   id: string
@@ -24,7 +25,7 @@ export function dbCouponToDiscount(coupon: {
   if (coupon.discountType === 'fixed') {
     return { fixedHuf: coupon.discountValue }
   }
-  return { percent: coupon.discountValue / 100 }
+  return { percent: capCombinedCouponPercent(coupon.discountValue / 100) }
 }
 
 function isCouponInValidPeriod(

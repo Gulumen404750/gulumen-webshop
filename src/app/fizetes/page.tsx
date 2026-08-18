@@ -378,8 +378,9 @@ export default function PaymentPage() {
     autoSelectedGamificationRef.current = code
     setSelectedCouponIds((prev) => {
       if (prev.includes('gamification')) return prev
+      if (prev.length > 0) return prev
       if (!canToggleCoupon(availableCoupons, new Set(prev), 'gamification', true)) return prev
-      return [...prev, 'gamification']
+      return ['gamification']
     })
   }, [gamificationCoupon?.code, availableCoupons, usePoints])
 
@@ -788,7 +789,7 @@ export default function PaymentPage() {
                           percent: Math.round(effectiveCouponPercent * 100),
                         })}
                         {couponSelection.capped
-                          ? ` (${t('payment.couponCappedHint') || 'max. 20%'})`
+                          ? ` (${t('payment.couponCappedHint') || 'max. 15%'})`
                           : ''}
                       </span>
                       <button
@@ -1123,12 +1124,12 @@ export default function PaymentPage() {
         title={t('payment.couponSelectorTitle') || 'Elérhető kuponok'}
         hint={
           t('payment.couponSelectorHint') ||
-          'Válaszd ki manuálisan a kedvezmény(eke)t. Összesen legfeljebb 20%.'
+          'Válaszd ki manuálisan a kedvezményt. A kuponok nem vonhatók össze; a legnagyobb beváltható kedvezmény 15%.'
         }
         emptyText={t('payment.couponSelectorEmpty') || 'Jelenleg nincs felhasználható kuponod.'}
         capReachedText={
           t('payment.couponCapReached') ||
-          'A kiválasztott kuponok összege nem haladhatja meg a 20%-ot.'
+          'A kuponok nem vonhatók össze; a legnagyobb beváltható kedvezmény 15%.'
         }
         selectedPercentDisplay={Math.round(couponSelection.finalPercent * 100)}
         capped={couponSelection.capped}

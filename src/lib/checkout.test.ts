@@ -6,6 +6,7 @@ import {
   computeShippingHuf,
   calculateDiscount,
   resolveCartLines,
+  validateCouponPercent,
   FREE_SHIPPING_THRESHOLD,
   STANDARD_SHIPPING_FEE_HUF,
   type ResolvedCartLine,
@@ -386,5 +387,26 @@ describe('computeCheckoutTotals', () => {
     expect(totals.invoiceTotalHuf).toBe(4_200 + STANDARD_SHIPPING_FEE_HUF)
     expect(totals.inStock.giftPointsUsed).toBe(4_000)
     expect(totals.inStock.invoiceTotalHuf).toBe(totals.invoiceTotalHuf)
+  })
+})
+
+describe('validateCouponPercent', () => {
+  it('allows 0 without login', () => {
+    expect(validateCouponPercent(0, false)).toBe(true)
+  })
+
+  it('rejects positive percent without login', () => {
+    expect(validateCouponPercent(0.1, false)).toBe(false)
+  })
+
+  it('allows 5/10/15% when logged in', () => {
+    expect(validateCouponPercent(0.05, true)).toBe(true)
+    expect(validateCouponPercent(0.1, true)).toBe(true)
+    expect(validateCouponPercent(0.15, true)).toBe(true)
+  })
+
+  it('rejects more than 15%', () => {
+    expect(validateCouponPercent(0.2, true)).toBe(false)
+    expect(validateCouponPercent(0.25, true)).toBe(false)
   })
 })
