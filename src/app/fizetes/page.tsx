@@ -32,8 +32,12 @@ import {
   buildPromoCoupons,
   calculateSelectedCouponPercent,
   canToggleCoupon,
+  gamificationCouponId,
+  isGamificationCouponId,
+  toCheckoutSelectedCouponId,
   type SelectableCouponId,
 } from '@/lib/coupon-selection'
+import { listActiveCheckoutCoupons } from '@/lib/gamification/user-coupons'
 import { readTypedCoupon, writeTypedCoupon, type StoredTypedCoupon } from '@/lib/typed-coupon-storage'
 
 function createCheckoutIdempotencyKey(): string {
@@ -137,30 +141,38 @@ export default function PaymentPage() {
 
   const lockedLines = applyLuckySpinLockedPrices(cartLines, luckySpinRecord)
 
-  const gamificationCoupon = useMemo(() => {
-    if (!wallet?.hasActiveCoupon || !wallet.activeCouponCode) return null
-    const validUntil = wallet.activeCouponValidUntil
-      ? new Date(wallet.activeCouponValidUntil).toLocaleDateString(locale)
-      : undefined
-    return {
-      code: wallet.activeCouponCode,
-      percent: wallet.activeCouponPercent ?? 10,
-      validUntil,
+  const gamificationCoupons = useMemo(() => {
+    const active = listActiveCheckoutCoupons(wallet?.coupons ?? [])
+    if (active.length > 0) {
+      return active.map((coupon) => ({
+        code: coupon.code,
+        percent: coupon.discountPercent,
+        validUntil: coupon.validUntil
+          ? new Date(coupon.validUntil).toLocaleDateString(locale)
+          : undefined,
+        label: t('payment.couponGamificationLabel', {
+          percent:
+            coupon.discountPercent > 1
+              ? coupon.discountPercent
+              : Math.round(coupon.discountPercent * 100),
+        }),
+      }))
     }
-  }, [
-    wallet?.hasActiveCoupon,
-    wallet?.activeCouponCode,
-    wallet?.activeCouponPercent,
-    wallet?.activeCouponValidUntil,
-    locale,
-  ])
-  const gamificationPercentDisplay = Math.round(
-    gamificationCoupon
-      ? gamificationCoupon.percent > 1
-        ? gamificationCoupon.percent
-        : gamificationCoupon.percent * 100
-      : 10
-  )
+    if (!wallet?.hasActiveCoupon || !wallet.activeCouponCode) return []
+    const percent = wallet.activeCouponPercent ?? 10
+    return [
+      {
+        code: wallet.activeCouponCode,
+        percent,
+        validUntil: wallet.activeCouponValidUntil
+          ? new Date(wallet.activeCouponValidUntil).toLocaleDateString(locale)
+          : undefined,
+        label: t('payment.couponGamificationLabel', {
+          percent: percent > 1 ? percent : Math.round(percent * 100),
+        }),
+      },
+    ]
+  }, [wallet, locale, t])
 
   const availableCoupons = useMemo(
     () =>
@@ -175,7 +187,7 @@ export default function PaymentPage() {
               validUntil: birthdayCouponBanner.validUntil,
             }
           : null,
-        gamification: gamificationCoupon,
+        gamification: gamificationCoupons,
         labels: {
           cat: t('payment.couponCatLabel'),
           registration: t('payment.couponRegistrationLabel'),
@@ -186,7 +198,6 @@ export default function PaymentPage() {
           birthday: t('payment.birthdayCouponTitle', {
             percent: birthdayCouponBanner?.percent ?? 15,
           }),
-          gamification: t('payment.couponGamificationLabel', { percent: gamificationPercentDisplay }),
         },
       }),
     [
@@ -194,8 +205,8 @@ export default function PaymentPage() {
       registrationStatus,
       welcomeOfferEligible,
       birthdayCouponBanner,
-      gamificationCoupon,
-      gamificationPercentDisplay,
+      gamificationCoupons,
+      loyaltyPercent,
       t,
     ]
   )
@@ -375,7 +386,10 @@ export default function PaymentPage() {
       setCouponCodeInput(dbCode)
       return
     }
-    if (!selectedCouponIds.includes('birthday') && !selectedCouponIds.includes('gamification')) {
+    if (
+      !selectedCouponIds.includes('birthday') &&
+      !selectedCouponIds.some((id) => isGamificationCouponId(id))
+    ) {
       setCouponCodeInput('')
     }
   }, [couponSelection.birthdayCode, couponSelection.gamificationCode, selectedCouponIds, typedCoupon])
@@ -386,20 +400,21 @@ export default function PaymentPage() {
       autoSelectedGamificationRef.current = null
       return
     }
-    const code = gamificationCoupon?.code
-    if (!code) {
+    const first = gamificationCoupons[0]
+    if (!first?.code) {
       autoSelectedGamificationRef.current = null
       return
     }
-    if (autoSelectedGamificationRef.current === code) return
-    autoSelectedGamificationRef.current = code
+    const selectionId = gamificationCouponId(first.code)
+    if (autoSelectedGamificationRef.current === selectionId) return
+    autoSelectedGamificationRef.current = selectionId
     setSelectedCouponIds((prev) => {
-      if (prev.includes('gamification')) return prev
+      if (prev.some((id) => isGamificationCouponId(id))) return prev
       if (prev.length > 0) return prev
-      if (!canToggleCoupon(availableCoupons, new Set(prev), 'gamification', true)) return prev
-      return ['gamification']
+      if (!canToggleCoupon(availableCoupons, new Set(prev), selectionId, true)) return prev
+      return [selectionId]
     })
-  }, [gamificationCoupon?.code, availableCoupons, usePoints, typedCoupon])
+  }, [gamificationCoupons, availableCoupons, usePoints, typedCoupon])
 
   useEffect(() => {
     if (!usePoints) return
@@ -653,7 +668,9 @@ export default function PaymentPage() {
           welcomeOfferAccepted: usePoints || typedCoupon ? undefined : couponSelection.useWelcome ? true : undefined,
           selectedCoupons: usePoints || typedCoupon
             ? []
-            : couponSelection.selectedIds.filter((id) => id !== 'loyalty'),
+            : couponSelection.selectedIds
+                .filter((id) => id !== 'loyalty')
+                .map((id) => toCheckoutSelectedCouponId(id)),
           pointsDiscountHuf: pointsDiscountHuf > 0 ? pointsDiscountHuf : undefined,
           useGiftPoints: usePoints ? useGiftPoints : undefined,
           useActivityPoints: usePoints ? useActivityPoints : undefined,

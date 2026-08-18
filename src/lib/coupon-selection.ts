@@ -30,6 +30,22 @@ export type SelectableCouponId =
   | 'welcome'
   | 'birthday'
   | 'gamification'
+  | `gamification:${string}`
+
+const GAMIFICATION_ID_PREFIX = 'gamification:'
+
+export function isGamificationCouponId(id: string): boolean {
+  return id === 'gamification' || id.startsWith(GAMIFICATION_ID_PREFIX)
+}
+
+export function gamificationCouponId(code: string): SelectableCouponId {
+  const normalized = code.trim().toUpperCase().replace(/\s+/g, '')
+  return normalized ? `${GAMIFICATION_ID_PREFIX}${normalized}` : 'gamification'
+}
+
+export function toCheckoutSelectedCouponId(id: SelectableCouponId): SelectableCouponId {
+  return isGamificationCouponId(id) ? 'gamification' : id
+}
 
 export type SelectableCoupon = {
   id: SelectableCouponId
@@ -79,7 +95,7 @@ export function calculateSelectedCouponPercent(
   const rawPercent = picked.reduce((s, c) => s + (c.percent > 0 ? c.percent : 0), 0)
   const finalPercent = capCombinedCouponPercent(rawPercent)
   const birthday = picked.find((c) => c.id === 'birthday')
-  const gamification = picked.find((c) => c.id === 'gamification')
+  const gamification = picked.find((c) => isGamificationCouponId(c.id))
 
   return {
     selectedIds: picked.map((c) => c.id),
@@ -92,7 +108,7 @@ export function calculateSelectedCouponPercent(
     useLoyalty: false,
     useCat: selected.has('cat'),
     useRegistration: selected.has('registration'),
-    useGamification: selected.has('gamification'),
+    useGamification: Boolean(gamification),
   }
 }
 
@@ -124,7 +140,10 @@ export function buildPromoCoupons(input: {
   loyaltyPercent?: number
   welcomeEligible?: boolean
   birthday?: { code: string; percent?: number; validUntil?: string } | null
-  gamification?: { code: string; percent?: number; validUntil?: string } | null
+  gamification?:
+    | { code: string; percent?: number; validUntil?: string; label?: string }
+    | Array<{ code: string; percent?: number; validUntil?: string; label?: string }>
+    | null
   labels: {
     cat: string
     registration: string
@@ -166,14 +185,25 @@ export function buildPromoCoupons(input: {
       hint: input.birthday.validUntil,
     })
   }
-  if (input.gamification?.code) {
-    const p = normalizeCouponPercent(input.gamification.percent, 0.1)
+  const gamificationItems = Array.isArray(input.gamification)
+    ? input.gamification
+    : input.gamification?.code
+      ? [input.gamification]
+      : []
+  const seenCodes = new Set<string>()
+  for (const item of gamificationItems) {
+    const code = item.code?.trim()
+    if (!code) continue
+    const key = code.toUpperCase()
+    if (seenCodes.has(key)) continue
+    seenCodes.add(key)
+    const p = normalizeCouponPercent(item.percent, 0.1)
     out.push({
-      id: 'gamification',
-      label: input.labels.gamification || '',
+      id: gamificationCouponId(code),
+      label: item.label || input.labels.gamification || '',
       percent: capCombinedCouponPercent(p),
-      code: input.gamification.code,
-      hint: input.gamification.validUntil,
+      code,
+      hint: item.validUntil,
     })
   }
   return out

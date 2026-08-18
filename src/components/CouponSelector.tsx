@@ -3,7 +3,6 @@
 import {
   MAX_COMBINED_COUPON_PERCENT,
   canToggleCoupon,
-  isCouponStackingBlocked,
   type SelectableCoupon,
   type SelectableCouponId,
 } from '@/lib/coupon-selection'
@@ -42,20 +41,17 @@ export function CouponSelector({
   const resolvedHint = hint ?? defaultHint
   const resolvedEmpty = emptyText ?? t('payment.couponSelectorEmpty')
   const resolvedCap = capReachedText ?? t('payment.couponCapReached')
-  const stackBlockedText =
-    t('payment.couponCatRegStackBlocked')
   const selected = new Set(selectedIds)
 
   const toggle = (id: SelectableCouponId) => {
     if (disabled) return
     const turningOn = !selected.has(id)
-    if (turningOn && !canToggleCoupon(coupons, selected, id, true)) {
+    if (!turningOn) {
+      onChange(selectedIds.filter((item) => item !== id))
       return
     }
-    const next = new Set(selected)
-    if (turningOn) next.add(id)
-    else next.delete(id)
-    onChange(Array.from(next))
+    if (!canToggleCoupon(coupons, new Set(), id, true)) return
+    onChange([id])
   }
 
   if (coupons.length === 0) {
@@ -81,19 +77,15 @@ export function CouponSelector({
       <ul className="space-y-2">
         {coupons.map((coupon) => {
           const checked = selected.has(coupon.id)
-          const wouldExceed =
-            !checked && !canToggleCoupon(coupons, selected, coupon.id, true)
-          const nextForStack = new Set(selected)
-          nextForStack.add(coupon.id)
-          const blockedByStack =
-            !checked && wouldExceed && isCouponStackingBlocked(nextForStack)
+          const cannotSelectAlone =
+            !checked && !canToggleCoupon(coupons, new Set(), coupon.id, true)
           return (
             <li key={coupon.id}>
               <label
                 className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
                   checked
                     ? 'border-accent bg-accent/5'
-                    : wouldExceed
+                    : cannotSelectAlone
                       ? 'border-[var(--border)] opacity-50 cursor-not-allowed'
                       : 'border-[var(--border)] hover:border-accent/40'
                 }`}
@@ -102,7 +94,7 @@ export function CouponSelector({
                   type="checkbox"
                   className="mt-1 w-4 h-4 rounded border-[var(--border)] text-accent focus:ring-accent"
                   checked={checked}
-                  disabled={disabled || wouldExceed}
+                  disabled={disabled || cannotSelectAlone}
                   onChange={() => toggle(coupon.id)}
                 />
                 <span className="flex-1 min-w-0">
@@ -118,9 +110,9 @@ export function CouponSelector({
                   {coupon.hint && (
                     <span className="block text-xs text-muted mt-0.5">{coupon.hint}</span>
                   )}
-                  {wouldExceed && (
+                  {cannotSelectAlone && (
                     <span className="block text-xs text-amber-600 dark:text-amber-400 mt-1">
-                      {blockedByStack ? stackBlockedText : resolvedCap}
+                      {resolvedCap}
                     </span>
                   )}
                 </span>
