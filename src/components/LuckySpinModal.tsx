@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useLocale } from '@/context/LocaleContext'
+import { intlLocaleFor } from '@/lib/display-money'
 import type { LuckySpinData } from '@/hooks/useLuckySpin'
 
 type Props = {
@@ -44,7 +45,7 @@ function useCountdown(expiresAt: string | null | undefined) {
 }
 
 export function LuckySpinModal({ isOpen, onClose, data, onSpin, spinning }: Props) {
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   const [spinData, setSpinData] = useState<LuckySpinData | null | undefined>(data)
   const displayData = spinData ?? data
   const countdown = useCountdown(displayData?.spin?.expiresAt)
@@ -219,7 +220,7 @@ export function LuckySpinModal({ isOpen, onClose, data, onSpin, spinning }: Prop
         {isEligible && !canSpin && !isActive && displayData?.nextSpinAt && (
           <p className="text-sm text-muted text-center py-6 leading-tight">
             {t('luckySpin.nextSpin')}{' '}
-            {new Date(displayData.nextSpinAt).toLocaleDateString(undefined, {
+            {new Date(displayData.nextSpinAt).toLocaleDateString(intlLocaleFor(locale), {
               weekday: 'long',
               day: 'numeric',
               month: 'long',

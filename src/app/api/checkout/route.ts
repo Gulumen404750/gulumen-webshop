@@ -355,7 +355,14 @@ export async function POST(request: Request) {
       now,
     })
     if (!resolved.ok) {
-      return NextResponse.json({ code: resolved.code, error: resolved.error }, { status: 400 })
+      return NextResponse.json(
+        {
+          code: resolved.code,
+          error: resolved.error,
+          ...(typeof resolved.minOrderHuf === 'number' ? { minOrderHuf: resolved.minOrderHuf } : {}),
+        },
+        { status: 400 }
+      )
     }
     appliedCouponId = resolved.coupon.id
     appliedCouponCode = resolved.coupon.code

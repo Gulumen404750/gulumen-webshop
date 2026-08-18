@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useLocale } from '@/context/LocaleContext'
 import { usePointWallet } from '@/hooks/usePointWallet'
+import { formatDisplayDate } from '@/lib/display-money'
 import type { PointWalletCoupon } from '@/lib/point-wallet-client'
 
 type Props = {
@@ -54,7 +55,7 @@ export function PointsProgress({ className = '' }: Props) {
     if (!iso) return t('gamification.couponNoExpiry')
     const d = new Date(iso)
     if (Number.isNaN(d.getTime())) return t('gamification.couponNoExpiry')
-    return d.toLocaleDateString(locale)
+    return formatDisplayDate(d, locale)
   }
 
   const handleRedeem = async () => {
@@ -68,7 +69,15 @@ export function PointsProgress({ className = '' }: Props) {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setRedeemError(data.message || t('gamification.redeemError'))
+        if (data.error === 'insufficient_points') {
+          setRedeemError(
+            t('gamification.redeemThreshold', {
+              threshold: Number(data.threshold) || threshold,
+            })
+          )
+          return
+        }
+        setRedeemError(t('gamification.redeemError'))
         return
       }
       setRedeemSuccess(t('gamification.redeemSuccess', { code: data.couponCode ?? '' }))

@@ -6,6 +6,11 @@
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { getAllProductsAsync, type Product } from '@/lib/data'
 import { resolveChatProductPricing } from '@/lib/chat-product-context'
+import {
+  formatCustomerPrice,
+  usesEuroCopy,
+  type CustomerMoneyDisplay,
+} from '@/lib/display-money'
 
 export const CHAT_PRODUCT_RECOMMENDATION_LIMIT = 3
 
@@ -595,10 +600,12 @@ export async function searchProductsForChat(
 /** OpenAI system prompt blokk a találatokhoz – az AI szövegesen is hivatkozhasson rájuk. */
 export function buildRecommendedProductsChatBlock(
   products: ChatRecommendedProduct[],
-  now: Date = new Date()
+  now: Date = new Date(),
+  display?: CustomerMoneyDisplay
 ): string {
   if (products.length === 0) return ''
 
+  const euroOnly = display ? usesEuroCopy(display.locale) : false
   const lines = products.map((p, i) => {
     const pricing = resolveChatProductPricing(
       {
@@ -610,9 +617,10 @@ export function buildRecommendedProductsChatBlock(
       },
       now
     )
+    const current = formatCustomerPrice(pricing.effectivePriceHuf, display)
     const priceLabel = pricing.isSale
-      ? `${pricing.effectivePriceHuf.toLocaleString('hu-HU')} Ft (akciós; eredeti: ${pricing.normalPriceHuf.toLocaleString('hu-HU')} Ft)`
-      : `${pricing.effectivePriceHuf.toLocaleString('hu-HU')} Ft`
+      ? `${current} (akciós; eredeti: ${formatCustomerPrice(pricing.normalPriceHuf, display)})`
+      : current
     return `${i + 1}. ${p.name} – ${priceLabel} – kategória: ${p.category} – link: /termek/${p.slug} (id: ${p.id})`
   })
 
@@ -625,6 +633,7 @@ KÖTELEZŐ:
 - Ne találj ki más nevet (pl. „kényelmes párna”, „otthoni dekoráció” tilos, ha nincs ilyen a listában).
 - A számozott listád hossza = ${products.length} (minden ajánlott termékhez egy tétel és egy kártya).
 - Minden tétel ÚJ SORON, üres sorral elválasztva, 2–4 barátságos emojival (🎁 ✨ 🏠 💚).
+- Árat a fenti megjelenítési formában írd a vásárlónak.${euroOnly ? ' NE írj HUF-ot vagy Ft-ot.' : ''}
 
 Példa:
 

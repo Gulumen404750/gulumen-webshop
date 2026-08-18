@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { t } from '@/i18n/translations'
+import hu from '@/i18n/translations/hu.json'
 import en from '@/i18n/translations/en.json'
 import de from '@/i18n/translations/de.json'
 import ro from '@/i18n/translations/ro.json'
@@ -19,6 +20,9 @@ const KEYS = [
   'payment.invoiceRemainderHint',
   'payment.useGiftPoints',
   'payment.useActivityPoints',
+  'payment.couponMinOrder',
+  'payment.pointsPromoStackDisabled',
+  'payment.couponSelectorEmptyWithPoints',
   'giftClaim.hint',
   'giftClaim.pageHint',
   'home.loyaltyText',
@@ -46,6 +50,36 @@ describe('foreign-language points copy', () => {
         expect(text, `${locale} ${key}`).not.toMatch(/\bHUF\b|\bFt\b|25[.\s]?000|50[.\s]?000|100 Ft|1 HUF|1 Ft/)
         expect(text, `${locale} ${key} leftover placeholder`).not.toMatch(/\{(shippingThreshold|loyaltyThreshold|pointValue|earnAmount)\}/)
       }
+    }
+  })
+})
+
+function flattenKeys(obj: Record<string, unknown>, prefix = ''): string[] {
+  const keys: string[] = []
+  for (const [k, v] of Object.entries(obj)) {
+    const path = prefix ? `${prefix}.${k}` : k
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      keys.push(...flattenKeys(v as Record<string, unknown>, path))
+    } else {
+      keys.push(path)
+    }
+  }
+  return keys
+}
+
+describe('translation file key parity', () => {
+  it('keeps EN/DE/RO keys in sync with HU', () => {
+    const huKeys = flattenKeys(hu as Record<string, unknown>).sort()
+    for (const [name, dict] of [
+      ['en', en],
+      ['de', de],
+      ['ro', ro],
+    ] as const) {
+      const keys = flattenKeys(dict as Record<string, unknown>).sort()
+      const missing = huKeys.filter((k) => !keys.includes(k))
+      const extra = keys.filter((k) => !huKeys.includes(k))
+      expect(missing, `${name} missing keys`).toEqual([])
+      expect(extra, `${name} extra keys`).toEqual([])
     }
   })
 })

@@ -3,18 +3,12 @@
 import { Clock, Heart, Gift, RotateCcw, Sparkles } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useLocale } from '@/context/LocaleContext'
+import { intlLocaleFor } from '@/lib/display-money'
 import { usePointHistory } from '@/hooks/usePointHistory'
 import type { LucideIcon } from 'lucide-react'
 
 type Props = {
   className?: string
-}
-
-const LOCALE_MAP: Record<string, string> = {
-  hu: 'hu-HU',
-  en: 'en-GB',
-  de: 'de-DE',
-  ro: 'ro-RO',
 }
 
 function getTypeMeta(
@@ -49,7 +43,7 @@ export function PointHistoryTimeline({ className = '' }: Props) {
 
   if (!isLoggedIn) return null
 
-  const dateFormatter = new Intl.DateTimeFormat(LOCALE_MAP[locale] ?? 'hu-HU', {
+  const dateFormatter = new Intl.DateTimeFormat(intlLocaleFor(locale), {
     year: 'numeric',
     month: 'short',
     day: 'numeric',

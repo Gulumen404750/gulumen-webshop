@@ -9,6 +9,12 @@ import { useCatCoupon } from '@/context/CatCouponContext'
 import { useAuth } from '@/context/AuthContext'
 import { useLocale } from '@/context/LocaleContext'
 import { useDisplayMoney } from '@/hooks/useDisplayMoney'
+import { formatDisplayDate } from '@/lib/display-money'
+import { resolveCheckoutErrorMessage } from '@/lib/checkout-client-errors'
+import {
+  readCheckoutPointsSelection,
+  writeCheckoutPointsSelection,
+} from '@/lib/checkout-points-selection'
 import { trackBeginCheckout } from '@/lib/analytics'
 import { getProductById as getProductByIdFromData } from '@/lib/data'
 import { useProducts } from '@/context/ProductsContext'
@@ -75,6 +81,7 @@ export default function PaymentPage() {
   const [deliveryNotes, setDeliveryNotes] = useState('')
   const [useGiftPoints, setUseGiftPoints] = useState(false)
   const [useActivityPoints, setUseActivityPoints] = useState(false)
+  const [pointsSelectionReady, setPointsSelectionReady] = useState(false)
   const [couponCodeInput, setCouponCodeInput] = useState('')
   const [typedCoupon, setTypedCoupon] = useState<StoredTypedCoupon | null>(null)
   const [selectedCouponIds, setSelectedCouponIds] = useState<SelectableCouponId[]>([])
@@ -148,7 +155,7 @@ export default function PaymentPage() {
         code: coupon.code,
         percent: coupon.discountPercent,
         validUntil: coupon.validUntil
-          ? new Date(coupon.validUntil).toLocaleDateString(locale)
+          ? formatDisplayDate(coupon.validUntil, locale)
           : undefined,
         label: t('payment.couponGamificationLabel', {
           percent:
@@ -165,7 +172,7 @@ export default function PaymentPage() {
         code: wallet.activeCouponCode,
         percent,
         validUntil: wallet.activeCouponValidUntil
-          ? new Date(wallet.activeCouponValidUntil).toLocaleDateString(locale)
+          ? formatDisplayDate(wallet.activeCouponValidUntil, locale)
           : undefined,
         label: t('payment.couponGamificationLabel', {
           percent: percent > 1 ? percent : Math.round(percent * 100),
@@ -184,7 +191,7 @@ export default function PaymentPage() {
           ? {
               code: birthdayCouponBanner.code,
               percent: birthdayCouponBanner.percent,
-              validUntil: birthdayCouponBanner.validUntil,
+              validUntil: formatDisplayDate(birthdayCouponBanner.validUntil, locale),
             }
           : null,
         gamification: gamificationCoupons,
@@ -207,6 +214,7 @@ export default function PaymentPage() {
       birthdayCouponBanner,
       gamificationCoupons,
       loyaltyPercent,
+      locale,
       t,
     ]
   )
@@ -427,7 +435,18 @@ export default function PaymentPage() {
       setTypedCoupon(stored)
       setSelectedCouponIds([])
     }
+    const pointsSel = readCheckoutPointsSelection()
+    if (pointsSel) {
+      setUseGiftPoints(pointsSel.useGiftPoints)
+      setUseActivityPoints(pointsSel.useActivityPoints)
+    }
+    setPointsSelectionReady(true)
   }, [])
+
+  useEffect(() => {
+    if (!pointsSelectionReady) return
+    writeCheckoutPointsSelection({ useGiftPoints, useActivityPoints })
+  }, [pointsSelectionReady, useGiftPoints, useActivityPoints])
 
   const totalEur = hufToEur(cardTotalHuf)
 
@@ -678,8 +697,17 @@ export default function PaymentPage() {
       })
       const data = await res.json()
       if (!res.ok) {
-        const isTimedOfferError = res.status === 400 && (data.code === 'timed_offer_unavailable' || data.error?.includes('timed'))
-        setError(isTimedOfferError ? t('payment.timedOfferNoLongerAvailable') : t('payment.errorCreateSession'))
+        setError(
+          resolveCheckoutErrorMessage({
+            t,
+            money,
+            status: res.status,
+            code: typeof data.code === 'string' ? data.code : undefined,
+            minOrderHuf: typeof data.minOrderHuf === 'number' ? data.minOrderHuf : undefined,
+            errorIncludesTimed:
+              typeof data.error === 'string' && data.error.includes('timed'),
+          })
+        )
         idempotencyKeyRef.current = null
         checkoutInFlightRef.current = false
         setLoading(false)
@@ -751,6 +779,7 @@ export default function PaymentPage() {
     addressType,
     deliveryNotes,
     t,
+    money,
     cardTotalHuf,
     items,
     couponSelection,
@@ -874,7 +903,7 @@ export default function PaymentPage() {
                           ? t('payment.couponDiscountFixed', {
                               amount: money(typedCoupon.discountValue),
                               code: typedCoupon.code,
-                            }) || `Kupon (${typedCoupon.code})`
+                            })
                           : t('payment.couponDiscountWithCode', {
                               percent: Math.round(effectiveCouponPercent * 100),
                             })}
@@ -1241,7 +1270,13 @@ export default function PaymentPage() {
         hint={
           t('payment.couponSelectorHint')
         }
-        emptyText={t('payment.couponSelectorEmpty')}
+        emptyText={
+          (wallet?.balance ?? 0) > 0 ||
+          (pointsPreview?.giftBalance ?? 0) > 0 ||
+          (pointsPreview?.activityBalance ?? 0) > 0
+            ? t('payment.couponSelectorEmptyWithPoints')
+            : t('payment.couponSelectorEmpty')
+        }
         capReachedText={
           t('payment.couponCapReached')
         }
@@ -1286,9 +1321,8 @@ export default function PaymentPage() {
                 {pointsPreview.giftExpiresAt && (
                   <span className="block text-xs text-muted mt-0.5">
                     {t('payment.giftPointsExpires', {
-                      date: new Date(pointsPreview.giftExpiresAt).toLocaleDateString(locale),
-                    }) ||
-                      `Érvényes ${new Date(pointsPreview.giftExpiresAt).toLocaleDateString(locale)}-ig`}
+                      date: formatDisplayDate(pointsPreview.giftExpiresAt, locale),
+                    })}
                   </span>
                 )}
               </span>
