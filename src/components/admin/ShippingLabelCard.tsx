@@ -54,11 +54,24 @@ export function ShippingLabelCard({ order }: { order: ShippingLabelOrder }) {
           <p>gulumen.hu</p>
           <p>postmaster@gulumen.com</p>
         </div>
-        <ShippingLabelQrCode
-          value={qrValue}
-          src={order.qrDataUrl}
-          alt={`QR-kód: rendelés ${order.id}, gyártási tételek`}
-        />
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          {/* Native img: Next/Image srcset/lazy töri a window.print() elrendezést */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/img/logo.png"
+            alt="Gulumen"
+            width={48}
+            height={48}
+            loading="eager"
+            decoding="sync"
+            className="shipping-label-logo h-12 w-12 rounded-full object-cover"
+          />
+          <ShippingLabelQrCode
+            value={qrValue}
+            src={order.qrDataUrl}
+            alt={`QR-kód: rendelés ${order.id}, gyártási tételek`}
+          />
+        </div>
       </div>
 
       <div className="mb-4">
