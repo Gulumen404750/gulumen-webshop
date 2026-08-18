@@ -21,6 +21,17 @@ describe('PointsProgress profile coupons', () => {
     expect(src).toMatch(/setListOpen\(true\)/)
   })
 
+  it('calls hooks before the logged-out early return', () => {
+    const earlyReturn = src.indexOf('if (!isLoggedIn) return null')
+    const useRefIdx = src.indexOf('useRef<Set<string>')
+    const useEffectIdx = src.lastIndexOf('useEffect(')
+    expect(earlyReturn).toBeGreaterThan(0)
+    expect(useRefIdx).toBeGreaterThan(0)
+    expect(useEffectIdx).toBeGreaterThan(0)
+    expect(useRefIdx).toBeLessThan(earlyReturn)
+    expect(useEffectIdx).toBeLessThan(earlyReturn)
+  })
+
   it('does not hide the redeem button just because a coupon is already unused', () => {
     expect(src).toMatch(/wallet\?\.canRedeem/)
     expect(src).not.toMatch(/canRedeem && !wallet\?\.hasActiveCoupon/)
