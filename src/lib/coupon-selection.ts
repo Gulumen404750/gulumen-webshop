@@ -170,7 +170,7 @@ export function buildPromoCoupons(input: {
     const p = normalizeCouponPercent(input.gamification.percent, 0.1)
     out.push({
       id: 'gamification',
-      label: input.labels.gamification || 'Pontból váltott kupon',
+      label: input.labels.gamification || '',
       percent: capCombinedCouponPercent(p),
       code: input.gamification.code,
       hint: input.gamification.validUntil,

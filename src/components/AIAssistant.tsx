@@ -13,6 +13,7 @@ import {
   mobileFabRight,
 } from '@/lib/mobile-fab-layout'
 import { useLocale } from '@/context/LocaleContext'
+import { StorefrontPrice } from '@/components/StorefrontPrice'
 import { useProducts } from '@/context/ProductsContext'
 import { useCart } from '@/context/CartContext'
 import { useToast } from '@/context/ToastContext'
@@ -450,7 +451,7 @@ function ChatProductCard({
     e.stopPropagation()
     if (!canAdd) return
     addItem(product.id, 1, undefined, product)
-    toast(t('ai.addedToCart') || t('cart.toastAdded') || 'Termék a kosárban')
+    toast(t('ai.addedToCart') || t('cart.toastAdded'))
   }
 
   return (
@@ -474,14 +475,14 @@ function ChatProductCard({
           <div className="mt-0.5 flex items-baseline gap-1.5 flex-wrap">
             {hasDiscount && (
               <span className="text-[10px] text-muted line-through">
-                {product.priceHuf.toLocaleString('hu-HU')} Ft
+                <StorefrontPrice huf={product.priceHuf} className="text-[10px] text-muted" showEuroHintOnHu={false} />
               </span>
             )}
-            <span
+            <StorefrontPrice
+              huf={priceHuf}
               className={`text-xs font-semibold ${hasDiscount ? 'text-discount' : 'text-foreground'}`}
-            >
-              {priceHuf.toLocaleString('hu-HU')} Ft
-            </span>
+              showEuroHintOnHu={false}
+            />
           </div>
         </div>
       </div>
@@ -550,7 +551,7 @@ function ChatProductSnippetCard({
         description: '',
       })
     }
-    toast(t('ai.addedToCart') || t('cart.toastAdded') || 'Termék a kosárban')
+    toast(t('ai.addedToCart') || t('cart.toastAdded'))
   }
 
   return (
@@ -574,14 +575,14 @@ function ChatProductSnippetCard({
           <div className="mt-0.5 flex items-baseline gap-1.5 flex-wrap">
             {hasDiscount && (
               <span className="text-[10px] text-muted line-through">
-                {product.priceHuf.toLocaleString('hu-HU')} Ft
+                <StorefrontPrice huf={product.priceHuf} className="text-[10px] text-muted" showEuroHintOnHu={false} />
               </span>
             )}
-            <span
+            <StorefrontPrice
+              huf={priceHuf}
               className={`text-xs font-semibold ${hasDiscount ? 'text-discount' : 'text-foreground'}`}
-            >
-              {priceHuf.toLocaleString('hu-HU')} Ft
-            </span>
+              showEuroHintOnHu={false}
+            />
           </div>
         </div>
       </div>

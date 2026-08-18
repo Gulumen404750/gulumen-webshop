@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useLocale } from '@/context/LocaleContext'
+import { useDisplayMoney } from '@/hooks/useDisplayMoney'
 import { useCart } from '@/context/CartContext'
 import { useCatCoupon } from '@/context/CatCouponContext'
 import { useAuth } from '@/context/AuthContext'
@@ -77,6 +78,7 @@ export default function PaymentSuccessPage() {
   const sessionId = searchParams.get('session_id')
   const orderGroupId = searchParams.get('order_group_id')
   const { t } = useLocale()
+  const { money } = useDisplayMoney()
   const { clearCart } = useCart()
   const { markUsed } = useCatCoupon()
   const { userId } = useAuth()
@@ -330,7 +332,7 @@ export default function PaymentSuccessPage() {
       o.status === 'paid' || o.status === 'fulfilled' ? (
         <span className="text-green-600 dark:text-green-400">{t('payment.statusPaid')}</span>
       ) : o.status === 'payment_pending' || o.status === 'sourcing_pending' ? (
-        <span className="text-amber-600 dark:text-amber-400">{allTerminal ? t('payment.statusPaid') : (t('payment.statusProcessing') || 'Feldolgozás…')}</span>
+        <span className="text-amber-600 dark:text-amber-400">{allTerminal ? t('payment.statusPaid') : (t('payment.statusProcessing'))}</span>
       ) : (
         <span className="text-muted">{o.status}</span>
       )
@@ -354,22 +356,22 @@ export default function PaymentSuccessPage() {
           {stockOrder && (
             <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
               <h2 className="font-heading text-lg font-semibold text-foreground mb-2">
-                {t('checkout.orderTypeStock') || 'Raktári rendelés'}
+                {t('checkout.orderTypeStock')}
               </h2>
               <p className="font-mono text-sm text-foreground font-medium">{stockOrder.id}</p>
               <p className="text-sm text-muted mt-1">
-                {stockOrder.totalHuf.toLocaleString('hu-HU')} Ft – {renderOrderStatus(stockOrder)}
+                {money(stockOrder.totalHuf)} – {renderOrderStatus(stockOrder)}
               </p>
             </div>
           )}
           {sourcingOrder && (
             <div className="p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
               <h2 className="font-heading text-lg font-semibold text-foreground mb-2">
-                {t('checkout.orderTypeSourcing') || 'Beszerzéses rendelés'}
+                {t('checkout.orderTypeSourcing')}
               </h2>
               <p className="font-mono text-sm text-foreground font-medium">{sourcingOrder.id}</p>
               <p className="text-sm text-muted mt-1">
-                {sourcingOrder.totalHuf.toLocaleString('hu-HU')} Ft – {renderOrderStatus(sourcingOrder)}
+                {money(sourcingOrder.totalHuf)} – {renderOrderStatus(sourcingOrder)}
               </p>
             </div>
           )}
@@ -487,7 +489,7 @@ export default function PaymentSuccessPage() {
         </h2>
         <p className="font-mono text-foreground font-medium">{order.id}</p>
         <p className="text-sm text-muted mt-2">
-          {t('payment.totalPaid')}: {order.totalHuf.toLocaleString('hu-HU')} Ft
+          {t('payment.totalPaid')}: {money(order.totalHuf)}
           {order.status === 'paid' && (
             <span className="ml-2 text-green-600 dark:text-green-400">
               ({t('payment.statusPaid')})

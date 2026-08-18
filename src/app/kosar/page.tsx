@@ -220,7 +220,7 @@ export default function CartPage() {
       <h1 className="font-heading text-2xl font-bold text-foreground mb-6">{t('cart.title')}</h1>
 
       {!productsLoaded && items.length > 0 && (
-        <p className="text-muted text-sm mb-4">Betöltés…</p>
+        <p className="text-muted text-sm mb-4">{t('common.loading')}</p>
       )}
 
       {promoItems.length > 0 && (
@@ -293,7 +293,7 @@ export default function CartPage() {
                     </p>
                     {item.options?.colorName && (
                       <p className="text-foreground text-sm mt-0.5">
-                        <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>
+                        <span>{t('product.color')}: {item.options.colorName}</span>
                       </p>
                     )}
                     <p className="text-foreground text-sm font-medium mt-1">{t('cart.availableUpTo', { count: maxAllowedInCart })}</p>
@@ -357,7 +357,7 @@ export default function CartPage() {
                     </p>
                     {item.options?.colorName && (
                       <p className="text-foreground text-sm mt-0.5">
-                        <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>
+                        <span>{t('product.color')}: {item.options.colorName}</span>
                       </p>
                     )}
                     <p className="text-foreground text-sm font-medium mt-1">{t('cart.availableUpTo', { count: maxAllowedInCart })}</p>
@@ -420,7 +420,7 @@ export default function CartPage() {
                     </p>
                     {item.options?.colorName && (
                       <p className="text-foreground text-sm mt-0.5">
-                        <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>
+                        <span>{t('product.color')}: {item.options.colorName}</span>
                       </p>
                     )}
                     <p className="text-foreground text-sm font-medium mt-1">{t('cart.availableUpTo', { count: maxAllowedInCart })}</p>
@@ -463,7 +463,7 @@ export default function CartPage() {
             {reached ? (
               <p className="text-foreground font-medium flex items-center gap-2">
                 <span className="text-green-600 dark:text-green-400">✓</span>
-                {t('cart.freeShippingReached') || 'Ingyenes szállítás elérve'}
+                {t('cart.freeShippingReached')}
               </p>
             ) : (
               <p className="text-muted text-sm">
@@ -497,7 +497,7 @@ export default function CartPage() {
         </span>
         <span className="flex items-center gap-1">
           <LockIcon className="w-5 h-5" />
-          {t('payment.securePayment') || 'Biztonságos fizetés'}
+          {t('payment.securePayment')}
         </span>
       </div>
 
@@ -625,7 +625,7 @@ function CartLineRow({
         </p>
         {item.options?.colorName && (
           <p className="text-foreground text-sm mt-0.5">
-            <span>{t('product.color') || 'Szín'}: {item.options.colorName}</span>
+            <span>{t('product.color')}: {item.options.colorName}</span>
           </p>
         )}
         <p className="text-foreground text-sm font-medium mt-1">{t('cart.availableUpTo', { count: maxAllowedInCart })}</p>

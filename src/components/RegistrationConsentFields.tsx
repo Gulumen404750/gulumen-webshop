@@ -42,7 +42,7 @@ export function RegistrationConsentFields({
           required
         />
         <label id={`${privacyId}-desc`} htmlFor={privacyId} className="text-sm text-foreground cursor-pointer">
-          <span className="font-medium text-foreground">{t('register.requiredLabel') || 'Kötelező'}: </span>
+          <span className="font-medium text-foreground">{t('register.requiredLabel')}: </span>
           {t('register.checkboxPrivacy')}{' '}
           <Link
             href="/aszf"
@@ -78,7 +78,7 @@ export function RegistrationConsentFields({
             aria-describedby={`${offersId}-desc`}
           />
           <label id={`${offersId}-desc`} htmlFor={offersId} className="text-sm text-foreground cursor-pointer">
-            <span className="font-medium text-muted">{t('register.optionalLabel') || 'Opcionális'}: </span>
+            <span className="font-medium text-muted">{t('register.optionalLabel')}: </span>
             {t('register.checkboxOffers', { percent })}
           </label>
         </div>

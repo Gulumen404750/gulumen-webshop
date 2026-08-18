@@ -6,6 +6,8 @@
 
 import type { Product } from '@/lib/data'
 import { getProductName } from '@/lib/data'
+import { DEFAULT_LOCALE, isValidLocale } from '@/i18n/locales'
+import { getTranslations, t } from '@/i18n/translations'
 import {
   getBaseColorVariant,
   getGalleryImagesForColor,
@@ -136,7 +138,7 @@ export function resolveCartLine(
     name = snapshotName(item, locale)
   }
   if (!name || looksLikeCuidOrId(name)) {
-    name = snapshotName(item, locale) || 'Termék'
+    name = snapshotName(item, locale) || t(getTranslations(isValidLocale(locale) ? locale : DEFAULT_LOCALE), 'cart.productFallback')
   }
 
   let priceHuf = 0

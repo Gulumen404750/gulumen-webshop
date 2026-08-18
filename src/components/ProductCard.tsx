@@ -14,8 +14,8 @@ import { getSaleDiscountPercent } from '@/lib/storefront-config'
 import { useSaleActive } from '@/hooks/useSaleActive'
 import { useProductLikeToggle, likeFetchOpts } from '@/hooks/useProductLikeToggle'
 import { useLocale } from '@/context/LocaleContext'
-import { useEuroRate } from '@/context/EuroRateContext'
 import { useAuth } from '@/context/AuthContext'
+import { StorefrontPrice } from '@/components/StorefrontPrice'
 import { useToast } from '@/context/ToastContext'
 import { useWishlist } from '@/context/WishlistContext'
 import { Lock } from 'lucide-react'
@@ -87,7 +87,6 @@ export function ProductCard({
   priority?: boolean
 }) {
   const { t, locale } = useLocale()
-  const { hufToEur, formatEur } = useEuroRate()
   const { userId } = useAuth()
   const { toast } = useToast()
   const { isInWishlist, applyOptimisticToggle } = useWishlist()
@@ -107,7 +106,7 @@ export function ProductCard({
     availableStock < 10
 
   const onUnauthorized = useCallback(() => {
-    toast(t('wishlist.loginRequired') || 'Jelentkezz be a kedveléshez.')
+    toast(t('wishlist.loginRequired'))
   }, [toast, t])
 
   const { toggle, isToggling, shouldIgnoreExternalCount } = useProductLikeToggle({
@@ -159,7 +158,6 @@ export function ProductCard({
 
   const saleActive = useSaleActive(product)
   const priceHuf = saleActive && product.discountPriceHuf ? product.discountPriceHuf : product.priceHuf
-  const priceEur = hufToEur(priceHuf)
   const hasDiscount = saleActive && !!product.discountPriceHuf
   const salePercent = saleActive ? getSaleDiscountPercent(product) : null
   const imageSrc = cdnCardUrl(product.image || getGalleryImagesForColor(product)[0] || '')
@@ -192,12 +190,12 @@ export function ProductCard({
               disabled={isToggling}
               aria-busy={isToggling}
               className={`relative flex items-center gap-1 px-2 py-1.5 rounded-full bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 transition-shadow duration-200 disabled:opacity-80 ${likePulse ? 'product-like-pulse' : ''} ${showLikes ? likesGlow : ''}`}
-              aria-label={isFavorite ? (t('wishlist.remove') || 'Eltávolítás a kedvencekből') : (t('wishlist.add') || 'Kedvencekhez')}
+              aria-label={isFavorite ? (t('wishlist.remove')) : (t('wishlist.add'))}
               title={
                 pointLimitReached && userId && !isFavorite
                   ? t('gamification.likeLimitReached')
                   : showLikes
-                    ? (t('product.likesCount', { count: likesCount }) || '')
+                    ? (t('product.likesCount', { count: likesCount }))
                     : undefined
               }
             >
@@ -213,12 +211,12 @@ export function ProductCard({
           {product.type === 'sourcing_deal' && <SourcingDealBadge product={product} t={t} serverNow={serverNow} />}
           {is3DProduct(product) && (
             <span className="absolute top-3 left-3 px-2 py-1 text-xs font-medium bg-indigo-600/90 text-white rounded shadow-sm">
-              🖨 {t('product.badge3D') || '3D Nyomtatott'}
+              🖨 {t('product.badge3D')}
             </span>
           )}
           {showFomoBadge && (
             <span className="absolute bottom-3 left-3 px-2 py-1 text-xs font-medium bg-orange-500/90 text-white rounded shadow-sm">
-              🔥 {t('product.popular') || 'Népszerű termék'}
+              🔥 {t('product.popular')}
             </span>
           )}
           {saleActive && product.type !== 'sourcing_deal' && (
@@ -251,15 +249,13 @@ export function ProductCard({
           <div className="mt-2 flex items-baseline gap-2 flex-wrap">
             {hasDiscount && (
               <span className="text-sm text-muted line-through">
-                {product.priceHuf.toLocaleString('hu-HU')} Ft
+                <StorefrontPrice huf={product.priceHuf} className="text-sm text-muted" hintClassName="hidden" showEuroHintOnHu={false} />
               </span>
             )}
-            <span className={hasDiscount ? 'text-discount font-semibold' : 'text-foreground font-semibold'}>
-              {priceHuf.toLocaleString('hu-HU')} Ft
-            </span>
-            <span className="text-sm text-muted">
-              (€{formatEur(priceEur)})
-            </span>
+            <StorefrontPrice
+              huf={priceHuf}
+              className={hasDiscount ? 'text-discount font-semibold' : 'text-foreground font-semibold'}
+            />
           </div>
           <p className="mt-1 text-sm text-muted">{t(`condition.${product.condition}`)}</p>
           {product.type === 'sourcing_deal' && !sourcingListMode ? (

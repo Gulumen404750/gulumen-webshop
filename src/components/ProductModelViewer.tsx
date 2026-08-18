@@ -188,8 +188,8 @@ export function ProductModelViewer({ src, alt, className = '', selectedColorHex,
             type="button"
             onClick={() => setFullscreenOpen(true)}
             className="absolute top-2 right-2 z-10 flex w-10 h-10 rounded-lg border border-[var(--border)] bg-[var(--card-bg)]/90 text-foreground items-center justify-center hover:bg-[var(--border)] transition-colors shadow-sm"
-            aria-label={t('product.fullscreen3D') || 'Nagyítás / Teljes képernyő'}
-            title={t('product.fullscreen3D') || 'Nagyítás'}
+            aria-label={t('product.fullscreen3D')}
+            title={t('product.fullscreen3D')}
           >
             <ExpandIcon className="w-5 h-5" />
           </button>
@@ -222,7 +222,7 @@ export function ProductModelViewer({ src, alt, className = '', selectedColorHex,
         {renderViewerArea(false)}
         {!ready && (
           <div className="absolute inset-0 flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--card-bg)] text-muted">
-            {t('product.loadingModel') || '3D modell betöltése…'}
+            {t('product.loadingModel')}
           </div>
         )}
         {ready && showSlowLoadingHint && (
@@ -253,7 +253,7 @@ export function ProductModelViewer({ src, alt, className = '', selectedColorHex,
           className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4"
           role="dialog"
           aria-modal="true"
-          aria-label={t('product.fullscreen3D') || '3D megtekintés – teljes képernyő'}
+          aria-label={t('product.fullscreen3D')}
         >
           <div className="w-full max-w-4xl h-[80vh] min-h-[320px] rounded-xl overflow-hidden border border-[var(--border)] bg-[var(--card-bg)] flex flex-col">
             <div className="flex justify-end p-2 border-b border-[var(--border)]">
@@ -261,7 +261,7 @@ export function ProductModelViewer({ src, alt, className = '', selectedColorHex,
                 type="button"
                 onClick={() => setFullscreenOpen(false)}
                 className="p-2 rounded-lg text-foreground hover:bg-[var(--border)] transition-colors"
-                aria-label={t('buttons.close') || 'Bezárás'}
+                aria-label={t('buttons.close')}
               >
                 <CloseIcon className="w-6 h-6" />
               </button>
@@ -281,7 +281,7 @@ export function ProductModelViewer({ src, alt, className = '', selectedColorHex,
             onClick={() => setFullscreenOpen(false)}
             className="mt-4 px-6 py-2 rounded-lg bg-[var(--card-bg)] text-foreground border border-[var(--border)] hover:bg-[var(--border)]"
           >
-            {t('buttons.close') || 'Bezárás'}
+            {t('buttons.close')}
           </button>
         </div>
       )}

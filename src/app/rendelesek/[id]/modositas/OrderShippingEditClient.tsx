@@ -6,7 +6,21 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { Flame, Loader2 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useLocale } from '@/context/LocaleContext'
+import { useDisplayMoney } from '@/hooks/useDisplayMoney'
 import { CustomerOrderShippingEdit } from '@/components/CustomerOrderShippingEdit'
+
+function shippingLockLabel(reason: string | null, t: (key: string) => string): string {
+  if (reason === 'order_closed') return t('orders.editLockedClosed')
+  if (reason === 'already_printed') return t('orders.editLockedPrinted')
+  if (reason === 'status_locked') return t('orders.editLockedStatus')
+  return t('orders.editPageLocked')
+}
+
+function orderStatusLabel(status: string, t: (key: string) => string): string {
+  const key = `orders.status.${status}`
+  const translated = t(key)
+  return translated === key ? status : translated
+}
 
 type OrderDetail = {
   id: string
@@ -32,6 +46,7 @@ export default function OrderShippingEditClient() {
   const orderId = typeof params.id === 'string' ? params.id : ''
   const token = useMemo(() => searchParams.get('t')?.trim() || '', [searchParams])
   const { t } = useLocale()
+  const { money } = useDisplayMoney()
   const { isLoggedIn, authChecked } = useAuth()
   const router = useRouter()
   const [order, setOrder] = useState<OrderDetail | null>(null)
@@ -57,9 +72,7 @@ export default function OrderShippingEditClient() {
         .then(async (res) => {
           const data = await res.json().catch(() => ({}))
           if (!res.ok) {
-            throw new Error(
-              typeof data.error === 'string' ? data.error : t('orders.editPageLoadError')
-            )
+            throw new Error(t('orders.editPageLoadError'))
           }
           if (!cancelled) setOrder(data.order as OrderDetail)
         })
@@ -90,9 +103,7 @@ export default function OrderShippingEditClient() {
       .then(async (res) => {
         const data = await res.json().catch(() => ({}))
         if (!res.ok) {
-          throw new Error(
-            typeof data.error === 'string' ? data.error : t('orders.editPageLoadError')
-          )
+          throw new Error(t('orders.editPageLoadError'))
         }
         if (!cancelled) setOrder(data.order as OrderDetail)
       })
@@ -147,7 +158,7 @@ export default function OrderShippingEditClient() {
           <div>
             <p className="font-mono text-sm text-foreground">{order.id}</p>
             <p className="mt-1 text-sm text-muted">
-              {order.totalHuf.toLocaleString('hu-HU')} Ft · {order.status}
+              {money(order.totalHuf)} · {orderStatusLabel(order.status, t)}
             </p>
             {order.addressChanged && (
               <p className="mt-2 inline-flex items-center gap-1 text-sm text-amber-700 dark:text-amber-300">
@@ -159,7 +170,7 @@ export default function OrderShippingEditClient() {
 
           {!order.canEditShipping ? (
             <div className="rounded-lg border border-[var(--border)] bg-background px-3 py-3 text-sm text-muted">
-              {order.canEditReason || t('orders.editPageLocked')}
+              {shippingLockLabel(order.canEditReason, t)}
             </div>
           ) : (
             <CustomerOrderShippingEdit
@@ -190,6 +201,8 @@ export default function OrderShippingEditClient() {
                 cancel: t('orders.editCancel'),
                 success: t('orders.editSuccess'),
                 open: t('orders.editShippingOpen'),
+                saveFailed: t('orders.editSaveFailed'),
+                networkError: t('orders.editNetworkError'),
               }}
               onSaved={(next) => {
                 setSaved(true)

@@ -30,7 +30,7 @@ export function RecentlyViewed() {
   return (
     <section className="py-16 border-t border-[var(--border)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h2 className="font-heading text-2xl font-bold text-foreground mb-8">{t('product.recentlyViewed') || 'Utoljára megtekintett termékek'}</h2>
+        <h2 className="font-heading text-2xl font-bold text-foreground mb-8">{t('product.recentlyViewed')}</h2>
         <div className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {products.map((p, i) => (
             <ProductStaggerItem key={p.id} index={i}>

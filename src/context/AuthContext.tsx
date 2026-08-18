@@ -78,9 +78,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { ok: true }
     }
     if (res.status === 429 && data.locked) {
-      return { ok: false, error: 'Túl sok hibás belépés. A fiók ideiglenesen zárolva van.' }
+      return { ok: false, error: 'account_locked' }
     }
-    return { ok: false, error: data.error || 'Login failed' }
+    return { ok: false, error: 'login_failed' }
   }, [])
 
   const register = useCallback(async (
@@ -111,15 +111,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { ok: true, email: normalized }
     }
     if (res.status === 409) {
-      return {
-        ok: false,
-        error:
-          typeof data.error === 'string' && data.error
-            ? data.error
-            : 'An account with this email already exists. Please log in.',
-      }
+      return { ok: false, error: 'email_taken' }
     }
-    return { ok: false, error: data.error || 'Registration failed' }
+    return { ok: false, error: 'register_failed' }
   }, [])
 
   const loginWithGoogle = useCallback(async (options?: GoogleAuthOptions) => {

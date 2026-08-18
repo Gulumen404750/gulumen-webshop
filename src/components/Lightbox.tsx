@@ -118,14 +118,14 @@ export function Lightbox({ images, productName, currentIndex, onClose, onIndexCh
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4"
       role="dialog"
       aria-modal="true"
-      aria-label={t('product.gallery') || 'Képgaléria'}
+      aria-label={t('product.gallery')}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <button
         type="button"
         onClick={onClose}
         className="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
-        aria-label={t('buttons.close') || 'Bezárás'}
+        aria-label={t('buttons.close')}
       >
         <CloseIcon className="w-6 h-6" />
       </button>
@@ -137,7 +137,7 @@ export function Lightbox({ images, productName, currentIndex, onClose, onIndexCh
           onClick={zoomOut}
           disabled={scale <= MIN_SCALE}
           className="p-2 rounded-full text-white hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          aria-label={t('product.zoomOut') || 'Kicsinyítés'}
+          aria-label={t('product.zoomOut')}
         >
           <ZoomOutIcon className="w-5 h-5" />
         </button>
@@ -145,8 +145,8 @@ export function Lightbox({ images, productName, currentIndex, onClose, onIndexCh
           type="button"
           onClick={resetZoom}
           className="px-2 py-1 text-white text-sm font-medium min-w-[3rem] hover:bg-white/20 rounded transition-colors"
-          aria-label={t('product.zoomReset') || 'Eredeti méret'}
-          title={t('product.zoomReset') || 'Eredeti méret'}
+          aria-label={t('product.zoomReset')}
+          title={t('product.zoomReset')}
         >
           {Math.round(scale * 100)}%
         </button>
@@ -155,7 +155,7 @@ export function Lightbox({ images, productName, currentIndex, onClose, onIndexCh
           onClick={zoomIn}
           disabled={scale >= MAX_SCALE}
           className="p-2 rounded-full text-white hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          aria-label={t('product.zoomIn') || 'Nagyítás'}
+          aria-label={t('product.zoomIn')}
         >
           <ZoomInIcon className="w-5 h-5" />
         </button>
@@ -167,7 +167,7 @@ export function Lightbox({ images, productName, currentIndex, onClose, onIndexCh
             type="button"
             onClick={(e) => { e.stopPropagation(); goPrev() }}
             className="absolute left-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
-            aria-label={t('product.prevImage') || 'Előző'}
+            aria-label={t('product.prevImage')}
           >
             <ChevronLeft className="w-6 h-6" />
           </button>
@@ -175,7 +175,7 @@ export function Lightbox({ images, productName, currentIndex, onClose, onIndexCh
             type="button"
             onClick={(e) => { e.stopPropagation(); goNext() }}
             className="absolute right-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
-            aria-label={t('product.nextImage') || 'Következő'}
+            aria-label={t('product.nextImage')}
           >
             <ChevronRight className="w-6 h-6" />
           </button>

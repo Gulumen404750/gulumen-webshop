@@ -49,8 +49,8 @@ import { useLocale } from '@/context/LocaleContext'
 import { useCart } from '@/context/CartContext'
 import { useAuth } from '@/context/AuthContext'
 import { useWishlist } from '@/context/WishlistContext'
-import { useEuroRate } from '@/context/EuroRateContext'
 import { useToast } from '@/context/ToastContext'
+import { StorefrontPrice } from '@/components/StorefrontPrice'
 import { trackAddToCart } from '@/lib/analytics'
 import { SaleCountdown } from '@/components/SaleCountdown'
 import { useSaleActive } from '@/hooks/useSaleActive'
@@ -107,7 +107,6 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
   const isFavorite = isInWishlist(product.id)
   const [likesCount, setLikesCount] = useState(() => Math.max(0, product.likesCount ?? 0))
   const [pointLimitReached, setPointLimitReached] = useState(false)
-  const { hufToEur, formatEur } = useEuroRate()
   useRecentlyViewed(product.id, product.slug)
   useProductViewCount(product.id)
   const productName = getProductName(product, locale)
@@ -153,7 +152,6 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
 
   const saleActive = useSaleActive(product)
   const priceHuf = saleActive && product.discountPriceHuf ? product.discountPriceHuf : product.priceHuf
-  const priceEur = hufToEur(priceHuf)
   const hasDiscount = saleActive && !!product.discountPriceHuf
 
   /** Színválasztó csak több színvariációnál; egyszínű / „Nincs szín” terméknél rejtve. */
@@ -231,15 +229,15 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
         : undefined
     addItem(product.id, safeAddQty, options, product)
     trackAddToCart(product.id, priceHuf * safeAddQty)
-    toast(t('cart.toastAdded') || 'Termék a kosárban', {
-      action: { label: t('buttons.openCart') || 'Kosár megnyitása', href: '/kosar' },
+    toast(t('cart.toastAdded'), {
+      action: { label: t('buttons.openCart'), href: '/kosar' },
     })
   }
 
   const showLikes = showLikesForProduct(product.type)
 
   const onUnauthorizedLike = useCallback(() => {
-    toast(t('wishlist.loginRequired') || 'Jelentkezz be a kedveléshez.')
+    toast(t('wishlist.loginRequired'))
   }, [toast, t])
 
   const { toggle: toggleLike, isToggling: isLikeToggling, shouldIgnoreExternalCount } =
@@ -306,16 +304,16 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                   />
                 </div>
                 <p className="text-center text-sm text-muted">
-                  {t('product.view360Hint') || 'Húzd balra-jobbra a forgatáshoz · csipeteld a nagyításhoz'}
+                  {t('product.view360Hint')}
                 </p>
                 {showColorPicker && (
                   <div className="rounded-xl border border-accent/40 bg-accent/5 p-3 lg:hidden">
                     <p className="text-sm font-medium text-foreground mb-2">
-                      {t('product.color') || 'Szín'} * — {t('product.tapColorToTint') || 'Koppints egy színre a tok színezéséhez'}
+                      {t('product.color')} * — {t('product.tapColorToTint')}
                     </p>
                     <div
                       role="radiogroup"
-                      aria-label={t('product.color') || 'Szín'}
+                      aria-label={t('product.color')}
                       className="flex flex-wrap gap-2"
                     >
                       {availableColors.map((color) => {
@@ -344,7 +342,7 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                             <span>{colorName}</span>
                             {color.isBase && (
                               <span className="text-[10px] uppercase tracking-wide font-semibold text-accent">
-                                {t('product.baseVariant') || 'Alap'}
+                                {t('product.baseVariant')}
                               </span>
                             )}
                           </button>
@@ -358,7 +356,7 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                   onClick={() => setShow3DViewer(false)}
                   className="w-full text-sm text-accent hover:underline"
                 >
-                  ← {t('product.backToImage') || 'Vissza a képhez'}
+                  ← {t('product.backToImage')}
                 </button>
               </div>
             ) : (
@@ -368,7 +366,7 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => e.key === 'Enter' && setLightboxOpen(true)}
-                aria-label={t('product.openGallery') || 'Kép nagyítása / Galéria'}
+                aria-label={t('product.openGallery')}
               >
                 <SafeProductImage
                   src={cdnGalleryMainUrl(mainImage)}
@@ -387,19 +385,19 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                 type="button"
                 onClick={() => setShow3DViewer(true)}
                 className="w-full rounded-lg border-2 border-[var(--border)] bg-[var(--card-bg)] py-2.5 text-sm font-medium text-foreground hover:border-accent/50 hover:bg-[var(--border)] transition-colors"
-                aria-label={t('product.view3D') || '3D megtekintés'}
+                aria-label={t('product.view3D')}
               >
-                {t('product.view3D') || '🔄 Forgasd körbe (3D megtekintés)'}
+                {t('product.view3D')}
               </button>
             )}
             {showColorPicker && !show3DViewer && (
               <div className="rounded-xl border border-accent/40 bg-accent/5 p-3 lg:hidden">
                 <p className="text-sm font-medium text-foreground mb-2">
-                  {t('product.color') || 'Szín'} *
+                  {t('product.color')} *
                 </p>
                 <div
                   role="radiogroup"
-                  aria-label={t('product.color') || 'Szín'}
+                  aria-label={t('product.color')}
                   className="flex flex-wrap gap-2"
                 >
                   {availableColors.map((color) => {
@@ -428,7 +426,7 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                         <span>{colorName}</span>
                         {color.isBase && (
                           <span className="text-[10px] uppercase tracking-wide font-semibold text-accent">
-                            {t('product.baseVariant') || 'Alap'}
+                            {t('product.baseVariant')}
                           </span>
                         )}
                       </button>
@@ -436,7 +434,7 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                   })}
                 </div>
                 <p className="mt-2 text-xs text-muted">
-                  {t('product.tapColorToTint') || 'Koppints egy színre. A 3D nézetben a tok ezzel a színnel jelenik meg.'}
+                  {t('product.tapColorToTint')}
                 </p>
               </div>
             )}
@@ -471,10 +469,10 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                   type="button"
                   onClick={() => setView360Open(true)}
                   className="w-20 h-20 shrink-0 rounded-lg border-2 border-[var(--border)] bg-[var(--card-bg)] hover:border-accent/50 flex flex-col items-center justify-center gap-0.5 text-xs font-medium text-foreground"
-                  aria-label={t('product.view360') || '360° megtekintés'}
+                  aria-label={t('product.view360')}
                 >
                   <span className="text-lg leading-none">360°</span>
-                  <span>{t('product.view360') || '360°'}</span>
+                  <span>{t('product.view360')}</span>
                 </button>
               )}
               {has3DModel && !show3DViewer && (
@@ -482,10 +480,10 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                   type="button"
                   onClick={() => setShow3DViewer(true)}
                   className="w-20 h-20 shrink-0 rounded-lg border-2 border-[var(--border)] bg-[var(--card-bg)] hover:border-accent/50 flex flex-col items-center justify-center gap-0.5 text-xs font-medium text-foreground"
-                  aria-label={t('product.view3D') || '3D megtekintés'}
+                  aria-label={t('product.view3D')}
                 >
                   <span className="text-lg leading-none">3D</span>
-                  <span>{t('product.view3D') || '3D'}</span>
+                  <span>{t('product.view3D')}</span>
                 </button>
               )}
             </div>
@@ -523,9 +521,9 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
               disabled={isLikeToggling}
               aria-busy={isLikeToggling}
               className="text-sm font-medium text-accent hover:underline disabled:opacity-70"
-              aria-label={isFavorite ? (t('wishlist.remove') || 'Eltávolítás a kedvencekből') : (t('wishlist.add') || 'Kedvencekhez')}
+              aria-label={isFavorite ? (t('wishlist.remove')) : (t('wishlist.add'))}
             >
-              {isFavorite ? (t('wishlist.remove') || 'Eltávolítás a kedvencekből') : (t('wishlist.add') || 'Kedvencekhez')}
+              {isFavorite ? (t('wishlist.remove')) : (t('wishlist.add'))}
             </button>
             {pointLimitReached && userId && !isFavorite && (
               <p className="text-xs text-muted w-full">{t('gamification.likeLimitReached')}</p>
@@ -534,13 +532,14 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
           <div className="mt-4 flex items-baseline gap-3 flex-wrap">
             {hasDiscount && (
               <span className="text-lg text-muted line-through">
-                {product.priceHuf.toLocaleString('hu-HU')} Ft
+                <StorefrontPrice huf={product.priceHuf} className="text-lg text-muted" showEuroHintOnHu={false} />
               </span>
             )}
-            <span className={`text-2xl ${hasDiscount ? 'text-discount font-bold' : 'text-foreground font-bold'}`}>
-              {priceHuf.toLocaleString('hu-HU')} Ft
-            </span>
-            <span className="text-muted">(€{formatEur(priceEur)})</span>
+            <StorefrontPrice
+              huf={priceHuf}
+              className={`text-2xl ${hasDiscount ? 'text-discount font-bold' : 'text-foreground font-bold'}`}
+              hintClassName="text-muted text-base font-normal"
+            />
             {saleActive && product.type !== 'sourcing_deal' && (
               <SaleCountdown product={product} variant="inline" />
             )}
@@ -563,7 +562,7 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
               {showColorPicker && (
                 <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-3">
                   <p id="product-color-label" className="text-sm font-medium text-foreground mb-2">
-                    {t('product.color') || 'Szín'} *
+                    {t('product.color')} *
                   </p>
                   <div
                     role="radiogroup"
@@ -596,7 +595,7 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                           <span>{colorName}</span>
                           {color.isBase && (
                             <span className="text-[10px] uppercase tracking-wide font-semibold text-accent">
-                              {t('product.baseVariant') || 'Alap'}
+                              {t('product.baseVariant')}
                             </span>
                           )}
                         </button>
@@ -605,10 +604,8 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                   </div>
                   <p className="mt-2 text-xs text-muted">
                     {usesColorGalleries
-                      ? t('product.selectColorHintWithPhotos') ||
-                        'A kiválasztott színhez tartozó termékfotók jelennek meg; a kosárba is ez a szín kerül.'
-                      : t('product.selectColorHint') ||
-                        'A kosárba a kiválasztott szín kerül; a termékfotó csak illusztráció.'}
+                      ? t('product.selectColorHintWithPhotos')
+                      : t('product.selectColorHint')}
                   </p>
                   <button
                     type="button"
@@ -625,7 +622,7 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
               <p className="mt-2 text-sm text-foreground">
                 <strong>{t('product.inStock')}</strong>
                 {unlimitedStock || has3DModel
-                  ? ` – ${t('product.inStockUnlimited') || 'rendelhető'}`
+                  ? ` – ${t('product.inStockUnlimited')}`
                   : stockFromSource > 0
                     ? ` – ${t('product.inStockCount', { count: stockFromSource })}`
                     : ''}
@@ -642,7 +639,7 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
                 <div className="mt-6 flex flex-wrap items-center gap-3">
                   {showColorPicker && !selectedColor && (
                     <p className="text-sm text-amber-600 dark:text-amber-400 font-medium w-full">
-                      {t('product.selectColorToAdd') || 'Válaszd ki a színt a kosárba tétel előtt.'}
+                      {t('product.selectColorToAdd')}
                     </p>
                   )}
                   {maxAddable > 0 && canAddToCart && (
@@ -706,7 +703,7 @@ export function ProductPageContent({ product, slug, serverNow, similarProducts }
 
       {similarProducts.length > 0 && (
         <section className="mt-16 pt-12 border-t border-[var(--border)]">
-          <h2 className="font-heading text-xl font-bold text-foreground mb-6">{t('product.similarProducts') || 'Hasonló termékek'}</h2>
+          <h2 className="font-heading text-xl font-bold text-foreground mb-6">{t('product.similarProducts')}</h2>
           <div className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {similarProducts.map((p, i) => (
               <ProductStaggerItem key={p.id} index={i}>

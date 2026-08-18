@@ -8,6 +8,8 @@ import {
 import { getServerLocale } from '@/lib/locale-server'
 import { getConditionLabel } from '@/lib/condition-label'
 import { BASE_URL, OG_LOCALE, buildLanguageAlternates, getSiteCopy } from '@/lib/site-metadata'
+import { formatMoneyFromHuf } from '@/lib/display-money'
+import { FALLBACK_HUF_PER_EUR } from '@/lib/euro-rate'
 
 const SITE_NAME = 'Gulumen'
 
@@ -27,10 +29,14 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const categoryName = cat ? getCategoryName(cat, locale) : product.category
   const conditionLabel = getConditionLabel(product.condition, locale)
   const descText = getProductDescription(product, locale) || ''
-  const numberLocale = locale === 'hu' ? 'hu-HU' : locale === 'de' ? 'de-DE' : locale === 'ro' ? 'ro-RO' : 'en-GB'
+  const priceLabel = formatMoneyFromHuf(
+    product.discountPriceHuf ?? product.priceHuf,
+    locale,
+    FALLBACK_HUF_PER_EUR
+  )
   const description =
     descText.slice(0, 155) ||
-    `${productName}. ${categoryName}. ${conditionLabel}. ${(product.discountPriceHuf ?? product.priceHuf).toLocaleString(numberLocale)} Ft.`
+    `${productName}. ${categoryName}. ${conditionLabel}. ${priceLabel}.`
   const path = `/termek/${encodeURIComponent(product.slug)}`
   const canonical = `${BASE_URL}${path}`
   const ogImageUrl = getProductOgImageUrl(product.slug)

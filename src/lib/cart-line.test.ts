@@ -83,4 +83,11 @@ describe('cart-line snapshot', () => {
     const line = resolveCartLine(item, undefined, 'hu')
     expect(line.image).toBe(PLACEHOLDER_IMAGE)
   })
+
+  it('uses a localized product label when the name is missing', () => {
+    const item: CartItem = { productId: 'cmskymdcz0000ph3itkhmb5tg', qty: 1 }
+    expect(resolveCartLine(item, undefined, 'en').name).toBe('Product')
+    expect(resolveCartLine(item, undefined, 'hu').name).toBe('Termék')
+    expect(resolveCartLine(item, undefined, 'de').name).toBe('Produkt')
+  })
 })

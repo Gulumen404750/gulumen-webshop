@@ -263,7 +263,11 @@ export default function ProfilePage() {
       const next =
         nextRaw && nextRaw.startsWith('/') && !nextRaw.startsWith('//') ? nextRaw : '/'
       router.push(next)
-    } else setLoginError(result.error ?? t('profile.loginFailed'))
+    } else if (result.error === 'account_locked') {
+      setLoginError(t('profile.authErrorAccountLocked'))
+    } else {
+      setLoginError(t('profile.loginFailed'))
+    }
   }
 
   /** Meglévő fiók: azonnali Google belépés, hozzájárulás / kupon nélkül. */
@@ -311,7 +315,7 @@ export default function ProfilePage() {
             href="/profil/rendelesek"
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] text-foreground font-medium hover:border-accent/50 transition-colors"
           >
-            {t('orders.title') || 'Rendeléseim'}
+            {t('orders.title')}
           </Link>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 mb-6">
@@ -361,7 +365,7 @@ export default function ProfilePage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-foreground"
-            placeholder="email@pelda.hu"
+            placeholder={t('common.emailPlaceholder')}
             required
             autoComplete="email"
           />
@@ -395,11 +399,11 @@ export default function ProfilePage() {
             <span className="w-full border-t border-[var(--border)]" />
           </span>
           <span className="relative flex justify-center text-xs uppercase text-muted">
-            {t('profile.or') || 'vagy'}
+            {t('profile.or')}
           </span>
         </div>
         <GoogleSignInButton
-          label={t('profile.loginWithGoogle') || 'Bejelentkezés Google-lel'}
+          label={t('profile.loginWithGoogle')}
           onClick={handleGoogleLogin}
         />
       </form>

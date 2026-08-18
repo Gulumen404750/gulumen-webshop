@@ -35,6 +35,8 @@ type Props = {
     cancel: string
     success: string
     open: string
+    saveFailed: string
+    networkError: string
   }
   onSaved: (next: {
     customerName: string | null
@@ -90,7 +92,7 @@ export function CustomerOrderShippingEdit({
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setError(typeof data.error === 'string' ? data.error : 'Mentés sikertelen')
+        setError(labels.saveFailed)
         return
       }
       setOk(true)
@@ -109,7 +111,7 @@ export function CustomerOrderShippingEdit({
       })
       if (mode === 'inline') setOpen(false)
     } catch {
-      setError('Hálózati hiba')
+      setError(labels.networkError)
     } finally {
       setPending(false)
     }

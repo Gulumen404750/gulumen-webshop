@@ -50,7 +50,7 @@ export function SearchModal({ isOpen, onClose }: Props) {
       className="fixed inset-0 z-[60] flex items-start justify-center pt-[20vh] px-4 bg-black/50"
       role="dialog"
       aria-modal="true"
-      aria-label={t('common.search') || 'Keresés'}
+      aria-label={t('common.search')}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
@@ -63,19 +63,19 @@ export function SearchModal({ isOpen, onClose }: Props) {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={t('common.searchPlaceholder') || 'Termék keresése...'}
+            placeholder={t('common.searchPlaceholder')}
             className="flex-1 px-4 py-3 rounded-lg border border-[var(--border)] bg-background text-foreground placeholder:text-muted"
             autoComplete="off"
-            aria-label={t('common.search') || 'Keresés'}
+            aria-label={t('common.search')}
           />
           <button
             type="submit"
             className="px-4 py-3 bg-accent text-white font-medium rounded-lg hover:opacity-90 transition-opacity"
           >
-            {t('common.search') || 'Keresés'}
+            {t('common.search')}
           </button>
         </form>
-        <p className="mt-2 text-xs text-muted">{t('common.searchHint') || 'A keresés a terméklistára visz.'}</p>
+        <p className="mt-2 text-xs text-muted">{t('common.searchHint')}</p>
       </div>
     </div>
   )

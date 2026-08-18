@@ -7,6 +7,7 @@ import { getProductName } from '@/lib/data'
 import { SafeProductImage } from '@/components/SafeProductImage'
 import { cdnCardUrl } from '@/lib/cdn'
 import { useLocale } from '@/context/LocaleContext'
+import { StorefrontPrice } from '@/components/StorefrontPrice'
 import { useTheme } from '@/context/ThemeContext'
 import { SaleCountdown } from '@/components/SaleCountdown'
 import { useSaleActive } from '@/hooks/useSaleActive'
@@ -167,12 +168,14 @@ function DealPopupProduct({ product, onNavigate }: { product: Product; onNavigat
         <div className="mt-1 flex items-baseline gap-2 flex-wrap">
           {hasDiscount && (
             <span className="text-xs text-muted line-through">
-              {product.priceHuf.toLocaleString('hu-HU')} Ft
+              <StorefrontPrice huf={product.priceHuf} className="text-xs text-muted" showEuroHintOnHu={false} />
             </span>
           )}
-          <span className={`font-semibold text-sm ${hasDiscount ? 'text-discount' : 'text-foreground'}`}>
-            {priceHuf.toLocaleString('hu-HU')} Ft
-          </span>
+          <StorefrontPrice
+            huf={priceHuf}
+            className={`font-semibold text-sm ${hasDiscount ? 'text-discount' : 'text-foreground'}`}
+            hintClassName="text-xs text-muted font-normal"
+          />
         </div>
       </div>
     </Link>
