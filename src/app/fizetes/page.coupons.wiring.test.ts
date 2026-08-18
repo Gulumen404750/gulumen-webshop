@@ -17,9 +17,15 @@ describe('checkout coupon picker', () => {
     expect(src).toMatch(/usePoints\s*\?\s*t\('payment.cashEarnHintPointsUsed'\)/)
   })
 
+  it('does not promise purchase earn for Klarna instalments', () => {
+    expect(src).toMatch(/cashEarnHintInstallment/)
+    expect(src).toMatch(/paymentMethod === 'klarna'/)
+  })
+
   it('shows a remainder warning when a fixed coupon cannot be used in full', () => {
     expect(src).toMatch(/couponFixedRemainderWarning/)
     expect(src).toMatch(/fixedCouponUnusedHuf/)
     expect(src).toMatch(/showFixedRemainderWarning/)
   })
+})
 

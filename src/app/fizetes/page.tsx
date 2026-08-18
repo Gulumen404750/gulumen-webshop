@@ -853,6 +853,7 @@ export default function PaymentPage() {
     items,
     couponSelection,
     couponCodeInput,
+    typedCoupon,
     pointsDiscountHuf,
     pointsUsedPreview,
     pointsPreview?.balance,

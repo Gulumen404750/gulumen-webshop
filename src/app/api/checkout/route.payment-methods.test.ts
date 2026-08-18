@@ -32,4 +32,5 @@ describe('checkout API payment methods', () => {
     expect(src).toMatch(/isFixedCouponDiscount/)
     expect(src).toMatch(/fixedIds/)
   })
+})
 
