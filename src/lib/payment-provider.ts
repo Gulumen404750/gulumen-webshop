@@ -4,6 +4,7 @@
  */
 
 import { StripeProvider } from '@/lib/stripe-provider'
+import { readEnv } from '@/lib/bootstrap-auth-env'
 import type { Locale } from '@/i18n/locales'
 import type { CheckoutPaymentMethod } from '@/lib/checkout-payment-methods'
 
@@ -115,12 +116,18 @@ export function setDefaultPaymentProvider(provider: PaymentProvider): void {
   defaultProvider = provider
 }
 
+function stripeSecretKey(): string | undefined {
+  return readEnv('STRIPE_SECRET_KEY')
+}
+
+export function isStripeConfigured(): boolean {
+  return Boolean(stripeSecretKey())
+}
+
 /** Visszaadja az alapértelmezett providert. STRIPE_SECRET_KEY esetén Stripe, különben Dummy. */
 export function getPaymentProvider(): PaymentProvider {
   if (!defaultProvider) {
-    defaultProvider = process.env.STRIPE_SECRET_KEY?.trim()
-      ? new StripeProvider()
-      : new DummyProvider()
+    defaultProvider = stripeSecretKey() ? new StripeProvider() : new DummyProvider()
   }
   return defaultProvider
 }

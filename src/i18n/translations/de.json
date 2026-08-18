@@ -237,6 +237,8 @@
     "backToCart": "Zurück zum Warenkorb",
     "redirecting": "Weiterleitung zur Zahlung…",
     "errorCreateSession": "Kasse konnte nicht gestartet werden. Bitte erneut versuchen.",
+    "errorStripeNotConfigured": "Kartenzahlung ist gerade nicht verfügbar. Bitte später erneut versuchen oder den Support kontaktieren.",
+    "errorStripeSession": "Die sichere Stripe-Zahlungsseite konnte nicht geöffnet werden. Bitte erneut versuchen.",
     "errorKlarnaMinAmount": "Ratenzahlung ist ab {min} verfügbar.",
     "timedOfferNoLongerAvailable": "Ein oder mehrere zeitgebundene Angebote sind nicht mehr verfügbar (noch nicht gestartet oder abgelaufen). Bitte aktualisiere den Warenkorb.",
     "usePoints": "Punkte einlösen: {points} Pkt. (−{amount}, max. {percent}%)",

@@ -730,12 +730,18 @@ export default function PaymentPage() {
       if (!res.ok) {
         const isTimedOfferError = res.status === 400 && (data.code === 'timed_offer_unavailable' || data.error?.includes('timed'))
         const isKlarnaMinError = res.status === 400 && data.code === 'klarna_min_amount'
+        const isStripeConfigError = data.code === 'stripe_not_configured'
+        const isStripeSessionError = data.code === 'stripe_session_failed'
         setError(
           isKlarnaMinError
             ? t('payment.errorKlarnaMinAmount', { min: money(KLARNA_MIN_AMOUNT_HUF) })
             : isTimedOfferError
               ? t('payment.timedOfferNoLongerAvailable')
-              : t('payment.errorCreateSession')
+              : isStripeConfigError
+                ? t('payment.errorStripeNotConfigured')
+                : isStripeSessionError
+                  ? t('payment.errorStripeSession')
+                  : t('payment.errorCreateSession')
         )
         idempotencyKeyRef.current = null
         checkoutInFlightRef.current = false

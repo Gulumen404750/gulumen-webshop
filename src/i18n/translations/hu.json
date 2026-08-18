@@ -237,6 +237,8 @@
     "backToCart": "Vissza a kosárhoz",
     "redirecting": "Átirányítás a fizetéshez…",
     "errorCreateSession": "A pénztár indítása sikertelen. Próbáld újra.",
+    "errorStripeNotConfigured": "A kártyás fizetés jelenleg nem elérhető. Próbáld újra később, vagy írj az ügyfélszolgálatnak.",
+    "errorStripeSession": "A Stripe biztonságos fizetési felületet nem sikerült elindítani. Próbáld újra.",
     "errorKlarnaMinAmount": "A részletfizetés {min} felett érhető el.",
     "timedOfferNoLongerAvailable": "Egy vagy több időzített ajánlat már nem vehető (még nem indult vagy lejárt). Frissítsd a kosarat.",
     "usePoints": "Pontok felhasználása: {points} pont (−{amount}, max. {percent}%)",

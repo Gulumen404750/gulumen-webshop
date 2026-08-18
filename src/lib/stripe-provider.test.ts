@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { resolveStripeCheckoutPaymentMethod } from './stripe-provider'
-import { stripePaymentMethodTypes } from './checkout-payment-methods'
+import { stripeCheckoutMethodFields, stripePaymentMethodTypes } from './checkout-payment-methods'
 
 describe('StripeProvider checkout mapping', () => {
   it('defaults to card wallets (Apple Pay / Google Pay Express Checkout)', () => {
     expect(resolveStripeCheckoutPaymentMethod()).toBe('card')
     expect(stripePaymentMethodTypes(resolveStripeCheckoutPaymentMethod())).toEqual(['card'])
+    expect(stripeCheckoutMethodFields('card').payment_method_types).toBeUndefined()
   })
 
   it('maps PayPal and Klarna to their Stripe payment method types', () => {

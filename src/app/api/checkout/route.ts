@@ -74,6 +74,7 @@ import {
   toStripeUnitAmount,
 } from '@/lib/checkout-payment-methods'
 import { getConfiguredHufPerEur } from '@/lib/euro-rate'
+import { StripeCheckoutError } from '@/lib/stripe-provider'
 
 const selectedCouponEnum = z.enum([
   'cat',
@@ -640,10 +641,26 @@ export async function POST(request: Request) {
     }
 
     let result
-    if (isCapture) {
-      result = await provider.createCapturePayment(params)
-    } else {
-      result = await provider.createAuthorizationPayment(params)
+    try {
+      if (isCapture) {
+        result = await provider.createCapturePayment(params)
+      } else {
+        result = await provider.createAuthorizationPayment(params)
+      }
+    } catch (err) {
+      const stripeErr = err instanceof StripeCheckoutError ? err : null
+      logger.error(
+        { err, orderId: order.id, paymentMethod },
+        'checkout: payment session create failed'
+      )
+      return NextResponse.json(
+        {
+          error: stripeErr?.message || 'Could not start Stripe Checkout',
+          code: stripeErr?.code || 'stripe_session_failed',
+          orderId: order.id,
+        },
+        { status: 502 }
+      )
     }
 
     if (result.type === 'redirect') {

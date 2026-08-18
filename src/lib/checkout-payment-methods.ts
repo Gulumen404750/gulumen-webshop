@@ -72,6 +72,24 @@ export function stripePaymentMethodTypes(
   return ['card']
 }
 
+/**
+ * Stripe Checkout Session mezők.
+ * Kártya / Apple Pay / Google Pay: NE küldjünk `payment_method_types`-ot
+ * (Dashboard dynamic payment methods + Express Checkout). PayPal/Klarna marad explicit.
+ */
+export type StripeCheckoutMethodFields = {
+  payment_method_types?: StripeCheckoutPaymentMethodType[]
+  excluded_payment_method_types?: Array<'paypal' | 'klarna'>
+}
+
+export function stripeCheckoutMethodFields(
+  paymentMethod: CheckoutPaymentMethod
+): StripeCheckoutMethodFields {
+  if (paymentMethod === 'paypal') return { payment_method_types: ['paypal'] }
+  if (paymentMethod === 'klarna') return { payment_method_types: ['klarna'] }
+  return { excluded_payment_method_types: ['paypal', 'klarna'] }
+}
+
 export function isExpressWalletMethod(paymentMethod: CheckoutPaymentMethod): boolean {
   return paymentMethod === 'apple_pay' || paymentMethod === 'google_pay'
 }

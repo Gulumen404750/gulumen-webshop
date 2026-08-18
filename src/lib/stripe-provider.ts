@@ -1,9 +1,10 @@
 import Stripe from 'stripe'
-import { resolvePublicAppUrl } from '@/lib/bootstrap-auth-env'
+import { readEnv, resolvePublicAppUrl } from '@/lib/bootstrap-auth-env'
 import { getPaymentTransactionById } from '@/lib/payment-transactions'
+import { logger } from '@/lib/logger'
 import {
   DEFAULT_CHECKOUT_PAYMENT_METHOD,
-  stripePaymentMethodTypes,
+  stripeCheckoutMethodFields,
   type CheckoutPaymentMethod,
 } from '@/lib/checkout-payment-methods'
 import type { Locale } from '@/i18n/locales'
@@ -14,8 +15,13 @@ import type {
   CaptureOrCancelResult,
 } from '@/lib/payment-provider'
 
+/** Runtime env – ne webpack-inlinelt process.env.STRIPE_SECRET_KEY. */
+function stripeSecretKey(): string | undefined {
+  return readEnv('STRIPE_SECRET_KEY')
+}
+
 function getStripeClient(): Stripe | null {
-  const key = process.env.STRIPE_SECRET_KEY?.trim()
+  const key = stripeSecretKey()
   return key ? new Stripe(key) : null
 }
 
@@ -37,13 +43,34 @@ export function resolveStripeCheckoutPaymentMethod(
   return paymentMethod ?? DEFAULT_CHECKOUT_PAYMENT_METHOD
 }
 
+export class StripeCheckoutError extends Error {
+  readonly code: 'stripe_not_configured' | 'stripe_session_failed'
+
+  constructor(message: string, code: StripeCheckoutError['code'] = 'stripe_session_failed') {
+    super(message)
+    this.name = 'StripeCheckoutError'
+    this.code = code
+  }
+}
+
+function stripeErrorMessage(err: unknown): string {
+  if (err && typeof err === 'object' && 'message' in err && typeof err.message === 'string') {
+    return err.message
+  }
+  return err instanceof Error ? err.message : 'Stripe checkout failed'
+}
+
+function shouldRetryWithoutPaymentMethodTypes(message: string): boolean {
+  return /payment_method_types|dynamic payment method|invalid payment method/i.test(message)
+}
+
 export class StripeProvider implements PaymentProvider {
   readonly name = 'stripe'
 
   private getStripe(): Stripe {
     const stripe = getStripeClient()
     if (!stripe) {
-      throw new Error('STRIPE_SECRET_KEY not configured')
+      throw new StripeCheckoutError('STRIPE_SECRET_KEY not configured', 'stripe_not_configured')
     }
     return stripe
   }
@@ -55,8 +82,8 @@ export class StripeProvider implements PaymentProvider {
     const stripe = this.getStripe()
     const appUrl = resolvePublicAppUrl()
     const paymentMethod = resolveStripeCheckoutPaymentMethod(params.paymentMethod)
-    const paymentMethodTypes = stripePaymentMethodTypes(paymentMethod)
     const currency = params.currency.toLowerCase()
+    const methodFields = stripeCheckoutMethodFields(paymentMethod)
 
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: 'payment',
@@ -81,9 +108,9 @@ export class StripeProvider implements PaymentProvider {
         orderGroupId: params.orderGroupId,
         paymentMethod,
       },
-      payment_method_types: paymentMethodTypes,
       customer_email: params.customer.email,
       billing_address_collection: paymentMethod === 'klarna' ? 'required' : 'auto',
+      ...methodFields,
     }
 
     if (captureMethod === 'manual') {
@@ -95,19 +122,34 @@ export class StripeProvider implements PaymentProvider {
           paymentMethod,
         },
       }
-    } else {
-      sessionParams.payment_intent_data = {
-        metadata: {
-          transactionId: params.transactionId,
-          orderId: params.orderId,
-          paymentMethod,
-        },
+    }
+
+    let session: Stripe.Checkout.Session
+    try {
+      session = await stripe.checkout.sessions.create(sessionParams)
+    } catch (err) {
+      const message = stripeErrorMessage(err)
+      if (sessionParams.payment_method_types && shouldRetryWithoutPaymentMethodTypes(message)) {
+        logger.warn({ err, paymentMethod }, 'Stripe rejected payment_method_types; retrying with dashboard methods')
+        const retryParams = { ...sessionParams }
+        delete retryParams.payment_method_types
+        try {
+          session = await stripe.checkout.sessions.create(retryParams)
+        } catch (retryErr) {
+          logger.error({ err: retryErr, paymentMethod, orderId: params.orderId }, 'Stripe checkout session retry failed')
+          throw new StripeCheckoutError(stripeErrorMessage(retryErr), 'stripe_session_failed')
+        }
+      } else {
+        logger.error({ err, paymentMethod, orderId: params.orderId }, 'Stripe checkout session create failed')
+        throw new StripeCheckoutError(message, 'stripe_session_failed')
       }
     }
 
-    const session = await stripe.checkout.sessions.create(sessionParams)
     if (!session.url) {
-      throw new Error('Stripe checkout session created without redirect URL')
+      throw new StripeCheckoutError(
+        'Stripe checkout session created without redirect URL',
+        'stripe_session_failed'
+      )
     }
 
     return {
@@ -135,7 +177,7 @@ export class StripeProvider implements PaymentProvider {
       return { success: true }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Capture failed'
-      console.error('[StripeProvider] captureAuthorizedPayment', err)
+      logger.error({ err }, 'StripeProvider captureAuthorizedPayment')
       return { success: false, error: message }
     }
   }
@@ -150,7 +192,7 @@ export class StripeProvider implements PaymentProvider {
       return { success: true }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Cancel failed'
-      console.error('[StripeProvider] cancelAuthorizedPayment', err)
+      logger.error({ err }, 'StripeProvider cancelAuthorizedPayment')
       return { success: false, error: message }
     }
   }

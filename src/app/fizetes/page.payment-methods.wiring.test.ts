@@ -31,5 +31,7 @@ describe('checkout payment method picker', () => {
     expect(src).toMatch(/unavailableMethods=\{klarnaEligible \? \[\] : \['klarna'\]\}/)
     expect(src).toMatch(/methodKlarnaMinHint/)
     expect(src).toMatch(/errorKlarnaMinAmount/)
+    expect(src).toMatch(/errorStripeSession/)
+    expect(src).toMatch(/errorStripeNotConfigured/)
   })
 })

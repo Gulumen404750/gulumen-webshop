@@ -11,6 +11,7 @@ import {
   resolveChargeCurrency,
   resolvePaymentMode,
   stripeCheckoutAmountMatches,
+  stripeCheckoutMethodFields,
   stripePaymentMethodTypes,
   toStripeUnitAmount,
 } from '@/lib/checkout-payment-methods'
@@ -53,6 +54,21 @@ describe('checkout payment methods', () => {
     expect(stripePaymentMethodTypes('klarna')).toEqual(['klarna'])
     expect(isExpressWalletMethod('apple_pay')).toBe(true)
     expect(isExpressWalletMethod('paypal')).toBe(false)
+  })
+
+  it('omits payment_method_types for card so Stripe Checkout can use dashboard methods', () => {
+    expect(stripeCheckoutMethodFields('card')).toEqual({
+      excluded_payment_method_types: ['paypal', 'klarna'],
+    })
+    expect(stripeCheckoutMethodFields('apple_pay')).toEqual({
+      excluded_payment_method_types: ['paypal', 'klarna'],
+    })
+    expect(stripeCheckoutMethodFields('paypal')).toEqual({
+      payment_method_types: ['paypal'],
+    })
+    expect(stripeCheckoutMethodFields('klarna')).toEqual({
+      payment_method_types: ['klarna'],
+    })
   })
 
   it('captures Klarna immediately even for sourcing so the order is fully paid', () => {
