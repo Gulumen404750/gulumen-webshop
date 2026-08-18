@@ -168,7 +168,6 @@ export default function PaymentPage() {
       buildPromoCoupons({
         catClaimed: catStatus === 'claimed',
         registrationClaimed: registrationStatus === 'claimed',
-        loyaltyPercent,
         welcomeEligible: welcomeOfferEligible,
         birthday: birthdayCouponBanner
           ? {
@@ -196,7 +195,6 @@ export default function PaymentPage() {
     [
       catStatus,
       registrationStatus,
-      loyaltyPercent,
       welcomeOfferEligible,
       birthdayCouponBanner,
       gamificationCoupon,
@@ -218,6 +216,8 @@ export default function PaymentPage() {
 
   const usePoints = useGiftPoints || useActivityPoints
 
+  const loyaltyFraction = loyaltyPercent > 0 ? loyaltyPercent / 100 : 0
+
   const checkoutPreview = computeCheckoutTotals({
     lines: lockedLines,
     coupon: usePoints
@@ -228,6 +228,7 @@ export default function PaymentPage() {
           : { percent: effectiveCouponPercent }
         : { percent: effectiveCouponPercent },
     luckySpin: luckySpinRecord,
+    loyaltyPercent: loyaltyFraction,
     points:
       usePoints && pointsPreview
         ? {
@@ -246,6 +247,7 @@ export default function PaymentPage() {
   })
 
   const couponDiscountOnTotal = checkoutPreview.couponDiscountHuf
+  const loyaltyDiscountHuf = checkoutPreview.loyaltyDiscountHuf
   const luckySpinDiscount = checkoutPreview.luckySpin
   const displayTotalHuf = checkoutPreview.afterCouponAndLuckyHuf
   const pointsDiscountHuf = checkoutPreview.pointsDiscountHuf
@@ -401,22 +403,6 @@ export default function PaymentPage() {
       return ['gamification']
     })
   }, [gamificationCoupon?.code, availableCoupons, usePoints, typedCoupon])
-
-  const autoSelectedLoyaltyRef = useRef(false)
-  useEffect(() => {
-    if (usePoints || typedCoupon || loyaltyPercent <= 0) {
-      if (loyaltyPercent <= 0) autoSelectedLoyaltyRef.current = false
-      return
-    }
-    if (autoSelectedLoyaltyRef.current) return
-    autoSelectedLoyaltyRef.current = true
-    setSelectedCouponIds((prev) => {
-      if (prev.includes('loyalty')) return prev
-      if (prev.length > 0) return prev
-      if (!canToggleCoupon(availableCoupons, new Set(prev), 'loyalty', true)) return prev
-      return ['loyalty']
-    })
-  }, [loyaltyPercent, availableCoupons, usePoints, typedCoupon])
 
   useEffect(() => {
     if (!usePoints) return
@@ -669,7 +655,9 @@ export default function PaymentPage() {
               couponCodeInput.trim() ||
               undefined,
           welcomeOfferAccepted: usePoints || typedCoupon ? undefined : couponSelection.useWelcome ? true : undefined,
-          selectedCoupons: usePoints || typedCoupon ? [] : couponSelection.selectedIds,
+          selectedCoupons: usePoints || typedCoupon
+            ? []
+            : couponSelection.selectedIds.filter((id) => id !== 'loyalty'),
           pointsDiscountHuf: pointsDiscountHuf > 0 ? pointsDiscountHuf : undefined,
           useGiftPoints: usePoints ? useGiftPoints : undefined,
           useActivityPoints: usePoints ? useActivityPoints : undefined,
@@ -842,10 +830,19 @@ export default function PaymentPage() {
             </div>
           </div>
 
-          {(luckySpinDiscount.discountHuf > 0 || effectiveCouponDiscountHuf > 0 || pointsDiscountHuf > 0) && (
+          {(luckySpinDiscount.discountHuf > 0 ||
+            effectiveCouponDiscountHuf > 0 ||
+            loyaltyDiscountHuf > 0 ||
+            pointsDiscountHuf > 0) && (
             <div className="border-t border-[var(--border)] pt-3">
               <h3 className="font-heading font-semibold text-foreground mb-2">{t('payment.discountsSection')}</h3>
               <div className="space-y-1.5">
+                {loyaltyDiscountHuf > 0 && (
+                  <div className="flex justify-between text-discount">
+                    <span>{t('payment.loyaltyDiscountLine', { percent: loyaltyPercent })}</span>
+                    <span className="tabular-nums">−{loyaltyDiscountHuf.toLocaleString('hu-HU')} Ft</span>
+                  </div>
+                )}
                 {luckySpinDiscount.discountHuf > 0 && (
                   <div className="flex justify-between text-discount">
                     <span>
@@ -1211,6 +1208,15 @@ export default function PaymentPage() {
           >
             {t('payment.couponRemove') || 'Eltávolítás'}
           </button>
+        </div>
+      )}
+
+      {loyaltyPercent > 0 && (
+        <div className="mb-8 p-4 rounded-xl border border-accent/40 bg-accent/5">
+          <p className="font-heading text-sm font-semibold text-foreground">
+            {t('payment.loyaltyDiscountLine', { percent: loyaltyPercent })}
+          </p>
+          <p className="text-sm text-muted mt-1">{t('payment.loyaltyAutoAppliedHint')}</p>
         </div>
       )}
 

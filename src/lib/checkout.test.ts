@@ -408,6 +408,34 @@ describe('computeCheckoutTotals', () => {
     expect(totals.inStock.giftPointsUsed).toBe(4_000)
     expect(totals.inStock.invoiceTotalHuf).toBe(totals.invoiceTotalHuf)
   })
+
+  it('applies loyalty first and still stacks a single coupon on top', () => {
+    const lines = [line('stock-1', 1, 10_000, 'stock')]
+    const totals = computeCheckoutTotals({
+      lines,
+      coupon: { percent: 0.1 },
+      luckySpin: null,
+      loyaltyPercent: 0.01,
+    })
+    expect(totals.loyaltyDiscountHuf).toBe(100)
+    expect(totals.couponDiscountHuf).toBe(1_000)
+    expect(totals.merchandiseTotalHuf).toBe(8_900)
+  })
+
+  it('keeps loyalty when paying with points and zeros other coupons', () => {
+    const lines = [line('stock-1', 1, 10_000, 'stock')]
+    const totals = computeCheckoutTotals({
+      lines,
+      coupon: { percent: 0.1 },
+      luckySpin: null,
+      loyaltyPercent: 0.02,
+      points: { requestedDiscountHuf: 2_000, userBalance: 50_000 },
+    })
+    expect(totals.loyaltyDiscountHuf).toBe(200)
+    expect(totals.couponDiscountHuf).toBe(0)
+    expect(totals.pointsDiscountHuf).toBe(2_000)
+    expect(totals.merchandiseTotalHuf).toBe(7_800)
+  })
 })
 
 describe('validateCouponPercent', () => {

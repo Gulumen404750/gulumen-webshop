@@ -16,6 +16,7 @@ import { getPaymentProvider } from '@/lib/payment-provider'
 import { getLoyaltyByEmail } from '@/lib/loyalty'
 import {
   capCombinedCouponPercent,
+  capLoyaltyPercent,
   CAT_COUPON_PERCENT,
   REGISTRATION_COUPON_PERCENT,
   isCatRegistrationStackBlocked,
@@ -97,8 +98,8 @@ const checkoutBodySchema = z.object({
   couponCode: z.string().min(1).optional(),
   /** Checkout welcome 10% + hírlevél ajánlat (manuális kijelölés). */
   welcomeOfferAccepted: z.boolean().optional(),
-  /** Manuálisan kiválasztott szerver-validált kuponok (cat/registration/loyalty) – NEM percent. */
-  selectedCoupons: z.array(selectedCouponEnum).max(1).optional(),
+  /** Manuálisan kiválasztott szerver-validált kuponok (cat/registration/welcome). A hűség automatikus. */
+  selectedCoupons: z.array(selectedCouponEnum).max(2).optional(),
 })
 
 export async function POST(request: Request) {
@@ -170,6 +171,7 @@ export async function POST(request: Request) {
 
   let couponCodeTrimmed = bodyCouponCode?.trim() ?? ''
   const selectedCoupons = new Set(bodySelectedCoupons ?? [])
+  selectedCoupons.delete('loyalty')
   if (welcomeOfferAccepted === true) selectedCoupons.add('welcome')
   const wantsWelcomeOffer = selectedCoupons.has('welcome')
 
@@ -277,9 +279,12 @@ export async function POST(request: Request) {
 
   const cartSubtotalHuf = lines.reduce((s, l) => s + l.priceHuf * l.qty, 0)
 
-  // Manuális kuponválasztás: egyszerre egy kupon, max. 15%. Nincs automatikus loyalty/promo.
+  // Manuális kupon: egyszerre egy, max. 15%. A hűség ettől független, automatikus.
   let combinedPercent = 0
   let fixedHufFromDb = 0
+  const loyaltyEmail = (session?.email || customer.email).trim().toLowerCase()
+  const loyaltyRecord = loyaltyEmail ? await getLoyaltyByEmail(loyaltyEmail) : null
+  const loyaltyPercent = capLoyaltyPercent(loyaltyRecord?.loyaltyPercent ?? 0)
 
   if (isCouponStackingBlocked(selectedCoupons) || isCatRegistrationStackBlocked(selectedCoupons)) {
     return NextResponse.json(
@@ -316,18 +321,6 @@ export async function POST(request: Request) {
     }
   }
 
-  if (selectedCoupons.has('loyalty')) {
-    const loyaltyEmail = (session?.email || customer.email).trim().toLowerCase()
-    const loyalty = await getLoyaltyByEmail(loyaltyEmail)
-    if (!loyalty || loyalty.loyaltyPercent <= 0) {
-      return NextResponse.json(
-        { code: 'loyalty_inactive', error: 'No loyalty discount on this account' },
-        { status: 400 }
-      )
-    }
-    combinedPercent += loyalty.loyaltyPercent / 100
-  }
-
   if (wantsWelcomeOffer) {
     const welcome = await acceptWelcomeCheckoutOffer({
       email: customer.email,
@@ -344,7 +337,7 @@ export async function POST(request: Request) {
 
   if (couponCodeTrimmed) {
     const nonDbSelected = Array.from(selectedCoupons).filter(
-      (id) => id !== 'birthday' && id !== 'gamification'
+      (id) => id !== 'birthday' && id !== 'gamification' && id !== 'loyalty'
     )
     if (nonDbSelected.length > 0) {
       return NextResponse.json(
@@ -420,10 +413,13 @@ export async function POST(request: Request) {
     ...(fixedHufFromDb > 0 ? { fixedHuf: fixedHufFromDb } : {}),
   }
 
+  if (loyaltyPercent > 0) selectedCoupons.add('loyalty')
+
   const prePointsTotals = computeCheckoutTotals({
     lines,
     coupon: couponDiscount,
     luckySpin,
+    loyaltyPercent,
     now,
   })
 
@@ -447,6 +443,7 @@ export async function POST(request: Request) {
     lines,
     coupon: couponDiscount,
     luckySpin,
+    loyaltyPercent,
     points:
       validatedPointsHuf > 0 && checkoutUserId
         ? {

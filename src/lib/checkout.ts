@@ -3,10 +3,11 @@
  * Forrás igazság a szerveren; a kliens ugyanezt a függvényt használja előnézethez.
  *
  * Sorrend:
- * 1. Regisztrációs / kupon kedvezmény (% vagy fix Ft) – csak teljes árú tételekre
- * 2. Szerencsekerék (15/20/25% a spin listában lévő termékek zárolt árából; +5% ponttal)
- * 3. Pontbeváltás (aktivitási és ajándékpont 1:1, a termékár 100%-áig; más akcióval nem kombinálható)
- * 4. Szállítási díj (a pont nem fedezi; 25 000 Ft felett, csak ponttal fizetve is fizetendő)
+ * 1. Hűségkedvezmény (1–8%, automatikus, a teljes kosárra; kuponnal és ponttal is összevonható)
+ * 2. Egy manuális kupon (% vagy fix Ft) – csak teljes árú tételekre; ponttal nem kombinálható
+ * 3. Szerencsekerék (15/20/25% a spin listában lévő termékek zárolt árából)
+ * 4. Pontbeváltás (aktivitási és ajándékpont 1:1; más kuponnal nem kombinálható, hűségre ráépül)
+ * 5. Szállítási díj (a pont nem fedezi; 25 000 Ft felett, csak ponttal fizetve is fizetendő)
  */
 
 import type { Product } from '@/lib/data'
@@ -25,7 +26,7 @@ import {
   POINTS_PER_HUF,
   STANDARD_SHIPPING_FEE_HUF,
 } from '@/lib/gamification/constants'
-import { MAX_COMBINED_COUPON_PERCENT } from '@/lib/coupon-config'
+import { MAX_COMBINED_COUPON_PERCENT, capLoyaltyPercent } from '@/lib/coupon-config'
 import {
   computeLuckySpinDiscount,
   calculateLuckySpinDiscountPercent,
@@ -116,6 +117,7 @@ export type CheckoutOrderSplit = {
 export type CheckoutTotals = {
   lines: ResolvedCartLine[]
   subtotalHuf: number
+  loyaltyDiscountHuf: number
   couponDiscountHuf: number
   luckySpinDiscountHuf: number
   afterCouponAndLuckyHuf: number
@@ -291,6 +293,7 @@ function buildOrderSplit(
   lines: ResolvedCartLine[],
   fulfillmentType: 'stock' | 'procurement',
   couponDiscountHuf: number,
+  loyaltyDiscountHuf: number,
   luckySpinDiscountHuf: number,
   pointsDiscountHuf: number,
   pointsUsed: number,
@@ -307,8 +310,10 @@ function buildOrderSplit(
   const spinSubtotal = lineSubtotalHuf(filterLinesBySpin(lines, spinProductIds, true))
   const splitFullPriceSubtotal = lineSubtotalHuf(filterLinesBySpin(splitLines, spinProductIds, false))
   const splitSpinSubtotal = lineSubtotalHuf(filterLinesBySpin(splitLines, spinProductIds, true))
+  const cartSubtotal = lineSubtotalHuf(lines)
 
   const couponShare = proportionalShare(couponDiscountHuf, splitFullPriceSubtotal, fullPriceSubtotal)
+  const loyaltyShare = proportionalShare(loyaltyDiscountHuf, subtotalHuf, cartSubtotal)
   const luckyShare = proportionalShare(luckySpinDiscountHuf, splitSpinSubtotal, spinSubtotal)
   const pointsShare = proportionalShare(
     pointsDiscountHuf,
@@ -319,7 +324,10 @@ function buildOrderSplit(
   const giftPointsUsedShare = proportionalShare(giftPointsUsed, pointsShare, pointsDiscountHuf)
   const activityPointsUsedShare = Math.max(0, pointsUsedShare - giftPointsUsedShare)
 
-  const merchandiseTotalHuf = Math.max(0, subtotalHuf - couponShare - luckyShare - pointsShare)
+  const merchandiseTotalHuf = Math.max(
+    0,
+    subtotalHuf - couponShare - loyaltyShare - luckyShare - pointsShare
+  )
   const totalHuf = merchandiseTotalHuf + shippingHuf
 
   const items: OrderItem[] = splitLines.map((l) => ({
@@ -334,7 +342,7 @@ function buildOrderSplit(
   return {
     items,
     subtotalHuf,
-    couponDiscountHuf: couponShare,
+    couponDiscountHuf: couponShare + loyaltyShare,
     luckySpinDiscountHuf: luckyShare,
     pointsDiscountHuf: pointsShare,
     pointsUsed: pointsUsedShare,
@@ -366,6 +374,8 @@ export type ComputeCheckoutTotalsParams = {
   coupon: CouponDiscount
   luckySpin: LuckySpinRecord | null
   points?: PointsRedemptionInput
+  /** 0–1 hűségkedvezmény (max. 8%), automatikus; ponttal és kuponnal is összevonható. */
+  loyaltyPercent?: number
   now?: Date
 }
 
@@ -373,11 +383,13 @@ export type ComputeCheckoutTotalsParams = {
  * Teljes checkout waterfall – tiszta függvény, DB nélkül.
  */
 export function computeCheckoutTotals(params: ComputeCheckoutTotalsParams): CheckoutTotals {
-  const { lines: rawLines, coupon, luckySpin, points, now = new Date() } = params
+  const { lines: rawLines, coupon, luckySpin, points, loyaltyPercent, now = new Date() } = params
   const lines = applyLuckySpinLockedPrices(rawLines, luckySpin)
   const wantsPoints = !!(points && points.requestedDiscountHuf > 0)
 
   const subtotalHuf = lineSubtotalHuf(lines)
+  const loyaltyFraction = capLoyaltyPercent(loyaltyPercent ?? 0)
+  const loyaltyDiscountHuf = loyaltyFraction > 0 ? roundHuf(subtotalHuf * loyaltyFraction) : 0
   const spinProductIds = new Set(luckySpin?.productIds ?? [])
   const couponDiscountHuf = wantsPoints ? 0 : computeCouponDiscountHuf(lines, coupon, spinProductIds)
 
@@ -389,7 +401,10 @@ export function computeCheckoutTotals(params: ComputeCheckoutTotalsParams): Chec
   const luckySpinResult = computeLuckySpinDiscount(discountItems, luckySpin, now, false)
   const luckySpinDiscountHuf = wantsPoints ? 0 : luckySpinResult.discountHuf
 
-  const afterCouponAndLuckyHuf = Math.max(0, subtotalHuf - couponDiscountHuf - luckySpinDiscountHuf)
+  const afterCouponAndLuckyHuf = Math.max(
+    0,
+    subtotalHuf - loyaltyDiscountHuf - couponDiscountHuf - luckySpinDiscountHuf
+  )
 
   let pointsDiscountHuf = 0
   let pointsUsed = 0
@@ -424,6 +439,7 @@ export function computeCheckoutTotals(params: ComputeCheckoutTotalsParams): Chec
     lines,
     'stock',
     couponDiscountHuf,
+    loyaltyDiscountHuf,
     luckySpinDiscountHuf,
     pointsDiscountHuf,
     pointsUsed,
@@ -436,6 +452,7 @@ export function computeCheckoutTotals(params: ComputeCheckoutTotalsParams): Chec
     lines,
     'procurement',
     couponDiscountHuf,
+    loyaltyDiscountHuf,
     luckySpinDiscountHuf,
     pointsDiscountHuf,
     pointsUsed,
@@ -448,6 +465,7 @@ export function computeCheckoutTotals(params: ComputeCheckoutTotalsParams): Chec
   return {
     lines,
     subtotalHuf,
+    loyaltyDiscountHuf,
     couponDiscountHuf,
     luckySpinDiscountHuf,
     afterCouponAndLuckyHuf,
