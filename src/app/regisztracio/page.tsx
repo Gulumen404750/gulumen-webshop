@@ -9,6 +9,13 @@ import { useLocale } from '@/context/LocaleContext'
 import { GoogleSignInButton } from '@/components/GoogleSignInButton'
 import { RegistrationConsentFields } from '@/components/RegistrationConsentFields'
 
+function safeNextPath(): string | null {
+  if (typeof window === 'undefined') return null
+  const nextRaw = new URLSearchParams(window.location.search).get('next')
+  if (nextRaw && nextRaw.startsWith('/') && !nextRaw.startsWith('//')) return nextRaw
+  return null
+}
+
 export default function RegistrationPage() {
   const { t } = useLocale()
   const router = useRouter()
@@ -24,7 +31,13 @@ export default function RegistrationPage() {
   const [couponGranted, setCouponGranted] = useState(false)
 
   useEffect(() => {
-    if (isLoggedIn) router.replace('/profil')
+    if (isLoggedIn) {
+      const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '')
+      const nextRaw = params.get('next')
+      const next =
+        nextRaw && nextRaw.startsWith('/') && !nextRaw.startsWith('//') ? nextRaw : '/profil'
+      router.replace(next)
+    }
   }, [isLoggedIn, router])
 
   const handleGoogleRegister = async () => {
@@ -36,7 +49,10 @@ export default function RegistrationPage() {
     await loginWithGoogle({
       acceptPrivacy: true,
       ...(acceptOffers ? { acceptOffers: true } : {}),
-      callbackUrl: typeof window !== 'undefined' ? `${window.location.origin}/termekek` : '/termekek',
+      callbackUrl:
+        typeof window !== 'undefined'
+          ? `${window.location.origin}${safeNextPath() || '/termekek'}`
+          : '/termekek',
     })
   }
 
@@ -81,6 +97,11 @@ export default function RegistrationPage() {
       const uid = result.email ?? trimmedEmail
       const claimed = claimRegistrationCoupon(uid)
       if (claimed) setCouponGranted(true)
+    }
+    const next = safeNextPath()
+    if (next) {
+      router.push(next)
+      return
     }
     // Születési dátum mentve – profilon látja a rögzített állapotot (kupon csak születésnapon)
     if (birthDate.trim()) {

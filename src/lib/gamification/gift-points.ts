@@ -9,6 +9,7 @@ import {
   GIFT_POINT_VALIDITY_DAYS,
   POINT_TX_TYPES,
 } from '@/lib/gamification/constants'
+import { internalPointsLedgerMetadata } from '@/lib/order-points-accounting'
 
 export type GiftPointGrantView = {
   id: string
@@ -91,6 +92,8 @@ export async function grantNfcGiftPoints(input: {
   userId: string
   points: number
   nfcTagId?: string | null
+  source?: 'nfc' | 'admin' | 'claim'
+  codeId?: string | null
   now?: Date
 }): Promise<{ grantId: string; expiresAt: Date; balanceAfter: number | null }> {
   const points = Math.floor(input.points)
@@ -100,24 +103,41 @@ export async function grantNfcGiftPoints(input: {
   const now = input.now ?? new Date()
   const expiresAt = giftPointExpiresAt(now)
   const nfcTagId = input.nfcTagId?.trim() || null
-  const idempotencyKey = nfcTagId
-    ? `nfc-gift:${input.userId}:${nfcTagId}`
-    : `nfc-gift:${input.userId}:${now.toISOString()}:${points}`
+  const source = input.source ?? 'nfc'
+  const codeId = input.codeId?.trim() || null
+  const txType = source === 'claim' ? POINT_TX_TYPES.GIFT_POINT_CLAIM : POINT_TX_TYPES.NFC_GIFT
+  const idempotencyKey = codeId
+    ? `gift-claim:${codeId}`
+    : nfcTagId
+      ? `nfc-gift:${input.userId}:${nfcTagId}`
+      : `nfc-gift:${input.userId}:${now.toISOString()}:${points}`
 
   const delta = await applyPointDelta({
     userId: input.userId,
     delta: points,
-    type: POINT_TX_TYPES.NFC_GIFT,
+    type: txType,
     idempotencyKey,
-    reason: 'NFC ajándékpont jóváírás',
-    referenceType: 'nfc_gift',
-    referenceId: nfcTagId ?? undefined,
-    metadata: { nfcTagId, expiresAt: expiresAt.toISOString() },
+    reason: source === 'claim' ? 'Ajándékpont aktiválás' : 'NFC ajándékpont jóváírás',
+    referenceType: source === 'claim' ? 'gift_point_code' : 'nfc_gift',
+    referenceId: codeId ?? nfcTagId ?? undefined,
+    metadata: internalPointsLedgerMetadata({
+      nfcTagId,
+      codeId,
+      source,
+      expiresAt: expiresAt.toISOString(),
+    }),
   })
 
-  if (delta.duplicate && nfcTagId) {
+  if (delta.duplicate) {
+    if (delta.transaction.userId !== input.userId) {
+      throw new Error('Gift point already claimed')
+    }
     const existing = await prisma.giftPointGrant.findFirst({
-      where: { userId: input.userId, nfcTagId },
+      where: {
+        userId: input.userId,
+        ...(nfcTagId ? { nfcTagId } : {}),
+        ...(source === 'claim' ? { source: 'claim' } : {}),
+      },
       orderBy: { createdAt: 'desc' },
     })
     if (existing) {
@@ -134,7 +154,7 @@ export async function grantNfcGiftPoints(input: {
       userId: input.userId,
       points,
       remaining: points,
-      source: 'nfc',
+      source,
       nfcTagId,
       activatedAt: now,
       expiresAt,

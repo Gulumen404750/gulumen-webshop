@@ -115,6 +115,7 @@ export const POINT_TX_TYPES = {
   REVERSAL: 'REVERSAL',
   ADMIN_ADJUST: 'ADMIN_ADJUST',
   NFC_GIFT: 'NFC_GIFT',
+  GIFT_POINT_CLAIM: 'GIFT_POINT_CLAIM',
 } as const
 
 export type PointTxType = (typeof POINT_TX_TYPES)[keyof typeof POINT_TX_TYPES]

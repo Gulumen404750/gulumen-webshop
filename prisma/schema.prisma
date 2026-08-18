@@ -147,6 +147,8 @@ model User {
   likePointWindow UserLikePointWindow?
   luckySpins LuckySpin[]
   giftPointGrants GiftPointGrant[]
+  claimedGiftPointCodes GiftPointCode[] @relation("ClaimedGiftPointCodes")
+  giftPointBatchesCreated GiftPointBatch[]
 }
 
 /// E-mail szintű marketing hozzájárulás (hírlevél, vendég, leiratkozási token).
@@ -558,16 +560,59 @@ model GiftPointGrant {
   points      Int
   /// Még fel nem használt maradék.
   remaining   Int
-  /// nfc | admin
+  /// nfc | admin | claim
   source      String   @default("nfc")
   nfcTagId    String?
   activatedAt DateTime @default(now())
   expiresAt   DateTime
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  claimedCode GiftPointCode?
 
   @@index([userId, expiresAt])
   @@index([nfcTagId])
+}
+
+/// Adminban létrehozott ajándékpont-sorozat (darabszám + pontérték).
+model GiftPointBatch {
+  id        String   @id @default(cuid())
+  /// Címke / prefix (pl. AJANDEK5000) – nem egyedi token.
+  code      String
+  /// Pont darabonként (1 pont = 1 Ft).
+  points    Int
+  /// Generált egyedi kódok száma.
+  quantity  Int
+  active    Boolean  @default(true)
+  validFrom DateTime?
+  validUntil DateTime?
+  createdByUserId String?
+  createdByUser   User?   @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  codes     GiftPointCode[]
+
+  @@index([active, createdAt])
+  @@index([code])
+}
+
+/// Egyszer használatos ajándékpont-kód / NFC-QR token (`/claim/[token]`).
+model GiftPointCode {
+  id              String   @id @default(cuid())
+  batchId         String
+  batch           GiftPointBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  /// URL-token: gulumen.com/claim/[token]
+  token           String   @unique
+  active          Boolean  @default(true)
+  claimedAt       DateTime?
+  claimedByUserId String?
+  claimedByUser   User?    @relation("ClaimedGiftPointCodes", fields: [claimedByUserId], references: [id], onDelete: SetNull)
+  grantId         String?  @unique
+  grant           GiftPointGrant? @relation(fields: [grantId], references: [id], onDelete: SetNull)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([batchId, claimedAt])
+  @@index([claimedByUserId])
 }
 
 /// Append-only pont főkönyv – UPDATE/DELETE tiltva az app rétegben.

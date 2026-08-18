@@ -26,6 +26,7 @@ import { getLuckySpinNextTierRemaining } from '@/lib/gamification/lucky-spin'
 import { PaymentTrustBadges } from '@/components/PaymentTrustBadges'
 import { WELCOME_CHECKOUT_COUPON_PERCENT } from '@/lib/coupon-config'
 import { CouponSelector } from '@/components/CouponSelector'
+import { GiftPointClaimForm } from '@/components/GiftPointClaimForm'
 import {
   buildPromoCoupons,
   calculateSelectedCouponPercent,
@@ -988,6 +989,15 @@ export default function PaymentPage() {
           </div>
         )}
       </section>
+
+      <GiftPointClaimForm
+        className="mb-8"
+        onSuccess={() => {
+          void refreshWallet()
+          setSelectedCouponIds([])
+          setUsePoints(true)
+        }}
+      />
 
       <CouponSelector
         coupons={availableCoupons}

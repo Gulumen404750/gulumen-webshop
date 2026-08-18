@@ -35,6 +35,7 @@ import {
 import { getSession, resolveSessionUserId } from '@/lib/auth'
 import { getPointBalance } from '@/lib/gamification/point-ledger'
 import { getAvailableGiftPoints } from '@/lib/gamification/gift-points'
+import { claimGiftPointCode, findGiftPointCodeByToken } from '@/lib/gamification/gift-point-codes'
 import {
   MAX_CART_POINTS_COVERAGE,
   POINTS_PER_HUF,
@@ -152,10 +153,9 @@ export async function POST(request: Request) {
     )
   }
 
-  const couponCodeTrimmed = bodyCouponCode?.trim() ?? ''
+  let couponCodeTrimmed = bodyCouponCode?.trim() ?? ''
   const selectedCoupons = new Set(bodySelectedCoupons ?? [])
   if (welcomeOfferAccepted === true) selectedCoupons.add('welcome')
-  if (couponCodeTrimmed) selectedCoupons.add('birthday')
   const wantsWelcomeOffer = selectedCoupons.has('welcome')
 
   let checkoutUserId: string | null = null
@@ -163,6 +163,46 @@ export async function POST(request: Request) {
   if (session) {
     checkoutUserId = await resolveSessionUserId(session)
   }
+
+  let giftPointsClaimed: {
+    points: number
+    expiresAt: string
+    balanceAfter: number | null
+  } | null = null
+  if (couponCodeTrimmed) {
+    const giftCode = await findGiftPointCodeByToken(couponCodeTrimmed)
+    if (giftCode) {
+      if (!checkoutUserId) {
+        return NextResponse.json(
+          { error: 'Login required to claim gift points', code: 'gift_code_login_required' },
+          { status: 401 }
+        )
+      }
+      const claimed = await claimGiftPointCode({ token: couponCodeTrimmed, userId: checkoutUserId })
+      if (!claimed.ok) {
+        const errors: Record<string, { status: number; error: string; code: string }> = {
+          not_found: { status: 400, error: 'Invalid gift point code', code: 'gift_code_invalid' },
+          already_used: { status: 400, error: 'Gift point code already used', code: 'gift_code_used' },
+          inactive: { status: 400, error: 'Gift point code is not active', code: 'gift_code_inactive' },
+          expired: { status: 400, error: 'Gift point code expired', code: 'gift_code_expired' },
+          not_yet_valid: { status: 400, error: 'Gift point code is not yet valid', code: 'gift_code_not_yet_valid' },
+          db_unavailable: { status: 503, error: 'Database not configured', code: 'db_unavailable' },
+          grant_failed: { status: 400, error: 'Gift point claim failed', code: 'gift_code_failed' },
+        }
+        const mapped = errors[claimed.reason] ?? errors.grant_failed
+        return NextResponse.json({ error: mapped.error, code: mapped.code }, { status: mapped.status })
+      }
+      giftPointsClaimed = {
+        points: claimed.points,
+        expiresAt: claimed.expiresAt.toISOString(),
+        balanceAfter: claimed.balanceAfter,
+      }
+      couponCodeTrimmed = ''
+    }
+  }
+
+  if (couponCodeTrimmed) selectedCoupons.add('birthday')
+
   if (requestedPointsHuf > 0) {
     if (!session || !checkoutUserId) {
       return NextResponse.json({ error: 'Login required to use points' }, { status: 401 })
@@ -580,9 +620,7 @@ export async function POST(request: Request) {
   const payload = {
     orderGroupId,
     payments: paymentResults,
-    couponApplied: appliedCouponCode
-      ? { code: appliedCouponCode, discountHuf: totals.couponDiscountHuf }
-      : undefined,
+    giftPointsClaimed: giftPointsClaimed ?? undefined,
     luckySpinApplied: luckySpinDiscount.active
       ? {
           discountHuf: luckySpinDiscount.discountHuf,
