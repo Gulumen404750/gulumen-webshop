@@ -199,3 +199,16 @@ export async function consumeGiftPointsForOrder(
   }
   return consumed
 }
+
+/** Ha a tárca 0, az ajándék grant maradék sem élhet tovább (phantom egyenleg ellen). */
+export async function zeroRemainingGiftGrantsIfWalletEmpty(
+  userId: string,
+  walletBalance: number
+): Promise<number> {
+  if (walletBalance > 0 || !isDbConfigured()) return 0
+  const result = await prisma.giftPointGrant.updateMany({
+    where: { userId, remaining: { gt: 0 } },
+    data: { remaining: 0 },
+  })
+  return result.count
+}

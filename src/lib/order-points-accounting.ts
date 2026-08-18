@@ -25,10 +25,26 @@ export function orderUsedInternalPoints(order: {
   giftPointsUsed?: number | null
 }): boolean {
   return (
-    (order.pointsUsed ?? 0) > 0 ||
-    (order.pointsDiscountHuf ?? 0) > 0 ||
-    (order.giftPointsUsed ?? 0) > 0
+    toNonNegInt(order.pointsUsed) > 0 ||
+    toNonNegInt(order.pointsDiscountHuf) > 0 ||
+    toNonNegInt(order.giftPointsUsed) > 0
   )
+}
+
+/** Rendeléscsoport: ha bármelyik tétel ponttal volt fizetve, a tranzakció nem tiszta kártyás. */
+export function anyOrderUsedInternalPoints(
+  orders: Array<{
+    pointsUsed?: number | null
+    pointsDiscountHuf?: number | null
+    giftPointsUsed?: number | null
+  }>
+): boolean {
+  return orders.some(orderUsedInternalPoints)
+}
+
+function toNonNegInt(value: number | null | undefined): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 0
+  return Math.max(0, Math.floor(value))
 }
 
 export function splitOrderPointUsage(order: {

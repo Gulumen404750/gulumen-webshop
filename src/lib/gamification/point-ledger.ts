@@ -41,7 +41,8 @@ export async function ensurePointWallet(userId: string): Promise<void> {
 
 /** Idempotens: ha már létezik a kulcs, visszaadja a meglévő tranzakciót. */
 export async function applyPointDelta(input: ApplyPointDeltaInput) {
-  if (input.delta === 0) {
+  const delta = Math.trunc(input.delta)
+  if (!Number.isFinite(delta) || delta === 0) {
     throw new Error('Point delta must not be zero')
   }
 
@@ -66,11 +67,11 @@ export async function applyPointDelta(input: ApplyPointDeltaInput) {
           where: { userId: input.userId },
         })
 
-        if (wallet.gamificationSuspended && input.delta > 0) {
+        if (wallet.gamificationSuspended && delta > 0) {
           throw new GamificationSuspendedError()
         }
 
-        const newBalance = wallet.balance + input.delta
+        const newBalance = wallet.balance + delta
         if (newBalance < 0) {
           throw new InsufficientPointsError()
         }
@@ -80,8 +81,8 @@ export async function applyPointDelta(input: ApplyPointDeltaInput) {
           data: {
             balance: newBalance,
             version: { increment: 1 },
-            lifetimeEarned: input.delta > 0 ? { increment: input.delta } : undefined,
-            lifetimeRedeemed: input.delta < 0 ? { increment: Math.abs(input.delta) } : undefined,
+            lifetimeEarned: delta > 0 ? { increment: delta } : undefined,
+            lifetimeRedeemed: delta < 0 ? { increment: Math.abs(delta) } : undefined,
           },
         })
 
@@ -92,7 +93,7 @@ export async function applyPointDelta(input: ApplyPointDeltaInput) {
         const transaction = await tx.pointTransaction.create({
           data: {
             userId: input.userId,
-            delta: input.delta,
+            delta,
             balanceAfter: newBalance,
             type: input.type,
             reason: input.reason,

@@ -7,7 +7,7 @@ import { recordCouponUsageOnPayment } from '@/lib/coupon-checkout'
 import { markUserPromoCouponUsed, markUserPromoCouponsUsed } from '@/lib/promo-coupons'
 import { markWelcomeCouponRedeemed } from '@/lib/welcome-checkout-offer'
 import { applyPointDelta, GamificationSuspendedError } from '@/lib/gamification/point-ledger'
-import { consumeGiftPointsForOrder } from '@/lib/gamification/gift-points'
+import { consumeGiftPointsForOrder, zeroRemainingGiftGrantsIfWalletEmpty } from '@/lib/gamification/gift-points'
 import { POINT_TX_TYPES } from '@/lib/gamification/constants'
 import { purchaseEarnPointsForOrder } from '@/lib/gamification/purchase-points'
 import {
@@ -15,7 +15,7 @@ import {
   getLoyaltyByEmail,
   type LoyaltyCreditResult,
 } from '@/lib/loyalty'
-import { internalPointsLedgerMetadata } from '@/lib/order-points-accounting'
+import { internalPointsLedgerMetadata, orderUsedInternalPoints, anyOrderUsedInternalPoints } from '@/lib/order-points-accounting'
 import { logger } from '@/lib/logger'
 import { revalidateUserProfile } from '@/lib/revalidate-user-profile'
 
@@ -39,8 +39,25 @@ function cashEarnPointsForOrder(order: {
   pointsDiscountHuf?: number | null
   giftPointsUsed?: number | null
   paymentMethod?: string | null
+  groupUsedInternalPoints?: boolean
 }): number {
   return purchaseEarnPointsForOrder(order)
+}
+
+async function orderGroupUsedInternalPoints(order: {
+  id: string
+  orderGroupId: string | null
+  pointsUsed?: number | null
+  pointsDiscountHuf?: number | null
+  giftPointsUsed?: number | null
+}): Promise<boolean> {
+  if (orderUsedInternalPoints(order)) return true
+  if (!order.orderGroupId) return false
+  const siblings = await prisma.order.findMany({
+    where: { orderGroupId: order.orderGroupId },
+    select: { pointsUsed: true, pointsDiscountHuf: true, giftPointsUsed: true },
+  })
+  return anyOrderUsedInternalPoints(siblings)
 }
 
 async function loyaltySnapshotForEmail(
@@ -156,7 +173,13 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
       ok: true,
       alreadyFinalized: true,
       balanceAfter,
-      burned: { ...emptyBurn, pointsEarned: cashEarnPointsForOrder(order) },
+      burned: {
+        ...emptyBurn,
+        pointsEarned: cashEarnPointsForOrder({
+          ...order,
+          groupUsedInternalPoints: await orderGroupUsedInternalPoints(order),
+        }),
+      },
       loyalty,
     }
   }
@@ -171,7 +194,13 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
     return {
       ok: true,
       alreadyFinalized: true,
-      burned: { ...emptyBurn, pointsEarned: cashEarnPointsForOrder(order) },
+      burned: {
+        ...emptyBurn,
+        pointsEarned: cashEarnPointsForOrder({
+          ...order,
+          groupUsedInternalPoints: await orderGroupUsedInternalPoints(order),
+        }),
+      },
       loyalty,
     }
   }
@@ -248,6 +277,13 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
       } catch {
         /* gift ledger is best-effort; wallet delta is source of truth */
       }
+      try {
+        if ((balanceAfter ?? 0) <= 0) {
+          await zeroRemainingGiftGrantsIfWalletEmpty(order.userId, balanceAfter ?? 0)
+        }
+      } catch {
+        /* non-fatal */
+      }
 
       // Ha volt pending outbox esemény, jelöljük késznek (elkerüli a dupla feldolgozást)
       try {
@@ -276,8 +312,9 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
     }
 
     // 5) Csak tiszta kártyás / PayPal / mobiltárcás fizetés után: 100 Ft = 1 pont.
-    // Pontfelhasználás vagy külső részletfizetés (Klarna) esetén extra pont nem jár.
+    // Ha a csoportban bárhol pont ment el (részleges fizetés, 50k+ kártyás maradék), 0 pont jár.
     if (order.userId) {
+      const groupUsedInternalPoints = await orderGroupUsedInternalPoints(order)
       const earned = cashEarnPointsForOrder({
         userId: order.userId,
         totalHuf: order.totalHuf,
@@ -285,6 +322,7 @@ export async function finalizeOrderRewards(orderId: string): Promise<FinalizeOrd
         pointsDiscountHuf: order.pointsDiscountHuf,
         giftPointsUsed: order.giftPointsUsed,
         paymentMethod: order.paymentMethod,
+        groupUsedInternalPoints,
       })
       if (earned > 0) {
         try {

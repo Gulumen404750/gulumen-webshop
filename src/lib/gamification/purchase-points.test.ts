@@ -162,4 +162,26 @@ describe('purchaseEarnPointsForOrder', () => {
       })
     ).toBe(61)
   })
+
+  it('credits nothing on a 50k+ card remainder if any points were spent on the group', () => {
+    expect(
+      purchaseEarnPointsForOrder({
+        userId: 'u1',
+        totalHuf: 55_000,
+        pointsUsed: 0,
+        giftPointsUsed: 0,
+        pointsDiscountHuf: 0,
+        groupUsedInternalPoints: true,
+      })
+    ).toBe(0)
+    expect(
+      purchaseEarnPointsForOrder({
+        userId: 'u1',
+        totalHuf: 55_000,
+        paidHuf: 50_000,
+        pointsUsed: 1,
+        pointsDiscountHuf: 1,
+      })
+    ).toBe(0)
+  })
 })

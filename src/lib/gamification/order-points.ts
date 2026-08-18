@@ -1,6 +1,5 @@
 import { isDbConfigured } from '@/lib/prisma'
 import { enqueuePointEvent, processPendingPointEvents } from './point-event-queue'
-import { LUCKY_SPIN_POINTS_BONUS_PERCENT, POINT_TX_TYPES } from './constants'
 
 type OrderPointsPayload = {
   id: string
@@ -32,30 +31,11 @@ export async function enqueueOrderPurchasePointsRedemption(
   }
 }
 
-/** Szerencsekerék akció: +5% bónuszpont a felhasznált pontok után. */
-export async function enqueueLuckySpinPointsBonus(input: {
+/** Szerencsekerék akció: +5% most checkout kedvezmény, ne írjunk vissza pontot. */
+export async function enqueueLuckySpinPointsBonus(_input: {
   orderId: string
   userId: string
   pointsUsed: number
 }): Promise<void> {
-  if (!isDbConfigured()) return
-  if (!input.pointsUsed || input.pointsUsed <= 0) return
-
-  const bonusPoints = Math.floor(input.pointsUsed * LUCKY_SPIN_POINTS_BONUS_PERCENT)
-  if (bonusPoints <= 0) return
-
-  const { enqueued } = await enqueuePointEvent({
-    userId: input.userId,
-    type: POINT_TX_TYPES.LUCKY_SPIN_BONUS,
-    idempotencyKey: `event:lucky-spin-bonus:${input.orderId}`,
-    payload: {
-      orderId: input.orderId,
-      pointsUsed: input.pointsUsed,
-      bonusPoints,
-    },
-  })
-
-  if (enqueued) {
-    await processPendingPointEvents(5, input.userId)
-  }
+  return
 }

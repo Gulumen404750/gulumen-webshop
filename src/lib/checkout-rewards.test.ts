@@ -36,10 +36,12 @@ describe('success-page finalize eligibility', () => {
 })
 
 describe('purchase earn gate', () => {
-  it('skips PURCHASE_EARN when the order used points or Klarna instalments', () => {
+  it('skips PURCHASE_EARN when the order or group used points or Klarna instalments', () => {
     const src = readFileSync(join(process.cwd(), 'src/lib/checkout-rewards.ts'), 'utf-8')
     expect(src).toMatch(/purchaseEarnPointsForOrder/)
-    expect(src).toMatch(/Pontfelhasználás vagy külső részletfizetés/)
+    expect(src).toMatch(/groupUsedInternalPoints/)
+    expect(src).toMatch(/orderGroupUsedInternalPoints/)
+    expect(src).toMatch(/zeroRemainingGiftGrantsIfWalletEmpty/)
     expect(src).toMatch(/paymentMethod: order.paymentMethod/)
   })
 })

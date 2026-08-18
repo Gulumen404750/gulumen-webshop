@@ -32,7 +32,8 @@ export function cashPaidHufToEarnPoints(paidHuf: number): number {
 
 /**
  * Vásárlási pontjóváírás: csak tiszta kártya / PayPal / mobiltárca.
- * Pontfizetés vagy külső részletfizetés (Klarna) után extra pont nem jár.
+ * Ha a tranzakcióban (ez a rendelés vagy a csoport bármelyik tagja) pont ment el,
+ * a kártyás maradék után sem jár pont – részleges pontfizetésnél is 0.
  */
 export function purchaseEarnPointsForOrder(order: {
   userId?: string | null
@@ -42,8 +43,11 @@ export function purchaseEarnPointsForOrder(order: {
   pointsDiscountHuf?: number | null
   giftPointsUsed?: number | null
   paymentMethod?: string | null
+  /** true, ha a rendeléscsoport bármelyik tagján pontot használtak. */
+  groupUsedInternalPoints?: boolean
 }): number {
   if (!order.userId) return 0
+  if (order.groupUsedInternalPoints) return 0
   if (orderUsedInternalPoints(order)) return 0
   if (isInstallmentPayment(order.paymentMethod)) return 0
   const paidHuf = order.paidHuf ?? order.totalHuf ?? 0

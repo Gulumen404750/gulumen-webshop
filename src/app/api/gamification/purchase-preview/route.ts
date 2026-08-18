@@ -73,7 +73,7 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     balance,
-    giftPointsAvailable,
+    giftPointsAvailable: giftBalance,
     giftBalance,
     activityBalance,
     giftExpiresAt: giftExpiresAt?.toISOString() ?? null,
@@ -91,6 +91,6 @@ export async function GET(request: Request) {
     pointsPerHuf: POINTS_PER_HUF,
     giftCoveragePercent: GIFT_POINTS_MAX_COVERAGE,
     activityCoveragePercent: MAX_CART_POINTS_COVERAGE,
-    maxCoveragePercent: giftPointsAvailable > 0 ? GIFT_POINTS_MAX_COVERAGE : MAX_CART_POINTS_COVERAGE,
+    maxCoveragePercent: giftBalance > 0 ? GIFT_POINTS_MAX_COVERAGE : MAX_CART_POINTS_COVERAGE,
   })
 }

@@ -7,6 +7,7 @@ import {
   invoiceAmountsForOrder,
   internalPointsLedgerMetadata,
   orderUsedInternalPoints,
+  anyOrderUsedInternalPoints,
   splitOrderPointUsage,
 } from './order-points-accounting'
 
@@ -16,6 +17,21 @@ describe('internal points accounting', () => {
     expect(orderUsedInternalPoints({ pointsUsed: 500, pointsDiscountHuf: 500 })).toBe(true)
     expect(orderUsedInternalPoints({ pointsUsed: 0, pointsDiscountHuf: 1 })).toBe(true)
     expect(orderUsedInternalPoints({ giftPointsUsed: 200 })).toBe(true)
+  })
+
+  it('treats any sibling with points as a points-paid transaction', () => {
+    expect(
+      anyOrderUsedInternalPoints([
+        { pointsUsed: 0, pointsDiscountHuf: 0, giftPointsUsed: 0 },
+        { pointsUsed: 0, pointsDiscountHuf: 0, giftPointsUsed: 0 },
+      ])
+    ).toBe(false)
+    expect(
+      anyOrderUsedInternalPoints([
+        { pointsUsed: 0, pointsDiscountHuf: 0, giftPointsUsed: 0 },
+        { pointsUsed: 400, pointsDiscountHuf: 400 },
+      ])
+    ).toBe(true)
   })
 
   it('labels internal settlement for the accountant', () => {

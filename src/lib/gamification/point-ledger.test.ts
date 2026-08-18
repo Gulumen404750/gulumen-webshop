@@ -197,4 +197,29 @@ describe('applyPointDelta', () => {
     expect(result.duplicate).toBe(true)
     expect(result.transaction).toEqual(dup)
   })
+
+  it('allows debiting the entire balance to exactly 0', async () => {
+    mockPrisma.tx.userPointWallet.findUniqueOrThrow.mockResolvedValue(
+      makeWallet({ balance: 500 })
+    )
+
+    const result = await applyPointDelta({
+      userId,
+      delta: -500,
+      type: POINT_TX_TYPES.PURCHASE_REDEEM,
+      idempotencyKey: 'key-zero-out',
+    })
+
+    expect(result.duplicate).toBe(false)
+    expect(result.transaction.delta).toBe(-500)
+    expect(result.transaction.balanceAfter).toBe(0)
+    expect(mockPrisma.tx.userPointWallet.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          balance: 0,
+          lifetimeRedeemed: { increment: 500 },
+        }),
+      })
+    )
+  })
 })

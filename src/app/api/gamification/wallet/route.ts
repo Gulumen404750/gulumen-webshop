@@ -98,7 +98,7 @@ export async function GET(request: Request) {
         activeCouponValidUntil: checkoutCoupon?.validUntil ?? null,
         coupons,
         suspended,
-        giftPointsAvailable,
+        giftPointsAvailable: giftBalance,
         giftBalance,
         activityBalance,
         giftExpiresAt: giftExpiresAt?.toISOString() ?? null,

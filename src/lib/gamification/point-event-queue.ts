@@ -137,21 +137,8 @@ async function processPurchaseRedeemEvent(userId: string, payload: Record<string
   return true
 }
 
-async function processLuckySpinBonusEvent(userId: string, payload: Record<string, unknown>): Promise<boolean> {
-  const orderId = typeof payload.orderId === 'string' ? payload.orderId : null
-  const bonusPoints = typeof payload.bonusPoints === 'number' ? payload.bonusPoints : 0
-  if (!orderId || bonusPoints <= 0) return false
-
-  await applyPointDelta({
-    userId,
-    delta: bonusPoints,
-    type: POINT_TX_TYPES.LUCKY_SPIN_BONUS,
-    idempotencyKey: `lucky-spin-bonus:${orderId}`,
-    reason: 'Szerencsekerék bónuszpont (+5%)',
-    referenceType: 'order',
-    referenceId: orderId,
-    metadata: payload,
-  })
+async function processLuckySpinBonusEvent(_userId: string, _payload: Record<string, unknown>): Promise<boolean> {
+  // A +5% már checkout kedvezmény; a felhasznált pontok után ne írjunk vissza phantom egyenleget.
   return true
 }
 

@@ -6,6 +6,7 @@
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { FALLBACK_HUF_PER_EUR } from '@/lib/euro-rate'
 import { LOYALTY_MAX_PERCENT, LOYALTY_THRESHOLD_HUF } from '@/lib/loyalty-constants'
+import { anyOrderUsedInternalPoints } from '@/lib/order-points-accounting'
 
 export type LoyaltyTier = 'bronze' | 'silver' | 'gold'
 
@@ -56,6 +57,24 @@ export function getThresholdEur(): number {
 
 export function getThresholdHuf(): number {
   return LOYALTY_THRESHOLD_HUF
+}
+
+/**
+ * 50 000 Ft+ tiszta kártyás fizetés. Ha a csoportban pontot használtak,
+ * a kártyás maradék sem minősül – extra hűség % / pont nem jár.
+ */
+export function paidGroupQualifiesForLoyalty(
+  orders: Array<{
+    totalHuf?: number | null
+    pointsUsed?: number | null
+    pointsDiscountHuf?: number | null
+    giftPointsUsed?: number | null
+  }>,
+  currency = 'huf'
+): boolean {
+  if (anyOrderUsedInternalPoints(orders)) return false
+  const paidHuf = orders.reduce((sum, o) => sum + (o.totalHuf || 0), 0)
+  return qualifiesForLoyalty(paidHuf, currency)
 }
 
 /** Stripe amount_total alapján minősül-e a vásárlás (HUF zero-decimal, EUR cent). */
@@ -318,8 +337,7 @@ export async function applyLoyaltyForPaidOrder(orderId: string): Promise<Loyalty
     }
   }
 
-  const paidHuf = paidSiblings.reduce((sum, o) => sum + (o.totalHuf || 0), 0)
-  if (!qualifiesForLoyalty(paidHuf, 'huf')) {
+  if (!paidGroupQualifiesForLoyalty(paidSiblings, 'huf')) {
     return { ...EMPTY_CREDIT, ...snapshot, qualified: false }
   }
 
