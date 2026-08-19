@@ -9,4 +9,11 @@ describe('PaymentMethodPicker', () => {
     expect(src).toMatch(/unavailableMethods/)
     expect(src).toMatch(/disabled=\{unavailable\}/)
   })
+
+  it('uses brand logos instead of generic Lucide card/phone/wallet icons', () => {
+    expect(src).toMatch(/PaymentMethodLogo/)
+    expect(src).not.toMatch(/lucide-react/)
+    expect(src).not.toMatch(/METHOD_ICONS/)
+    expect(src).not.toMatch(/CreditCard|Smartphone|Wallet/)
+  })
 })
