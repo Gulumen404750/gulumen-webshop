@@ -158,11 +158,12 @@ export function GiftPointClaimForm({
             <span className="text-sm font-medium text-foreground">{t('giftClaim.codeLabel')}</span>
             <input
               type="text"
+              name="redeem-code"
               value={token}
               onChange={(e) => setToken(e.target.value.toUpperCase())}
               autoComplete="off"
               spellCheck={false}
-              className="mt-1 w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 font-mono text-foreground"
+              className="mt-1 w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 font-mono text-foreground placeholder:text-muted placeholder:font-sans"
               placeholder={t('giftClaim.codePlaceholder')}
             />
           </label>
