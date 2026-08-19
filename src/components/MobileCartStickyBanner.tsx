@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { useCart } from '@/context/CartContext'
 import { useLocale } from '@/context/LocaleContext'
 import { useDisplayMoney } from '@/hooks/useDisplayMoney'
@@ -13,6 +14,8 @@ export function MobileCartStickyBanner() {
   const { itemCount, totalHuf } = useCart()
   const { t } = useLocale()
   const { money } = useDisplayMoney()
+  const pathname = usePathname()
+  const onCartPage = pathname === '/kosar'
 
   if (itemCount <= 0) return null
 
@@ -20,7 +23,7 @@ export function MobileCartStickyBanner() {
 
   return (
     <div
-      className="md:hidden sticky top-16 z-40 border-b border-[var(--border)] bg-[var(--card-bg)]/95 backdrop-blur-sm shadow-sm"
+      className="md:hidden sticky z-40 border-b border-[var(--border)] bg-[var(--card-bg)]/95 backdrop-blur-sm shadow-sm top-[var(--site-header-height)]"
       role="region"
       aria-label={t('cart.mobileStickyBannerAria')}
     >
@@ -30,6 +33,7 @@ export function MobileCartStickyBanner() {
         </p>
         <Link
           href="/kosar"
+          replace={onCartPage}
           className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-heading font-semibold text-white hover:opacity-90 transition-opacity"
         >
           {t('common.cart')}

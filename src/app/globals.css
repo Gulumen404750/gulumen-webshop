@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 :root {
+  --site-header-height: 3.5rem;
   /* Soft off-white light mode: less glare, better long-read comfort */
   --bg: #f8fafc;
   --text: #111827;
@@ -11,6 +12,12 @@
   --discount: #dc2626;
   --card-bg: #ffffff;
   --border: #e2e8f0;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --site-header-height: 4rem;
+  }
 }
 
 .dark {
