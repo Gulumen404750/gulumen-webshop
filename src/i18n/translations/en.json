@@ -641,7 +641,8 @@
     "historyDevNote": "Point history is only available with a database in local dev mode."
   },
   "giftClaim": {
-    "title": "Redeem a coupon or gift points",
+    "title": "Coupon",
+    "helpAria": "Coupon and gift-point rules",
     "hint": "Enter an admin coupon code, gift-point code or batch label, or scan the QR / NFC link. Percent / fixed coupons apply at checkout. Gift points: 1 point = {pointValue}, single-use, spendable for 1 month. Cannot be combined with other coupons.",
     "codeLabel": "Code / ID",
     "codePlaceholder": "e.g. NYAR2026 or ABCD2345EFGH",

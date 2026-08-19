@@ -615,7 +615,8 @@
     "historyDevNote": "Helyi fejlesztői módban a ponttörténet csak adatbázissal érhető el."
   },
   "giftClaim": {
-    "title": "Kupon vagy ajándékpont beváltása",
+    "title": "Kupon",
+    "helpAria": "Kupon- és ajándékpont-szabályok",
     "hint": "Írd be az admin kuponkódot, az ajándékpont-kódot vagy a tétel címkéjét, vagy olvasd be a QR / NFC linket. Százalékos / fix kupon a fizetésnél érvényesül. Ajándékpont: 1 pont = {pointValue}, egyszer használatos, 1 hónapig költhető. Más kuponnal nem vonható össze.",
     "codeLabel": "Kód / azonosító",
     "codePlaceholder": "pl. NYAR2026 vagy ABCD2345EFGH",
