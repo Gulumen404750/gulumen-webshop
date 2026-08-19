@@ -74,7 +74,7 @@ export function PointHistoryTimeline({ className = '' }: Props) {
         <p className="text-sm text-muted">{t('gamification.historyEmpty')}</p>
       ) : (
         <>
-          <ol className="relative space-y-0">
+          <ol id="point-history-list" className="relative space-y-0">
             {(expanded ? transactions : transactions.slice(0, POINT_HISTORY_PREVIEW_LIMIT)).map(
               (entry, index, visible) => {
                 const { label, icon: Icon } = getTypeMeta(entry.type, t)
@@ -130,10 +130,15 @@ export function PointHistoryTimeline({ className = '' }: Props) {
             <button
               type="button"
               onClick={() => setExpanded((open) => !open)}
-              className="mt-4 w-full sm:w-auto px-4 py-2 rounded-lg border border-[var(--border)] text-sm font-medium text-foreground hover:bg-[var(--border)]/50 transition-colors"
+              className="mt-4 w-full sm:w-auto px-4 py-2.5 rounded-lg border border-[var(--border)] bg-background text-sm font-medium text-foreground hover:bg-[var(--border)]/50 transition-colors"
               aria-expanded={expanded}
+              aria-controls="point-history-list"
             >
-              {expanded ? t('gamification.historyCollapse') : t('gamification.historyExpand')}
+              {expanded
+                ? t('gamification.historyCollapse')
+                : t('gamification.historyExpand', {
+                    count: transactions.length - POINT_HISTORY_PREVIEW_LIMIT,
+                  })}
             </button>
           )}
         </>

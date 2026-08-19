@@ -587,6 +587,8 @@
     "devModeNote": "Helyi fejlesztői mód: pontok a data/dev-gamification.json fájlban tárolódnak.",
     "mechanicsTitle": "Hogyan gyűjts pontokat?",
     "mechanicsIntro": "Napi tevékenységekkel gyűjthetsz pontokat, amelyeket 10%-os kuponokra válthatsz – ahányszor van rá elég pontod.",
+    "mechanicsMore": "Bővebben",
+    "mechanicsLess": "Kevesebb",
     "mechanicsBrowseTitle": "Aktív böngészés",
     "mechanicsBrowse": "Naponta legfeljebb {maxPerDay}×: {minutes} perc aktív böngészés (nyitott, fókuszban lévő lap) → +{points} pont. Két bónusz között minimum {cooldownHours} óra várakozás.",
     "mechanicsLikesTitle": "Kedvencek",
@@ -614,7 +616,7 @@
     "historyTypeOther": "Egyéb",
     "historyBalanceAfter": "Egyenleg: {balance} pont",
     "historyDevNote": "Helyi fejlesztői módban a ponttörténet csak adatbázissal érhető el.",
-    "historyExpand": "Összes megtekintése",
+    "historyExpand": "Történet kibontása (+{count})",
     "historyCollapse": "Kevesebb mutatása"
   },
   "giftClaim": {

@@ -615,6 +615,8 @@
     "devModeNote": "Lokaler Dev-Modus: Punkte werden in data/dev-gamification.json gespeichert.",
     "mechanicsTitle": "So sammelst du Punkte",
     "mechanicsIntro": "Mit täglichen Aktivitäten sammelst du Punkte und tauschst sie gegen 10%-Gutscheine ein – so oft dein Guthaben reicht.",
+    "mechanicsMore": "Mehr",
+    "mechanicsLess": "Weniger",
     "mechanicsBrowseTitle": "Aktives Stöbern",
     "mechanicsBrowse": "Max. {maxPerDay}× täglich: {minutes} Minuten aktiv surfen (offener, fokussierter Tab) → +{points} Punkte. Mindestens {cooldownHours} Stunden zwischen Boni.",
     "mechanicsLikesTitle": "Favoriten",
@@ -642,7 +644,7 @@
     "historyTypeOther": "Sonstiges",
     "historyBalanceAfter": "Guthaben: {balance} Punkte",
     "historyDevNote": "Punkteverlauf ist im lokalen Dev-Modus nur mit Datenbank verfügbar.",
-    "historyExpand": "Alle anzeigen",
+    "historyExpand": "Verlauf aufklappen (+{count})",
     "historyCollapse": "Weniger anzeigen"
   },
   "giftClaim": {

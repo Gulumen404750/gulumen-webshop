@@ -1,5 +1,6 @@
 'use client'
 
+import { useId, useState } from 'react'
 import {
   DAILY_LIKE_TARGET,
   POINTS_BROWSE_5MIN,
@@ -28,6 +29,8 @@ const likeWindowHours = LIKE_BONUS_WINDOW_MS / (60 * 60 * 1000)
 export function PointsGuide({ className = '' }: Props) {
   const { t } = useLocale()
   const { copy } = useDisplayMoney()
+  const accordionId = useId()
+  const [openId, setOpenId] = useState<string | null>(null)
 
   const replace = (key: string, vars: Record<string, string | number>) => {
     let text = t(key)
@@ -39,6 +42,7 @@ export function PointsGuide({ className = '' }: Props) {
 
   const steps = [
     {
+      id: 'browse',
       icon: Clock,
       title: t('gamification.mechanicsBrowseTitle'),
       text: replace('gamification.mechanicsBrowse', {
@@ -49,6 +53,7 @@ export function PointsGuide({ className = '' }: Props) {
       }),
     },
     {
+      id: 'likes',
       icon: Heart,
       title: t('gamification.mechanicsLikesTitle'),
       text: replace('gamification.mechanicsLikes', {
@@ -58,6 +63,7 @@ export function PointsGuide({ className = '' }: Props) {
       }),
     },
     {
+      id: 'cashback',
       icon: Coins,
       title: t('gamification.mechanicsCashbackTitle'),
       text: replace('gamification.mechanicsCashback', {
@@ -66,6 +72,7 @@ export function PointsGuide({ className = '' }: Props) {
       }),
     },
     {
+      id: 'purchase',
       icon: ShoppingBag,
       title: t('gamification.mechanicsPurchaseTitle'),
       text: replace('gamification.mechanicsPurchase', {
@@ -75,6 +82,7 @@ export function PointsGuide({ className = '' }: Props) {
       }),
     },
     {
+      id: 'gift',
       icon: Wallet,
       title: t('gamification.mechanicsGiftTitle'),
       text: replace('gamification.mechanicsGift', {
@@ -82,6 +90,7 @@ export function PointsGuide({ className = '' }: Props) {
       }),
     },
     {
+      id: 'redeem',
       icon: Gift,
       title: t('gamification.mechanicsRedeemTitle'),
       text: replace('gamification.mechanicsRedeem', {
@@ -106,23 +115,40 @@ export function PointsGuide({ className = '' }: Props) {
       <p className="text-sm text-muted mb-5">{t('gamification.mechanicsIntro')}</p>
 
       <ul className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
-        {steps.map(({ icon: Icon, title, text }) => (
-          <li key={title}>
-            <details className="group">
-              <summary className="flex cursor-pointer list-none items-center gap-3 py-3 [&::-webkit-details-marker]:hidden">
+        {steps.map(({ id, icon: Icon, title, text }) => {
+          const open = openId === id
+          const panelId = `${accordionId}-${id}`
+          return (
+            <li key={id}>
+              <button
+                type="button"
+                className="flex w-full cursor-pointer items-center gap-3 py-3 text-left"
+                aria-expanded={open}
+                aria-controls={panelId}
+                onClick={() => setOpenId((current) => (current === id ? null : id))}
+              >
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
                   <Icon className="h-4 w-4" aria-hidden />
                 </span>
                 <span className="min-w-0 flex-1 text-sm font-medium text-foreground">{title}</span>
+                <span className="shrink-0 text-xs font-medium text-muted">
+                  {open ? t('gamification.mechanicsLess') : t('gamification.mechanicsMore')}
+                </span>
                 <ChevronDown
-                  className="h-4 w-4 shrink-0 text-muted transition-transform group-open:rotate-180"
+                  className={`h-4 w-4 shrink-0 text-muted transition-transform ${open ? 'rotate-180' : ''}`}
                   aria-hidden
                 />
-              </summary>
-              <p className="text-sm text-muted pb-3 pl-12 pr-1 leading-relaxed">{text}</p>
-            </details>
-          </li>
-        ))}
+              </button>
+              <p
+                id={panelId}
+                hidden={!open}
+                className="text-sm text-muted pb-3 pl-12 pr-1 leading-relaxed"
+              >
+                {text}
+              </p>
+            </li>
+          )
+        })}
       </ul>
 
       <p className="text-xs text-muted mt-4">
