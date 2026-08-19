@@ -1,6 +1,6 @@
 'use client'
 
-/** Fizetési oldal – Railway src watch-path 2026-08-19T08:20. */
+/** Fizetési oldal – Railway src watch-path 2026-08-19T16:55. */
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
@@ -42,6 +42,8 @@ import {
   buildPromoCoupons,
   calculateSelectedCouponPercent,
   canToggleCoupon,
+  fixedHufFromCoupon,
+  isFixedAmountCoupon,
   isFixedSelectableCoupon,
   isGamificationCouponId,
   nextCouponSelection,
@@ -158,19 +160,17 @@ export default function PaymentPage() {
     if (active.length > 0) {
       return active.map((coupon) => {
         const checkoutCode = coupon.checkoutCode || coupon.code
-        const isFixed = coupon.discountType === 'fixed'
+        const isFixed = isFixedAmountCoupon(coupon)
+        const fixedHuf = fixedHufFromCoupon(coupon)
         return {
           code: checkoutCode,
-          percent: coupon.discountPercent,
-          fixedHuf: isFixed ? coupon.discountValue : undefined,
+          percent: isFixed ? 0 : coupon.discountPercent,
+          ...(fixedHuf ? { fixedHuf } : {}),
           validUntil: coupon.validUntil
             ? new Date(coupon.validUntil).toLocaleDateString(locale)
             : undefined,
           label: isFixed
-            ? t('payment.couponDiscountFixed', {
-                amount: money(coupon.discountValue ?? 0),
-                code: coupon.code,
-              })
+            ? t('payment.couponFixedName', { code: coupon.code })
             : t('payment.couponGamificationLabel', {
                 percent:
                   coupon.discountPercent > 1
@@ -181,7 +181,8 @@ export default function PaymentPage() {
       })
     }
     if (!wallet?.hasActiveCoupon || !wallet.activeCouponCode) return []
-    const percent = wallet.activeCouponPercent ?? 10
+    const percent = wallet.activeCouponPercent ?? 0
+    if (percent <= 0) return []
     return [
       {
         code: wallet.activeCouponCode,
@@ -194,7 +195,7 @@ export default function PaymentPage() {
         }),
       },
     ]
-  }, [wallet, locale, t, money])
+  }, [wallet, locale, t])
 
   const availableCoupons = useMemo(
     () =>

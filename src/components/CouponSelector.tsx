@@ -9,6 +9,7 @@ import {
   type SelectableCouponId,
 } from '@/lib/coupon-selection'
 import { useLocale } from '@/context/LocaleContext'
+import { useDisplayMoney } from '@/hooks/useDisplayMoney'
 
 type Props = {
   coupons: SelectableCoupon[]
@@ -37,6 +38,7 @@ export function CouponSelector({
   disabled = false,
 }: Props) {
   const { t } = useLocale()
+  const { money } = useDisplayMoney()
   const resolvedTitle = title ?? t('payment.couponSelectorTitle')
   const defaultHint =
     t('payment.couponSelectorHint')
@@ -44,6 +46,14 @@ export function CouponSelector({
   const resolvedEmpty = emptyText ?? t('payment.couponSelectorEmpty')
   const resolvedCap = capReachedText ?? t('payment.couponCapReached')
   const selected = new Set(selectedIds)
+  const selectedFixedHuf = coupons
+    .filter((coupon) => selected.has(coupon.id) && isFixedSelectableCoupon(coupon))
+    .reduce((sum, coupon) => sum + (coupon.fixedHuf ?? 0), 0)
+  const percentDisplay =
+    selectedPercentDisplay > 0
+      ? Math.min(selectedPercentDisplay, Math.round(MAX_COMBINED_COUPON_PERCENT * 100))
+      : 0
+  const showSelectedSummary = selectedIds.length > 0 && (percentDisplay > 0 || selectedFixedHuf > 0)
 
   const toggle = (id: SelectableCouponId) => {
     if (disabled) return
@@ -99,11 +109,15 @@ export function CouponSelector({
                 <span className="flex-1 min-w-0">
                   <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                     <span className="text-sm font-medium text-foreground">{coupon.label}</span>
-                    {!isFixed && (
+                    {isFixed && (coupon.fixedHuf ?? 0) > 0 ? (
+                      <span className="text-sm font-semibold text-discount tabular-nums">
+                        −{money(coupon.fixedHuf ?? 0)}
+                      </span>
+                    ) : coupon.percent > 0 ? (
                       <span className="text-sm font-semibold text-discount tabular-nums">
                         −{Math.round(coupon.percent * 100)}%
                       </span>
-                    )}
+                    ) : null}
                   </span>
                   {coupon.code && (
                     <span className="block text-xs text-muted mt-0.5 font-mono">{coupon.code}</span>
@@ -123,13 +137,15 @@ export function CouponSelector({
         })}
       </ul>
 
-      {selectedIds.length > 0 && selectedPercentDisplay > 0 && (
+      {showSelectedSummary && (
         <p className="text-sm text-foreground">
           {t('payment.couponSelectedLabel')}{' '}
           <strong className="text-discount">
-            {Math.min(selectedPercentDisplay, Math.round(MAX_COMBINED_COUPON_PERCENT * 100))}%
+            {percentDisplay > 0 ? `${percentDisplay}%` : null}
+            {percentDisplay > 0 && selectedFixedHuf > 0 ? ' + ' : null}
+            {selectedFixedHuf > 0 ? money(selectedFixedHuf) : null}
           </strong>
-          {capped && (
+          {capped && percentDisplay > 0 && (
             <span className="text-muted">
               {' '}
               {t('payment.couponCappedLabel', {

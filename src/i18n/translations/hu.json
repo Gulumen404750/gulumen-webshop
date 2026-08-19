@@ -264,6 +264,7 @@
     "couponDiscountLine": "Kuponkedvezmény",
     "couponDiscountWithCode": "Kupon ({percent}%)",
     "couponDiscountFixed": "Kupon {code} (−{amount})",
+    "couponFixedName": "Kupon {code}",
     "loyaltyDiscountLine": "Hűségkedvezmény ({percent}%)",
     "loyaltyAutoAppliedHint": "Automatikusan érvényes a kosárra. Más kuponra és a pontfizetésre is ráépül. A fix forintos kupon összevonható a hűségkedvezménnyel, a Szerencsekerékkel és egy százalékos kuponnal.",
     "couponSelectorTitle": "Elérhető kuponok",

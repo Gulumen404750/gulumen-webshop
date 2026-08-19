@@ -238,6 +238,7 @@
     "couponDiscountLine": "Reducere cupon",
     "couponDiscountWithCode": "Cupon ({percent}%)",
     "couponDiscountFixed": "Cupon {code} (−{amount})",
+    "couponFixedName": "Cupon {code}",
     "loyaltyDiscountLine": "Reducere fidelitate ({percent}%)",
     "loyaltyAutoAppliedHint": "Se aplică automat coșului. Se poate combina cu cupoane și cu puncte. Un cupon cu sumă fixă se poate combina cu fidelitatea, Roata norocului și un cupon procentual.",
     "couponSelectorTitle": "Cupoane disponibile",

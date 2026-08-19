@@ -502,6 +502,22 @@ describe('computeCheckoutTotals', () => {
     expect(totals.luckySpinDiscountHuf).toBe(0)
     expect(totals.merchandiseTotalHuf).toBe(0)
   })
+
+  it('applies a 15 000 Ft coupon to a 4 990 Ft cart with 4% loyalty instead of 0%', () => {
+    const lines = [line('stock-1', 1, 4_990, 'stock')]
+    const totals = computeCheckoutTotals({
+      lines,
+      coupon: { percent: 0, fixedHuf: 15_000 },
+      luckySpin: null,
+      loyaltyPercent: 0.04,
+    })
+    expect(totals.loyaltyDiscountHuf).toBe(200)
+    expect(totals.percentCouponDiscountHuf).toBe(0)
+    expect(totals.fixedCouponDiscountHuf).toBe(4_790)
+    expect(totals.couponDiscountHuf).toBe(4_790)
+    expect(totals.fixedCouponUnusedHuf).toBe(10_210)
+    expect(totals.merchandiseTotalHuf).toBe(0)
+  })
 })
 
 describe('stackFixedThenPercent', () => {
