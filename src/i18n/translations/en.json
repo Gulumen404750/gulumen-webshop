@@ -638,7 +638,9 @@
     "historyTypePurchaseEarn": "Purchase points",
     "historyTypeOther": "Other",
     "historyBalanceAfter": "Balance: {balance} pts",
-    "historyDevNote": "Point history is only available with a database in local dev mode."
+    "historyDevNote": "Point history is only available with a database in local dev mode.",
+    "historyExpand": "Show all",
+    "historyCollapse": "Show less"
   },
   "giftClaim": {
     "title": "Redeem a coupon or gift points",

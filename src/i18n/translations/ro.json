@@ -623,7 +623,9 @@
     "historyTypePurchaseEarn": "Puncte din cumpărare",
     "historyTypeOther": "Altele",
     "historyBalanceAfter": "Sold: {balance} puncte",
-    "historyDevNote": "Istoricul punctelor este disponibil în modul dev local doar cu bază de date."
+    "historyDevNote": "Istoricul punctelor este disponibil în modul dev local doar cu bază de date.",
+    "historyExpand": "Vezi tot",
+    "historyCollapse": "Arată mai puțin"
   },
   "giftClaim": {
     "title": "Valorifică cupon sau puncte cadou",
