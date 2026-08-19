@@ -1,6 +1,6 @@
 /**
  * NFC / ajándékpontok: 1 pont = 1 Ft, teljes termékárra levásárolható,
- * aktiválástól 1 hónapig érvényes. Más kuponnal nem kombinálható.
+ * aktiválástól 1 hónapig érvényes. Kuponnal és hűségkedvezménnyel összevonható.
  */
 
 import { prisma, isDbConfigured } from '@/lib/prisma'

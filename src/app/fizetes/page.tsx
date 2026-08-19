@@ -253,12 +253,10 @@ export default function PaymentPage() {
 
   const checkoutPreview = computeCheckoutTotals({
     lines: lockedLines,
-    coupon: usePoints
-      ? { percent: 0 }
-      : {
-          percent: effectiveCouponPercent,
-          ...(effectiveFixedHuf && effectiveFixedHuf > 0 ? { fixedHuf: effectiveFixedHuf } : {}),
-        },
+    coupon: {
+      percent: effectiveCouponPercent,
+      ...(effectiveFixedHuf && effectiveFixedHuf > 0 ? { fixedHuf: effectiveFixedHuf } : {}),
+    },
     luckySpin: luckySpinRecord,
     loyaltyPercent: loyaltyFraction,
     points:
@@ -298,7 +296,6 @@ export default function PaymentPage() {
   const fixedCouponDiscountHuf = checkoutPreview.fixedCouponDiscountHuf
   const fixedCouponUnusedHuf = checkoutPreview.fixedCouponUnusedHuf
   const showFixedRemainderWarning =
-    !usePoints &&
     Boolean(effectiveFixedHuf && effectiveFixedHuf > 0) &&
     ((effectiveFixedHuf ?? 0) > checkoutPreview.subtotalHuf || fixedCouponUnusedHuf > 0)
 
@@ -429,10 +426,6 @@ export default function PaymentPage() {
 
   const autoSelectedGamificationRef = useRef<string | null>(null)
   useEffect(() => {
-    if (usePoints) {
-      autoSelectedGamificationRef.current = null
-      return
-    }
     const firstFixed = availableCoupons.find(
       (c) => isGamificationCouponId(c.id) && (c.fixedHuf ?? 0) > 0
     )
@@ -457,12 +450,7 @@ export default function PaymentPage() {
       if (!canToggleCoupon(availableCoupons, new Set(prev), selectionId, true)) return prev
       return nextCouponSelection(availableCoupons, new Set(prev), selectionId, true)
     })
-  }, [availableCoupons, usePoints, typedCoupon])
-
-  useEffect(() => {
-    if (!usePoints) return
-    setSelectedCouponIds([])
-  }, [usePoints])
+  }, [availableCoupons, typedCoupon])
 
   useEffect(() => {
     const stored = readTypedCoupon()
@@ -501,7 +489,6 @@ export default function PaymentPage() {
   const handleRedeemedCode = (result: CodeRedeemSuccess) => {
     if (result.kind === 'gift_points') {
       void refreshWallet()
-      setSelectedCouponIds([])
       clearTypedCoupon()
       setUseGiftPoints(true)
       setUseActivityPoints(false)
@@ -745,18 +732,15 @@ export default function PaymentPage() {
                 }),
           },
           // Kedvezmény % NEM a kliensről – szerver couponCode + selectedCoupons alapján számol
-          couponCode: usePoints
-            ? undefined
-            : typedCoupon?.code ||
-              couponSelection.fixedCouponCode ||
-              couponSelection.percentCouponCode ||
-              couponSelection.birthdayCode ||
-              couponSelection.gamificationCode ||
-              couponCodeInput.trim() ||
-              undefined,
-          couponCodes: usePoints
-            ? undefined
-            : [
+          couponCode:
+            typedCoupon?.code ||
+            couponSelection.fixedCouponCode ||
+            couponSelection.percentCouponCode ||
+            couponSelection.birthdayCode ||
+            couponSelection.gamificationCode ||
+            couponCodeInput.trim() ||
+            undefined,
+          couponCodes: [
                 typedCoupon?.code,
                 couponSelection.fixedCouponCode,
                 couponSelection.percentCouponCode,
@@ -768,14 +752,10 @@ export default function PaymentPage() {
                 .filter((code): code is string => Boolean(code))
                 .filter((code, index, all) => all.findIndex((c) => c.toUpperCase() === code.toUpperCase()) === index)
                 .slice(0, 2),
-          welcomeOfferAccepted: usePoints
-            ? undefined
-            : couponSelection.useWelcome ? true : undefined,
-          selectedCoupons: usePoints
-            ? []
-            : couponSelection.selectedIds
-                .filter((id) => id !== 'loyalty')
-                .map((id) => toCheckoutSelectedCouponId(id)),
+          welcomeOfferAccepted: couponSelection.useWelcome ? true : undefined,
+          selectedCoupons: couponSelection.selectedIds
+            .filter((id) => id !== 'loyalty')
+            .map((id) => toCheckoutSelectedCouponId(id)),
           pointsDiscountHuf: pointsDiscountHuf > 0 ? pointsDiscountHuf : undefined,
           useGiftPoints: usePoints ? useGiftPoints : undefined,
           useActivityPoints: usePoints ? useActivityPoints : undefined,
@@ -1348,7 +1328,7 @@ export default function PaymentPage() {
         onSuccess={handleRedeemedCode}
       />
 
-      {typedCoupon && !usePoints && (
+      {typedCoupon && (
         <div className="mb-4 -mt-4 space-y-2 rounded-xl border border-accent/40 bg-accent/5 px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-foreground">
@@ -1390,9 +1370,8 @@ export default function PaymentPage() {
 
       <CouponSelector
         coupons={availableCoupons}
-        selectedIds={usePoints ? [] : selectedCouponIds}
+        selectedIds={selectedCouponIds}
         onChange={(next) => void handleCouponSelectionChange(next)}
-        disabled={usePoints}
         title={t('payment.couponSelectorTitle')}
         hint={
           t('payment.couponSelectorHint')

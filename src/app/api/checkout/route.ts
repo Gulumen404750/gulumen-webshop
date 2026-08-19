@@ -470,21 +470,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid coupon discount' }, { status: 400 })
   }
 
-  const hasPromoSelection =
-    selectedCoupons.size > 0 ||
-    couponCodesForCheckout.length > 0 ||
-    cappedPercent > 0 ||
-    fixedHufFromDb > 0
-  if (requestedPointsHuf > 0 && hasPromoSelection) {
-    return NextResponse.json(
-      {
-        code: 'points_promo_stack_disabled',
-        error: 'Points cannot be combined with other promotions or coupons',
-      },
-      { status: 400 }
-    )
-  }
-
   couponDiscount = {
     percent: cappedPercent,
     ...(fixedHufFromDb > 0 ? { fixedHuf: fixedHufFromDb } : {}),

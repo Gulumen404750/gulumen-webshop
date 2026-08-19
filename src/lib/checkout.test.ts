@@ -282,7 +282,7 @@ describe('resolveCartLines', () => {
 })
 
 describe('computeCheckoutTotals', () => {
-  it('does not stack coupons with points and charges shipping below the free-shipping leftover', () => {
+  it('stacks a percent coupon with points and charges shipping below the free-shipping leftover', () => {
     const lines = [
       line('stock-1', 2, 5_000, 'stock'),
       line('source-1', 1, 10_000, 'procurement'),
@@ -296,12 +296,12 @@ describe('computeCheckoutTotals', () => {
     })
 
     expect(totals.subtotalHuf).toBe(20_000)
-    expect(totals.couponDiscountHuf).toBe(0)
+    expect(totals.couponDiscountHuf).toBe(2_000)
     expect(totals.pointsDiscountHuf).toBe(1_500)
     expect(totals.pointsUsed).toBe(1_500)
-    expect(totals.merchandiseTotalHuf).toBe(18_500)
+    expect(totals.merchandiseTotalHuf).toBe(16_500)
     expect(totals.shippingHuf).toBe(STANDARD_SHIPPING_FEE_HUF)
-    expect(totals.finalTotalHuf).toBe(18_500 + STANDARD_SHIPPING_FEE_HUF)
+    expect(totals.finalTotalHuf).toBe(16_500 + STANDARD_SHIPPING_FEE_HUF)
 
     expect(totals.inStock.items).toHaveLength(1)
     expect(totals.inStock.subtotalHuf).toBe(10_000)
@@ -401,10 +401,10 @@ describe('computeCheckoutTotals', () => {
       },
     })
 
-    expect(totals.couponDiscountHuf).toBe(0)
+    expect(totals.couponDiscountHuf).toBe(1_000)
     expect(totals.giftPointsUsed).toBe(4_000)
-    expect(totals.activityPointsUsed).toBe(6_000)
-    expect(totals.pointsDiscountHuf).toBe(10_000)
+    expect(totals.activityPointsUsed).toBe(5_000)
+    expect(totals.pointsDiscountHuf).toBe(9_000)
     expect(totals.invoiceMerchandiseHuf).toBe(0)
     expect(totals.invoiceShippingHuf).toBe(STANDARD_SHIPPING_FEE_HUF)
     expect(totals.invoiceTotalHuf).toBe(STANDARD_SHIPPING_FEE_HUF)
@@ -425,7 +425,7 @@ describe('computeCheckoutTotals', () => {
     expect(totals.merchandiseTotalHuf).toBe(8_910)
   })
 
-  it('keeps loyalty when paying with points and zeros other coupons', () => {
+  it('keeps loyalty and a percent coupon when paying with points', () => {
     const lines = [line('stock-1', 1, 10_000, 'stock')]
     const totals = computeCheckoutTotals({
       lines,
@@ -435,9 +435,23 @@ describe('computeCheckoutTotals', () => {
       points: { requestedDiscountHuf: 2_000, userBalance: 50_000 },
     })
     expect(totals.loyaltyDiscountHuf).toBe(200)
-    expect(totals.couponDiscountHuf).toBe(0)
+    expect(totals.couponDiscountHuf).toBe(980)
     expect(totals.pointsDiscountHuf).toBe(2_000)
-    expect(totals.merchandiseTotalHuf).toBe(7_800)
+    expect(totals.merchandiseTotalHuf).toBe(6_820)
+  })
+
+  it('applies a fixed coupon before points on the remaining merchandise', () => {
+    const lines = [line('stock-1', 1, 20_000, 'stock')]
+    const totals = computeCheckoutTotals({
+      lines,
+      coupon: { fixedHuf: 5_000 },
+      luckySpin: null,
+      points: { requestedDiscountHuf: 3_000, userBalance: 50_000 },
+    })
+    expect(totals.fixedCouponDiscountHuf).toBe(5_000)
+    expect(totals.couponDiscountHuf).toBe(5_000)
+    expect(totals.pointsDiscountHuf).toBe(3_000)
+    expect(totals.merchandiseTotalHuf).toBe(12_000)
   })
 
   it('applies loyalty first, then (cart - fixed) * (1 - percent)', () => {
