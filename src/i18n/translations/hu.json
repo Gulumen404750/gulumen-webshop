@@ -692,7 +692,8 @@
     "noResultsHint": "Próbálj másik keresőszót, vagy böngéssz a termékek között.",
     "noResultsHintWithQuery": "A(z) „{query}” keresésre nincs termék a kínálatunkban.",
     "suggestedCategories": "Javasolt kategóriák",
-    "saleAlternativesTitle": "Akciós ajánlatok"
+    "saleAlternativesTitle": "Akciós ajánlatok",
+    "browseAlternativesTitle": "Ezeket ajánljuk"
   },
   "themeChooser": {
     "title": "Hogyan szeretnéd böngészni?",

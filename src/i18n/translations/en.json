@@ -417,7 +417,8 @@
     "noResultsHint": "Try a different search term, or browse the products.",
     "noResultsHintWithQuery": "No products in our range match “{query}”.",
     "suggestedCategories": "Suggested categories",
-    "saleAlternativesTitle": "Sale products"
+    "saleAlternativesTitle": "Sale products",
+    "browseAlternativesTitle": "You might like these"
   },
   "coupon": {
     "title": "🎁 5% discount gift",

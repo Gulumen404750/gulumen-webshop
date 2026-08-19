@@ -331,7 +331,7 @@ export const categories = [
   { slug: 'kiegeszitok', name: 'Kiegészítők', nameEn: 'Accessories', nameDe: 'Accessoires', nameRo: 'Accesorii', storefrontVisible: false },
   { slug: 'elektronika', name: 'Elektronika / Egyéb', nameEn: 'Electronics & More', nameDe: 'Elektronik & Mehr', nameRo: 'Electronică și altele', storefrontVisible: false },
   { slug: 'otthon', name: 'Otthon', nameEn: 'Home', nameDe: 'Zuhause', nameRo: 'Casă', storefrontVisible: false },
-  { slug: '3d-nyomtatott', name: '3D Nyomtatott Termékek', nameEn: '3D Printed Products', nameDe: '3D-Druck Produkte', nameRo: 'Produse printate 3D', storefrontVisible: true },
+  { slug: '3d-nyomtatott', name: 'Termékek', nameEn: 'Products', nameDe: 'Produkte', nameRo: 'Produse', storefrontVisible: true },
 ] as const
 
 /** Nav és shop: jelenleg látható kategóriák (a többi rejtett, de megmarad). */
