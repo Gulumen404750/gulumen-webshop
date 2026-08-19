@@ -35,6 +35,8 @@ describe('checkout API payment methods', () => {
     expect(src).toMatch(/isFixedCouponDiscount/)
     expect(src).toMatch(/fixedIds/)
     expect(src).not.toMatch(/points_promo_stack_disabled/)
+    expect(src).toMatch(/prePointsTotals/)
+    expect(src).toMatch(/afterCouponAndLuckyHuf/)
   })
 })
 

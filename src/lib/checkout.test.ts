@@ -440,6 +440,29 @@ describe('computeCheckoutTotals', () => {
     expect(totals.merchandiseTotalHuf).toBe(6_820)
   })
 
+  it('applies loyalty, a coupon, then activity points without zeroing the coupon', () => {
+    const lines = [line('stock-1', 1, 10_000, 'stock')]
+    const totals = computeCheckoutTotals({
+      lines,
+      coupon: { percent: 0.1 },
+      luckySpin: null,
+      loyaltyPercent: 0.04,
+      points: {
+        requestedDiscountHuf: 2_000,
+        userBalance: 50_000,
+        spendGift: false,
+        spendActivity: true,
+      },
+    })
+    expect(totals.loyaltyDiscountHuf).toBe(400)
+    expect(totals.couponDiscountHuf).toBe(960)
+    expect(totals.percentCouponDiscountHuf).toBe(960)
+    expect(totals.pointsDiscountHuf).toBe(2_000)
+    expect(totals.activityPointsUsed).toBe(2_000)
+    expect(totals.giftPointsUsed).toBe(0)
+    expect(totals.merchandiseTotalHuf).toBe(6_640)
+  })
+
   it('applies a fixed coupon before points on the remaining merchandise', () => {
     const lines = [line('stock-1', 1, 20_000, 'stock')]
     const totals = computeCheckoutTotals({
