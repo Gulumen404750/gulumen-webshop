@@ -29,6 +29,9 @@ describe('Gulumen CX handbook / chat settings', () => {
     expect(p).toMatch(/termékkárty/i)
     expect(p).toMatch(/nem tudok közvetlenül termékeket mutatni/i)
     expect(p).toMatch(/AJÁNLOTT TERMÉKEK/i)
+    expect(p).toMatch(/NINCS PONTOS TERMÉKTALÁLAT/)
+    expect(p).toMatch(/LANGUAGE LOCK/)
+    expect(p).toMatch(/alternatív/i)
   })
 
   it('requires readable numbered lists with light emojis', () => {

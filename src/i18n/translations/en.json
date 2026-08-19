@@ -904,7 +904,9 @@
     "voiceListening": "Listening…",
     "voiceUnsupported": "Voice input is not supported in this browser. Type your question.",
     "viewProduct": "View product",
-    "addedToCart": "Added to cart"
+    "addedToCart": "Added to cart",
+    "missingProduct": "Unfortunately I couldn't find that exact product in our current range. Browse the shop, or tell me what you need – I can suggest a close alternative.",
+    "missingProductWithAlternatives": "Unfortunately I couldn't find that exact product in our current range. Here are some close alternatives – they are not the item you asked for, but they may serve a similar purpose."
   },
   "seo": {
     "title": "Gulumen – Your home is close to our heart.",

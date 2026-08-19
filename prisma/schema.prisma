@@ -552,9 +552,12 @@ model ChatLog {
   /// SHA-256 hash – nyers IP nem tárolódik.
   ipHash       String
   locale       String   @default("hu")
+  /// Konkrét termékkeresés, de a katalógusban nem volt pontos találat.
+  missingProductSearch Boolean @default(false)
   createdAt    DateTime @default(now())
   @@index([questionNorm])
   @@index([createdAt])
+  @@index([missingProductSearch])
 }
 
 // ─── Gamification (pontrendszer) ───────────────────────────────────────────

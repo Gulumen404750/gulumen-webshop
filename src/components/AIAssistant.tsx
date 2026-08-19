@@ -91,10 +91,24 @@ export function AIAssistant() {
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const messagesRef = useRef(messages)
   messagesRef.current = messages
+  const localeRef = useRef(locale)
+  const chatGenerationRef = useRef(0)
 
   useEffect(() => {
     setVoiceSupported(getSpeechRecognition() !== null)
   }, [])
+
+  useEffect(() => {
+    if (localeRef.current === locale) return
+    localeRef.current = locale
+    chatGenerationRef.current += 1
+    recognitionRef.current?.abort()
+    recognitionRef.current = null
+    setListening(false)
+    setMessages([])
+    setInput('')
+    setLoading(false)
+  }, [locale])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -104,6 +118,7 @@ export function AIAssistant() {
     async (text: string) => {
       const trimmed = text.trim()
       if (!trimmed || loading) return
+      const generation = chatGenerationRef.current
       setInput('')
       setMessages((m) => [...m, { role: 'user', text: trimmed }])
       setLoading(true)
@@ -124,6 +139,7 @@ export function AIAssistant() {
             ...(productSlug ? { productSlug } : {}),
           }),
         })
+        if (chatGenerationRef.current !== generation) return
         const data = await res.json().catch(() => ({}))
         if (res.ok && typeof data?.text === 'string') {
           const productIds = parseProductIds(data.productIds)
@@ -145,10 +161,11 @@ export function AIAssistant() {
           setMessages((m) => [...m, { role: 'assistant', text: fallbackText + errorNote, escalate }])
         }
       } catch {
+        if (chatGenerationRef.current !== generation) return
         const { textKey, escalate } = getResponse(trimmed)
         setMessages((m) => [...m, { role: 'assistant', text: t(textKey), escalate }])
       } finally {
-        setLoading(false)
+        if (chatGenerationRef.current === generation) setLoading(false)
       }
     },
     [loading, locale, t, productSlug]

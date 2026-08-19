@@ -275,7 +275,7 @@ const NON_PRODUCT_PATTERNS =
   /\b(szállítás|feladás|mikor érkezik|csomag|tracking|shipping|delivery|versand|lieferung|fizetés|fizetni|payment|zahlung|visszaküld|visszatérít|refund|return|rückgabe|panasz|reklamáció|complaint|beschwerde|kártyaszám|cvv|jelszó|password|ügyvéd|lawyer|chargeback|hányadika|hány óra|what time|what date)\b/i
 
 const PRODUCT_INTENT_PATTERNS =
-  /\b(ajánl|javasol|recommend|empfehl|mit vegyek|what to buy|keresek|keresünk|nézek|looking for|suche|caut|lámpa|lámpát|lámpák|lámpákat|taska|táska|táskát|bag|lampe|lamp|produk|termék|product|ajándék|gift|geschenk|otthon|home|konyha|kitchen|küche|nappali|íróasztal|gyerek|dekor|deco|állvány|tartó|szervező|organiz|virág|növény|macska|kutya|óra|óraállvány|telefon|töltő|cable|kábel)\b/i
+  /\b(ajánlj|ajánl|javasol|recommend|empfehl|mit vegyek|what to buy|keresek|keresünk|nézek|looking for|suche|caut|lámpa|lámpát|lámpák|lámpákat|taska|táska|táskát|bag|lampe|lamp|produk|termék|product|ajándék|gift|geschenk|otthon|home|konyha|kitchen|küche|nappali|íróasztal|gyerek|dekor|deco|állvány|tartó|szervező|organiz|virág|növény|macska|kutya|óra|óraállvány|telefon|töltő|cable|kábel)\b/i
 
 export function isProductSearchQuery(message: string): boolean {
   const msg = message.trim()
@@ -332,7 +332,7 @@ export function extractSearchKeywords(message: string): string[] {
   return merged.slice(0, 12)
 }
 
-function scoreProductAgainstKeywords(
+export function scoreProductAgainstKeywords(
   product: Pick<ChatRecommendedProduct, 'name' | 'slug' | 'category'> & {
     description?: string | null
   },
@@ -351,12 +351,17 @@ function scoreProductAgainstKeywords(
         best = Math.max(best, variant.length >= 5 ? 3 : 2)
         continue
       }
-      // Részleges: „lamp” ↔ „lampa”, „asztal” ↔ „asztali”
+      // Részleges: „lamp” ↔ „lampa”, „asztal” ↔ „asztali”.
+      // Szigorú hossz: „lamp” ne illeszkedjen „laptop” táskára.
       if (asciiKw.length >= 4) {
         const hayWords = asciiHay.split(/[^a-z0-9]+/).filter(Boolean)
         for (const word of hayWords) {
           if (word.startsWith(asciiKw) || asciiKw.startsWith(word)) {
-            best = Math.max(best, 2)
+            const longer = Math.max(word.length, asciiKw.length)
+            const shorter = Math.min(word.length, asciiKw.length)
+            if (longer - shorter <= 1) {
+              best = Math.max(best, 2)
+            }
           }
         }
       }
@@ -543,95 +548,213 @@ async function searchProductsInMemory(
   return scored.slice(0, limit).map((x) => x.product)
 }
 
+export type ChatProductMatchKind = 'keyword' | 'catalog_browse' | 'alternatives' | 'none'
+
+export type ChatProductSearchResult = {
+  products: ChatRecommendedProduct[]
+  matchKind: ChatProductMatchKind
+  /** Konkrét termékkeresés, de nincs kulcsszavas találat a katalógusban. */
+  missingExactMatch: boolean
+}
+
+const GENERIC_INTENT_TOKEN =
+  /^(ajanl|javasol|recommend|empfehl|gift|ajandek|geschenk|home|otthon|unnep|szuletesnap|nevnap|vegyek|vegyel|venni|vennem|buy|kaufen|cumpar)$/i
+
+const GENERIC_INTENT_STEMS = [
+  'ajandek',
+  'geschenk',
+  'recommend',
+  'empfehl',
+  'szuletesnap',
+  'nevnap',
+  'vegyek',
+  'venni',
+] as const
+
+function isGenericIntentKeyword(token: string): boolean {
+  const ascii = stripDiacritics(token.toLowerCase())
+  if (GENERIC_INTENT_TOKEN.test(ascii)) return true
+  return GENERIC_INTENT_STEMS.some(
+    (stem) =>
+      ascii.length >= 4 &&
+      stem.length >= 4 &&
+      (ascii.startsWith(stem) || stem.startsWith(ascii))
+  )
+}
+
+function emptySearchResult(): ChatProductSearchResult {
+  return { products: [], matchKind: 'none', missingExactMatch: false }
+}
+
+/** Konkrét terméknév/kategória vs. általános „ajánlj valamit / ajándék”. */
+export function resolveChatProductSearchIntent(message: string): {
+  isProductSearch: boolean
+  specificKeywords: string[]
+  recommendOnly: boolean
+} {
+  const isProductSearch = isProductSearchQuery(message)
+  if (!isProductSearch) {
+    return { isProductSearch: false, specificKeywords: [], recommendOnly: false }
+  }
+  const keywords = extractSearchKeywords(message)
+  const specificKeywords = keywords.filter((k) => !isGenericIntentKeyword(k))
+  return {
+    isProductSearch: true,
+    specificKeywords,
+    recommendOnly: specificKeywords.length === 0,
+  }
+}
+
+function resultFromHits(
+  hits: ChatRecommendedProduct[],
+  recommendOnly: boolean
+): ChatProductSearchResult {
+  if (recommendOnly) {
+    return {
+      products: hits,
+      matchKind: hits.length > 0 ? 'catalog_browse' : 'none',
+      missingExactMatch: false,
+    }
+  }
+  if (hits.length > 0) {
+    return { products: hits, matchKind: 'keyword', missingExactMatch: false }
+  }
+  return { products: [], matchKind: 'none', missingExactMatch: true }
+}
+
 /**
  * Releváns termékek keresése a chat üzenet alapján (max 2–3).
- * Mindig igyekszik feltölteni a limitet (találat + népszerű pótlás),
- * hogy a chatben minden felsorolt tételhez legyen termékkártya.
+ * Konkrét keresésnél NEM töltjük fel idegen népszerű termékekkel a listát:
+ * ha nincs kulcsszavas találat, a találat hiánycikk, a népszerű darabok csak
+ * külön jelölt ALTERNATÍVÁK lehetnek.
  */
 export async function searchProductsForChat(
   message: string,
   options: { limit?: number; excludeProductIds?: string[] } = {}
-): Promise<ChatRecommendedProduct[]> {
+): Promise<ChatProductSearchResult> {
   const take = Math.min(
     Math.max(options.limit ?? CHAT_PRODUCT_RECOMMENDATION_LIMIT, 1),
     CHAT_PRODUCT_RECOMMENDATION_LIMIT
   )
   const excludeProductIds = options.excludeProductIds ?? []
-  if (!isProductSearchQuery(message)) return []
+  const intent = resolveChatProductSearchIntent(message)
+  if (!intent.isProductSearch) return emptySearchResult()
 
-  const keywords = extractSearchKeywords(message)
-  const giftIntent =
-    /\b(ajándék|ajandek|gift|geschenk|születésnap|szuletesnap|ünnep|unnep|névnap|nevnap)\b/i.test(
-      message
-    )
-  const vagueRecommendIntent =
-    /\b(ajánl|javasol|recommend|empfehl|mit vegyek|what to buy)\b/i.test(message) &&
-    keywords.every((k) =>
-      /^(ajanl|javasol|recommend|empfehl|gift|ajandek|home|otthon)$/i.test(stripDiacritics(k))
-    )
-  const recommendOnly = keywords.length === 0 || vagueRecommendIntent || giftIntent
-
-  const excludeSet = new Set(excludeProductIds)
-  const mergeUnique = (
-    primary: ChatRecommendedProduct[],
-    extra: ChatRecommendedProduct[]
-  ): ChatRecommendedProduct[] => {
-    const seen = new Set<string>()
-    const out: ChatRecommendedProduct[] = []
-    for (const p of [...primary, ...extra]) {
-      if (!p?.id || seen.has(p.id) || excludeSet.has(p.id)) continue
-      seen.add(p.id)
-      out.push(p)
-      if (out.length >= take) break
-    }
-    return out
-  }
+  const searchKeywords = intent.recommendOnly ? [] : intent.specificKeywords
 
   try {
     if (isDbConfigured()) {
-      const dbHits = await searchProductsInDb(recommendOnly ? [] : keywords, take, excludeProductIds)
-      if (dbHits.length >= take) return dbHits.slice(0, take)
-      const popular = await searchProductsInDb([], Math.max(take * 3, 9), excludeProductIds)
-      const merged = mergeUnique(dbHits, popular)
-      if (merged.length > 0) return merged
+      const dbHits = await searchProductsInDb(searchKeywords, take, excludeProductIds)
+      const primary = resultFromHits(dbHits, intent.recommendOnly)
+      if (!primary.missingExactMatch) return primary
+      const popular = await searchProductsInDb([], take, excludeProductIds)
+      return {
+        products: popular,
+        matchKind: popular.length > 0 ? 'alternatives' : 'none',
+        missingExactMatch: true,
+      }
     }
   } catch {
     // fallback memóriára
   }
 
-  const memoryHits = await searchProductsInMemory(recommendOnly ? [] : keywords, take, excludeProductIds)
-  if (memoryHits.length >= take) return memoryHits.slice(0, take)
-  const popularMemory = await searchProductsInMemory([], Math.max(take * 3, 9), excludeProductIds)
-  return mergeUnique(memoryHits, popularMemory)
+  const memoryHits = await searchProductsInMemory(searchKeywords, take, excludeProductIds)
+  const primary = resultFromHits(memoryHits, intent.recommendOnly)
+  if (!primary.missingExactMatch) return primary
+  const popularMemory = await searchProductsInMemory([], take, excludeProductIds)
+  return {
+    products: popularMemory,
+    matchKind: popularMemory.length > 0 ? 'alternatives' : 'none',
+    missingExactMatch: true,
+  }
+}
+
+function formatProductLines(
+  products: ChatRecommendedProduct[],
+  now: Date
+): string {
+  return products
+    .map((p, i) => {
+      const pricing = resolveChatProductPricing(
+        {
+          priceHuf: p.priceHuf,
+          discountPriceHuf: p.discountPriceHuf,
+          onSale: p.onSale,
+          saleStartAt: p.saleStartAt,
+          saleEndAt: p.saleEndAt,
+        },
+        now
+      )
+      const priceLabel = pricing.isSale
+        ? `${pricing.effectivePriceHuf.toLocaleString('hu-HU')} Ft (akciós; eredeti: ${pricing.normalPriceHuf.toLocaleString('hu-HU')} Ft)`
+        : `${pricing.effectivePriceHuf.toLocaleString('hu-HU')} Ft`
+      return `${i + 1}. ${p.name} – ${priceLabel} – kategória: ${p.category} – link: /termek/${p.slug} (id: ${p.id})`
+    })
+    .join('\n')
+}
+
+export type RecommendedProductsBlockOptions = {
+  matchKind?: ChatProductMatchKind
+  missingExactMatch?: boolean
+  now?: Date
+}
+
+function buildMissingProductChatBlock(products: ChatRecommendedProduct[], now: Date): string {
+  if (products.length === 0) {
+    return `
+[NINCS PONTOS TERMÉKTALÁLAT]
+A vásárló konkrét terméket keresett, de a katalógusban NINCS egyezés, és alternatívát sem adunk.
+KÖTELEZŐ a vásárló nyelvén (lásd LANGUAGE LOCK):
+- Mondd ki világosan: sajnos pontosan ilyen termék most nincs a kínálatunkban.
+- TILOS kitalált terméknevet, árat, készletet vagy hamis találatot állítani.
+- Ne állítsd, hogy megtaláltad a kért árucikket.
+- Tereld a /termekek böngészéshez, vagy tegyél fel max. 1 célzott kérdést (szín, helyiség).
+`.trim()
+  }
+
+  const lines = formatProductLines(products, now)
+  return `
+[NINCS PONTOS TERMÉKTALÁLAT — ALTERNATÍVÁK]
+A vásárló konkrét terméket keresett, de PONTOS EGYEZÉS NINCS a katalógusban.
+Az alábbi ${products.length} darab NEM a kért termék – csak Hozzá illő / helyettesítő ötlet.
+A válaszod ALATT a chat felületen AUTOMATIKUSAN megjelennek a termékkártyák ezekhez.
+
+KÖTELEZŐ a vásárló nyelvén (lásd LANGUAGE LOCK):
+- Először mondd ki: sajnos pontosan ilyen terméket most nem találtál a kínálatunkban.
+- Csak ezután ajánld a listát, és KÖTELEZŐEN jelezd, hogy ezek ALTERNATÍVÁK / hozzá illő termékek, mert a keresett árucikk jelenleg nem elérhető.
+- NE állítsd be úgy, mintha ezek lennének, amit a vásárló eredetileg kért.
+- Pontosan ezt a ${products.length} terméket említsd, a KATALÓGUSBELI PONTOS NÉVVEL.
+- Ne találj ki más nevet (pl. „kényelmes párna”, „otthoni dekoráció” tilos, ha nincs ilyen a listában).
+- A számozott listád hossza = ${products.length}. Minden tétel ÚJ SORON, 2–4 barátságos emojival.
+
+${lines}
+`.trim()
 }
 
 /** OpenAI system prompt blokk a találatokhoz – az AI szövegesen is hivatkozhasson rájuk. */
 export function buildRecommendedProductsChatBlock(
   products: ChatRecommendedProduct[],
-  now: Date = new Date()
+  options: RecommendedProductsBlockOptions = {}
 ): string {
+  const matchKind = options.matchKind ?? 'keyword'
+  const missingExactMatch = options.missingExactMatch ?? matchKind === 'alternatives'
+  const now = options.now ?? new Date()
+
+  if (missingExactMatch || matchKind === 'alternatives') {
+    return buildMissingProductChatBlock(products, now)
+  }
+
   if (products.length === 0) return ''
 
-  const lines = products.map((p, i) => {
-    const pricing = resolveChatProductPricing(
-      {
-        priceHuf: p.priceHuf,
-        discountPriceHuf: p.discountPriceHuf,
-        onSale: p.onSale,
-        saleStartAt: p.saleStartAt,
-        saleEndAt: p.saleEndAt,
-      },
-      now
-    )
-    const priceLabel = pricing.isSale
-      ? `${pricing.effectivePriceHuf.toLocaleString('hu-HU')} Ft (akciós; eredeti: ${pricing.normalPriceHuf.toLocaleString('hu-HU')} Ft)`
-      : `${pricing.effectivePriceHuf.toLocaleString('hu-HU')} Ft`
-    return `${i + 1}. ${p.name} – ${priceLabel} – kategória: ${p.category} – link: /termek/${p.slug} (id: ${p.id})`
-  })
+  const lines = formatProductLines(products, now)
+  const browseNote =
+    matchKind === 'catalog_browse'
+      ? 'Ezek népszerű / általános ötletek (nem egy konkrét cikkszám keresése).'
+      : `A katalógusból ezek a releváns termékek jöttek ki (${products.length} db).`
 
   return `
 [AJÁNLOTT TERMÉKEK A VÁSÁRLÓ KERESÉSÉHEZ]
-A katalógusból ezek a releváns termékek jöttek ki (${products.length} db). A válaszod ALATT a chat felületen AUTOMATIKUSAN megjelennek az interaktív termékkártyák MINDEN lentebb listázott termékhez.
+${browseNote} A válaszod ALATT a chat felületen AUTOMATIKUSAN megjelennek az interaktív termékkártyák MINDEN lentebb listázott termékhez.
 SOHA ne mondd, hogy „nem tudok termékeket mutatni”.
 KÖTELEZŐ:
 - Pontosan ezt a ${products.length} terméket említsd meg, a KATALÓGUSBELI PONTOS NÉVVEL (ahogy alább szerepel).
@@ -649,6 +772,6 @@ Szia! 🎁 Íme ${products.length} szuper ötlet:
 ${products.length >= 3 ? '\n3. 💚 [3. termék pontos neve a listából] – rövid indok.\n' : ''}
 Melyik tetszik?
 
-${lines.join('\n')}
+${lines}
 `.trim()
 }
