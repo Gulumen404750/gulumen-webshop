@@ -14,6 +14,7 @@ describe('PaymentMethodLogo', () => {
     expect(src).toMatch(/<title>PayPal<\/title>/)
     expect(src).toMatch(/#003087/)
     expect(src).toMatch(/#009CDE/)
+    expect(src).toMatch(/<tspan fill="#003087">Pay<\/tspan>/)
 
     expect(src).toMatch(/<title>Apple Pay<\/title>/)
     expect(src).toMatch(/bg-black/)
@@ -26,10 +27,11 @@ describe('PaymentMethodLogo', () => {
 
     expect(src).toMatch(/<title>Klarna<\/title>/)
     expect(src).toMatch(/#FFB3C7/)
+    expect(src).toMatch(/>Klarna</)
   })
 
   it('keeps logos compact so they fit the radio row', () => {
-    expect(src).toMatch(/h-9 w-12/)
+    expect(src).toMatch(/h-10 w-\[4\.25rem\]/)
     expect(src).toMatch(/rounded-lg/)
   })
 })
