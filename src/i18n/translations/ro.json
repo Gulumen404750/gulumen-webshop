@@ -598,6 +598,8 @@
     "devModeNote": "Mod dev local: punctele sunt stocate în data/dev-gamification.json.",
     "mechanicsTitle": "Cum aduni puncte",
     "mechanicsIntro": "Cu activități zilnice aduni puncte pe care le poți schimba pentru cupoane de 10% – de câte ori ai suficiente puncte.",
+    "mechanicsMore": "Mai mult",
+    "mechanicsLess": "Mai puțin",
     "mechanicsBrowseTitle": "Navigare activă",
     "mechanicsBrowse": "Max. {maxPerDay}× pe zi: {minutes} minute de navigare activă (filă deschisă, cu focus) → +{points} puncte. Minim {cooldownHours} ore între bonusuri.",
     "mechanicsLikesTitle": "Favorite",
@@ -625,7 +627,7 @@
     "historyTypeOther": "Altele",
     "historyBalanceAfter": "Sold: {balance} puncte",
     "historyDevNote": "Istoricul punctelor este disponibil în modul dev local doar cu bază de date.",
-    "historyExpand": "Vezi tot",
+    "historyExpand": "Extinde istoricul (+{count})",
     "historyCollapse": "Arată mai puțin"
   },
   "giftClaim": {

@@ -613,6 +613,8 @@
     "devModeNote": "Local dev mode: points are stored in data/dev-gamification.json.",
     "mechanicsTitle": "How to earn points",
     "mechanicsIntro": "Complete daily activities to earn points and redeem them for 10% coupons — as many as your balance allows.",
+    "mechanicsMore": "Read more",
+    "mechanicsLess": "Show less",
     "mechanicsBrowseTitle": "Active browsing",
     "mechanicsBrowse": "Up to {maxPerDay}× per day: {minutes} minutes of active browsing (open, focused tab) → +{points} points. At least {cooldownHours} hours between bonuses.",
     "mechanicsLikesTitle": "Wishlist",
@@ -640,7 +642,7 @@
     "historyTypeOther": "Other",
     "historyBalanceAfter": "Balance: {balance} pts",
     "historyDevNote": "Point history is only available with a database in local dev mode.",
-    "historyExpand": "Show all",
+    "historyExpand": "Show full history (+{count})",
     "historyCollapse": "Show less"
   },
   "giftClaim": {
