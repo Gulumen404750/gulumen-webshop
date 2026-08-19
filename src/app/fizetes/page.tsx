@@ -1,6 +1,6 @@
 'use client'
 
-/** Fizetési oldal – fix Ft kupon összevonás (Railway src watch-path). */
+/** Fizetési oldal – Railway src watch-path 2026-08-19T08:20. */
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
