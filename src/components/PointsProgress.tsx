@@ -6,6 +6,7 @@ import { useLocale } from '@/context/LocaleContext'
 import { useDisplayMoney } from '@/hooks/useDisplayMoney'
 import { usePointWallet } from '@/hooks/usePointWallet'
 import type { PointWalletCoupon } from '@/lib/point-wallet-client'
+import { localeNoticeText, type LocaleNotice } from '@/lib/locale-notice'
 
 type Props = {
   className?: string
@@ -37,8 +38,8 @@ export function PointsProgress({ className = '' }: Props) {
   const { money } = useDisplayMoney()
   const { wallet, isLoading, refresh } = usePointWallet(isLoggedIn)
   const [redeeming, setRedeeming] = useState(false)
-  const [redeemError, setRedeemError] = useState<string | null>(null)
-  const [redeemSuccess, setRedeemSuccess] = useState<string | null>(null)
+  const [redeemError, setRedeemError] = useState<LocaleNotice | null>(null)
+  const [redeemSuccess, setRedeemSuccess] = useState<LocaleNotice | null>(null)
   const [listOpen, setListOpen] = useState(false)
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
   const seenCouponIds = useRef<Set<string> | null>(null)
@@ -86,14 +87,17 @@ export function PointsProgress({ className = '' }: Props) {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setRedeemError(data.message || t('gamification.redeemError'))
+        setRedeemError({ key: 'gamification.redeemError' })
         return
       }
-      setRedeemSuccess(t('gamification.redeemSuccess', { code: data.couponCode ?? '' }))
+      setRedeemSuccess({
+        key: 'gamification.redeemSuccess',
+        params: { code: data.couponCode ?? '' },
+      })
       setListOpen(true)
       await refresh()
     } catch {
-      setRedeemError(t('gamification.redeemError'))
+      setRedeemError({ key: 'gamification.redeemError' })
     } finally {
       setRedeeming(false)
     }
@@ -167,8 +171,12 @@ export function PointsProgress({ className = '' }: Props) {
         </button>
       )}
 
-      {redeemError && <p className="text-sm text-red-600 mt-2">{redeemError}</p>}
-      {redeemSuccess && <p className="text-sm text-accent mt-2">{redeemSuccess}</p>}
+      {redeemError && (
+        <p className="text-sm text-red-600 mt-2">{localeNoticeText(t, redeemError)}</p>
+      )}
+      {redeemSuccess && (
+        <p className="text-sm text-accent mt-2">{localeNoticeText(t, redeemSuccess)}</p>
+      )}
 
       {coupons.length > 0 && (
         <details

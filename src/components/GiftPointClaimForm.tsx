@@ -166,8 +166,9 @@ export function GiftPointClaimForm({
         return
       }
       if (!res.ok) {
+        const code = typeof data.code === 'string' ? data.code : ''
         setError({
-          key: REDEEM_ERROR_KEYS[String(data.code)] ?? 'giftClaim.errorGeneric',
+          key: REDEEM_ERROR_KEYS[code] ?? 'giftClaim.errorGeneric',
         })
         return
       }

@@ -17,6 +17,7 @@ import { usePointWallet } from '@/hooks/usePointWallet'
 import { applyStashedPointsRedeemOnce } from '@/lib/point-wallet-client'
 import { RecaptchaNotice } from '@/components/RecaptchaNotice'
 import { GiftPointClaimForm } from '@/components/GiftPointClaimForm'
+import { localeNoticeText, type LocaleNotice } from '@/lib/locale-notice'
 
 function NameProfileSection() {
   const { t } = useLocale()
@@ -24,7 +25,7 @@ function NameProfileSection() {
   const [savedName, setSavedName] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<LocaleNotice | null>(null)
   const [savedMsg, setSavedMsg] = useState(false)
 
   useEffect(() => {
@@ -32,14 +33,14 @@ function NameProfileSection() {
     fetch('/api/me/profile', { credentials: 'include' })
       .then(async (r) => {
         const data = await r.json().catch(() => ({}))
-        if (!r.ok) throw new Error(data.error || t('common.loadError'))
+        if (!r.ok) throw new Error('load')
         const n = typeof data.user?.name === 'string' ? data.user.name.trim() : ''
         setName(n)
         setSavedName(n)
       })
-      .catch((e) => setError(e instanceof Error ? e.message : t('common.loadError')))
+      .catch(() => setError({ key: 'common.loadError' }))
       .finally(() => setLoading(false))
-  }, [t])
+  }, [])
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -54,13 +55,16 @@ function NameProfileSection() {
         body: JSON.stringify({ name: name.trim() || '' }),
       })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data.error || t('common.saveError'))
+      if (!res.ok) {
+        setError({ key: 'common.saveError' })
+        return
+      }
       const n = typeof data.user?.name === 'string' ? data.user.name.trim() : ''
       setName(n)
       setSavedName(n)
       setSavedMsg(true)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.saveError'))
+    } catch {
+      setError({ key: 'common.saveError' })
     } finally {
       setSaving(false)
     }
@@ -97,7 +101,7 @@ function NameProfileSection() {
         </div>
         {error && (
           <p className="text-sm text-red-600 dark:text-red-400" role="alert">
-            {error}
+            {localeNoticeText(t, error)}
           </p>
         )}
         {savedMsg && (
@@ -123,14 +127,14 @@ function BirthDateProfileSection() {
   const [birthDateLocked, setBirthDateLocked] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<LocaleNotice | null>(null)
 
   useEffect(() => {
     setLoading(true)
     fetch('/api/me/profile', { credentials: 'include' })
       .then(async (r) => {
         const data = await r.json().catch(() => ({}))
-        if (!r.ok) throw new Error(data.error || t('common.loadError'))
+        if (!r.ok) throw new Error('load')
         const saved =
           typeof data.user?.birthDate === 'string' && data.user.birthDate.trim()
             ? data.user.birthDate.trim()
@@ -138,9 +142,9 @@ function BirthDateProfileSection() {
         setBirthDate(saved)
         setBirthDateLocked(Boolean(saved))
       })
-      .catch((e) => setError(e instanceof Error ? e.message : t('common.loadError')))
+      .catch(() => setError({ key: 'common.loadError' }))
       .finally(() => setLoading(false))
-  }, [t])
+  }, [])
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -155,7 +159,10 @@ function BirthDateProfileSection() {
         body: JSON.stringify({ birthDate: birthDate.trim() || null }),
       })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data.error || t('common.saveError'))
+      if (!res.ok) {
+        setError({ key: 'common.saveError' })
+        return
+      }
       const saved =
         typeof data.user?.birthDate === 'string' && data.user.birthDate.trim()
           ? data.user.birthDate.trim()
@@ -163,8 +170,8 @@ function BirthDateProfileSection() {
       setBirthDate(saved)
       setBirthDateLocked(Boolean(saved))
       // Mentés után a mező és minden tájékoztató szöveg eltűnik a profilról.
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('common.saveError'))
+    } catch {
+      setError({ key: 'common.saveError' })
     } finally {
       setSaving(false)
     }
@@ -198,7 +205,7 @@ function BirthDateProfileSection() {
         </div>
         {error && (
           <p className="text-sm text-red-600 dark:text-red-400" role="alert">
-            {error}
+            {localeNoticeText(t, error)}
           </p>
         )}
         <button
@@ -221,8 +228,8 @@ export default function ProfilePage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [loginError, setLoginError] = useState<string | null>(null)
-  const [authError, setAuthError] = useState<string | null>(null)
+  const [loginError, setLoginError] = useState<LocaleNotice | null>(null)
+  const [authError, setAuthError] = useState<LocaleNotice | null>(null)
 
   // Mindig a legfrissebb pontszám – fizetés utáni pending levonás azonnal
   useEffect(() => {
@@ -248,9 +255,12 @@ export default function ProfilePage() {
       OAuthAccountNotLinked: 'profile.authErrorOAuthAccountNotLinked',
       account_locked: 'profile.authErrorAccountLocked',
     }
-    const message = t(keyMap[code] ?? 'profile.authErrorDefault')
-    setAuthError(code === 'google' || code.startsWith('OAuth') ? `${message} (${code})` : message)
-  }, [t])
+    const key = keyMap[code] ?? 'profile.authErrorDefault'
+    setAuthError({
+      key,
+      detail: code === 'google' || code.startsWith('OAuth') ? code : undefined,
+    })
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -264,9 +274,9 @@ export default function ProfilePage() {
         nextRaw && nextRaw.startsWith('/') && !nextRaw.startsWith('//') ? nextRaw : '/'
       router.push(next)
     } else if (result.error === 'account_locked') {
-      setLoginError(t('profile.authErrorAccountLocked'))
+      setLoginError({ key: 'profile.authErrorAccountLocked' })
     } else {
-      setLoginError(t('profile.loginFailed'))
+      setLoginError({ key: 'profile.loginFailed' })
     }
   }
 
@@ -351,7 +361,7 @@ export default function ProfilePage() {
       <p className="text-muted mb-6">{t('profile.loginRequired')}</p>
       {authError && (
         <p className="mb-4 p-3 rounded-lg border border-red-300/50 bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300 text-sm" role="alert">
-          {authError}
+          {localeNoticeText(t, authError)}
         </p>
       )}
       <form onSubmit={handleLogin} className="space-y-4">
@@ -385,7 +395,7 @@ export default function ProfilePage() {
           />
         </div>
         {loginError && (
-          <p className="text-red-600 text-sm">{loginError}</p>
+          <p className="text-red-600 text-sm">{localeNoticeText(t, loginError)}</p>
         )}
         <button
           type="submit"

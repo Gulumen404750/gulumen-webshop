@@ -37,4 +37,12 @@ describe('PointsProgress profile coupons', () => {
     expect(src).not.toMatch(/canRedeem && !wallet\?\.hasActiveCoupon/)
     expect(src).not.toMatch(/remaining > 0 && !wallet\?\.hasActiveCoupon/)
   })
+
+  it('stores redeem feedback as i18n keys so language changes update the text', () => {
+    expect(src).toMatch(/useState<LocaleNotice \| null>\(null\)/)
+    expect(src).toContain("setRedeemError({ key: 'gamification.redeemError' })")
+    expect(src).toContain('{localeNoticeText(t, redeemError)}')
+    expect(src).toContain('{localeNoticeText(t, redeemSuccess)}')
+    expect(src).not.toMatch(/setRedeemError\(t\(/)
+  })
 })

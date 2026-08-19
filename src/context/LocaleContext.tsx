@@ -78,17 +78,21 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     if (mounted && typeof document !== 'undefined') document.documentElement.lang = locale
   }, [mounted, locale])
 
-  const dict = useMemo(() => getTranslations(locale), [locale])
+  const effectiveLocale: Locale = mounted ? locale : DEFAULT_LOCALE
+  const dict = useMemo(() => getTranslations(effectiveLocale), [effectiveLocale])
   const t = useCallback(
     (key: string, params?: Record<string, string | number>) => translate(dict, key, params),
     [dict]
   )
 
-  const value: LocaleContextValue = {
-    locale: mounted ? locale : DEFAULT_LOCALE,
-    setLocale,
-    t,
-  }
+  const value = useMemo<LocaleContextValue>(
+    () => ({
+      locale: effectiveLocale,
+      setLocale,
+      t,
+    }),
+    [effectiveLocale, setLocale, t]
+  )
 
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>
 }
