@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { threeDSubcategories, getCategoryName } from '@/lib/data'
 import { useLocale } from '@/context/LocaleContext'
 import { EmptyStateLayout } from './EmptyStateLayout'
 
@@ -14,7 +13,7 @@ function SearchIllustration() {
 }
 
 export function SearchNoResultsEmptyState({ query }: { query?: string }) {
-  const { t, locale } = useLocale()
+  const { t } = useLocale()
 
   return (
     <EmptyStateLayout
@@ -26,25 +25,12 @@ export function SearchNoResultsEmptyState({ query }: { query?: string }) {
           : t('search.noResultsHint')
       }
     >
-      <p className="text-sm font-medium text-foreground mb-3">{t('search.suggestedCategories')}</p>
-      <div className="flex flex-wrap justify-center gap-2 max-w-lg">
-        {threeDSubcategories.map((cat) => (
-          <Link
-            key={cat.slug}
-            href={`/termekek?kategoria=3d-nyomtatott&sub=${cat.slug}`}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[var(--border)] bg-background text-sm font-medium text-foreground hover:border-accent hover:text-accent transition-colors"
-          >
-            <span aria-hidden>{cat.icon}</span>
-            <span>{getCategoryName(cat, locale)}</span>
-          </Link>
-        ))}
-        <Link
-          href="/termekek"
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-accent/40 bg-accent/5 text-sm font-medium text-accent hover:bg-accent/10 transition-colors"
-        >
-          {t('nav.deals')}
-        </Link>
-      </div>
+      <Link
+        href="/termekek"
+        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-accent/40 bg-accent/5 text-sm font-medium text-accent hover:bg-accent/10 transition-colors"
+      >
+        {t('buttons.browseProducts')}
+      </Link>
     </EmptyStateLayout>
   )
 }

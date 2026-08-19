@@ -413,10 +413,11 @@
     "partialLoad": "{count} weitere Favoriten werden geladen…"
   },
   "search": {
-    "noResultsTitle": "Keine Ergebnisse",
-    "noResultsHint": "Probiere einen anderen Suchbegriff oder stöbere in Kategorien.",
-    "noResultsHintWithQuery": "Keine Ergebnisse für „{query}“. Probiere einen anderen Begriff oder die vorgeschlagenen Kategorien.",
-    "suggestedCategories": "Vorgeschlagene Kategorien"
+    "noResultsTitle": "Wir haben keine Treffer zu deiner Suche gefunden.",
+    "noResultsHint": "Probiere einen anderen Suchbegriff oder stöbere in den Produkten.",
+    "noResultsHintWithQuery": "Zu „{query}“ gibt es aktuell kein passendes Produkt.",
+    "suggestedCategories": "Vorgeschlagene Kategorien",
+    "saleAlternativesTitle": "Angebote"
   },
   "coupon": {
     "title": "🎁 5% Rabatt geschenkt",

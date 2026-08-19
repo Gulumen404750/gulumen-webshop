@@ -685,10 +685,11 @@
     "partialLoad": "{count} kedvenc termék betöltése folyamatban…"
   },
   "search": {
-    "noResultsTitle": "Nincs találat",
-    "noResultsHint": "Próbálj másik keresőszót, vagy böngéssz kategóriák között.",
-    "noResultsHintWithQuery": "Nincs találat a(z) „{query}” keresésre. Próbálj másik szót, vagy nézd meg a javasolt kategóriákat.",
-    "suggestedCategories": "Javasolt kategóriák"
+    "noResultsTitle": "Nem találtunk találatot a keresésre.",
+    "noResultsHint": "Próbálj másik keresőszót, vagy böngéssz a termékek között.",
+    "noResultsHintWithQuery": "A(z) „{query}” keresésre nincs termék a kínálatunkban.",
+    "suggestedCategories": "Javasolt kategóriák",
+    "saleAlternativesTitle": "Akciós ajánlatok"
   },
   "themeChooser": {
     "title": "Hogyan szeretnéd böngészni?",

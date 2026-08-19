@@ -398,10 +398,11 @@
     "partialLoad": "Se încarcă încă {count} produse favorite…"
   },
   "search": {
-    "noResultsTitle": "Niciun rezultat",
-    "noResultsHint": "Încearcă alt termen de căutare sau răsfoiește categoriile.",
-    "noResultsHintWithQuery": "Niciun rezultat pentru „{query}”. Încearcă alt cuvânt sau categoriile sugerate.",
-    "suggestedCategories": "Categorii sugerate"
+    "noResultsTitle": "Nu am găsit rezultate pentru căutare.",
+    "noResultsHint": "Încearcă alt termen de căutare sau răsfoiește produsele.",
+    "noResultsHintWithQuery": "Nu există produs în ofertă pentru „{query}”.",
+    "suggestedCategories": "Categorii sugerate",
+    "saleAlternativesTitle": "Produse la ofertă"
   },
   "coupon": {
     "title": "🎁 Cadou reducere 5%",

@@ -2,35 +2,22 @@
 
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useMemo, useCallback, useState, useEffect } from 'react'
-import { categories, mockProducts, getCategoryName, getProductName, getProductDescription, threeDSubcategories, is3DProduct, getStorefrontCategories } from '@/lib/data'
+import { mockProducts, getCategoryName, threeDSubcategories, is3DProduct } from '@/lib/data'
 import type { Product } from '@/lib/data'
-import { AUTO_HIDE_FILTERS_BELOW_COUNT } from '@/lib/storefront-config'
+import { AUTO_HIDE_FILTERS_BELOW_COUNT, isSaleActive } from '@/lib/storefront-config'
 import { SlidersHorizontal } from 'lucide-react'
 import { ProductCard } from '@/components/ProductCard'
 import { ProductStaggerItem } from '@/components/ProductStaggerItem'
 import { SearchNoResultsEmptyState } from '@/components/empty-states/SearchNoResultsEmptyState'
 import { ShopFiltersDrawer } from '@/components/ShopFiltersDrawer'
-import { HungarianFlagIcon } from '@/components/HungarianFlagIcon'
 import { useLocale } from '@/context/LocaleContext'
+import { matchesProductSearch } from '@/lib/product-search'
 
 const defaultStockProducts = mockProducts.filter((p) => p.type !== 'sourcing_deal')
 /** Összes termék és a többi kategória: csak nem 3D termékek. 3D kategória: csak 3D termékek – külön "doboz". */
 const threeDSlugs = threeDSubcategories.map((c) => c.slug)
 
 type SortOption = 'newest' | 'price-asc' | 'price-desc'
-
-/** Közelítő egyezés: tartalmazza a szöveget (normalizált, kisbetűs) vagy 1–2 karakter eltérés */
-function matchesSearch(product: Product, search: string, locale: string): boolean {
-  if (!search.trim()) return true
-  const q = search.trim().toLowerCase().replace(/\s+/g, ' ')
-  const name = getProductName(product, locale).toLowerCase()
-  const desc = (getProductDescription(product, locale) || '').toLowerCase()
-  if (name.includes(q) || desc.includes(q)) return true
-  const words = q.split(' ')
-  if (words.every((w) => name.includes(w) || desc.includes(w))) return true
-  if (q.length >= 3 && (name.includes(q.slice(0, -1)) || name.includes(q.slice(1)))) return true
-  return false
-}
 
 type ShopContentProps = {
   /** Szerverről betöltött stock termékek (DB vagy mock). Ha nincs megadva, mockProducts-ból szűr. */
@@ -79,14 +66,16 @@ export function ShopContent({ initialProducts }: ShopContentProps = {}) {
 
   const filtered = useMemo(() => {
     let list = [...productsForView]
-    if (categoryParam === '3d-nyomtatott' || !categoryParam) {
-      if (subParam && threeDSlugs.includes(subParam as typeof threeDSlugs[number])) {
-        list = list.filter((p) => p.category === subParam)
+    if (!searchQuery) {
+      if (categoryParam === '3d-nyomtatott' || !categoryParam) {
+        if (subParam && threeDSlugs.includes(subParam as typeof threeDSlugs[number])) {
+          list = list.filter((p) => p.category === subParam)
+        }
+      } else if (categoryParam) {
+        list = list.filter((p) => p.category === categoryParam)
       }
-    } else if (categoryParam) {
-      list = list.filter((p) => p.category === categoryParam)
     }
-    if (searchQuery) list = list.filter((p) => matchesSearch(p, searchQuery, locale))
+    if (searchQuery) list = list.filter((p) => matchesProductSearch(p, searchQuery, locale))
     if (sizeFilter) {
       list = list.filter((p) =>
         p.variants?.some((v) => v.size?.toLowerCase() === sizeFilter.toLowerCase())
@@ -111,10 +100,13 @@ export function ShopContent({ initialProducts }: ShopContentProps = {}) {
   const sizes = Array.from(
     new Set(productsForView.flatMap((p) => p.variants?.map((v) => v.size).filter(Boolean) ?? []))
   ).filter(Boolean) as string[]
-  const cat = categoryParam ? categories.find((c) => c.slug === categoryParam) : getStorefrontCategories()[0] ?? null
-  const pageTitle = cat ? getCategoryName(cat, locale) : t('pages.productsTitle')
+  const pageTitle = t('pages.productsTitle')
   const showFilters = filtered.length >= AUTO_HIDE_FILTERS_BELOW_COUNT || sizes.length > 1 || conditions.length > 1
-  const show3DTabs = is3DPage && productsForView.length > AUTO_HIDE_FILTERS_BELOW_COUNT
+  const show3DTabs = is3DPage && !searchQuery && productsForView.length > AUTO_HIDE_FILTERS_BELOW_COUNT
+  const saleAlternatives = useMemo(
+    () => stockProducts.filter((p) => is3DProduct(p) && isSaleActive(p)).slice(0, 6),
+    [stockProducts]
+  )
 
   const INITIAL_PAGE_SIZE = 12
   const PAGE_SIZE = 12
@@ -137,12 +129,6 @@ export function ShopContent({ initialProducts }: ShopContentProps = {}) {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <h1 className="font-heading text-2xl font-bold text-foreground mb-2">{pageTitle}</h1>
-      {is3DPage && (
-        <p className="text-muted text-sm mb-2 flex items-center gap-2">
-          <HungarianFlagIcon title={t('common.hungarianFlag')} />
-          {t('pages.products3DSubtitle')}
-        </p>
-      )}
       {searchQuery && (
         <p className="text-muted text-sm mb-6">
           {t('common.search')}: &quot;{searchQuery}&quot;
@@ -243,7 +229,26 @@ export function ShopContent({ initialProducts }: ShopContentProps = {}) {
           )}
           {filtered.length === 0 && (
             searchQuery ? (
-              <SearchNoResultsEmptyState query={searchQuery} />
+              <>
+                <SearchNoResultsEmptyState query={searchQuery} />
+                {saleAlternatives.length > 0 && (
+                  <section className="mt-10 text-left" aria-labelledby="search-sale-heading">
+                    <h2
+                      id="search-sale-heading"
+                      className="font-heading text-xl font-semibold text-foreground mb-6"
+                    >
+                      {t('search.saleAlternativesTitle')}
+                    </h2>
+                    <div className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {saleAlternatives.map((p, i) => (
+                        <ProductStaggerItem key={p.id} index={i}>
+                          <ProductCard product={p} priority={i < 3} />
+                        </ProductStaggerItem>
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </>
             ) : (
               <p className="text-muted text-center py-12">{t('common.noResults')}</p>
             )

@@ -413,10 +413,11 @@
     "partialLoad": "Loading {count} more favorite products…"
   },
   "search": {
-    "noResultsTitle": "No results",
-    "noResultsHint": "Try a different search term or browse by category.",
-    "noResultsHintWithQuery": "No results for “{query}”. Try another term or explore the suggested categories.",
-    "suggestedCategories": "Suggested categories"
+    "noResultsTitle": "We couldn't find any results for your search.",
+    "noResultsHint": "Try a different search term, or browse the products.",
+    "noResultsHintWithQuery": "No products in our range match “{query}”.",
+    "suggestedCategories": "Suggested categories",
+    "saleAlternativesTitle": "Sale products"
   },
   "coupon": {
     "title": "🎁 5% discount gift",

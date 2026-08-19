@@ -147,7 +147,7 @@ export function Header() {
                               onClick={() => setProductsOpen(false)}
                             >
                               <Box className="h-4 w-4 shrink-0 text-indigo-500" aria-hidden />
-                              {getCategoryName(threeDCat, locale)}
+                              {t('nav.products')}
                             </Link>
                           </li>
                         )}
