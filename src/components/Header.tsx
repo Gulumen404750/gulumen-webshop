@@ -81,6 +81,7 @@ export function Header() {
   }
 
   const closeCartDrawer = () => setCartDrawerOpen(false)
+  const onCartPage = pathname === '/kosar'
 
   const is3DProductsActive =
     pathname === '/termekek' &&
@@ -88,10 +89,7 @@ export function Header() {
 
   return (
     <>
-      <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
-      <CartDrawer isOpen={cartDrawerOpen} onClose={closeCartDrawer} />
-      <CallUsModal isOpen={callUsModalOpen} onClose={() => setCallUsModalOpen(false)} />
-      <header className="sticky top-0 z-[200] bg-background border-b border-[var(--border)] overflow-visible">
+      <header className="fixed top-0 inset-x-0 z-[300] isolate pointer-events-auto bg-background border-b border-[var(--border)] overflow-visible">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 overflow-visible">
           <div className="flex items-center gap-1.5 sm:gap-3 h-14 sm:h-16 min-w-0 overflow-visible">
             <Link
@@ -314,6 +312,7 @@ export function Header() {
 
               <Link
                 href="/kosar"
+                replace={onCartPage}
                 className="relative p-2 rounded-lg text-muted hover:text-foreground hover:bg-[var(--border)] md:hidden"
                 aria-label={t('common.cart')}
                 onClick={() => {
@@ -331,6 +330,7 @@ export function Header() {
               <button
                 type="button"
                 onClick={() => {
+                  if (onCartPage) return
                   setCartDrawerOpen(true)
                   closeMobileNav()
                 }}
@@ -527,6 +527,10 @@ export function Header() {
           )}
         </div>
       </header>
+      <div className="h-14 sm:h-16 shrink-0" aria-hidden />
+      <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+      <CartDrawer isOpen={cartDrawerOpen && !onCartPage} onClose={closeCartDrawer} />
+      <CallUsModal isOpen={callUsModalOpen} onClose={() => setCallUsModalOpen(false)} />
     </>
   )
 }

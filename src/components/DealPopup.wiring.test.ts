@@ -18,5 +18,6 @@ describe('DealPopup wiring', () => {
     expect(src).toMatch(/config\?\.enabled/)
     expect(src).toMatch(/products\.length > 0/)
     expect(src).toMatch(/\/api\/deal-popup/)
+    expect(src).toContain("pathname === '/kosar'")
   })
 })
