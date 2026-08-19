@@ -5,6 +5,7 @@ import hu from '@/i18n/translations/hu.json'
 
 describe('gift / coupon redeem input wiring', () => {
   const src = readFileSync(join(process.cwd(), 'src/components/GiftPointClaimForm.tsx'), 'utf-8')
+  const css = readFileSync(join(process.cwd(), 'src/app/globals.css'), 'utf-8')
 
   it('keeps the example text as a placeholder, not the input value', () => {
     expect(src).toContain("placeholder={t('giftClaim.codePlaceholder')}")
@@ -12,12 +13,18 @@ describe('gift / coupon redeem input wiring', () => {
     expect(src).toMatch(/useState\(initialToken\)/)
     expect(src).not.toMatch(/value=\{t\(['"]giftClaim\.codePlaceholder['"]\)\}/)
     expect(src).not.toMatch(/useState\(t\(['"]giftClaim\.codePlaceholder['"]\)\)/)
+    expect(src).not.toMatch(/defaultValue=\{/)
     expect(src).not.toContain('NYAR2026')
+    expect(hu.giftClaim.codePlaceholder).toBe('pl. NYAR2026 vagy ABCD2345EFGH')
   })
 
-  it('styles the placeholder as muted helper text', () => {
-    expect(src).toContain('placeholder:text-muted')
-    expect(src).toContain('placeholder:font-sans')
+  it('styles the placeholder as muted helper text that iOS cannot inherit as a value', () => {
+    expect(src).toContain('redeem-code-input')
+    expect(src).toMatch(/token \? 'font-mono' : 'font-sans'/)
+    expect(css).toContain('.redeem-code-input::placeholder')
+    expect(css).toContain('.redeem-code-input::-webkit-input-placeholder')
+    expect(css).toContain('-webkit-text-fill-color: var(--text-muted)')
+    expect(css).toContain('font-style: italic')
   })
 })
 

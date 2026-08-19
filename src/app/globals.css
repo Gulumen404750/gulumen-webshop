@@ -1075,3 +1075,33 @@
   }
 }
 
+/*
+  Kupon / ajándékpont kódmező.
+  A példa csak HTML placeholder: iOS Safari a mező color/font-mono értékét
+  örökölteti a ::placeholderre, ezért külön szabály kell (a Tailwind
+  placeholder: variáns nem elég). A webkit/moz szabályokat ne csoportosítsd
+  a ::placeholderrel – a böngésző az egész szelektort eldobja.
+*/
+.redeem-code-input::placeholder {
+  color: var(--text-muted);
+  -webkit-text-fill-color: var(--text-muted);
+  opacity: 0.55;
+  font-family: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
+  font-style: italic;
+}
+
+.redeem-code-input::-webkit-input-placeholder {
+  color: var(--text-muted);
+  -webkit-text-fill-color: var(--text-muted);
+  opacity: 0.55;
+  font-family: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
+  font-style: italic;
+}
+
+.redeem-code-input::-moz-placeholder {
+  color: var(--text-muted);
+  opacity: 0.55;
+  font-family: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
+  font-style: italic;
+}
+

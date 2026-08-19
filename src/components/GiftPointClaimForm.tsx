@@ -230,8 +230,12 @@ export function GiftPointClaimForm({
               value={token}
               onChange={(e) => setToken(e.target.value.toUpperCase())}
               autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="characters"
               spellCheck={false}
-              className="mt-1 w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 font-mono text-foreground placeholder:text-muted placeholder:font-sans"
+              className={`redeem-code-input mt-1 w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground ${
+                token ? 'font-mono' : 'font-sans'
+              }`}
               placeholder={t('giftClaim.codePlaceholder')}
             />
           </label>
