@@ -910,7 +910,9 @@
     "viewProduct": "Megnézem",
     "addedToCart": "Hozzáadva a kosárhoz",
     "missingProduct": "Sajnos pontosan ilyen terméket most nem találtam a kínálatunkban. Nézz körül a termékek között, vagy írd meg, mire van szükséged – szívesen keresek hozzá illő ötletet.",
-    "missingProductWithAlternatives": "Sajnos pontosan ilyen terméket most nem találtam a kínálatunkban. Íme néhány hozzá illő alternatíva – ezek nem a kért árucikk, de hasonló célt szolgálhatnak."
+    "missingProductWithAlternatives": "Sajnos pontosan ilyen terméket most nem találtam a kínálatunkban. Íme néhány hozzá illő alternatíva – ezek nem a kért árucikk, de hasonló célt szolgálhatnak.",
+    "alternativeBadge": "Alternatíva",
+    "alternativesNote": "Ezek hozzá illő ajánlások – nem a keresett termék."
   },
   "seo": {
     "title": "Gulumen – A te otthonod, a mi szívügyünk.",

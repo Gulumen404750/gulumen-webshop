@@ -910,7 +910,9 @@
     "viewProduct": "Ansehen",
     "addedToCart": "In den Warenkorb gelegt",
     "missingProduct": "Leider habe ich genau dieses Produkt in unserem aktuellen Sortiment nicht gefunden. Schau dich im Shop um, oder sag mir, wonach du suchst – ich schlage gern eine passende Alternative vor.",
-    "missingProductWithAlternatives": "Leider habe ich genau dieses Produkt aktuell nicht gefunden. Hier sind passende Alternativen – das sind nicht der gesuchte Artikel, können aber ähnlich helfen."
+    "missingProductWithAlternatives": "Leider habe ich genau dieses Produkt aktuell nicht gefunden. Hier sind passende Alternativen – das sind nicht der gesuchte Artikel, können aber ähnlich helfen.",
+    "alternativeBadge": "Alternative",
+    "alternativesNote": "Das sind passende Alternativen – nicht der gesuchte Artikel."
   },
   "seo": {
     "title": "Gulumen – Dein Zuhause liegt uns am Herzen.",

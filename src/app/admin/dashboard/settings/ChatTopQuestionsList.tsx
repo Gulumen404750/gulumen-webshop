@@ -90,8 +90,9 @@ export function ChatTopQuestionsList({ questions, maxTotal }: Props) {
               ? 'border-amber-500/60 bg-amber-500/15 text-amber-800 dark:text-amber-200'
               : 'border-[var(--border)] text-muted hover:text-foreground'
           }`}
+          title="Hiányzó termék keresve"
         >
-          Hiányzó termék keresve ({missingTotal})
+          Termékeresés – Nincs készleten ({missingTotal})
         </button>
       </div>
 
@@ -141,9 +142,9 @@ export function ChatTopQuestionsList({ questions, maxTotal }: Props) {
                   {q.missingProductSearchCount > 0 ? (
                     <span
                       className="inline-flex items-center rounded-full border border-amber-500/50 bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:text-amber-200"
-                      title={`${q.missingProductSearchCount} alkalommal nem volt pontos találat`}
+                      title={`Hiányzó termék keresve: ${q.missingProductSearchCount} alkalommal nem volt pontos találat`}
                     >
-                      Hiányzó termék keresve
+                      Termékeresés – Nincs készleten
                     </span>
                   ) : (
                     <span className="text-muted">—</span>

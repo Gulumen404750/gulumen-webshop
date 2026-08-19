@@ -895,7 +895,9 @@
     "viewProduct": "Vezi produsul",
     "addedToCart": "Adăugat în coș",
     "missingProduct": "Din păcate nu am găsit exact acest produs în oferta noastră. Poți răsfoi magazinul sau spune-mi ce cauți – îți propun cu drag o alternativă potrivită.",
-    "missingProductWithAlternatives": "Din păcate nu am găsit exact acest produs. Iată câteva alternative potrivite – nu sunt articolul cerut, dar pot servi un scop similar."
+    "missingProductWithAlternatives": "Din păcate nu am găsit exact acest produs. Iată câteva alternative potrivite – nu sunt articolul cerut, dar pot servi un scop similar.",
+    "alternativeBadge": "Alternativă",
+    "alternativesNote": "Acestea sunt alternative potrivite – nu articolul căutat."
   },
   "faq": {
     "intro": "Întrebări frecvente despre produsele Gulumen și despre comenzi.",

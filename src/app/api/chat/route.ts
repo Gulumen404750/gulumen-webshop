@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { getResponse } from '@/lib/ai-assistant'
 import { getTranslations, t } from '@/i18n/translations'
 import type { Locale } from '@/i18n/locales'
-import { isValidLocale } from '@/i18n/locales'
 import { rateLimit } from '@/lib/rate-limit'
 import { hashClientIp, logChatQuestion } from '@/lib/chat-log'
 import {
@@ -26,7 +25,13 @@ import {
   searchProductsForChat,
   type ChatRecommendedProduct,
 } from '@/lib/chat-product-search'
-import { buildChatLanguageLock } from '@/lib/chat-language'
+import {
+  buildChatLanguageLock,
+  resolveChatLocale,
+  isCasualChatGreeting,
+  assistantReplyIgnoresLocale,
+  wrapUserMessageForLocale,
+} from '@/lib/chat-language'
 import { applyPointsCopyPlaceholders } from '@/lib/display-money'
 import { fetchEuroToHufRate } from '@/lib/euro-rate'
 import { formatChatAssistantText } from '@/lib/chat-message-format'
@@ -52,7 +57,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
     const message = typeof body?.message === 'string' ? body.message.trim() : ''
-    const locale = isValidLocale(body?.locale) ? body.locale : 'hu'
+    const locale = resolveChatLocale(body?.locale, request)
     const timezone = typeof body?.timezone === 'string' ? body.timezone.trim() : ''
     const productId = typeof body?.productId === 'string' ? body.productId.trim() : ''
     const productSlug = typeof body?.productSlug === 'string' ? body.productSlug.trim() : ''
@@ -79,7 +84,7 @@ export async function POST(request: Request) {
     const session = await getSession(request)
     const chatUserId = session ? await resolveSessionUserId(session) : null
     const excludeProductIds = chatUserId ? await getDismissedProductIdsByUser(chatUserId) : []
-    const search = await searchProductsForChat(message, { excludeProductIds })
+    const search = await searchProductsForChat(message, { excludeProductIds, locale })
     const recommendedProducts = search.products
     const productIds = recommendedProducts.map((p) => p.id)
 
@@ -90,17 +95,19 @@ export async function POST(request: Request) {
       missingProductSearch: search.missingExactMatch,
     })
 
+    if (isCasualChatGreeting(message)) {
+      const dict = getTranslations(locale)
+      return chatJsonResponse({
+        text: t(dict, 'ai.greeting'),
+        escalate: false,
+        matchKind: search.matchKind,
+        missingExactMatch: search.missingExactMatch,
+      })
+    }
+
     const apiKey = process.env.OPENAI_API_KEY?.trim()
 
     if (apiKey) {
-      const langNames: Record<string, string> = {
-        hu: 'magyarul',
-        en: 'in English',
-        de: 'auf Deutsch',
-        ro: 'în română',
-      }
-
-      const lang = langNames[locale] ?? 'magyarul'
       const models = resolveOpenAiModels(settings.openaiModel)
       const nowContext = await getAiVisitorDateTimeContext(visitorTime)
       const product = await loadChatProductContext({
@@ -117,22 +124,22 @@ export async function POST(request: Request) {
       const languageLock = buildChatLanguageLock(locale)
 
       const openAiMessages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
+        { role: 'system', content: languageLock },
         {
           role: 'system',
           content: [
-            languageLock,
             settings.systemPrompt,
             nowContext,
             visitorNameContext,
             productContext,
             recommendationsContext,
-            `Válaszolj ${lang}. The storefront locale is ${locale}.`,
           ]
             .filter(Boolean)
             .join('\n\n'),
         },
         ...history,
-        { role: 'user', content: message },
+        { role: 'user', content: wrapUserMessageForLocale(message, locale) },
+        { role: 'system', content: languageLock },
       ]
 
       for (const model of models) {
@@ -155,12 +162,26 @@ export async function POST(request: Request) {
           const text = data?.choices?.[0]?.message?.content?.trim()
 
           if (res.ok && text) {
-            const escalate = /emberi ügyintéző|továbbítom|chargeback|jogi ügy/i.test(text)
+            const formatted = formatChatAssistantText(text)
+            if (assistantReplyIgnoresLocale(formatted, locale)) {
+              return fallbackResponse(
+                message,
+                locale,
+                settings,
+                visitorTime,
+                recommendedProducts,
+                search.missingExactMatch,
+                search.matchKind
+              )
+            }
+            const escalate = /emberi ügyintéző|továbbítom|chargeback|jogi ügy/i.test(formatted)
             return chatJsonResponse({
-              text: formatChatAssistantText(text),
+              text: withMissingProductLeadIn(formatted, locale, search),
               escalate,
               productIds,
               products: recommendedProducts,
+              matchKind: search.matchKind,
+              missingExactMatch: search.missingExactMatch,
             })
           }
 
@@ -177,7 +198,8 @@ export async function POST(request: Request) {
       settings,
       visitorTime,
       recommendedProducts,
-      search.missingExactMatch
+      search.missingExactMatch,
+      search.matchKind
     )
   } catch {
     return NextResponse.json(
@@ -199,11 +221,32 @@ function isDateTimeQuestion(message: string): boolean {
   )
 }
 
+function withMissingProductLeadIn(
+  text: string,
+  locale: Locale,
+  search: { missingExactMatch: boolean; products: ChatRecommendedProduct[] }
+): string {
+  if (!search.missingExactMatch) return text
+  const dict = getTranslations(locale)
+  const lead = t(
+    dict,
+    search.products.length > 0 ? 'ai.missingProductWithAlternatives' : 'ai.missingProduct'
+  )
+  const already =
+    /not found|couldn't find|keine.*gefunden|nicht gefunden|nu am găsit|sajnos pontosan|nicht der gesuchte|alternativ/i.test(
+      text
+    )
+  if (already) return text
+  return `${lead}\n\n${text}`
+}
+
 function chatJsonResponse(payload: {
   text: string
   escalate?: boolean
   productIds?: string[]
   products?: ChatRecommendedProduct[]
+  matchKind?: string
+  missingExactMatch?: boolean
 }) {
   const productIds = Array.isArray(payload.productIds)
     ? payload.productIds.filter((id) => typeof id === 'string' && id.length > 0).slice(0, 3)
@@ -211,6 +254,8 @@ function chatJsonResponse(payload: {
   return NextResponse.json({
     text: formatChatAssistantText(payload.text),
     escalate: !!payload.escalate,
+    matchKind: payload.matchKind ?? 'none',
+    missingExactMatch: !!payload.missingExactMatch,
     ...(productIds.length > 0
       ? {
           productIds,
@@ -226,7 +271,8 @@ async function fallbackResponse(
   settings: ChatSettings,
   visitorTime: { locale: Locale; timezone: string | null; countryCode: string | null },
   recommendedProducts: ChatRecommendedProduct[] = [],
-  missingExactMatch = false
+  missingExactMatch = false,
+  matchKind = 'none'
 ) {
   const productIds = recommendedProducts.map((p) => p.id)
   if (isDateTimeQuestion(userMessage)) {
@@ -234,6 +280,8 @@ async function fallbackResponse(
     return chatJsonResponse({
       text: formatVisitorDateTimeAnswer(local, locale),
       escalate: false,
+      matchKind,
+      missingExactMatch,
     })
   }
   if (missingExactMatch) {
@@ -245,6 +293,8 @@ async function fallbackResponse(
       escalate: false,
       productIds,
       products: recommendedProducts,
+      matchKind: recommendedProducts.length > 0 ? 'alternatives' : 'none',
+      missingExactMatch: true,
     })
   }
   const { textKey, escalate } = getResponse(userMessage)
@@ -255,9 +305,23 @@ async function fallbackResponse(
       locale,
       rate
     )
-    return chatJsonResponse({ text, escalate, productIds, products: recommendedProducts })
+    return chatJsonResponse({
+      text,
+      escalate,
+      productIds,
+      products: recommendedProducts,
+      matchKind,
+      missingExactMatch,
+    })
   }
   const dict = getTranslations(locale)
   const text = applyPointsCopyPlaceholders(t(dict, textKey), locale, rate)
-  return chatJsonResponse({ text, escalate, productIds, products: recommendedProducts })
+  return chatJsonResponse({
+    text,
+    escalate,
+    productIds,
+    products: recommendedProducts,
+    matchKind,
+    missingExactMatch,
+  })
 }
