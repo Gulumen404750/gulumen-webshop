@@ -652,7 +652,7 @@
     "helpAria": "Coupon and gift-point rules",
     "hint": "Enter an admin coupon code, gift-point code or batch label, or scan the QR / NFC link. Percent / fixed coupons apply at checkout. Gift points: 1 point = {pointValue}, single-use, spendable for 1 month. Can be combined with a coupon at checkout.",
     "codeLabel": "Code / ID",
-    "codePlaceholder": "e.g. NYAR2026 or ABCD2345EFGH",
+    "codePlaceholder": "Enter code",
     "submit": "Activate",
     "submitting": "Activating…",
     "errorRequired": "Enter the code.",

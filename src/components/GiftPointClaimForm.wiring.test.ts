@@ -7,7 +7,7 @@ describe('gift / coupon redeem input wiring', () => {
   const src = readFileSync(join(process.cwd(), 'src/components/GiftPointClaimForm.tsx'), 'utf-8')
   const css = readFileSync(join(process.cwd(), 'src/app/globals.css'), 'utf-8')
 
-  it('keeps the example text as a placeholder, not the input value', () => {
+  it('keeps a generic placeholder, not a campaign-code example', () => {
     expect(src).toContain("placeholder={t('giftClaim.codePlaceholder')}")
     expect(src).toMatch(/value=\{token\}/)
     expect(src).toMatch(/useState\(initialToken\)/)
@@ -15,7 +15,8 @@ describe('gift / coupon redeem input wiring', () => {
     expect(src).not.toMatch(/useState\(t\(['"]giftClaim\.codePlaceholder['"]\)\)/)
     expect(src).not.toMatch(/defaultValue=\{/)
     expect(src).not.toContain('NYAR2026')
-    expect(hu.giftClaim.codePlaceholder).toBe('pl. NYAR2026 vagy ABCD2345EFGH')
+    expect(hu.giftClaim.codePlaceholder).not.toMatch(/NYAR2026|ABCD2345EFGH/)
+    expect(hu.giftClaim.codePlaceholder).toBe('Kód megadása')
   })
 
   it('styles the placeholder as muted helper text that iOS cannot inherit as a value', () => {
@@ -37,6 +38,8 @@ describe('GiftPointClaimForm help UI', () => {
     expect(src).toMatch(/CircleHelp/)
     expect(src).toMatch(/giftClaim\.helpAria/)
     expect(src).toMatch(/giftClaim\.hint/)
+    expect(src).toMatch(/role="dialog"/)
+    expect(src).toMatch(/aria-modal="true"/)
     expect(src).not.toMatch(/<p className="text-sm text-muted mt-1">\{t\('giftClaim\.hint'/)
   })
 })
