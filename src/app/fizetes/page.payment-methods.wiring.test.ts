@@ -14,10 +14,12 @@ describe('checkout payment method picker', () => {
     expect(src).toMatch(/methodKlarnaNote/)
   })
 
-  it('keeps percent vs points stacking independent of the new payment methods', () => {
+  it('allows coupons and points together, and still blocks two percent coupons', () => {
     expect(src).toMatch(/usePoints\s*\?\s*t\('payment.cashEarnHintPointsUsed'\)/)
-    expect(src).toMatch(/usePoints \? \[\] : selectedCouponIds/)
-    expect(src).toMatch(/disabled=\{usePoints\}/)
+    expect(src).toMatch(/selectedIds=\{selectedCouponIds\}/)
+    expect(src).not.toMatch(/disabled=\{usePoints\}/)
+    expect(src).not.toMatch(/usePoints \? \[\] : selectedCouponIds/)
+    expect(src).not.toMatch(/coupon: usePoints/)
     expect(src).toMatch(/typedCoupon\?\.discountType === 'percent'/)
   })
 

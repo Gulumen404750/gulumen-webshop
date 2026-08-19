@@ -164,7 +164,7 @@ export default function AdminGamificationPage() {
         <p className="text-sm text-muted">
           Az NFC-n beolvasott pontok a felhasználó nevére kerülnek, 1 pont = 1 Ft, teljesen
           levásárolhatók a termékárra. 25 000 Ft felett, csak ponttal fizetve a szállítási díjat
-          kártyával kell rendezni. Az aktiválástól 1 hónapig érvényesek. Más kuponnal nem kombinálhatók.
+          kártyával kell rendezni. Az aktiválástól 1 hónapig érvényesek. Kuponnal összevonhatók.
         </p>
         <form onSubmit={handleNfcGrant} className="flex flex-wrap items-end gap-3">
           <label className="text-sm">

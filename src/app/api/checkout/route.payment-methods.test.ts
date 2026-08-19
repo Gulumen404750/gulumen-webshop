@@ -24,7 +24,7 @@ describe('checkout API payment methods', () => {
     expect(src).toMatch(/released pending holds after out_of_stock/)
   })
 
-  it('still blocks coupon stacking before creating a payment', () => {
+  it('still blocks two percent coupons before creating a payment', () => {
     const stackIdx = src.indexOf('isCouponStackingBlocked')
     const paymentIdx = src.indexOf('resolvePaymentMode')
     expect(stackIdx).toBeGreaterThan(0)
@@ -34,6 +34,7 @@ describe('checkout API payment methods', () => {
     expect(src).toMatch(/secondaryCouponId/)
     expect(src).toMatch(/isFixedCouponDiscount/)
     expect(src).toMatch(/fixedIds/)
+    expect(src).not.toMatch(/points_promo_stack_disabled/)
   })
 })
 

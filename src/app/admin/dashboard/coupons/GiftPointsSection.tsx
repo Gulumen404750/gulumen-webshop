@@ -253,8 +253,8 @@ export function AdminGiftPointsSection({
           <p className="text-sm text-muted mt-1">
             Darabszámnyi egyszer használatos kód, egyedi claim URL, QR és NFC-re írható link.
             Aktiváláskor a pontok a tárcába kerülnek (1 pont = 1 Ft, 1 hónap, a termékár 100%-áig).
-            25 000 Ft felett, csak ponttal fizetve a szállítási díjat ki kell fizetni. Más kuponnal nem
-            kombinálható.
+            25 000 Ft felett, csak ponttal fizetve a szállítási díjat ki kell fizetni. Kuponnal
+            összevonható.
           </p>
         </div>
         <button
@@ -348,7 +348,7 @@ export function AdminGiftPointsSection({
               Minden darabhoz egyedi azonosító és <code className="font-mono">/claim/…</code> URL
               készül. A vevő beírhatja a tétel címkéjét (pl. AJANDEK5000) vagy az egyedi tokent a
               profilon / fizetésnél. A QR / NFC ugyanezt a linket írja. Aktiváláskor a kód egyszer
-              használatosra válik, a pont 1 hónapig költhető, más akcióval nem vonható össze.
+              használatosra válik, a pont 1 hónapig költhető, kuponnal összevonható.
             </p>
 
             {formError && (

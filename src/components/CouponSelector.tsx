@@ -69,11 +69,7 @@ export function CouponSelector({
     <section className="mb-8 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] space-y-3">
       <div>
         <h2 className="font-heading text-lg font-semibold text-foreground">{resolvedTitle}</h2>
-        <p className="text-sm text-muted mt-1">
-          {disabled
-            ? t('payment.pointsNoStackHint')
-            : resolvedHint}
-        </p>
+        <p className="text-sm text-muted mt-1">{resolvedHint}</p>
       </div>
 
       <ul className="space-y-2">

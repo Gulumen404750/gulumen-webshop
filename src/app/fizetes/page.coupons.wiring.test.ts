@@ -22,6 +22,14 @@ describe('checkout coupon picker', () => {
     expect(src).toMatch(/paymentMethod === 'klarna'/)
   })
 
+  it('keeps coupons selectable while spending points', () => {
+    expect(src).toMatch(/selectedIds=\{selectedCouponIds\}/)
+    expect(src).not.toMatch(/disabled=\{usePoints\}/)
+    expect(src).not.toMatch(/setSelectedCouponIds\(\[\]\)/)
+    expect(src).not.toMatch(/coupon: usePoints/)
+    expect(src).toMatch(/welcomeOfferAccepted: couponSelection\.useWelcome/)
+  })
+
   it('shows a remainder warning when a fixed coupon cannot be used in full', () => {
     expect(src).toMatch(/couponFixedRemainderWarning/)
     expect(src).toMatch(/fixedCouponUnusedHuf/)
@@ -30,4 +38,3 @@ describe('checkout coupon picker', () => {
     expect(src).toMatch(/couponCodes/)
   })
 })
-
