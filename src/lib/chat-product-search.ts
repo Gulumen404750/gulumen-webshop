@@ -6,6 +6,8 @@
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { getAllProductsAsync, type Product } from '@/lib/data'
 import { resolveChatProductPricing } from '@/lib/chat-product-context'
+import type { Locale } from '@/i18n/locales'
+import { DEFAULT_LOCALE } from '@/i18n/locales'
 
 export const CHAT_PRODUCT_RECOMMENDATION_LIMIT = 3
 
@@ -332,14 +334,9 @@ export function extractSearchKeywords(message: string): string[] {
   return merged.slice(0, 12)
 }
 
-export function scoreProductAgainstKeywords(
-  product: Pick<ChatRecommendedProduct, 'name' | 'slug' | 'category'> & {
-    description?: string | null
-  },
-  keywords: string[]
-): number {
-  if (keywords.length === 0) return 0
-  const hay = `${product.name} ${product.slug} ${product.category} ${product.description ?? ''}`.toLowerCase()
+function scoreHaystack(haystack: string, keywords: string[]): number {
+  if (!haystack.trim() || keywords.length === 0) return 0
+  const hay = haystack.toLowerCase()
   const asciiHay = stripDiacritics(hay)
   let score = 0
   for (const kw of keywords) {
@@ -371,10 +368,79 @@ export function scoreProductAgainstKeywords(
   return score
 }
 
+export function scoreProductFields(
+  product: Pick<ChatRecommendedProduct, 'name' | 'slug' | 'category'> & {
+    description?: string | null
+    nameEn?: string | null
+    nameDe?: string | null
+    nameRo?: string | null
+  },
+  keywords: string[]
+): { nameScore: number; descScore: number; total: number } {
+  const nameHay = [
+    product.name,
+    product.nameEn,
+    product.nameDe,
+    product.nameRo,
+    product.slug,
+    product.category,
+  ]
+    .filter(Boolean)
+    .join(' ')
+  const nameScore = scoreHaystack(nameHay, keywords)
+  const descScore = scoreHaystack(product.description ?? '', keywords)
+  return { nameScore, descScore, total: nameScore * 3 + descScore }
+}
+
+export function scoreProductAgainstKeywords(
+  product: Pick<ChatRecommendedProduct, 'name' | 'slug' | 'category'> & {
+    description?: string | null
+    nameEn?: string | null
+    nameDe?: string | null
+    nameRo?: string | null
+  },
+  keywords: string[]
+): number {
+  const { nameScore, descScore } = scoreProductFields(product, keywords)
+  return nameScore + descScore
+}
+
+function pickNamedKeywordHits<T extends { nameScore: number; total: number }>(
+  scored: T[],
+  limit: number
+): T[] {
+  const named = scored.filter((x) => x.nameScore > 0).sort((a, b) => b.total - a.total)
+  if (named.length === 0) return []
+  const top = named[0].total
+  const minKeep = Math.max(2, Math.floor(top * 0.5))
+  return named.filter((x) => x.total >= minKeep).slice(0, limit)
+}
+
+function localizedCatalogName(
+  row: {
+    name: string
+    nameEn?: string | null
+    nameDe?: string | null
+    nameRo?: string | null
+    slug?: string
+    id?: string
+  },
+  locale: Locale
+): string {
+  const fallback = row.name?.trim() || row.slug || row.id || ''
+  if (locale === 'en') return (row.nameEn || row.name || fallback).trim()
+  if (locale === 'de') return (row.nameDe || row.nameEn || row.name || fallback).trim()
+  if (locale === 'ro') return (row.nameRo || row.nameEn || row.name || fallback).trim()
+  return (row.name || fallback).trim()
+}
+
 const productSelect = {
   id: true,
   slug: true,
   name: true,
+  nameEn: true,
+  nameDe: true,
+  nameRo: true,
   priceHuf: true,
   discountPriceHuf: true,
   onSale: true,
@@ -384,22 +450,28 @@ const productSelect = {
   category: true,
 } as const
 
-function mapDbRowToRecommended(row: {
-  id: string
-  slug: string
-  name: string
-  priceHuf: number
-  discountPriceHuf: number | null
-  onSale: boolean
-  saleStartAt: Date | null
-  saleEndAt: Date | null
-  image: string
-  category: string
-}): ChatRecommendedProduct {
+function mapDbRowToRecommended(
+  row: {
+    id: string
+    slug: string
+    name: string
+    nameEn?: string | null
+    nameDe?: string | null
+    nameRo?: string | null
+    priceHuf: number
+    discountPriceHuf: number | null
+    onSale: boolean
+    saleStartAt: Date | null
+    saleEndAt: Date | null
+    image: string
+    category: string
+  },
+  locale: Locale
+): ChatRecommendedProduct {
   return {
     id: row.id,
     slug: row.slug,
-    name: row.name,
+    name: localizedCatalogName(row, locale),
     priceHuf: row.priceHuf,
     discountPriceHuf: row.discountPriceHuf,
     onSale: row.onSale,
@@ -410,11 +482,11 @@ function mapDbRowToRecommended(row: {
   }
 }
 
-function mapProductToRecommended(p: Product): ChatRecommendedProduct {
+function mapProductToRecommended(p: Product, locale: Locale): ChatRecommendedProduct {
   return {
     id: p.id,
     slug: p.slug,
-    name: p.name,
+    name: localizedCatalogName(p, locale),
     priceHuf: p.priceHuf,
     discountPriceHuf: p.discountPriceHuf ?? null,
     onSale: !!p.onSale,
@@ -428,7 +500,8 @@ function mapProductToRecommended(p: Product): ChatRecommendedProduct {
 async function searchProductsInDb(
   keywords: string[],
   limit: number,
-  excludeProductIds: string[] = []
+  excludeProductIds: string[] = [],
+  locale: Locale = DEFAULT_LOCALE
 ): Promise<ChatRecommendedProduct[]> {
   if (!isDbConfigured()) return []
   const blocked = excludeProductIds.filter(Boolean)
@@ -441,7 +514,7 @@ async function searchProductsInDb(
       take: limit + blocked.length,
       select: productSelect,
     })
-    return rows.map(mapDbRowToRecommended).slice(0, limit)
+    return rows.map((row) => mapDbRowToRecommended(row, locale)).slice(0, limit)
   }
 
   const dbKeywords = [...new Set(keywords.flatMap((kw) => stemSearchToken(kw)))].slice(0, 24)
@@ -472,20 +545,26 @@ async function searchProductsInDb(
     },
   })
 
-  let scored = rows
-    .map((row) => ({
-      product: mapDbRowToRecommended(row),
-      score: scoreProductAgainstKeywords(
-        { ...row, description: row.description_hu },
-        keywords
-      ),
-    }))
-    .filter((x) => x.score > 0)
-    .sort((a, b) => b.score - a.score)
+  const toScored = (
+    row: (typeof rows)[number]
+  ): { product: ChatRecommendedProduct; nameScore: number; total: number } => {
+    const fields = scoreProductFields(
+      { ...row, description: row.description_hu },
+      keywords
+    )
+    return {
+      product: mapDbRowToRecommended(row, locale),
+      nameScore: fields.nameScore,
+      total: fields.total,
+    }
+  }
+
+  let scored = rows.map(toScored)
+  let picked = pickNamedKeywordHits(scored, limit)
 
   // Ékezet / ragozás miatt a SQL contains gyakran 0 sort ad (lámpa vs lampa).
-  // Ilyenkor népszerű poolon JS-ben pontozunk ascii-tűrően.
-  if (scored.length === 0) {
+  // Ilyenkor népszerű poolon JS-ben pontozunk ascii-tűrően, de CSAK név/slug/kategória egyezés.
+  if (picked.length === 0) {
     const pool = await prisma.product.findMany({
       where: { active: true, archived: false, ...notIn },
       orderBy: [{ likesCount: 'desc' }, { updatedAt: 'desc' }],
@@ -495,25 +574,18 @@ async function searchProductsInDb(
         description_hu: true,
       },
     })
-    scored = pool
-      .map((row) => ({
-        product: mapDbRowToRecommended(row),
-        score: scoreProductAgainstKeywords(
-          { ...row, description: row.description_hu },
-          keywords
-        ),
-      }))
-      .filter((x) => x.score > 0)
-      .sort((a, b) => b.score - a.score)
+    scored = pool.map(toScored)
+    picked = pickNamedKeywordHits(scored, limit)
   }
 
-  return scored.slice(0, limit).map((x) => x.product)
+  return picked.map((x) => x.product)
 }
 
 async function searchProductsInMemory(
   keywords: string[],
   limit: number,
-  excludeProductIds: string[] = []
+  excludeProductIds: string[] = [],
+  locale: Locale = DEFAULT_LOCALE
 ): Promise<ChatRecommendedProduct[]> {
   const all = await getAllProductsAsync()
   const blocked = new Set(excludeProductIds)
@@ -526,26 +598,30 @@ async function searchProductsInMemory(
       .slice()
       .sort((a, b) => (b.likesCount ?? 0) - (a.likesCount ?? 0))
       .slice(0, limit)
-      .map(mapProductToRecommended)
+      .map((p) => mapProductToRecommended(p, locale))
   }
 
-  const scored = active
-    .map((p) => ({
-      product: mapProductToRecommended(p),
-      score: scoreProductAgainstKeywords(
-        {
-          name: `${p.name} ${p.nameEn ?? ''} ${p.nameDe ?? ''} ${p.nameRo ?? ''}`,
-          slug: p.slug,
-          category: p.category,
-          description: p.description_hu ?? p.description,
-        },
-        keywords
-      ),
-    }))
-    .filter((x) => x.score > 0)
-    .sort((a, b) => b.score - a.score)
+  const scored = active.map((p) => {
+    const fields = scoreProductFields(
+      {
+        name: p.name,
+        nameEn: p.nameEn,
+        nameDe: p.nameDe,
+        nameRo: p.nameRo,
+        slug: p.slug,
+        category: p.category,
+        description: p.description_hu ?? p.description,
+      },
+      keywords
+    )
+    return {
+      product: mapProductToRecommended(p, locale),
+      nameScore: fields.nameScore,
+      total: fields.total,
+    }
+  })
 
-  return scored.slice(0, limit).map((x) => x.product)
+  return pickNamedKeywordHits(scored, limit).map((x) => x.product)
 }
 
 export type ChatProductMatchKind = 'keyword' | 'catalog_browse' | 'alternatives' | 'none'
@@ -630,13 +706,14 @@ function resultFromHits(
  */
 export async function searchProductsForChat(
   message: string,
-  options: { limit?: number; excludeProductIds?: string[] } = {}
+  options: { limit?: number; excludeProductIds?: string[]; locale?: Locale } = {}
 ): Promise<ChatProductSearchResult> {
   const take = Math.min(
     Math.max(options.limit ?? CHAT_PRODUCT_RECOMMENDATION_LIMIT, 1),
     CHAT_PRODUCT_RECOMMENDATION_LIMIT
   )
   const excludeProductIds = options.excludeProductIds ?? []
+  const locale = options.locale ?? DEFAULT_LOCALE
   const intent = resolveChatProductSearchIntent(message)
   if (!intent.isProductSearch) return emptySearchResult()
 
@@ -644,10 +721,10 @@ export async function searchProductsForChat(
 
   try {
     if (isDbConfigured()) {
-      const dbHits = await searchProductsInDb(searchKeywords, take, excludeProductIds)
+      const dbHits = await searchProductsInDb(searchKeywords, take, excludeProductIds, locale)
       const primary = resultFromHits(dbHits, intent.recommendOnly)
       if (!primary.missingExactMatch) return primary
-      const popular = await searchProductsInDb([], take, excludeProductIds)
+      const popular = await searchProductsInDb([], take, excludeProductIds, locale)
       return {
         products: popular,
         matchKind: popular.length > 0 ? 'alternatives' : 'none',
@@ -658,10 +735,10 @@ export async function searchProductsForChat(
     // fallback memóriára
   }
 
-  const memoryHits = await searchProductsInMemory(searchKeywords, take, excludeProductIds)
+  const memoryHits = await searchProductsInMemory(searchKeywords, take, excludeProductIds, locale)
   const primary = resultFromHits(memoryHits, intent.recommendOnly)
   if (!primary.missingExactMatch) return primary
-  const popularMemory = await searchProductsInMemory([], take, excludeProductIds)
+  const popularMemory = await searchProductsInMemory([], take, excludeProductIds, locale)
   return {
     products: popularMemory,
     matchKind: popularMemory.length > 0 ? 'alternatives' : 'none',
@@ -762,9 +839,9 @@ KÖTELEZŐ:
 - A számozott listád hossza = ${products.length} (minden ajánlott termékhez egy tétel és egy kártya).
 - Minden tétel ÚJ SORON, üres sorral elválasztva, 2–4 barátságos emojival (🎁 ✨ 🏠 💚).
 
-Példa:
+Példa (a köszöntést a LANGUAGE LOCK nyelvén írd, ne magyarul, ha a locale nem hu):
 
-Szia! 🎁 Íme ${products.length} szuper ötlet:
+Hello! 🎁 Here are ${products.length} ideas:
 
 1. ✨ [1. termék pontos neve a listából] – rövid indok.
 

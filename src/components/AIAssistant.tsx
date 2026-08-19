@@ -38,6 +38,8 @@ type Message = {
   escalate?: boolean
   productIds?: string[]
   products?: ChatProductSnippet[]
+  matchKind?: string
+  missingExactMatch?: boolean
 }
 
 function parseProductIds(value: unknown): string[] | undefined {
@@ -150,6 +152,8 @@ export function AIAssistant() {
               role: 'assistant',
               text: data.text,
               escalate: !!data.escalate,
+              matchKind: typeof data.matchKind === 'string' ? data.matchKind : undefined,
+              missingExactMatch: data.missingExactMatch === true,
               ...(productIds ? { productIds } : {}),
               ...(products ? { products } : {}),
             },
@@ -304,6 +308,7 @@ export function AIAssistant() {
                       <ChatProductRecommendations
                         productIds={m.productIds}
                         snippets={m.products}
+                        alternatives={m.missingExactMatch === true || m.matchKind === 'alternatives'}
                         onNavigate={() => setOpen(false)}
                       />
                     )}
@@ -390,12 +395,15 @@ function ChatMessageBody({ text }: { text: string }) {
 function ChatProductRecommendations({
   productIds,
   snippets,
+  alternatives = false,
   onNavigate,
 }: {
   productIds: string[]
   snippets?: ChatProductSnippet[]
+  alternatives?: boolean
   onNavigate?: () => void
 }) {
+  const { t } = useLocale()
   const { getProductById: getProductByIdFromContext } = useProducts()
   const getProductById = useCallback(
     (id: string) => getProductByIdFromContext(id) ?? getProductByIdFromData(id),
@@ -426,17 +434,24 @@ function ChatProductRecommendations({
 
   return (
     <div className="mt-3 space-y-2">
+      {alternatives && (
+        <p className="text-[11px] font-medium text-amber-800 dark:text-amber-200 leading-snug">
+          {t('ai.alternativesNote')}
+        </p>
+      )}
       {cards.map((card) =>
         card.kind === 'full' ? (
           <ChatProductCard
             key={card.product.id}
             product={card.product}
+            alternative={alternatives}
             onNavigate={onNavigate}
           />
         ) : (
           <ChatProductSnippetCard
             key={card.product.id}
             product={card.product}
+            alternative={alternatives}
             onNavigate={onNavigate}
           />
         )
@@ -447,9 +462,11 @@ function ChatProductRecommendations({
 
 function ChatProductCard({
   product,
+  alternative = false,
   onNavigate,
 }: {
   product: Product
+  alternative?: boolean
   onNavigate?: () => void
 }) {
   const { locale, t } = useLocale()
@@ -482,6 +499,11 @@ function ChatProductCard({
           <ChatProductThumb image={product.image} alt={productName} />
         </Link>
         <div className="min-w-0 flex-1">
+          {alternative && (
+            <span className="mb-0.5 inline-flex rounded-full border border-amber-500/50 bg-amber-500/15 px-1.5 py-px text-[10px] font-semibold text-amber-800 dark:text-amber-200">
+              {t('ai.alternativeBadge')}
+            </span>
+          )}
           <Link
             href={productHref}
             onClick={onNavigate}
@@ -527,9 +549,11 @@ function ChatProductCard({
 /** Ha a ProductsContext még nem töltötte be a katalógust, az API snippetből is kirajzolható a kártya. */
 function ChatProductSnippetCard({
   product,
+  alternative = false,
   onNavigate,
 }: {
   product: ChatProductSnippet
+  alternative?: boolean
   onNavigate?: () => void
 }) {
   const { t } = useLocale()
@@ -582,6 +606,11 @@ function ChatProductSnippetCard({
           <ChatProductThumb image={product.image} alt={product.name} />
         </Link>
         <div className="min-w-0 flex-1">
+          {alternative && (
+            <span className="mb-0.5 inline-flex rounded-full border border-amber-500/50 bg-amber-500/15 px-1.5 py-px text-[10px] font-semibold text-amber-800 dark:text-amber-200">
+              {t('ai.alternativeBadge')}
+            </span>
+          )}
           <Link
             href={productHref}
             onClick={onNavigate}
