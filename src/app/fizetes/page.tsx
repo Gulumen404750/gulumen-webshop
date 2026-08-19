@@ -1,6 +1,6 @@
 'use client'
 
-/** Fizetési oldal – Railway src watch-path 2026-08-19T16:55. */
+/** Fizetési oldal – Railway src watch-path 2026-08-19T18:10. */
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
@@ -478,8 +478,6 @@ export default function PaymentPage() {
       return prev.filter((id) => isFixedSelectableCoupon(availableCoupons.find((c) => c.id === id)))
     })
     setCouponCodeInput(coupon.code)
-    setUseGiftPoints(false)
-    setUseActivityPoints(false)
   }
 
   const clearTypedCoupon = () => {
@@ -491,9 +489,7 @@ export default function PaymentPage() {
   const handleRedeemedCode = (result: CodeRedeemSuccess) => {
     if (result.kind === 'gift_points') {
       void refreshWallet()
-      clearTypedCoupon()
       setUseGiftPoints(true)
-      setUseActivityPoints(false)
       return
     }
     applyTypedCoupon({

@@ -21,6 +21,8 @@ describe('checkout payment method picker', () => {
     expect(src).not.toMatch(/usePoints \? \[\] : selectedCouponIds/)
     expect(src).not.toMatch(/coupon: usePoints/)
     expect(src).toMatch(/typedCoupon\?\.discountType === 'percent'/)
+    const applyFn = src.slice(src.indexOf('const applyTypedCoupon'), src.indexOf('const clearTypedCoupon'))
+    expect(applyFn).not.toMatch(/setUseGiftPoints\(false\)/)
   })
 
   it('does not promise purchase earn on Klarna instalments', () => {
