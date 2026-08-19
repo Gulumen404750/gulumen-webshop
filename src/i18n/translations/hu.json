@@ -612,7 +612,9 @@
     "historyTypePurchaseEarn": "Vásárlási pont",
     "historyTypeOther": "Egyéb",
     "historyBalanceAfter": "Egyenleg: {balance} pont",
-    "historyDevNote": "Helyi fejlesztői módban a ponttörténet csak adatbázissal érhető el."
+    "historyDevNote": "Helyi fejlesztői módban a ponttörténet csak adatbázissal érhető el.",
+    "historyExpand": "Összes megtekintése",
+    "historyCollapse": "Kevesebb mutatása"
   },
   "giftClaim": {
     "title": "Kupon vagy ajándékpont beváltása",

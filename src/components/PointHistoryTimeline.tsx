@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Clock, Heart, Gift, RotateCcw, Sparkles } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useLocale } from '@/context/LocaleContext'
@@ -9,6 +10,9 @@ import type { LucideIcon } from 'lucide-react'
 type Props = {
   className?: string
 }
+
+/** Alapértelmezett látható tételek a ponttörténetben. */
+export const POINT_HISTORY_PREVIEW_LIMIT = 3
 
 const LOCALE_MAP: Record<string, string> = {
   hu: 'hu-HU',
@@ -46,6 +50,7 @@ export function PointHistoryTimeline({ className = '' }: Props) {
   const { isLoggedIn } = useAuth()
   const { t, locale } = useLocale()
   const { transactions, isLoading, mode } = usePointHistory(isLoggedIn)
+  const [expanded, setExpanded] = useState(false)
 
   if (!isLoggedIn) return null
 
@@ -68,56 +73,70 @@ export function PointHistoryTimeline({ className = '' }: Props) {
       ) : transactions.length === 0 ? (
         <p className="text-sm text-muted">{t('gamification.historyEmpty')}</p>
       ) : (
-        <ol className="relative space-y-0">
-          {transactions.map((entry, index) => {
-            const { label, icon: Icon } = getTypeMeta(entry.type, t)
-            const isPositive = entry.delta > 0
-            const isLast = index === transactions.length - 1
+        <>
+          <ol className="relative space-y-0">
+            {(expanded ? transactions : transactions.slice(0, POINT_HISTORY_PREVIEW_LIMIT)).map(
+              (entry, index, visible) => {
+                const { label, icon: Icon } = getTypeMeta(entry.type, t)
+                const isPositive = entry.delta > 0
+                const isLast = index === visible.length - 1
 
-            return (
-              <li key={entry.id} className="relative flex gap-4 pb-6 last:pb-0">
-                {!isLast && (
-                  <span
-                    className="absolute left-[15px] top-8 bottom-0 w-px bg-[var(--border)]"
-                    aria-hidden
-                  />
-                )}
-                <span
-                  className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-background text-muted"
-                  aria-hidden
-                >
-                  <Icon className="h-4 w-4" />
-                </span>
-                <div className="min-w-0 flex-1 pt-0.5">
-                  <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                    <p className="font-medium text-foreground">{label}</p>
-                    <time className="text-xs text-muted" dateTime={entry.createdAt}>
-                      {dateFormatter.format(new Date(entry.createdAt))}
-                    </time>
-                  </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                return (
+                  <li key={entry.id} className="relative flex gap-4 pb-6 last:pb-0">
+                    {!isLast && (
+                      <span
+                        className="absolute left-[15px] top-8 bottom-0 w-px bg-[var(--border)]"
+                        aria-hidden
+                      />
+                    )}
                     <span
-                      className={
-                        isPositive
-                          ? 'font-semibold text-emerald-600 dark:text-emerald-400'
-                          : 'font-semibold text-red-600 dark:text-red-400'
-                      }
+                      className="relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-background text-muted"
+                      aria-hidden
                     >
-                      {isPositive ? `+${entry.delta}` : entry.delta}{' '}
-                      <span className="font-normal text-muted">{t('gamification.pointsUnit')}</span>
+                      <Icon className="h-4 w-4" />
                     </span>
-                    <span className="text-muted">
-                      {t('gamification.historyBalanceAfter').replace(
-                        '{balance}',
-                        String(entry.balanceAfter)
-                      )}
-                    </span>
-                  </div>
-                </div>
-              </li>
-            )
-          })}
-        </ol>
+                    <div className="min-w-0 flex-1 pt-0.5">
+                      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                        <p className="font-medium text-foreground">{label}</p>
+                        <time className="text-xs text-muted" dateTime={entry.createdAt}>
+                          {dateFormatter.format(new Date(entry.createdAt))}
+                        </time>
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                        <span
+                          className={
+                            isPositive
+                              ? 'font-semibold text-emerald-600 dark:text-emerald-400'
+                              : 'font-semibold text-red-600 dark:text-red-400'
+                          }
+                        >
+                          {isPositive ? `+${entry.delta}` : entry.delta}{' '}
+                          <span className="font-normal text-muted">{t('gamification.pointsUnit')}</span>
+                        </span>
+                        <span className="text-muted">
+                          {t('gamification.historyBalanceAfter').replace(
+                            '{balance}',
+                            String(entry.balanceAfter)
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  </li>
+                )
+              }
+            )}
+          </ol>
+          {transactions.length > POINT_HISTORY_PREVIEW_LIMIT && (
+            <button
+              type="button"
+              onClick={() => setExpanded((open) => !open)}
+              className="mt-4 w-full sm:w-auto px-4 py-2 rounded-lg border border-[var(--border)] text-sm font-medium text-foreground hover:bg-[var(--border)]/50 transition-colors"
+              aria-expanded={expanded}
+            >
+              {expanded ? t('gamification.historyCollapse') : t('gamification.historyExpand')}
+            </button>
+          )}
+        </>
       )}
 
       {mode === 'dev' && (

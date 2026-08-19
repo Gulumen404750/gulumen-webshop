@@ -639,7 +639,9 @@
     "historyTypePurchaseEarn": "Kaufpunkte",
     "historyTypeOther": "Sonstiges",
     "historyBalanceAfter": "Guthaben: {balance} Punkte",
-    "historyDevNote": "Punkteverlauf ist im lokalen Dev-Modus nur mit Datenbank verfügbar."
+    "historyDevNote": "Punkteverlauf ist im lokalen Dev-Modus nur mit Datenbank verfügbar.",
+    "historyExpand": "Alle anzeigen",
+    "historyCollapse": "Weniger anzeigen"
   },
   "giftClaim": {
     "title": "Gutschein oder Geschenkpunkte einlösen",

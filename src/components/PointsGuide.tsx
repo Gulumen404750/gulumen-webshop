@@ -13,7 +13,7 @@ import {
   POINTS_PER_HUF,
   LIKE_BONUS_WINDOW_MS,
 } from '@/lib/gamification/constants'
-import { Sparkles, Heart, Clock, Gift, ShoppingBag, Wallet, Coins } from 'lucide-react'
+import { Sparkles, Heart, Clock, Gift, ShoppingBag, Wallet, Coins, ChevronDown } from 'lucide-react'
 import { useLocale } from '@/context/LocaleContext'
 import { useDisplayMoney } from '@/hooks/useDisplayMoney'
 
@@ -105,21 +105,27 @@ export function PointsGuide({ className = '' }: Props) {
       </div>
       <p className="text-sm text-muted mb-5">{t('gamification.mechanicsIntro')}</p>
 
-      <ul className="space-y-4">
+      <ul className="divide-y divide-[var(--border)] border-y border-[var(--border)]">
         {steps.map(({ icon: Icon, title, text }) => (
-          <li key={title} className="flex gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
-              <Icon className="h-4 w-4" aria-hidden />
-            </span>
-            <div>
-              <p className="text-sm font-medium text-foreground">{title}</p>
-              <p className="text-sm text-muted mt-0.5">{text}</p>
-            </div>
+          <li key={title}>
+            <details className="group">
+              <summary className="flex cursor-pointer list-none items-center gap-3 py-3 [&::-webkit-details-marker]:hidden">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent">
+                  <Icon className="h-4 w-4" aria-hidden />
+                </span>
+                <span className="min-w-0 flex-1 text-sm font-medium text-foreground">{title}</span>
+                <ChevronDown
+                  className="h-4 w-4 shrink-0 text-muted transition-transform group-open:rotate-180"
+                  aria-hidden
+                />
+              </summary>
+              <p className="text-sm text-muted pb-3 pl-12 pr-1 leading-relaxed">{text}</p>
+            </details>
           </li>
         ))}
       </ul>
 
-      <p className="text-xs text-muted mt-5 pt-4 border-t border-[var(--border)]">
+      <p className="text-xs text-muted mt-4">
         {t('gamification.mechanicsReset')}
       </p>
     </section>
