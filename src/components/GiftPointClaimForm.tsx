@@ -9,6 +9,7 @@ import { useDisplayMoney } from '@/hooks/useDisplayMoney'
 import { POINT_WALLET_SWR_KEY } from '@/lib/point-wallet-client'
 import { mutate } from 'swr'
 import { writeTypedCoupon, type StoredTypedCoupon } from '@/lib/typed-coupon-storage'
+import { sanitizeRedeemCode } from '@/lib/sanitize-redeem-code'
 import { localeNoticeText, type LocaleNotice } from '@/lib/locale-notice'
 
 export type GiftClaimSuccess = {
@@ -131,7 +132,8 @@ export function GiftPointClaimForm({
   const { t, locale } = useLocale()
   const { money } = useDisplayMoney()
   const { isLoggedIn, authChecked } = useAuth()
-  const [token, setToken] = useState(initialToken)
+  const examplePlaceholder = t('giftClaim.codePlaceholder')
+  const [token, setToken] = useState(() => sanitizeRedeemCode(initialToken, ''))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<LocaleNotice | null>(null)
   const [giftSuccess, setGiftSuccess] = useState<GiftClaimSuccess | null>(null)
@@ -228,11 +230,13 @@ export function GiftPointClaimForm({
               type="text"
               name="redeem-code"
               value={token}
-              onChange={(e) => setToken(e.target.value.toUpperCase())}
-              autoComplete="off"
+              onChange={(e) => setToken(sanitizeRedeemCode(e.target.value, examplePlaceholder))}
+              autoComplete="one-time-code"
+              autoCorrect="off"
+              autoCapitalize="characters"
               spellCheck={false}
-              className="mt-1 w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 font-mono text-foreground placeholder:text-muted placeholder:font-sans"
-              placeholder={t('giftClaim.codePlaceholder')}
+              className="mt-1 w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 font-mono text-foreground placeholder:font-sans placeholder:font-normal placeholder:text-slate-500 dark:placeholder:text-slate-500"
+              placeholder={examplePlaceholder}
             />
           </label>
         )}
