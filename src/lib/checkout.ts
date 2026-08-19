@@ -367,9 +367,13 @@ function buildOrderSplit(
   )
   const luckyShare = proportionalShare(luckySpinDiscountHuf, splitSpinSubtotal, spinSubtotal)
   const couponShare = percentShare + fixedShare
+  const merchandiseBeforePoints = Math.max(
+    0,
+    subtotalHuf - couponShare - loyaltyShare - luckyShare
+  )
   const pointsShare = proportionalShare(
     pointsDiscountHuf,
-    subtotalHuf,
+    merchandiseBeforePoints,
     combinedMerchandiseBeforeShipping + pointsDiscountHuf
   )
   const pointsUsedShare = proportionalShare(pointsUsed, pointsShare, pointsDiscountHuf)
