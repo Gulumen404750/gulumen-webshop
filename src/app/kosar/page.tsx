@@ -235,7 +235,7 @@ export default function CartPage() {
           <ul className="space-y-4">
             {promoItems.map((item) => (
               <CartLineRow
-                key={`promo-${item.productId}-${item.options?.colorHex ?? item.options?.colorName ?? ''}-${item.options?.materialName ?? ''}`}
+                key={cartLineKey(item)}
                 item={item}
                 isPromo
                 luckySpinDiscountActive={luckySpinDiscountActive}
@@ -267,61 +267,20 @@ export default function CartPage() {
           <h2 className="font-heading text-lg font-semibold text-foreground mb-1">{t('cart.blockStockTitle')}</h2>
           <p className="text-sm text-muted mb-3">{t('cart.blockStockDispatch')}</p>
           <ul className="space-y-4">
-            {stockItems.map((item) => {
-              const product = getProductById(item.productId)
-              const line = resolveCartLine(item, product, locale)
-              const maxAllowedInCart = product ? getMaxQty(product) : 99
-              const priceHuf = line.priceHuf
-              const priceEur = hufToEur(priceHuf)
-              const lineKey = `${item.productId}-${item.options?.colorHex ?? item.options?.colorName ?? ''}-${item.options?.materialName ?? ''}`
-              return (
-                <li key={lineKey} className="flex gap-4 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
-                  <div className="w-20 h-20 shrink-0 rounded-lg bg-[var(--border)] relative overflow-hidden">
-                    <SafeProductImage
-                      src={line.image}
-                      alt={line.name}
-                      fit="cover"
-                      fill
-                      sizes="80px"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate">{line.name}</p>
-                    <p className="text-muted text-sm">
-                      {money(priceHuf)} × {item.qty}
-                      {priceEur > 0 && locale === 'hu' && <span className="ml-1">(€{formatEur(priceEur)})</span>}
-                    </p>
-                    {item.options?.colorName && (
-                      <p className="text-foreground text-sm mt-0.5">
-                        <span>{t('product.color')}: {item.options.colorName}</span>
-                      </p>
-                    )}
-                    <p className="text-foreground text-sm font-medium mt-1">{t('cart.availableUpTo', { count: maxAllowedInCart })}</p>
-                  </div>
-                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                    <div className="flex items-center border border-[var(--border)] rounded-lg overflow-hidden bg-[var(--card-bg)]">
-                      <button
-                        type="button"
-                        onClick={() => { if (item.qty <= 1) return; updateQty(item.productId, item.qty - 1, item.options) }}
-                        disabled={item.qty <= 1}
-                        className="w-9 h-9 flex items-center justify-center text-foreground hover:bg-[var(--border)] disabled:opacity-40 disabled:cursor-not-allowed"
-                        aria-label={t('cart.decreaseQty')}
-                      >−</button>
-                      <span className="w-10 h-9 flex items-center justify-center text-sm font-medium text-foreground border-x border-[var(--border)]">{item.qty}</span>
-                      <button
-                        type="button"
-                        onClick={() => { if (item.qty >= maxAllowedInCart) return; updateQty(item.productId, item.qty + 1, item.options) }}
-                        disabled={item.qty >= maxAllowedInCart}
-                        className="w-9 h-9 flex items-center justify-center text-foreground hover:bg-[var(--border)] disabled:opacity-40 disabled:cursor-not-allowed"
-                        aria-label={t('cart.increaseQty')}
-                      >+</button>
-                    </div>
-                    <span className="text-muted text-sm whitespace-nowrap">{item.qty} db</span>
-                    <button type="button" onClick={() => removeItem(item.productId, item.options)} className="text-muted hover:text-red-600 text-sm font-medium">{t('cart.remove')}</button>
-                  </div>
-                </li>
-              )
-            })}
+            {stockItems.map((item) => (
+              <CartLineRow
+                key={cartLineKey(item)}
+                item={item}
+                getProductById={getProductById}
+                locale={locale}
+                t={t}
+                hufToEur={hufToEur}
+                formatEur={formatEur}
+                money={money}
+                updateQty={updateQty}
+                removeItem={removeItem}
+              />
+            ))}
           </ul>
         </section>
       )}
@@ -331,61 +290,20 @@ export default function CartPage() {
           <h2 className="font-heading text-lg font-semibold text-foreground mb-1">{t('cart.block3DTitle')}</h2>
           <p className="text-sm text-muted mb-3">{t('cart.block3DDispatch')}</p>
           <ul className="space-y-4">
-            {threeDItems.map((item) => {
-              const product = getProductById(item.productId)
-              const line = resolveCartLine(item, product, locale)
-              const maxAllowedInCart = product ? getMaxQty(product) : 99
-              const priceHuf = line.priceHuf
-              const priceEur = hufToEur(priceHuf)
-              const lineKey = `${item.productId}-${item.options?.colorHex ?? item.options?.colorName ?? ''}-${item.options?.materialName ?? ''}`
-              return (
-                <li key={lineKey} className="flex gap-4 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
-                  <div className="w-20 h-20 shrink-0 rounded-lg bg-[var(--border)] relative overflow-hidden">
-                    <SafeProductImage
-                      src={line.image}
-                      alt={line.name}
-                      fit="cover"
-                      fill
-                      sizes="80px"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate">{line.name}</p>
-                    <p className="text-muted text-sm">
-                      {money(priceHuf)} × {item.qty}
-                      {priceEur > 0 && locale === 'hu' && <span className="ml-1">(€{formatEur(priceEur)})</span>}
-                    </p>
-                    {item.options?.colorName && (
-                      <p className="text-foreground text-sm mt-0.5">
-                        <span>{t('product.color')}: {item.options.colorName}</span>
-                      </p>
-                    )}
-                    <p className="text-foreground text-sm font-medium mt-1">{t('cart.availableUpTo', { count: maxAllowedInCart })}</p>
-                  </div>
-                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                    <div className="flex items-center border border-[var(--border)] rounded-lg overflow-hidden bg-[var(--card-bg)]">
-                      <button
-                        type="button"
-                        onClick={() => { if (item.qty <= 1) return; updateQty(item.productId, item.qty - 1, item.options) }}
-                        disabled={item.qty <= 1}
-                        className="w-9 h-9 flex items-center justify-center text-foreground hover:bg-[var(--border)] disabled:opacity-40 disabled:cursor-not-allowed"
-                        aria-label={t('cart.decreaseQty')}
-                      >−</button>
-                      <span className="w-10 h-9 flex items-center justify-center text-sm font-medium text-foreground border-x border-[var(--border)]">{item.qty}</span>
-                      <button
-                        type="button"
-                        onClick={() => { if (item.qty >= maxAllowedInCart) return; updateQty(item.productId, item.qty + 1, item.options) }}
-                        disabled={item.qty >= maxAllowedInCart}
-                        className="w-9 h-9 flex items-center justify-center text-foreground hover:bg-[var(--border)] disabled:opacity-40 disabled:cursor-not-allowed"
-                        aria-label={t('cart.increaseQty')}
-                      >+</button>
-                    </div>
-                    <span className="text-muted text-sm whitespace-nowrap">{item.qty} db</span>
-                    <button type="button" onClick={() => removeItem(item.productId, item.options)} className="text-muted hover:text-red-600 text-sm font-medium">{t('cart.remove')}</button>
-                  </div>
-                </li>
-              )
-            })}
+            {threeDItems.map((item) => (
+              <CartLineRow
+                key={cartLineKey(item)}
+                item={item}
+                getProductById={getProductById}
+                locale={locale}
+                t={t}
+                hufToEur={hufToEur}
+                formatEur={formatEur}
+                money={money}
+                updateQty={updateQty}
+                removeItem={removeItem}
+              />
+            ))}
           </ul>
         </section>
       )}
@@ -395,60 +313,23 @@ export default function CartPage() {
           <h2 className="font-heading text-lg font-semibold text-foreground mb-1">{t('cart.blockSourcingTitle')}</h2>
           <p className="text-sm text-muted mb-3 whitespace-pre-line">{t('pages.shipping.sourcingFullDescription', copy)}</p>
           <ul className="space-y-4">
-            {sourcingItems.map((item) => {
-              const product = getProductById(item.productId)
-              const line = resolveCartLine(item, product, locale)
-              const maxAllowedInCart = product ? Math.max(0, (product.maxOrders ?? 0) - (product.ordersCount ?? 0)) : 99
-              const priceHuf = line.priceHuf
-              const priceEur = hufToEur(priceHuf)
-              return (
-                <li key={item.productId} className="flex gap-4 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
-                  <div className="w-20 h-20 shrink-0 rounded-lg bg-[var(--border)] relative overflow-hidden">
-                    <SafeProductImage
-                      src={line.image}
-                      alt={line.name}
-                      fit="cover"
-                      fill
-                      sizes="80px"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate">{line.name}</p>
-                    <p className="text-muted text-sm">
-                      {money(priceHuf)} × {item.qty}
-                      {priceEur > 0 && locale === 'hu' && <span className="ml-1">(€{formatEur(priceEur)})</span>}
-                    </p>
-                    {item.options?.colorName && (
-                      <p className="text-foreground text-sm mt-0.5">
-                        <span>{t('product.color')}: {item.options.colorName}</span>
-                      </p>
-                    )}
-                    <p className="text-foreground text-sm font-medium mt-1">{t('cart.availableUpTo', { count: maxAllowedInCart })}</p>
-                  </div>
-                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                    <div className="flex items-center border border-[var(--border)] rounded-lg overflow-hidden bg-[var(--card-bg)]">
-                      <button
-                        type="button"
-                        onClick={() => { if (item.qty <= 1) return; updateQty(item.productId, item.qty - 1); cancelOrder(item.productId, 1) }}
-                        disabled={item.qty <= 1}
-                        className="w-9 h-9 flex items-center justify-center text-foreground hover:bg-[var(--border)] disabled:opacity-40 disabled:cursor-not-allowed"
-                        aria-label={t('cart.decreaseQty')}
-                      >−</button>
-                      <span className="w-10 h-9 flex items-center justify-center text-sm font-medium text-foreground border-x border-[var(--border)]">{item.qty}</span>
-                      <button
-                        type="button"
-                        onClick={() => { if (item.qty >= maxAllowedInCart) return; updateQty(item.productId, item.qty + 1); placeOrder(item.productId, 1) }}
-                        disabled={item.qty >= maxAllowedInCart}
-                        className="w-9 h-9 flex items-center justify-center text-foreground hover:bg-[var(--border)] disabled:opacity-40 disabled:cursor-not-allowed"
-                        aria-label={t('cart.increaseQty')}
-                      >+</button>
-                    </div>
-                    <span className="text-muted text-sm whitespace-nowrap">{item.qty} db</span>
-                    <button type="button" onClick={() => { cancelOrder(item.productId, item.qty); removeItem(item.productId) }} className="text-muted hover:text-red-600 text-sm font-medium">{t('cart.remove')}</button>
-                  </div>
-                </li>
-              )
-            })}
+            {sourcingItems.map((item) => (
+              <CartLineRow
+                key={cartLineKey(item)}
+                item={item}
+                getProductById={getProductById}
+                locale={locale}
+                t={t}
+                hufToEur={hufToEur}
+                formatEur={formatEur}
+                money={money}
+                updateQty={updateQty}
+                removeItem={removeItem}
+                onDecreaseSourcing={(productId) => cancelOrder(productId, 1)}
+                onIncreaseSourcing={(productId) => placeOrder(productId, 1)}
+                onRemoveSourcing={(productId, qty) => cancelOrder(productId, qty)}
+              />
+            ))}
           </ul>
         </section>
       )}
@@ -546,6 +427,10 @@ export default function CartPage() {
   )
 }
 
+function cartLineKey(item: CartItem) {
+  return `${item.productId}-${item.options?.colorHex ?? item.options?.colorName ?? ''}-${item.options?.materialName ?? ''}`
+}
+
 type CartLineRowProps = {
   item: CartItem
   isPromo?: boolean
@@ -596,11 +481,10 @@ function CartLineRow({
     : unitPriceHuf
   const displayUnitHuf = isPromo && luckySpinDiscountActive ? discountedUnitHuf : unitPriceHuf
   const priceEur = hufToEur(displayUnitHuf)
-  const lineKey = `${item.productId}-${item.options?.colorHex ?? item.options?.colorName ?? ''}-${item.options?.materialName ?? ''}`
 
   return (
-    <li key={lineKey} className="flex gap-4 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
-      <div className="w-20 h-20 shrink-0 rounded-lg bg-[var(--border)] relative overflow-hidden">
+    <li className="cart-item-card p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
+      <div className="cart-item-card__image w-16 h-16 sm:w-20 sm:h-20 rounded-lg bg-[var(--border)] relative overflow-hidden">
         <SafeProductImage
           src={line.image}
           alt={line.name}
@@ -609,29 +493,29 @@ function CartLineRow({
           sizes="80px"
         />
       </div>
-      <div className="flex-1 min-w-0">
+      <div className="cart-item-card__details">
         <p className="font-medium text-foreground truncate">{line.name}</p>
-        <p className="text-muted text-sm">
+        <p className="cart-item-card__meta text-muted text-sm">
           {isPromo && luckySpinDiscountActive ? (
             <>
-              <span className="line-through mr-2">{money(unitPriceHuf)}</span>
+              <span className="line-through">{money(unitPriceHuf)}</span>
               <span className="text-discount font-medium">{money(displayUnitHuf)}</span>
             </>
           ) : (
             <span>{money(displayUnitHuf)}</span>
           )}
-          {' '}× {item.qty}
-          {priceEur > 0 && locale === 'hu' && <span className="ml-1">(€{formatEur(priceEur)})</span>}
+          <span>× {item.qty}</span>
+          {priceEur > 0 && locale === 'hu' && <span>(€{formatEur(priceEur)})</span>}
         </p>
         {item.options?.colorName && (
           <p className="text-foreground text-sm mt-0.5">
-            <span>{t('product.color')}: {item.options.colorName}</span>
+            <span className="cart-item-card__option">{t('product.color')}: {item.options.colorName}</span>
           </p>
         )}
         <p className="text-foreground text-sm font-medium mt-1">{t('cart.availableUpTo', { count: maxAllowedInCart })}</p>
       </div>
-      <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-        <div className="flex items-center border border-[var(--border)] rounded-lg overflow-hidden bg-[var(--card-bg)]">
+      <div className="cart-item-card__actions">
+        <div className="cart-item-card__qty border border-[var(--border)] rounded-lg overflow-hidden bg-[var(--card-bg)]">
           <button
             type="button"
             onClick={() => {
@@ -643,7 +527,7 @@ function CartLineRow({
             className="w-9 h-9 flex items-center justify-center text-foreground hover:bg-[var(--border)] disabled:opacity-40 disabled:cursor-not-allowed"
             aria-label={t('cart.decreaseQty')}
           >−</button>
-          <span className="w-10 h-9 flex items-center justify-center text-sm font-medium text-foreground border-x border-[var(--border)]">{item.qty}</span>
+          <span className="w-10 h-9 flex items-center justify-center text-sm font-medium tabular-nums text-foreground border-x border-[var(--border)]">{item.qty}</span>
           <button
             type="button"
             onClick={() => {
@@ -663,7 +547,7 @@ function CartLineRow({
             if (onRemoveSourcing) onRemoveSourcing(item.productId, item.qty)
             removeItem(item.productId, item.options)
           }}
-          className="text-muted hover:text-red-600 text-sm font-medium"
+          className="text-muted hover:text-red-600 text-sm font-medium whitespace-nowrap"
         >
           {t('cart.remove')}
         </button>

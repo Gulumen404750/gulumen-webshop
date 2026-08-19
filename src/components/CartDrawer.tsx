@@ -159,7 +159,7 @@ export function CartDrawer({ isOpen, onClose }: Props) {
                   : unitPriceHuf
                 const lineKey = `${item.productId}-${item.options?.colorHex ?? item.options?.colorName ?? ''}-${item.options?.materialName ?? ''}`
                 return (
-                  <li key={lineKey} className="flex gap-3 p-3 rounded-lg border border-[var(--border)]">
+                  <li key={lineKey} className="cart-drawer-item p-3 rounded-lg border border-[var(--border)]">
                     <div className="w-14 h-14 shrink-0 rounded-lg bg-[var(--border)] relative overflow-hidden">
                       <SafeProductImage
                         src={line.image}
@@ -169,8 +169,17 @@ export function CartDrawer({ isOpen, onClose }: Props) {
                         sizes="56px"
                       />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-foreground text-sm line-clamp-2">{line.name}</p>
+                    <div className="cart-drawer-item__body">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-medium text-foreground text-sm line-clamp-2 min-w-0">{line.name}</p>
+                        <button
+                          type="button"
+                          onClick={() => removeItem(item.productId, item.options)}
+                          className="shrink-0 whitespace-nowrap text-xs text-muted hover:text-red-600"
+                        >
+                          {t('cart.remove')}
+                        </button>
+                      </div>
                       {isPromo && (
                         <span className="inline-block text-[10px] font-semibold uppercase tracking-wide text-accent mt-0.5">
                           {t('luckySpin.weeklyOffer')}
@@ -178,29 +187,20 @@ export function CartDrawer({ isOpen, onClose }: Props) {
                       )}
                       {item.options?.colorName && (
                         <p className="text-foreground text-xs">
-                          <span>{t('product.color')}: {item.options.colorName}</span>
+                          <span className="cart-item-card__option">{t('product.color')}: {item.options.colorName}</span>
                         </p>
                       )}
-                      <p className="text-muted text-xs mt-0.5">
+                      <p className="cart-item-card__meta text-muted text-xs mt-0.5">
                         {showPromoPrice ? (
                           <>
-                            <span className="line-through mr-1.5">{money(unitPriceHuf)}</span>
+                            <span className="line-through">{money(unitPriceHuf)}</span>
                             <span className="text-discount font-medium">{money(discountedUnitHuf)}</span>
                           </>
                         ) : (
                           <span>{money(discountedUnitHuf)}</span>
                         )}
-                        {' '}× {item.qty}
+                        <span>× {item.qty}</span>
                       </p>
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <button
-                        type="button"
-                        onClick={() => removeItem(item.productId, item.options)}
-                        className="text-xs text-muted hover:text-red-600"
-                      >
-                        {t('cart.remove')}
-                      </button>
                     </div>
                   </li>
                 )
