@@ -5,6 +5,7 @@ export type TopChatQuestion = {
   question: string
   count: number
   lastAskedAt: Date
+  missingProductSearchCount: number
 }
 
 /** Admin listában megjelenő maximális kérdésszám. */
@@ -44,6 +45,7 @@ export async function logChatQuestion(params: {
   question: string
   locale: string
   ipHash: string
+  missingProductSearch?: boolean
 }): Promise<void> {
   if (!isDbConfigured()) return
 
@@ -60,6 +62,7 @@ export async function logChatQuestion(params: {
         questionNorm,
         ipHash: params.ipHash,
         locale: params.locale,
+        missingProductSearch: !!params.missingProductSearch,
       },
     })
   } catch (e) {
@@ -84,11 +87,20 @@ export async function getTopChatQuestions(limit = TOP_CHAT_QUESTIONS_MAX): Promi
 
     if (top.length === 0) return []
 
-    const samples = await prisma.chatLog.findMany({
-      where: { questionNorm: { in: top.map((g) => g.questionNorm) } },
-      select: { questionNorm: true, question: true, createdAt: true },
-      orderBy: { createdAt: 'desc' },
-    })
+    const topNorms = top.map((g) => g.questionNorm)
+
+    const [samples, missingGrouped] = await Promise.all([
+      prisma.chatLog.findMany({
+        where: { questionNorm: { in: topNorms } },
+        select: { questionNorm: true, question: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.chatLog.groupBy({
+        by: ['questionNorm'],
+        where: { questionNorm: { in: topNorms }, missingProductSearch: true },
+        _count: { _all: true },
+      }),
+    ])
 
     const sampleByNorm = new Map<string, string>()
     for (const row of samples) {
@@ -97,10 +109,15 @@ export async function getTopChatQuestions(limit = TOP_CHAT_QUESTIONS_MAX): Promi
       }
     }
 
+    const missingByNorm = new Map(
+      missingGrouped.map((g) => [g.questionNorm, g._count._all])
+    )
+
     return top.map((g) => ({
       question: sampleByNorm.get(g.questionNorm) ?? g.questionNorm,
       count: g._count._all,
       lastAskedAt: g._max.createdAt ?? new Date(0),
+      missingProductSearchCount: missingByNorm.get(g.questionNorm) ?? 0,
     }))
   } catch (e) {
     console.error('[chat-log] getTopChatQuestions failed', e)

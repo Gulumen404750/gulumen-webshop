@@ -26,6 +26,7 @@ import {
   searchProductsForChat,
   type ChatRecommendedProduct,
 } from '@/lib/chat-product-search'
+import { buildChatLanguageLock } from '@/lib/chat-language'
 import { applyPointsCopyPlaceholders } from '@/lib/display-money'
 import { fetchEuroToHufRate } from '@/lib/euro-rate'
 import { formatChatAssistantText } from '@/lib/chat-message-format'
@@ -75,14 +76,21 @@ export async function POST(request: Request) {
     }
 
     const ipHash = hashClientIp(request)
-    void logChatQuestion({ question: message, locale, ipHash })
-
-    const apiKey = process.env.OPENAI_API_KEY?.trim()
     const session = await getSession(request)
     const chatUserId = session ? await resolveSessionUserId(session) : null
     const excludeProductIds = chatUserId ? await getDismissedProductIdsByUser(chatUserId) : []
-    const recommendedProducts = await searchProductsForChat(message, { excludeProductIds })
+    const search = await searchProductsForChat(message, { excludeProductIds })
+    const recommendedProducts = search.products
     const productIds = recommendedProducts.map((p) => p.id)
+
+    void logChatQuestion({
+      question: message,
+      locale,
+      ipHash,
+      missingProductSearch: search.missingExactMatch,
+    })
+
+    const apiKey = process.env.OPENAI_API_KEY?.trim()
 
     if (apiKey) {
       const langNames: Record<string, string> = {
@@ -100,20 +108,25 @@ export async function POST(request: Request) {
         productSlug: productSlug || null,
       })
       const productContext = product ? buildProductChatContextBlock(product) : ''
-      const recommendationsContext = buildRecommendedProductsChatBlock(recommendedProducts)
+      const recommendationsContext = buildRecommendedProductsChatBlock(recommendedProducts, {
+        matchKind: search.matchKind,
+        missingExactMatch: search.missingExactMatch,
+      })
       const visitorDisplayName = await resolveChatVisitorDisplayName(request)
       const visitorNameContext = buildChatVisitorNameBlock(visitorDisplayName)
+      const languageLock = buildChatLanguageLock(locale)
 
       const openAiMessages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
         {
           role: 'system',
           content: [
+            languageLock,
             settings.systemPrompt,
             nowContext,
             visitorNameContext,
             productContext,
             recommendationsContext,
-            `Válaszolj ${lang}.`,
+            `Válaszolj ${lang}. The storefront locale is ${locale}.`,
           ]
             .filter(Boolean)
             .join('\n\n'),
@@ -158,7 +171,14 @@ export async function POST(request: Request) {
       }
     }
 
-    return fallbackResponse(message, locale, settings, visitorTime, recommendedProducts)
+    return fallbackResponse(
+      message,
+      locale,
+      settings,
+      visitorTime,
+      recommendedProducts,
+      search.missingExactMatch
+    )
   } catch {
     return NextResponse.json(
       { error: 'A válasz generálása sikertelen. Próbáld újra.' },
@@ -205,7 +225,8 @@ async function fallbackResponse(
   locale: Locale,
   settings: ChatSettings,
   visitorTime: { locale: Locale; timezone: string | null; countryCode: string | null },
-  recommendedProducts: ChatRecommendedProduct[] = []
+  recommendedProducts: ChatRecommendedProduct[] = [],
+  missingExactMatch = false
 ) {
   const productIds = recommendedProducts.map((p) => p.id)
   if (isDateTimeQuestion(userMessage)) {
@@ -213,6 +234,17 @@ async function fallbackResponse(
     return chatJsonResponse({
       text: formatVisitorDateTimeAnswer(local, locale),
       escalate: false,
+    })
+  }
+  if (missingExactMatch) {
+    const dict = getTranslations(locale)
+    const textKey =
+      recommendedProducts.length > 0 ? 'ai.missingProductWithAlternatives' : 'ai.missingProduct'
+    return chatJsonResponse({
+      text: t(dict, textKey),
+      escalate: false,
+      productIds,
+      products: recommendedProducts,
     })
   }
   const { textKey, escalate } = getResponse(userMessage)

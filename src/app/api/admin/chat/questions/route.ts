@@ -20,10 +20,11 @@ export async function GET() {
       total: questions.length,
       maxTotal: TOP_CHAT_QUESTIONS_MAX,
       pageSize: 10,
-      questions: questions.map((q) => ({
+        questions: questions.map((q) => ({
         question: q.question,
         count: q.count,
         lastAskedAt: q.lastAskedAt.toISOString(),
+        missingProductSearchCount: q.missingProductSearchCount,
       })),
     })
   } catch (e) {

@@ -904,7 +904,9 @@
     "voiceListening": "Hallgatlak…",
     "voiceUnsupported": "A hangbevitel nem támogatott ebben a böngészőben. Írd be a kérdésed.",
     "viewProduct": "Megnézem",
-    "addedToCart": "Hozzáadva a kosárhoz"
+    "addedToCart": "Hozzáadva a kosárhoz",
+    "missingProduct": "Sajnos pontosan ilyen terméket most nem találtam a kínálatunkban. Nézz körül a termékek között, vagy írd meg, mire van szükséged – szívesen keresek hozzá illő ötletet.",
+    "missingProductWithAlternatives": "Sajnos pontosan ilyen terméket most nem találtam a kínálatunkban. Íme néhány hozzá illő alternatíva – ezek nem a kért árucikk, de hasonló célt szolgálhatnak."
   },
   "seo": {
     "title": "Gulumen – A te otthonod, a mi szívügyünk.",

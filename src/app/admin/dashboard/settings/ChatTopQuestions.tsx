@@ -22,7 +22,8 @@ export async function ChatTopQuestions() {
       <p className="text-sm text-muted mb-4 leading-tight">
         Az utolsó chat üzenetek összesítése (anonim). Alapból a top 10 látszik; kinyitva a teljes
         lista (legfeljebb {TOP_CHAT_QUESTIONS_MAX}) lapozható 10-esével – ezek alapján taníthatod az
-        AI-t a válaszokra.
+        AI-t a válaszokra. A „Hiányzó termék keresve” jelölés azoknál a kérdéseknél jelenik meg,
+        ahol a vásárló konkrét terméket keresett, de a katalógusban nem volt pontos találat.
       </p>
 
       <ChatTopQuestionsList
@@ -31,6 +32,7 @@ export async function ChatTopQuestions() {
           question: q.question,
           count: q.count,
           lastAskedAt: q.lastAskedAt.toISOString(),
+          missingProductSearchCount: q.missingProductSearchCount,
         }))}
       />
     </section>
