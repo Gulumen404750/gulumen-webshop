@@ -621,7 +621,7 @@
     "helpAria": "Kupon- és ajándékpont-szabályok",
     "hint": "Írd be az admin kuponkódot, az ajándékpont-kódot vagy a tétel címkéjét, vagy olvasd be a QR / NFC linket. Százalékos / fix kupon a fizetésnél érvényesül. Ajándékpont: 1 pont = {pointValue}, egyszer használatos, 1 hónapig költhető. A fizetésnél kuponnal összevonható.",
     "codeLabel": "Kód / azonosító",
-    "codePlaceholder": "pl. NYAR2026 vagy ABCD2345EFGH",
+    "codePlaceholder": "Kód megadása",
     "submit": "Aktiválás",
     "submitting": "Aktiválás…",
     "errorRequired": "Add meg a kódot.",

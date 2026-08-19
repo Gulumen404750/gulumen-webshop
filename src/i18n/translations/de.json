@@ -648,7 +648,7 @@
     "helpAria": "Gutschein- und Geschenkpunktregeln",
     "hint": "Admin-Gutscheincode, Geschenkpunkt-Code oder Chargen-Label eingeben oder QR-/NFC-Link scannen. Prozent-/Fixgutscheine gelten an der Kasse. Geschenkpunkte: 1 Punkt = {pointValue}, einmalig, 1 Monat gültig. An der Kasse mit einem Gutschein kombinierbar.",
     "codeLabel": "Code / ID",
-    "codePlaceholder": "z. B. NYAR2026 oder ABCD2345EFGH",
+    "codePlaceholder": "Code eingeben",
     "submit": "Aktivieren",
     "submitting": "Aktivieren…",
     "errorRequired": "Bitte den Code eingeben.",
