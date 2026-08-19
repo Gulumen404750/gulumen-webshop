@@ -21,7 +21,7 @@ export function CallUsModal({ isOpen, onClose }: Props) {
   const [callbackDate, setCallbackDate] = useState('')
   const [callbackHour, setCallbackHour] = useState('')
   const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle')
-  const [errorMessage, setErrorMessage] = useState('')
+  const [errorKey, setErrorKey] = useState<string | null>(null)
 
   const HOURS = Array.from({ length: 11 }, (_, i) => i + 8)
   const today = (() => {
@@ -44,11 +44,11 @@ export function CallUsModal({ isOpen, onClose }: Props) {
       const phoneTrim = phone.trim()
       if (!nameTrim || !phoneTrim) {
         setStatus('error')
-        setErrorMessage(t('callUs.callbackErrorRequired'))
+        setErrorKey('callUs.callbackErrorRequired')
         return
       }
       setStatus('sending')
-      setErrorMessage('')
+      setErrorKey(null)
       try {
         const preferredTimeValue = immediatePreferred
           ? (t('callUs.callbackOptionImmediate'))
@@ -65,10 +65,10 @@ export function CallUsModal({ isOpen, onClose }: Props) {
             preferredTime: preferredTimeValue,
           }),
         })
-        const data = await res.json().catch(() => ({}))
+        await res.json().catch(() => ({}))
         if (!res.ok) {
           setStatus('error')
-          setErrorMessage(t('callUs.callbackError'))
+          setErrorKey('callUs.callbackError')
           return
         }
         setStatus('success')
@@ -80,7 +80,7 @@ export function CallUsModal({ isOpen, onClose }: Props) {
         setCallbackHour('')
       } catch {
         setStatus('error')
-        setErrorMessage(t('callUs.callbackError'))
+        setErrorKey('callUs.callbackError')
       }
     },
     [name, phone, topic, immediatePreferred, callbackDate, callbackHour, t]
@@ -282,9 +282,9 @@ export function CallUsModal({ isOpen, onClose }: Props) {
                   </div>
                 )}
               </div>
-              {status === 'error' && (
+              {status === 'error' && errorKey && (
                 <p className="text-sm text-red-600 dark:text-red-400" role="alert">
-                  {errorMessage}
+                  {t(errorKey)}
                 </p>
               )}
               {status === 'success' && (

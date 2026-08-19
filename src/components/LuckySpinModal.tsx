@@ -49,7 +49,7 @@ export function LuckySpinModal({ isOpen, onClose, data, onSpin, spinning }: Prop
   const displayData = spinData ?? data
   const countdown = useCountdown(displayData?.spin?.expiresAt)
   const [animating, setAnimating] = useState(false)
-  const [spinError, setSpinError] = useState<string | null>(null)
+  const [spinFailed, setSpinFailed] = useState(false)
   const [termsAccepted, setTermsAccepted] = useState(false)
 
   useEffect(() => {
@@ -59,7 +59,7 @@ export function LuckySpinModal({ isOpen, onClose, data, onSpin, spinning }: Prop
   useEffect(() => {
     if (!isOpen) {
       setTermsAccepted(false)
-      setSpinError(null)
+      setSpinFailed(false)
     }
   }, [isOpen])
 
@@ -67,17 +67,17 @@ export function LuckySpinModal({ isOpen, onClose, data, onSpin, spinning }: Prop
 
   const handleSpin = async () => {
     if (!termsAccepted) return
-    setSpinError(null)
+    setSpinFailed(false)
     setAnimating(true)
     try {
       const result = await onSpin()
       if (result?.isActive && result.spin) {
         setSpinData(result)
       } else if (!result) {
-        setSpinError(t('luckySpin.spinFailed'))
+        setSpinFailed(true)
       }
     } catch {
-      setSpinError(t('luckySpin.spinFailed'))
+      setSpinFailed(true)
     } finally {
       setTimeout(() => setAnimating(false), 2000)
     }
@@ -121,9 +121,9 @@ export function LuckySpinModal({ isOpen, onClose, data, onSpin, spinning }: Prop
           </p>
         </div>
 
-        {spinError && (
+        {spinFailed && (
           <p className="text-sm text-red-600 dark:text-red-400 mt-3 leading-tight" role="alert">
-            {spinError}
+            {t('luckySpin.spinFailed')}
           </p>
         )}
 

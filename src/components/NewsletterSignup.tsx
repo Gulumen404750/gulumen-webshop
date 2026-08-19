@@ -7,13 +7,11 @@ export function NewsletterSignup() {
   const { t } = useLocale()
   const [email, setEmail] = useState('')
   const [status, setStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle')
-  const [message, setMessage] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email.trim()) return
     setStatus('loading')
-    setMessage('')
     try {
       const res = await fetch('/api/newsletter', {
         method: 'POST',
@@ -23,15 +21,12 @@ export function NewsletterSignup() {
       await res.json().catch(() => ({}))
       if (res.ok) {
         setStatus('ok')
-        setMessage(t('newsletter.success'))
         setEmail('')
       } else {
         setStatus('error')
-        setMessage(t('newsletter.error'))
       }
     } catch {
       setStatus('error')
-      setMessage(t('newsletter.error'))
     }
   }
 
@@ -57,11 +52,14 @@ export function NewsletterSignup() {
       >
         {status === 'loading' ? (t('newsletter.sending')) : (t('newsletter.submit'))}
       </button>
-      {message && (
-        <p className={`text-sm w-full ${status === 'ok' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`} role="status">
-          {message}
+      {status === 'ok' || status === 'error' ? (
+        <p
+          className={`text-sm w-full ${status === 'ok' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}
+          role="status"
+        >
+          {status === 'ok' ? t('newsletter.success') : t('newsletter.error')}
         </p>
-      )}
+      ) : null}
     </form>
   )
 }
