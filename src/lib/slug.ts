@@ -54,16 +54,19 @@ export function decodeProductSlug(slug: string): string {
   return current
 }
 
-/** Magyar/ékezetes szöveg → ASCII kebab-case slug. */
-export function slugifyProduct(input: string): string {
-  const lower = input.trim().toLowerCase()
+/** Ékezetek és diakritikus jelek eltávolítása (lámpa ↔ lampa). */
+export function foldAccents(value: string): string {
+  const lower = value.toLowerCase()
   let folded = ''
   for (const ch of lower) {
     folded += CHAR_MAP[ch] ?? ch
   }
-  const slug = folded
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+  return folded.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
+
+/** Magyar/ékezetes szöveg → ASCII kebab-case slug. */
+export function slugifyProduct(input: string): string {
+  const slug = foldAccents(input.trim())
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/-{2,}/g, '-')
     .replace(/^-+|-+$/g, '')
