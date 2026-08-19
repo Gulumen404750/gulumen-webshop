@@ -38,7 +38,7 @@ export function PaymentMethodPicker({
           return (
             <label
               key={method}
-              className={`flex items-start gap-3 rounded-xl border px-3 py-3 transition-colors ${
+              className={`flex items-center gap-3 rounded-xl border px-3 py-3 transition-colors ${
                 selected
                   ? 'border-accent bg-accent/5'
                   : 'border-[var(--border)] bg-background/60 hover:border-accent/40'
@@ -53,7 +53,7 @@ export function PaymentMethodPicker({
                 onChange={() => {
                   if (!unavailable) onChange(method)
                 }}
-                className="mt-1 w-4 h-4 text-accent focus:ring-accent"
+                className="mt-0 w-4 h-4 text-accent focus:ring-accent"
               />
               <PaymentMethodLogo method={method} />
               <span className="min-w-0 flex-1">

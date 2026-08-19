@@ -15,5 +15,6 @@ describe('PaymentMethodPicker', () => {
     expect(src).not.toMatch(/lucide-react/)
     expect(src).not.toMatch(/METHOD_ICONS/)
     expect(src).not.toMatch(/CreditCard|Smartphone|Wallet/)
+    expect(src).toMatch(/items-center gap-3/)
   })
 })
