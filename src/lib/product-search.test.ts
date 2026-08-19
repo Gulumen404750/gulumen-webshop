@@ -39,4 +39,10 @@ describe('matchesProductSearch', () => {
     const bag = product({ name: 'Vászon táska', slug: 'vaszon-taska', description: 'Táska' })
     expect(matchesProductSearch(bag, 'lampa', 'hu')).toBe(false)
   })
+
+  it('matches hyphenated slugs against an unaccented query', () => {
+    const lamp = product({ name: 'LED', slug: 'led-asztali-lampa', description: '' })
+    expect(matchesProductSearch(lamp, 'lampa', 'hu')).toBe(true)
+    expect(matchesProductSearch(lamp, 'lámpa', 'hu')).toBe(true)
+  })
 })

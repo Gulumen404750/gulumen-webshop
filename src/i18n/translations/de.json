@@ -418,7 +418,8 @@
     "noResultsHint": "Probiere einen anderen Suchbegriff oder stöbere in den Produkten.",
     "noResultsHintWithQuery": "Zu „{query}“ gibt es aktuell kein passendes Produkt.",
     "suggestedCategories": "Vorgeschlagene Kategorien",
-    "saleAlternativesTitle": "Angebote"
+    "saleAlternativesTitle": "Angebote",
+    "browseAlternativesTitle": "Das könnte dir gefallen"
   },
   "coupon": {
     "title": "🎁 5% Rabatt geschenkt",

@@ -22,12 +22,18 @@ describe('shop search + empty results + heading wiring', () => {
     expect(shop).not.toContain('HungarianFlagIcon')
     expect(shop).not.toContain('getStorefrontCategories')
     expect(header).not.toMatch(/getCategoryName\(threeDCat/)
+    expect(shop).not.toContain('3D Nyomtatott')
+  })
+
+  it('searches the full catalog, not only the 3D category view', () => {
+    expect(shop).toMatch(/if \(searchQuery\) return stockProducts/)
   })
 
   it('shows a no-results message and sale alternatives when search is empty', () => {
     expect(empty).toContain("t('search.noResultsTitle')")
     expect(shop).toContain('saleAlternatives')
-    expect(shop).toContain("t('search.saleAlternativesTitle')")
+    expect(shop).toContain("'search.saleAlternativesTitle'")
     expect(shop).toContain('isSaleActive(p)')
+    expect(shop).toContain("'search.browseAlternativesTitle'")
   })
 })

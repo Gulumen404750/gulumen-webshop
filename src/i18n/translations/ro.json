@@ -403,7 +403,8 @@
     "noResultsHint": "Încearcă alt termen de căutare sau răsfoiește produsele.",
     "noResultsHintWithQuery": "Nu există produs în ofertă pentru „{query}”.",
     "suggestedCategories": "Categorii sugerate",
-    "saleAlternativesTitle": "Produse la ofertă"
+    "saleAlternativesTitle": "Produse la ofertă",
+    "browseAlternativesTitle": "Îți recomandăm acestea"
   },
   "coupon": {
     "title": "🎁 Cadou reducere 5%",
