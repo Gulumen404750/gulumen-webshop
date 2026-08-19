@@ -264,6 +264,7 @@
     "couponDiscountLine": "Coupon discount",
     "couponDiscountWithCode": "Coupon ({percent}%)",
     "couponDiscountFixed": "Coupon {code} (−{amount})",
+    "couponFixedName": "Coupon {code}",
     "loyaltyDiscountLine": "Loyalty discount ({percent}%)",
     "loyaltyAutoAppliedHint": "Applied automatically to your cart. It stacks with coupons and with points. A fixed-amount coupon can be combined with loyalty, Lucky Spin, and one percentage coupon.",
     "couponSelectorTitle": "Available coupons",

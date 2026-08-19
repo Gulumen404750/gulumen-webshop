@@ -3,7 +3,10 @@ import {
   buildPromoCoupons,
   calculateSelectedCouponPercent,
   canToggleCoupon,
+  fixedHufFromCoupon,
   gamificationCouponId,
+  isFixedAmountCoupon,
+  isFixedSelectableCoupon,
   MAX_COMBINED_COUPON_PERCENT,
   nextCouponSelection,
 } from '@/lib/coupon-selection'
@@ -214,5 +217,54 @@ describe('coupon selection: 15% cap, fixed HUF stacking', () => {
     expect(withHighCoupon[0]?.percent).toBeCloseTo(MAX_COMBINED_COUPON_PERCENT)
     const empty = new Set<typeof withHighCoupon[number]['id']>()
     expect(canToggleCoupon(withHighCoupon, empty, gamificationCouponId('GLM-HIGH'), true)).toBe(true)
+  })
+
+  it('treats a 15 000 Ft NYAR2026 coupon as a fixed amount, not 0%', () => {
+    const listed = buildPromoCoupons({
+      catClaimed: false,
+      registrationClaimed: false,
+      gamification: { code: 'NYAR2026-475D59', fixedHuf: 15_000, percent: 0 },
+      labels: { ...labels, gamification: 'Kupon NYAR2026' },
+    })
+    const coupon = listed[0]
+    expect(coupon).toEqual(
+      expect.objectContaining({
+        percent: 0,
+        fixedHuf: 15_000,
+        code: 'NYAR2026-475D59',
+      })
+    )
+    expect(isFixedSelectableCoupon(coupon)).toBe(true)
+    const selected = calculateSelectedCouponPercent(listed, [coupon!.id])
+    expect(selected.finalPercent).toBe(0)
+    expect(selected.gamificationFixedHuf).toBe(15_000)
+    expect(selected.hasFixedCoupon).toBe(true)
+  })
+})
+
+describe('isFixedAmountCoupon / fixedHufFromCoupon', () => {
+  it('reads fixed HUF from discountType even when percent is 0', () => {
+    expect(
+      isFixedAmountCoupon({ discountType: 'fixed', discountPercent: 0, discountValue: 15_000 })
+    ).toBe(true)
+    expect(
+      fixedHufFromCoupon({ discountType: 'fixed', discountPercent: 0, discountValue: 15_000 })
+    ).toBe(15_000)
+  })
+
+  it('infers a fixed coupon when type is missing but value is in forints', () => {
+    expect(
+      isFixedAmountCoupon({ discountPercent: 0, discountValue: 15_000 })
+    ).toBe(true)
+    expect(fixedHufFromCoupon({ discountPercent: 0, discountValue: 15_000 })).toBe(15_000)
+  })
+
+  it('does not treat a percentage coupon as a forint amount', () => {
+    expect(
+      isFixedAmountCoupon({ discountType: 'percent', discountPercent: 10, discountValue: 10 })
+    ).toBe(false)
+    expect(
+      fixedHufFromCoupon({ discountType: 'percent', discountPercent: 10, discountValue: 10 })
+    ).toBeUndefined()
   })
 })

@@ -264,6 +264,7 @@
     "couponDiscountLine": "Gutscheinrabatt",
     "couponDiscountWithCode": "Gutschein ({percent}%)",
     "couponDiscountFixed": "Gutschein {code} (−{amount})",
+    "couponFixedName": "Gutschein {code}",
     "loyaltyDiscountLine": "Treuerabatt ({percent}%)",
     "loyaltyAutoAppliedHint": "Wird automatisch auf den Warenkorb angewendet. Kombinierbar mit Gutscheinen und Punkten. Ein Fixbetrag-Gutschein ist mit Treue, Glücksrad und einem Prozentgutschein kombinierbar.",
     "couponSelectorTitle": "Verfügbare Gutscheine",

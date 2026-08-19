@@ -51,6 +51,35 @@ export function isFixedSelectableCoupon(coupon: Pick<SelectableCoupon, 'fixedHuf
   return Boolean(coupon && coupon.fixedHuf && coupon.fixedHuf > 0)
 }
 
+/** Wallet / DB kupon: fix Ft, ne 0%-os százalékos kuponnak nézze. */
+export function isFixedAmountCoupon(input: {
+  discountType?: string | null
+  discountPercent?: number | null
+  discountValue?: number | null
+  fixedHuf?: number | null
+}): boolean {
+  if (isFixedSelectableCoupon({ fixedHuf: input.fixedHuf ?? undefined })) return true
+  if (input.discountType === 'fixed') return true
+  if (input.discountType === 'percent') return false
+  const percent = Number(input.discountPercent) || 0
+  const value = Number(input.discountValue) || 0
+  return percent <= 0 && value > 0
+}
+
+export function fixedHufFromCoupon(input: {
+  discountType?: string | null
+  discountPercent?: number | null
+  discountValue?: number | null
+  fixedHuf?: number | null
+}): number | undefined {
+  if (!isFixedAmountCoupon(input)) return undefined
+  const amount =
+    typeof input.fixedHuf === 'number' && input.fixedHuf > 0
+      ? input.fixedHuf
+      : Number(input.discountValue) || 0
+  return amount > 0 ? Math.round(amount) : undefined
+}
+
 export function isDbSelectableCouponId(id: string): boolean {
   return id === 'birthday' || isGamificationCouponId(id)
 }

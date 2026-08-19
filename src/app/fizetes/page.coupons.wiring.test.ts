@@ -30,6 +30,13 @@ describe('checkout coupon picker', () => {
     expect(src).toMatch(/welcomeOfferAccepted: couponSelection\.useWelcome/)
   })
 
+  it('maps fixed campaign coupons with fixedHuf instead of a 0% rate', () => {
+    expect(src).toMatch(/isFixedAmountCoupon/)
+    expect(src).toMatch(/fixedHufFromCoupon/)
+    expect(src).toMatch(/payment\.couponFixedName/)
+    expect(src).toMatch(/percent: isFixed \? 0 : coupon\.discountPercent/)
+  })
+
   it('shows a remainder warning when a fixed coupon cannot be used in full', () => {
     expect(src).toMatch(/couponFixedRemainderWarning/)
     expect(src).toMatch(/fixedCouponUnusedHuf/)
