@@ -8,6 +8,7 @@ import { useCatCoupon } from '@/context/CatCouponContext'
 import { useLocale } from '@/context/LocaleContext'
 import { GoogleSignInButton } from '@/components/GoogleSignInButton'
 import { RegistrationConsentFields } from '@/components/RegistrationConsentFields'
+import { localeNoticeText, type LocaleNotice } from '@/lib/locale-notice'
 
 function safeNextPath(): string | null {
   if (typeof window === 'undefined') return null
@@ -27,7 +28,7 @@ export default function RegistrationPage() {
   const [acceptPrivacy, setAcceptPrivacy] = useState(false)
   const [acceptOffers, setAcceptOffers] = useState(false)
   const [birthDate, setBirthDate] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<LocaleNotice | null>(null)
   const [couponGranted, setCouponGranted] = useState(false)
 
   useEffect(() => {
@@ -43,7 +44,7 @@ export default function RegistrationPage() {
   const handleGoogleRegister = async () => {
     setError(null)
     if (!acceptPrivacy) {
-      setError(t('register.errorPrivacy'))
+      setError({ key: 'register.errorPrivacy' })
       return
     }
     await loginWithGoogle({
@@ -62,15 +63,15 @@ export default function RegistrationPage() {
     setCouponGranted(false)
     const trimmedEmail = email.trim().toLowerCase()
     if (!trimmedEmail) {
-      setError(t('register.errorEmail'))
+      setError({ key: 'register.errorEmail' })
       return
     }
     if (!password || password.length < 8) {
-      setError(t('register.errorPassword'))
+      setError({ key: 'register.errorPassword' })
       return
     }
     if (!acceptPrivacy) {
-      setError(t('register.errorPrivacy'))
+      setError({ key: 'register.errorPrivacy' })
       return
     }
     const result = await register(
@@ -81,9 +82,9 @@ export default function RegistrationPage() {
       birthDate.trim() || null
     )
     if (!result.ok) {
-      setError(
-        result.error === 'email_taken' ? t('register.errorEmailTaken') : t('register.errorGeneric')
-      )
+      setError({
+        key: result.error === 'email_taken' ? 'register.errorEmailTaken' : 'register.errorGeneric',
+      })
       return
     }
     if (acceptOffers) {
@@ -193,7 +194,7 @@ export default function RegistrationPage() {
 
         {error && (
           <p className="text-sm text-red-600 dark:text-red-400" role="alert">
-            {error}
+            {localeNoticeText(t, error)}
           </p>
         )}
         {couponGranted && (

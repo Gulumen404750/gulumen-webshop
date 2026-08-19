@@ -37,6 +37,7 @@ import { WELCOME_CHECKOUT_COUPON_PERCENT, capCombinedCouponPercent } from '@/lib
 import { CouponSelector } from '@/components/CouponSelector'
 import { GiftPointClaimForm } from '@/components/GiftPointClaimForm'
 import type { CodeRedeemSuccess } from '@/components/GiftPointClaimForm'
+import { localeNoticeText, type LocaleNotice } from '@/lib/locale-notice'
 import {
   buildPromoCoupons,
   calculateSelectedCouponPercent,
@@ -67,7 +68,7 @@ export default function PaymentPage() {
   const getProductById = (id: string) => getProductByIdFromContext(id) ?? getProductByIdFromData(id)
   const { catStatus, registrationStatus } = useCatCoupon()
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<LocaleNotice | null>(null)
   const [loyaltyPercent, setLoyaltyPercent] = useState(0)
   const [guestEmail, setGuestEmail] = useState('')
   const [customerName, setCustomerName] = useState('')
@@ -96,7 +97,7 @@ export default function PaymentPage() {
   /** Checkout welcome 10% + hírlevél (csak ha még nem feliratkozott / nem váltotta be). */
   const [welcomeOfferEligible, setWelcomeOfferEligible] = useState(false)
   const [welcomeOfferBusy, setWelcomeOfferBusy] = useState(false)
-  const [welcomeOfferError, setWelcomeOfferError] = useState<string | null>(null)
+  const [welcomeOfferError, setWelcomeOfferError] = useState<LocaleNotice | null>(null)
   const [paymentMethod, setPaymentMethod] = useState<CheckoutPaymentMethod>(DEFAULT_CHECKOUT_PAYMENT_METHOD)
   const [checkoutResult, setCheckoutResult] = useState<{
     orderGroupId: string
@@ -519,9 +520,7 @@ export default function PaymentPage() {
     if (turningWelcomeOn) {
       const email = (userId || guestEmail).trim().toLowerCase()
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        setWelcomeOfferError(
-          t('payment.welcomeOfferEmailRequired')
-        )
+        setWelcomeOfferError({ key: 'payment.welcomeOfferEmailRequired' })
         return
       }
       setWelcomeOfferBusy(true)
@@ -534,11 +533,11 @@ export default function PaymentPage() {
         })
         const data = await res.json().catch(() => ({}))
         if (!res.ok) {
-          setWelcomeOfferError(t('payment.welcomeOfferError'))
+          setWelcomeOfferError({ key: 'payment.welcomeOfferError' })
           return
         }
       } catch {
-        setWelcomeOfferError(t('payment.welcomeOfferError'))
+        setWelcomeOfferError({ key: 'payment.welcomeOfferError' })
         return
       } finally {
         setWelcomeOfferBusy(false)
@@ -643,27 +642,27 @@ export default function PaymentPage() {
   const handlePayByCard = useCallback(async () => {
     if (checkoutInFlightRef.current || loading || checkoutResult) return
     if (paymentMethod === 'klarna' && !klarnaEligible) {
-      setError(t('payment.errorKlarnaMinAmount', { min: money(KLARNA_MIN_AMOUNT_HUF) }))
+      setError({ key: 'payment.errorKlarnaMinAmount' })
       return
     }
 
     setError(null)
     setCheckoutResult(null)
     if (!userId && !guestEmail.trim()) {
-      setError(t('payment.emailRequired'))
+      setError({ key: 'payment.emailRequired' })
       return
     }
     const email = userId || guestEmail.trim()
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError(t('payment.emailInvalid'))
+      setError({ key: 'payment.emailInvalid' })
       return
     }
     if (!customerName.trim()) {
-      setError(t('payment.nameRequired'))
+      setError({ key: 'payment.nameRequired' })
       return
     }
     if (!customerPhone.trim() || customerPhone.trim().length < 7) {
-      setError(t('payment.phoneRequired'))
+      setError({ key: 'payment.phoneRequired' })
       return
     }
     if (
@@ -672,7 +671,7 @@ export default function PaymentPage() {
       !shippingStreet.trim() ||
       !shippingHouseNumber.trim()
     ) {
-      setError(t('payment.shippingRequired'))
+      setError({ key: 'payment.shippingRequired' })
       return
     }
     if (
@@ -682,7 +681,7 @@ export default function PaymentPage() {
         !billingStreet.trim() ||
         !billingHouseNumber.trim())
     ) {
-      setError(t('payment.billingRequired'))
+      setError({ key: 'payment.billingRequired' })
       return
     }
 
@@ -772,23 +771,26 @@ export default function PaymentPage() {
         const isOutOfStockError = data.code === 'out_of_stock'
         const isOrderFailed = data.code === 'checkout_order_failed'
         const detail = typeof data.error === 'string' ? data.error.trim() : ''
-        const base = isKlarnaMinError
-          ? t('payment.errorKlarnaMinAmount', { min: money(KLARNA_MIN_AMOUNT_HUF) })
+        const key = isKlarnaMinError
+          ? 'payment.errorKlarnaMinAmount'
           : isTimedOfferError
-            ? t('payment.timedOfferNoLongerAvailable')
+            ? 'payment.timedOfferNoLongerAvailable'
             : isOutOfStockError
-              ? t('payment.errorOutOfStock')
+              ? 'payment.errorOutOfStock'
               : isStripeConfigError
-                ? t('payment.errorStripeNotConfigured')
+                ? 'payment.errorStripeNotConfigured'
                 : isStripeSessionError || isOrderFailed
-                  ? t('payment.errorStripeSession')
-                  : t('payment.errorCreateSession')
+                  ? 'payment.errorStripeSession'
+                  : 'payment.errorCreateSession'
         const hideDetail =
           isKlarnaMinError ||
           isTimedOfferError ||
           isOutOfStockError ||
           detail === 'Validation failed'
-        setError(detail && !hideDetail ? `${base} (${detail})` : base)
+        setError({
+          key,
+          detail: detail && !hideDetail ? detail : undefined,
+        })
         idempotencyKeyRef.current = null
         checkoutInFlightRef.current = false
         setLoading(false)
@@ -836,7 +838,7 @@ export default function PaymentPage() {
         router.push(`/fizetes/siker?order_group_id=${encodeURIComponent(data.orderGroupId)}`)
       }, 2500)
     } catch {
-      setError(t('payment.errorCreateSession'))
+      setError({ key: 'payment.errorCreateSession' })
       idempotencyKeyRef.current = null
       checkoutInFlightRef.current = false
       setLoading(false)
@@ -1396,7 +1398,7 @@ export default function PaymentPage() {
       )}
       {welcomeOfferError && (
         <p className="text-xs text-red-600 dark:text-red-400 -mt-4 mb-6" role="alert">
-          {welcomeOfferError}
+          {localeNoticeText(t, welcomeOfferError)}
         </p>
       )}
       {!userId && selectedCouponIds.includes('welcome') && !guestEmail.trim() && (
@@ -1515,7 +1517,13 @@ export default function PaymentPage() {
         <p className="text-xs text-muted mb-4">{t('payment.secureNote')}</p>
         {error && (
           <p className="text-red-600 dark:text-red-400 text-sm mb-4" role="alert">
-            {error}
+            {localeNoticeText(t, {
+              ...error,
+              params:
+                error.key === 'payment.errorKlarnaMinAmount'
+                  ? { min: money(KLARNA_MIN_AMOUNT_HUF) }
+                  : error.params,
+            })}
           </p>
         )}
         {checkoutResult && (
