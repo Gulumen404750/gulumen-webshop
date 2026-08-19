@@ -8,6 +8,7 @@ import { useDisplayMoney } from '@/hooks/useDisplayMoney'
 import { POINT_WALLET_SWR_KEY } from '@/lib/point-wallet-client'
 import { mutate } from 'swr'
 import { writeTypedCoupon, type StoredTypedCoupon } from '@/lib/typed-coupon-storage'
+import { localeNoticeText, type LocaleNotice } from '@/lib/locale-notice'
 
 export type GiftClaimSuccess = {
   kind: 'gift_points'
@@ -69,7 +70,7 @@ export function GiftPointClaimForm({
   const { isLoggedIn, authChecked } = useAuth()
   const [token, setToken] = useState(initialToken)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<LocaleNotice | null>(null)
   const [giftSuccess, setGiftSuccess] = useState<GiftClaimSuccess | null>(null)
   const [couponSuccess, setCouponSuccess] = useState<CouponClaimSuccess | null>(null)
 
@@ -85,7 +86,7 @@ export function GiftPointClaimForm({
     setCouponSuccess(null)
     const trimmed = token.trim()
     if (!trimmed) {
-      setError(t('giftClaim.errorRequired'))
+      setError({ key: 'giftClaim.errorRequired' })
       return
     }
     setBusy(true)
@@ -98,11 +99,13 @@ export function GiftPointClaimForm({
       })
       const data = await res.json().catch(() => ({}))
       if (res.status === 401) {
-        setError(t('giftClaim.loginRequired'))
+        setError({ key: 'giftClaim.loginRequired' })
         return
       }
       if (!res.ok) {
-        setError(t(REDEEM_ERROR_KEYS[String(data.code)] ?? 'giftClaim.errorGeneric'))
+        setError({
+          key: REDEEM_ERROR_KEYS[String(data.code)] ?? 'giftClaim.errorGeneric',
+        })
         return
       }
       if (data.kind === 'coupon') {
@@ -139,7 +142,7 @@ export function GiftPointClaimForm({
       await mutate(POINT_WALLET_SWR_KEY)
       onSuccess?.(result)
     } catch {
-      setError(t('giftClaim.errorGeneric'))
+      setError({ key: 'giftClaim.errorGeneric' })
     } finally {
       setBusy(false)
     }
@@ -170,7 +173,7 @@ export function GiftPointClaimForm({
 
         {error && (
           <p className="text-sm text-red-600 dark:text-red-400" role="alert">
-            {error}
+            {localeNoticeText(t, error)}
           </p>
         )}
         {giftSuccess && (

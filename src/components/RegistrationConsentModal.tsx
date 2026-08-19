@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useLocale } from '@/context/LocaleContext'
 import { RegistrationConsentFields } from '@/components/RegistrationConsentFields'
+import { localeNoticeText, type LocaleNotice } from '@/lib/locale-notice'
 
 type Props = {
   open: boolean
@@ -17,7 +18,7 @@ export function RegistrationConsentModal({ open, onConfirm }: Props) {
   const { t } = useLocale()
   const [acceptPrivacy, setAcceptPrivacy] = useState(false)
   const [acceptOffers, setAcceptOffers] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<LocaleNotice | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -36,7 +37,7 @@ export function RegistrationConsentModal({ open, onConfirm }: Props) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!acceptPrivacy) {
-      setError(t('register.errorPrivacy'))
+      setError({ key: 'register.errorPrivacy' })
       return
     }
     onConfirm({ acceptPrivacy: true, acceptOffers })
@@ -66,7 +67,7 @@ export function RegistrationConsentModal({ open, onConfirm }: Props) {
           />
           {error && (
             <p className="text-sm text-red-600 dark:text-red-400" role="alert">
-              {error}
+              {localeNoticeText(t, error)}
             </p>
           )}
           <button

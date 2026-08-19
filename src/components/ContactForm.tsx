@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useLocale } from '@/context/LocaleContext'
+import { localeNoticeText, type LocaleNotice } from '@/lib/locale-notice'
 
 type ContactFormProps = {
   supportEmail: string
@@ -29,14 +30,14 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
   const [orderRef, setOrderRef] = useState('')
   const [message, setMessage] = useState('')
   const [pending, setPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
+  const [error, setError] = useState<LocaleNotice | null>(null)
+  const [success, setSuccess] = useState(false)
 
-  const contactError = (code: string) => {
+  const contactError = (code: string): LocaleNotice => {
     const key = CONTACT_ERROR_KEYS.includes(code as (typeof CONTACT_ERROR_KEYS)[number])
       ? `pages.contact.error.${code}`
       : 'pages.contact.error.generic'
-    return t(key)
+    return { key }
   }
 
   useEffect(() => {
@@ -57,7 +58,7 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-    setSuccess(null)
+    setSuccess(false)
     setPending(true)
     try {
       const res = await fetch('/api/contact', {
@@ -75,7 +76,7 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
         setError(contactError(typeof data.code === 'string' ? data.code : 'generic'))
         return
       }
-      setSuccess(t('pages.contact.success'))
+      setSuccess(true)
       setName('')
       setEmail('')
       setOrderRef('')
@@ -157,12 +158,12 @@ export function ContactForm({ supportEmail }: ContactFormProps) {
         </div>
         {error && (
           <p className="text-sm text-red-300" role="alert">
-            {error}
+            {localeNoticeText(t, error)}
           </p>
         )}
         {success && (
           <p className="text-sm text-emerald-300" role="status">
-            {success}
+            {t('pages.contact.success')}
           </p>
         )}
         <button
