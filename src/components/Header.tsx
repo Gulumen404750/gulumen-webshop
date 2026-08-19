@@ -62,6 +62,7 @@ export function Header() {
     setMobileNavOpen(false)
     setMobileProductsOpen(false)
     setMobileHelpOpen(false)
+    setCartDrawerOpen(false)
   }, [pathname, searchParams])
 
   useEffect(() => {
@@ -79,6 +80,8 @@ export function Header() {
     setMobileHelpOpen(false)
   }
 
+  const closeCartDrawer = () => setCartDrawerOpen(false)
+
   const is3DProductsActive =
     pathname === '/termekek' &&
     (!searchParams.get('kategoria') || searchParams.get('kategoria') === '3d-nyomtatott')
@@ -86,12 +89,19 @@ export function Header() {
   return (
     <>
       <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
-      <CartDrawer isOpen={cartDrawerOpen} onClose={() => setCartDrawerOpen(false)} />
+      <CartDrawer isOpen={cartDrawerOpen} onClose={closeCartDrawer} />
       <CallUsModal isOpen={callUsModalOpen} onClose={() => setCallUsModalOpen(false)} />
-      <header className="sticky top-0 z-[100] bg-background border-b border-[var(--border)] overflow-visible">
+      <header className="sticky top-0 z-[200] bg-background border-b border-[var(--border)] overflow-visible">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 overflow-visible">
           <div className="flex items-center gap-1.5 sm:gap-3 h-14 sm:h-16 min-w-0 overflow-visible">
-            <Link href="/" className="flex items-center gap-2 min-w-0 shrink-0" onClick={closeMobileNav}>
+            <Link
+              href="/"
+              className="flex items-center gap-2 min-w-0 shrink-0"
+              onClick={() => {
+                closeMobileNav()
+                closeCartDrawer()
+              }}
+            >
               <span className="flex w-9 h-9 sm:w-10 sm:h-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--card-bg)] border border-[var(--border)]">
                 <Image src="/img/logo.png" alt="Gulumen" width={40} height={40} className="object-cover w-full h-full" unoptimized />
               </span>
@@ -302,13 +312,29 @@ export function Header() {
                 <SearchIcon className="w-5 h-5" />
               </button>
 
+              <Link
+                href="/kosar"
+                className="relative p-2 rounded-lg text-muted hover:text-foreground hover:bg-[var(--border)] md:hidden"
+                aria-label={t('common.cart')}
+                onClick={() => {
+                  closeMobileNav()
+                  closeCartDrawer()
+                }}
+              >
+                <CartIcon className="w-5 h-5" />
+                {itemCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[1.25rem] h-5 px-1 flex items-center justify-center rounded-full bg-accent text-white text-xs font-bold">
+                    {itemCount > 99 ? '99+' : itemCount}
+                  </span>
+                )}
+              </Link>
               <button
                 type="button"
                 onClick={() => {
                   setCartDrawerOpen(true)
                   closeMobileNav()
                 }}
-                className="relative p-2 rounded-lg text-muted hover:text-foreground hover:bg-[var(--border)]"
+                className="relative hidden md:flex p-2 rounded-lg text-muted hover:text-foreground hover:bg-[var(--border)]"
                 aria-label={t('common.cart')}
                 aria-expanded={cartDrawerOpen}
               >
@@ -324,7 +350,10 @@ export function Header() {
                 href="/profil"
                 className="p-2 rounded-lg text-muted hover:text-foreground hover:bg-[var(--border)]"
                 aria-label={t('common.profile')}
-                onClick={closeMobileNav}
+                onClick={() => {
+                  closeMobileNav()
+                  closeCartDrawer()
+                }}
               >
                 <ProfileIcon className="w-5 h-5" />
               </Link>
@@ -341,7 +370,10 @@ export function Header() {
               <button
                 type="button"
                 className="md:hidden p-2 rounded-lg text-muted hover:text-foreground hover:bg-[var(--border)]"
-                onClick={() => setMobileNavOpen((o) => !o)}
+                onClick={() => {
+                  closeCartDrawer()
+                  setMobileNavOpen((o) => !o)
+                }}
                 aria-expanded={mobileNavOpen}
                 aria-controls="mobile-nav-panel"
                 aria-label={mobileNavOpen ? t('buttons.close') : t('nav.menu')}

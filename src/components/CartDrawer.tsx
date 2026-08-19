@@ -119,7 +119,7 @@ export function CartDrawer({ isOpen, onClose }: Props) {
   return (
     <>
       <div
-        className="fixed inset-0 z-[55] bg-black/50"
+        className="fixed inset-x-0 bottom-0 top-14 sm:top-16 z-[90] bg-black/50"
         aria-hidden
         onClick={onClose}
       />
@@ -128,7 +128,7 @@ export function CartDrawer({ isOpen, onClose }: Props) {
         role="dialog"
         aria-modal="true"
         aria-label={t('cart.title')}
-        className="fixed top-0 right-0 bottom-0 z-[60] w-full max-w-md bg-[var(--card-bg)] border-l border-[var(--border)] shadow-xl flex flex-col"
+        className="fixed top-14 sm:top-16 right-0 bottom-0 z-[95] w-full max-w-md bg-[var(--card-bg)] border-l border-[var(--border)] shadow-xl flex flex-col"
       >
         <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
           <h2 className="font-heading text-lg font-bold text-foreground">{t('cart.title')}</h2>
