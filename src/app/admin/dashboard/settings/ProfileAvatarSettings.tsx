@@ -26,7 +26,7 @@ export default function ProfileAvatarSettings() {
       if (!res.ok) throw new Error(res.status === 401 ? 'Nincs jogosultság' : 'Hiba a betöltésnél')
       const data: ApiResponse = await res.json()
       setDefaults(data.defaults ?? [])
-      setExtraUrls(data.extraUrls ?? [])
+      setExtraUrls((data.extraUrls ?? []).filter((url) => typeof url === 'string' && url.trim().length > 0))
       setMessage(data.message ?? null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Ismeretlen hiba')
@@ -47,7 +47,7 @@ export default function ProfileAvatarSettings() {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ extraUrls }),
+        body: JSON.stringify({ extraUrls: extraUrls.filter((url) => url.trim().length > 0) }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
@@ -72,7 +72,8 @@ export default function ProfileAvatarSettings() {
         <p className="mt-1 text-sm text-muted">
           Ezekből az alapképekből választ a vásárló a profilján. A kiválasztott kép a jobb alsó chat
           ablak felhasználói üzenetei mellett jelenik meg. Az AI üzenetek mellett a Gulumen logo
-          marad.
+          marad. Extra feltöltéseknél csak a tényleges képek jelennek meg kis bélyegképként; kattintásra
+          teljes méretben megnyithatók.
         </p>
       </div>
       <div>
@@ -85,6 +86,7 @@ export default function ProfileAvatarSettings() {
       </div>
       <CdnImageManager
         multiple
+        previewLayout="thumbnails"
         label="További avatarok (feltöltés)"
         values={extraUrls}
         onChangeMultiple={setExtraUrls}

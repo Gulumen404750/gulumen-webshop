@@ -20,6 +20,8 @@ const ALLOWED_TYPES = [
 const GUIDE_TEXT =
   'Húzd ide a képet, vagy illeszd be a Bunny CDN / külső https linket. Mentéskor a külső képeket a szerver letölti, WebP-re alakítja, és a saját CDN-re (gulumen.b-cdn.net) menti.'
 
+export type CdnImagePreviewLayout = 'gallery' | 'thumbnails'
+
 export type CdnImageManagerProps = {
   /** Egy kép (fő kép) – ha multiple=false. */
   value?: string
@@ -34,6 +36,15 @@ export type CdnImageManagerProps = {
   maxSize?: number
   /** Rövid útmutató megjelenítése. */
   showGuide?: boolean
+  /**
+   * gallery: nagy előnézeti kártyák (termékfeltöltő).
+   * thumbnails: csak feltöltött képek, kis bélyegkép + lightbox (pl. avatarok).
+   */
+  previewLayout?: CdnImagePreviewLayout
+}
+
+function isFilledImageUrl(url: unknown): url is string {
+  return typeof url === 'string' && url.trim().length > 0
 }
 
 type PreviewItem = { url: string; local?: boolean }
@@ -48,6 +59,7 @@ export function CdnImageManager({
   uploadUrl = '/api/admin/upload',
   maxSize = MAX_SIZE_BYTES,
   showGuide = true,
+  previewLayout = 'gallery',
 }: CdnImageManagerProps) {
   const [pasteValue, setPasteValue] = useState('')
   const [uploading, setUploading] = useState(false)
@@ -56,10 +68,12 @@ export function CdnImageManager({
   const [success, setSuccess] = useState<string | null>(null)
   const [brokenUrls, setBrokenUrls] = useState<Record<string, boolean>>({})
   const [pendingPreviews, setPendingPreviews] = useState<PreviewItem[]>([])
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   const blobUrlsRef = useRef<string[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
+  const compact = previewLayout === 'thumbnails'
 
-  const list = multiple ? (values ?? []) : value ? [value] : []
+  const list = (multiple ? (values ?? []) : value ? [value] : []).filter(isFilledImageUrl)
 
   useEffect(() => {
     return () => {
@@ -95,7 +109,7 @@ export function CdnImageManager({
         return
       }
       if (multiple && onChangeMultiple) {
-        onChangeMultiple([...(values ?? []), cleaned])
+        onChangeMultiple([...list, cleaned])
         setSuccess('Kép hozzáadva.')
       } else if (onChange) {
         onChange(cleaned)
@@ -103,19 +117,19 @@ export function CdnImageManager({
       }
       setPasteValue('')
     },
-    [multiple, onChange, onChangeMultiple, values]
+    [list, multiple, onChange, onChangeMultiple]
   )
 
   const removeAt = useCallback(
     (index: number) => {
       clearFeedback()
       if (multiple && onChangeMultiple) {
-        onChangeMultiple((values ?? []).filter((_, i) => i !== index))
+        onChangeMultiple(list.filter((_, i) => i !== index))
       } else if (onChange) {
         onChange('')
       }
     },
-    [clearFeedback, multiple, onChange, onChangeMultiple, values]
+    [clearFeedback, list, multiple, onChange, onChangeMultiple]
   )
 
   const validateFile = useCallback(
@@ -192,7 +206,7 @@ export function CdnImageManager({
         }
         if (uploaded.length === 0) return
         if (multiple && onChangeMultiple) {
-          onChangeMultiple([...(values ?? []), ...uploaded])
+          onChangeMultiple([...list, ...uploaded])
           setSuccess(
             uploaded.length > 1 ? `${uploaded.length} kép feltöltve.` : 'Kép feltöltve és hozzáadva.'
           )
@@ -207,7 +221,7 @@ export function CdnImageManager({
         setUploading(false)
       }
     },
-    [clearFeedback, multiple, onChange, onChangeMultiple, uploadOneFile, values]
+    [clearFeedback, list, multiple, onChange, onChangeMultiple, uploadOneFile]
   )
 
   const handleDrop = useCallback(
@@ -279,7 +293,50 @@ export function CdnImageManager({
         </p>
       )}
 
-      {displayList.length > 0 && (
+      {displayList.length > 0 && compact && (
+        <ul className="flex flex-wrap gap-2">
+          {displayList.map((item, i) => (
+            <li key={`${item.url}-${i}`} className="relative">
+              <button
+                type="button"
+                onClick={() => setLightboxIndex(i)}
+                className="relative h-16 w-16 cursor-zoom-in overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--card-bg)] sm:h-20 sm:w-20"
+                aria-label={`Kép megtekintése (${i + 1})`}
+                title="Megnyitás teljes méretben"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={brokenUrls[item.url] ? PLACEHOLDER_IMAGE : item.url}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  referrerPolicy="no-referrer"
+                  onError={() => {
+                    if (!item.local) markBroken(item.url)
+                  }}
+                />
+                {item.local && (
+                  <span className="absolute inset-x-0 bottom-0 bg-black/50 py-0.5 text-center text-[10px] text-white">
+                    …
+                  </span>
+                )}
+              </button>
+              {!item.local && (
+                <button
+                  type="button"
+                  onClick={() => removeAt(i)}
+                  className="absolute -right-1.5 -top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--card-bg)] text-xs text-red-600 hover:bg-red-500/10"
+                  aria-label={`Kép törlése (${i + 1})`}
+                  title="Törlés"
+                >
+                  ×
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {displayList.length > 0 && !compact && (
         <ul className="grid gap-3 sm:grid-cols-2">
           {displayList.map((item, i) => (
             <li
@@ -289,7 +346,7 @@ export function CdnImageManager({
               <div className="relative w-full aspect-[4/3] max-h-[220px] bg-[var(--border)]/30">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={brokenUrls[item.url] ? PLACEHOLDER_IMAGE : item.url || PLACEHOLDER_IMAGE}
+                  src={brokenUrls[item.url] ? PLACEHOLDER_IMAGE : item.url}
                   alt={`Kép ${i + 1}`}
                   className="w-full h-full object-contain"
                   referrerPolicy="no-referrer"
@@ -336,7 +393,9 @@ export function CdnImageManager({
         }}
         onDragLeave={() => setDragOver(false)}
         onPaste={handleZonePaste}
-        className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
+        className={`relative border-2 border-dashed rounded-xl text-center transition-colors ${
+          compact ? 'p-3' : 'p-6'
+        } ${
           dragOver
             ? 'border-accent bg-accent/10'
             : 'border-[var(--border)] hover:border-accent/50 hover:bg-[var(--border)]/10'
@@ -346,7 +405,7 @@ export function CdnImageManager({
           iOS Safari: display:none file input + .click() gyakran NEM nyitja meg a választót.
           Overlay input (opacity 0) a megbízható csatolás.
         */}
-        <label className="relative z-10 block min-h-[4.5rem] cursor-pointer">
+        <label className={`relative z-10 block cursor-pointer ${compact ? 'min-h-[2.75rem]' : 'min-h-[4.5rem]'}`}>
           <input
             ref={inputRef}
             type="file"
@@ -415,6 +474,115 @@ export function CdnImageManager({
       {error && (
         <p className="text-sm text-red-600 dark:text-red-400" role="alert">
           {error}
+        </p>
+      )}
+
+      {lightboxIndex !== null && displayList[lightboxIndex] && (
+        <ImagePreviewLightbox
+          images={displayList.map((item) => item.url)}
+          currentIndex={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+          onIndexChange={setLightboxIndex}
+          label={label || 'Kép'}
+        />
+      )}
+    </div>
+  )
+}
+
+function ImagePreviewLightbox({
+  images,
+  currentIndex,
+  onClose,
+  onIndexChange,
+  label,
+}: {
+  images: string[]
+  currentIndex: number
+  onClose: () => void
+  onIndexChange: (index: number) => void
+  label: string
+}) {
+  const src = images[currentIndex]
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+      if (e.key === 'ArrowLeft') onIndexChange(currentIndex <= 0 ? images.length - 1 : currentIndex - 1)
+      if (e.key === 'ArrowRight') onIndexChange(currentIndex >= images.length - 1 ? 0 : currentIndex + 1)
+    }
+    window.addEventListener('keydown', handleKey)
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', handleKey)
+      document.body.style.overflow = previousOverflow
+    }
+  }, [currentIndex, images.length, onClose, onIndexChange])
+
+  if (!src) return null
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${label} megtekintése`}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute right-4 top-4 z-10 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+        aria-label="Bezárás"
+      >
+        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+      {images.length > 1 && (
+        <>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onIndexChange(currentIndex <= 0 ? images.length - 1 : currentIndex - 1)
+            }}
+            className="absolute left-4 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
+            aria-label="Előző kép"
+          >
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onIndexChange(currentIndex >= images.length - 1 ? 0 : currentIndex + 1)
+            }}
+            className="absolute right-4 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
+            aria-label="Következő kép"
+          >
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </>
+      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt={`${label} ${currentIndex + 1}`}
+        className="max-h-[90vh] max-w-[min(90vw,56rem)] object-contain"
+        referrerPolicy="no-referrer"
+        onClick={(e) => e.stopPropagation()}
+      />
+      {images.length > 1 && (
+        <p className="absolute bottom-4 left-1/2 -translate-x-1/2 text-sm text-white/80">
+          {currentIndex + 1} / {images.length}
         </p>
       )}
     </div>

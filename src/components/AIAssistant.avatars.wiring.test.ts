@@ -27,4 +27,13 @@ describe('chat message avatars wiring', () => {
     expect(existsSync(join(process.cwd(), 'public/img/avatars/seed-01.svg'))).toBe(true)
     expect(existsSync(join(process.cwd(), 'public/img/avatars/guest.svg'))).toBe(true)
   })
+
+  it('renders extra admin avatars as thumbnails with lightbox, not empty frames', () => {
+    const settings = readFileSync(
+      join(process.cwd(), 'src/app/admin/dashboard/settings/ProfileAvatarSettings.tsx'),
+      'utf-8'
+    )
+    expect(settings).toContain('previewLayout="thumbnails"')
+    expect(settings).toContain('További avatarok (feltöltés)')
+  })
 })
