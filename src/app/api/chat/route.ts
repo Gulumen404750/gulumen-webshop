@@ -110,14 +110,19 @@ export async function POST(request: Request) {
     if (apiKey) {
       const models = resolveOpenAiModels(settings.openaiModel)
       const nowContext = await getAiVisitorDateTimeContext(visitorTime)
+      const fx = await fetchEuroToHufRate()
+      const moneyDisplay = { locale, rate: fx.rate }
       const product = await loadChatProductContext({
         productId: productId || null,
         productSlug: productSlug || null,
       })
-      const productContext = product ? buildProductChatContextBlock(product) : ''
+      const productContext = product
+        ? buildProductChatContextBlock(product, new Date(), moneyDisplay)
+        : ''
       const recommendationsContext = buildRecommendedProductsChatBlock(recommendedProducts, {
         matchKind: search.matchKind,
         missingExactMatch: search.missingExactMatch,
+        display: moneyDisplay,
       })
       const visitorDisplayName = await resolveChatVisitorDisplayName(request)
       const visitorNameContext = buildChatVisitorNameBlock(visitorDisplayName)
@@ -133,6 +138,7 @@ export async function POST(request: Request) {
             visitorNameContext,
             productContext,
             recommendationsContext,
+            'Az árakat a kontextusban megadott megjelenítési formában írd (HU: Ft, egyéb: €). Ha az ár euróban van, ne írj HUF-ot vagy Ft-ot.',
           ]
             .filter(Boolean)
             .join('\n\n'),

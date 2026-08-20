@@ -6,6 +6,7 @@ import { CircleHelp, QrCode } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useLocale } from '@/context/LocaleContext'
 import { useDisplayMoney } from '@/hooks/useDisplayMoney'
+import { formatDisplayDate } from '@/lib/display-money'
 import { POINT_WALLET_SWR_KEY } from '@/lib/point-wallet-client'
 import { mutate } from 'swr'
 import { writeTypedCoupon, type StoredTypedCoupon } from '@/lib/typed-coupon-storage'
@@ -52,6 +53,7 @@ const REDEEM_ERROR_KEYS: Record<string, string> = {
   coupon_wrong_user: 'giftClaim.errorCouponWrongUser',
   coupon_not_owned: 'giftClaim.errorCouponWrongUser',
   coupon_login_required: 'giftClaim.loginRequired',
+  coupon_min_order: 'payment.couponMinOrder',
 }
 
 type Props = {
@@ -216,9 +218,17 @@ export function GiftPointClaimForm({
       }
       if (!res.ok) {
         const code = typeof data.code === 'string' ? data.code : ''
-        setError({
-          key: REDEEM_ERROR_KEYS[code] ?? 'giftClaim.errorGeneric',
-        })
+        const key = REDEEM_ERROR_KEYS[code] ?? 'giftClaim.errorGeneric'
+        setError(
+          key === 'payment.couponMinOrder'
+            ? {
+                key,
+                params: {
+                  amount: money(typeof data.minOrderHuf === 'number' ? data.minOrderHuf : 0),
+                },
+              }
+            : { key }
+        )
         return
       }
       if (data.kind === 'coupon') {
@@ -319,7 +329,7 @@ export function GiftPointClaimForm({
               : t('giftClaim.success', { points: giftSuccess.points })}
             {giftSuccess.expiresAt
               ? ` ${t('giftClaim.expires', {
-                  date: new Date(giftSuccess.expiresAt).toLocaleDateString(locale),
+                  date: formatDisplayDate(giftSuccess.expiresAt, locale),
                 })}`
               : ''}
           </p>

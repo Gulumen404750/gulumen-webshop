@@ -18,6 +18,17 @@ export function intlLocaleFor(locale: Locale): string {
   return 'hu-HU'
 }
 
+/** Ügyféloldali dátum a felület nyelvén (ne nyers `en`/`hu` BCP-47-et használjunk). */
+export function formatDisplayDate(value: string | Date, locale: Locale): string {
+  const d = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString(intlLocaleFor(locale), {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
 export function usesEuroCopy(locale: Locale): boolean {
   return locale !== 'hu'
 }
@@ -61,6 +72,17 @@ export function formatMoneyFromHuf(huf: number, locale: Locale, rate: number): s
     return formatEurLabel(amount / fx, locale)
   }
   return formatEurLabel(hufToEur(amount, fx), locale)
+}
+
+export type CustomerMoneyDisplay = {
+  locale: Locale
+  rate: number
+}
+
+/** Chat / szerver szöveg: HU → Ft, idegen nyelv → élő EUR (ne szivárogjon HUF). */
+export function formatCustomerPrice(huf: number, display?: CustomerMoneyDisplay): string {
+  if (!display) return formatHufLabel(huf, 'hu')
+  return formatMoneyFromHuf(huf, display.locale, display.rate)
 }
 
 export type PointsCopyVars = {

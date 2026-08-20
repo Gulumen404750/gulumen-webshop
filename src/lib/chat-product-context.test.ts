@@ -94,6 +94,24 @@ describe('buildProductChatContextBlock', () => {
     expect(block).toMatch(/Árról \/ akcióról CSAK/i)
   })
 
+  it('quotes live EUR for English shoppers without HUF', () => {
+    const block = buildProductChatContextBlock(
+      {
+        ...base,
+        priceHuf: 12000,
+        discountPriceHuf: null,
+        onSale: false,
+        saleStartAt: null,
+        saleEndAt: null,
+      },
+      new Date(),
+      { locale: 'en', rate: 395 }
+    )
+    expect(block).toMatch(/Jelenlegi ár:\s*€/)
+    expect(block).not.toMatch(/Jelenlegi ár:[^\n]*(HUF|Ft)/)
+    expect(block).toMatch(/NE írj HUF-ot/)
+  })
+
   it('marks active sale with original price', () => {
     const now = new Date('2026-08-09T12:00:00.000Z')
     const block = buildProductChatContextBlock(

@@ -169,6 +169,29 @@ describe('buildRecommendedProductsChatBlock', () => {
     expect(block).toMatch(/TILOS kitalált/i)
   })
 
+  it('quotes live EUR for English shoppers without HUF', () => {
+    const products: ChatRecommendedProduct[] = [
+      {
+        id: 'p1',
+        slug: 'asztali-lampa',
+        name: 'Asztali lámpa',
+        priceHuf: 8990,
+        discountPriceHuf: null,
+        onSale: false,
+        saleStartAt: null,
+        saleEndAt: null,
+        image: '/img/lampa.jpg',
+        category: 'Otthon',
+      },
+    ]
+    const block = buildRecommendedProductsChatBlock(products, {
+      display: { locale: 'en', rate: 395 },
+    })
+    expect(block).toMatch(/Asztali lámpa – €/)
+    expect(block).not.toMatch(/Asztali lámpa – [^\n]*(HUF|Ft)/)
+    expect(block).toMatch(/NE írj HUF-ot/)
+  })
+
   it('requires the model to list every recommended product by exact name', () => {
     const products: ChatRecommendedProduct[] = [
       {

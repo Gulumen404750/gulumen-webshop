@@ -1,6 +1,6 @@
 'use client'
 
-/** Fizetési oldal – Railway src watch-path 2026-08-20T19:47. */
+/** Fizetési oldal – Railway src watch-path 2026-08-20T20:05. */
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
@@ -11,6 +11,12 @@ import { useCatCoupon } from '@/context/CatCouponContext'
 import { useAuth } from '@/context/AuthContext'
 import { useLocale } from '@/context/LocaleContext'
 import { useDisplayMoney } from '@/hooks/useDisplayMoney'
+import { formatDisplayDate } from '@/lib/display-money'
+import { checkoutErrorI18nKey } from '@/lib/checkout-client-errors'
+import {
+  readCheckoutPointsSelection,
+  writeCheckoutPointsSelection,
+} from '@/lib/checkout-points-selection'
 import { trackBeginCheckout } from '@/lib/analytics'
 import { getProductById as getProductByIdFromData } from '@/lib/data'
 import { useProducts } from '@/context/ProductsContext'
@@ -89,6 +95,7 @@ export default function PaymentPage() {
   const [deliveryNotes, setDeliveryNotes] = useState('')
   const [useGiftPoints, setUseGiftPoints] = useState(false)
   const [useActivityPoints, setUseActivityPoints] = useState(false)
+  const [pointsSelectionReady, setPointsSelectionReady] = useState(false)
   const [couponCodeInput, setCouponCodeInput] = useState('')
   const [typedCoupon, setTypedCoupon] = useState<StoredTypedCoupon | null>(null)
   const [selectedCouponIds, setSelectedCouponIds] = useState<SelectableCouponId[]>([])
@@ -168,7 +175,7 @@ export default function PaymentPage() {
           percent: isFixed ? 0 : coupon.discountPercent,
           ...(fixedHuf ? { fixedHuf } : {}),
           validUntil: coupon.validUntil
-            ? new Date(coupon.validUntil).toLocaleDateString(locale)
+            ? formatDisplayDate(coupon.validUntil, locale)
             : undefined,
           label: isFixed
             ? t('payment.couponFixedName', { code: coupon.code })
@@ -189,7 +196,7 @@ export default function PaymentPage() {
         code: wallet.activeCouponCode,
         percent,
         validUntil: wallet.activeCouponValidUntil
-          ? new Date(wallet.activeCouponValidUntil).toLocaleDateString(locale)
+          ? formatDisplayDate(wallet.activeCouponValidUntil, locale)
           : undefined,
         label: t('payment.couponGamificationLabel', {
           percent: percent > 1 ? percent : Math.round(percent * 100),
@@ -208,7 +215,7 @@ export default function PaymentPage() {
           ? {
               code: birthdayCouponBanner.code,
               percent: birthdayCouponBanner.percent,
-              validUntil: birthdayCouponBanner.validUntil,
+              validUntil: formatDisplayDate(birthdayCouponBanner.validUntil, locale),
             }
           : null,
         gamification: gamificationCoupons,
@@ -231,6 +238,7 @@ export default function PaymentPage() {
       birthdayCouponBanner,
       gamificationCoupons,
       loyaltyPercent,
+      locale,
       t,
     ]
   )
@@ -489,7 +497,18 @@ export default function PaymentPage() {
         )
       }
     }
+    const pointsSel = readCheckoutPointsSelection()
+    if (pointsSel) {
+      setUseGiftPoints(pointsSel.useGiftPoints)
+      setUseActivityPoints(pointsSel.useActivityPoints)
+    }
+    setPointsSelectionReady(true)
   }, [])
+
+  useEffect(() => {
+    if (!pointsSelectionReady) return
+    writeCheckoutPointsSelection({ useGiftPoints, useActivityPoints })
+  }, [pointsSelectionReady, useGiftPoints, useActivityPoints])
 
   const totalEur = hufToEur(cardTotalHuf)
 
@@ -799,31 +818,22 @@ export default function PaymentPage() {
       })
       const data = await res.json().catch(() => ({} as { code?: string; error?: string }))
       if (!res.ok) {
-        const isTimedOfferError = res.status === 400 && (data.code === 'timed_offer_unavailable' || data.error?.includes('timed'))
-        const isKlarnaMinError = res.status === 400 && data.code === 'klarna_min_amount'
-        const isStripeConfigError = data.code === 'stripe_not_configured'
-        const isStripeSessionError = data.code === 'stripe_session_failed'
-        const isOutOfStockError = data.code === 'out_of_stock'
-        const isOrderFailed = data.code === 'checkout_order_failed'
+        const code = typeof data.code === 'string' ? data.code : undefined
         const detail = typeof data.error === 'string' ? data.error.trim() : ''
-        const key = isKlarnaMinError
-          ? 'payment.errorKlarnaMinAmount'
-          : isTimedOfferError
-            ? 'payment.timedOfferNoLongerAvailable'
-            : isOutOfStockError
-              ? 'payment.errorOutOfStock'
-              : isStripeConfigError
-                ? 'payment.errorStripeNotConfigured'
-                : isStripeSessionError || isOrderFailed
-                  ? 'payment.errorStripeSession'
-                  : 'payment.errorCreateSession'
+        const resolvedCode =
+          code || (detail.includes('timed') ? 'timed_offer_unavailable' : undefined)
+        const resolvedKey = checkoutErrorI18nKey(resolvedCode, res.status)
         const hideDetail =
-          isKlarnaMinError ||
-          isTimedOfferError ||
-          isOutOfStockError ||
+          resolvedKey === 'payment.errorKlarnaMinAmount' ||
+          resolvedKey === 'payment.timedOfferNoLongerAvailable' ||
+          resolvedKey === 'payment.errorOutOfStock' ||
           detail === 'Validation failed'
         setError({
-          key,
+          key: resolvedKey,
+          params:
+            resolvedKey === 'payment.couponMinOrder'
+              ? { amount: money(typeof data.minOrderHuf === 'number' ? data.minOrderHuf : 0) }
+              : undefined,
           detail: detail && !hideDetail ? detail : undefined,
         })
         idempotencyKeyRef.current = null
@@ -1022,9 +1032,14 @@ export default function PaymentPage() {
                   <div className="flex justify-between text-discount">
                     <span className="inline-flex items-center gap-1.5">
                       <span>
-                        {t('payment.couponDiscountWithCode', {
-                          percent: Math.round(effectiveCouponPercent * 100),
-                        })}
+                        {typedCoupon?.discountType === 'fixed'
+                          ? t('payment.couponDiscountFixed', {
+                              amount: money(typedCoupon.discountValue),
+                              code: typedCoupon.code,
+                            })
+                          : t('payment.couponDiscountWithCode', {
+                              percent: Math.round(effectiveCouponPercent * 100),
+                            })}
                         {couponSelection.capped
                           ? ` (${t('payment.couponCappedHint')})`
                           : ''}
@@ -1415,7 +1430,13 @@ export default function PaymentPage() {
         hint={
           t('payment.couponSelectorHint')
         }
-        emptyText={t('payment.couponSelectorEmpty')}
+        emptyText={
+          (wallet?.balance ?? 0) > 0 ||
+          (pointsPreview?.giftBalance ?? 0) > 0 ||
+          (pointsPreview?.activityBalance ?? 0) > 0
+            ? t('payment.couponSelectorEmptyWithPoints')
+            : t('payment.couponSelectorEmpty')
+        }
         capReachedText={
           t('payment.couponCapReached')
         }
@@ -1474,9 +1495,8 @@ export default function PaymentPage() {
                 {pointsPreview.giftExpiresAt && (
                   <span className="block text-xs text-muted mt-0.5">
                     {t('payment.giftPointsExpires', {
-                      date: new Date(pointsPreview.giftExpiresAt).toLocaleDateString(locale),
-                    }) ||
-                      `Érvényes ${new Date(pointsPreview.giftExpiresAt).toLocaleDateString(locale)}-ig`}
+                      date: formatDisplayDate(pointsPreview.giftExpiresAt, locale),
+                    })}
                   </span>
                 )}
               </span>

@@ -7,6 +7,11 @@ import { prisma, isDbConfigured } from '@/lib/prisma'
 import { productSlugLookupCandidates } from '@/lib/slug'
 import { isSaleActive } from '@/lib/storefront-config'
 import type { Product } from '@/lib/data'
+import {
+  formatCustomerPrice,
+  usesEuroCopy,
+  type CustomerMoneyDisplay,
+} from '@/lib/display-money'
 
 /** Termékoldal slug a pathname-ből: /termek/[slug] vagy /products/[slug] */
 export function extractProductSlugFromPathname(pathname: string | null | undefined): string | null {
@@ -102,8 +107,16 @@ function formatStockLabel(stock: number): string {
   return `${stock} db`
 }
 
-function formatHuf(amount: number): string {
-  return `${amount.toLocaleString('hu-HU')} Ft`
+function formatChatPriceLine(
+  pricing: ChatProductPricing,
+  display?: CustomerMoneyDisplay
+): string {
+  const current = formatCustomerPrice(pricing.effectivePriceHuf, display)
+  if (pricing.isSale) {
+    const original = formatCustomerPrice(pricing.normalPriceHuf, display)
+    return `Jelenlegi ár: ${current} (Akciós ár! Eredeti ár: ${original})`
+  }
+  return `Jelenlegi ár: ${current}`
 }
 
 /**
@@ -113,16 +126,15 @@ function formatHuf(amount: number): string {
  */
 export function buildProductChatContextBlock(
   product: ChatProductContextRow,
-  now: Date = new Date()
+  now: Date = new Date(),
+  display?: CustomerMoneyDisplay
 ): string {
   const pricing = resolveChatProductPricing(product, now)
   const knowledge = (product.aiKnowledgeBase ?? '').trim()
   const description = (product.description_hu ?? '').trim()
   const stockLabel = formatStockLabel(product.stock)
-
-  const priceLine = pricing.isSale
-    ? `Jelenlegi ár: ${formatHuf(pricing.effectivePriceHuf)} (Akciós ár! Eredeti ár: ${formatHuf(pricing.normalPriceHuf)})`
-    : `Jelenlegi ár: ${formatHuf(pricing.effectivePriceHuf)}`
+  const priceLine = formatChatPriceLine(pricing, display)
+  const euroOnly = display ? usesEuroCopy(display.locale) : false
 
   const knowledgeBlock =
     knowledge ||
@@ -142,8 +154,9 @@ ${knowledgeBlock}
 TERMÉK-KONTEXTUS SZABÁLYOK:
 1. Mindig a vásárló által használt nyelven válaszolj (lásd a „Válaszolj …” utasítást), akkor is, ha a tudásbázis magyarul van.
 2. Árról / akcióról CSAK a fenti „Jelenlegi ár” sort használd – a tudásbázisban lévő esetleges árat hagyd figyelmen kívül.
-3. Ha a kérdezett információ szerepel a tudásbázisban / termékadatokban, pontosan arra támaszkodva válaszolj – ne találj ki ellentmondó adatot.
-4. Ha olyat kérdeznek, ami NINCS a tudásbázisban és a fenti termékadatokban, ne találj ki adatot; mondd el őszintén, hogy erről nincs biztos információd, és kérj e-mailt vagy irányítsd a termékoldal / ügyfélszolgálat felé.
+3. A vásárlónak a fenti megjelenítési árat írd (HU: Ft, egyéb: €). ${euroOnly ? 'NE írj HUF-ot vagy Ft-ot.' : ''}
+4. Ha a kérdezett információ szerepel a tudásbázisban / termékadatokban, pontosan arra támaszkodva válaszolj – ne találj ki ellentmondó adatot.
+5. Ha olyat kérdeznek, ami NINCS a tudásbázisban és a fenti termékadatokban, ne találj ki adatot; mondd el őszintén, hogy erről nincs biztos információd, és kérj e-mailt vagy irányítsd a termékoldal / ügyfélszolgálat felé.
 `.trim()
 }
 

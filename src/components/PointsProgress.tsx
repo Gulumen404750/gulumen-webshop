@@ -5,6 +5,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useLocale } from '@/context/LocaleContext'
 import { useDisplayMoney } from '@/hooks/useDisplayMoney'
 import { usePointWallet } from '@/hooks/usePointWallet'
+import { formatDisplayDate } from '@/lib/display-money'
 import type { PointWalletCoupon } from '@/lib/point-wallet-client'
 import { localeNoticeText, type LocaleNotice } from '@/lib/locale-notice'
 
@@ -73,7 +74,7 @@ export function PointsProgress({ className = '' }: Props) {
     if (!iso) return t('gamification.couponNoExpiry')
     const d = new Date(iso)
     if (Number.isNaN(d.getTime())) return t('gamification.couponNoExpiry')
-    return d.toLocaleDateString(locale)
+    return formatDisplayDate(d, locale)
   }
 
   const handleRedeem = async () => {
@@ -87,6 +88,13 @@ export function PointsProgress({ className = '' }: Props) {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
+        if (data.error === 'insufficient_points') {
+          setRedeemError({
+            key: 'gamification.redeemThreshold',
+            params: { threshold: Number(data.threshold) || threshold },
+          })
+          return
+        }
         setRedeemError({ key: 'gamification.redeemError' })
         return
       }

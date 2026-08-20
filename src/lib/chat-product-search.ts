@@ -8,6 +8,11 @@ import { getAllProductsAsync, type Product } from '@/lib/data'
 import { resolveChatProductPricing } from '@/lib/chat-product-context'
 import type { Locale } from '@/i18n/locales'
 import { DEFAULT_LOCALE } from '@/i18n/locales'
+import {
+  formatCustomerPrice,
+  usesEuroCopy,
+  type CustomerMoneyDisplay,
+} from '@/lib/display-money'
 
 export const CHAT_PRODUCT_RECOMMENDATION_LIMIT = 3
 
@@ -748,7 +753,8 @@ export async function searchProductsForChat(
 
 function formatProductLines(
   products: ChatRecommendedProduct[],
-  now: Date
+  now: Date,
+  display?: CustomerMoneyDisplay
 ): string {
   return products
     .map((p, i) => {
@@ -762,9 +768,10 @@ function formatProductLines(
         },
         now
       )
+      const current = formatCustomerPrice(pricing.effectivePriceHuf, display)
       const priceLabel = pricing.isSale
-        ? `${pricing.effectivePriceHuf.toLocaleString('hu-HU')} Ft (akciós; eredeti: ${pricing.normalPriceHuf.toLocaleString('hu-HU')} Ft)`
-        : `${pricing.effectivePriceHuf.toLocaleString('hu-HU')} Ft`
+        ? `${current} (akciós; eredeti: ${formatCustomerPrice(pricing.normalPriceHuf, display)})`
+        : current
       return `${i + 1}. ${p.name} – ${priceLabel} – kategória: ${p.category} – link: /termek/${p.slug} (id: ${p.id})`
     })
     .join('\n')
@@ -774,9 +781,14 @@ export type RecommendedProductsBlockOptions = {
   matchKind?: ChatProductMatchKind
   missingExactMatch?: boolean
   now?: Date
+  display?: CustomerMoneyDisplay
 }
 
-function buildMissingProductChatBlock(products: ChatRecommendedProduct[], now: Date): string {
+function buildMissingProductChatBlock(
+  products: ChatRecommendedProduct[],
+  now: Date,
+  display?: CustomerMoneyDisplay
+): string {
   if (products.length === 0) {
     return `
 [NINCS PONTOS TERMÉKTALÁLAT]
@@ -789,7 +801,7 @@ KÖTELEZŐ a vásárló nyelvén (lásd LANGUAGE LOCK):
 `.trim()
   }
 
-  const lines = formatProductLines(products, now)
+  const lines = formatProductLines(products, now, display)
   return `
 [NINCS PONTOS TERMÉKTALÁLAT — ALTERNATÍVÁK]
 A vásárló konkrét terméket keresett, de PONTOS EGYEZÉS NINCS a katalógusban.
@@ -816,14 +828,16 @@ export function buildRecommendedProductsChatBlock(
   const matchKind = options.matchKind ?? 'keyword'
   const missingExactMatch = options.missingExactMatch ?? matchKind === 'alternatives'
   const now = options.now ?? new Date()
+  const display = options.display
 
   if (missingExactMatch || matchKind === 'alternatives') {
-    return buildMissingProductChatBlock(products, now)
+    return buildMissingProductChatBlock(products, now, display)
   }
 
   if (products.length === 0) return ''
 
-  const lines = formatProductLines(products, now)
+  const euroOnly = display ? usesEuroCopy(display.locale) : false
+  const lines = formatProductLines(products, now, display)
   const browseNote =
     matchKind === 'catalog_browse'
       ? 'Ezek népszerű / általános ötletek (nem egy konkrét cikkszám keresése).'
@@ -838,6 +852,7 @@ KÖTELEZŐ:
 - Ne találj ki más nevet (pl. „kényelmes párna”, „otthoni dekoráció” tilos, ha nincs ilyen a listában).
 - A számozott listád hossza = ${products.length} (minden ajánlott termékhez egy tétel és egy kártya).
 - Minden tétel ÚJ SORON, üres sorral elválasztva, 2–4 barátságos emojival (🎁 ✨ 🏠 💚).
+- Árat a fenti megjelenítési formában írd a vásárlónak.${euroOnly ? ' NE írj HUF-ot vagy Ft-ot.' : ''}
 
 Példa (a köszöntést a LANGUAGE LOCK nyelvén írd, ne magyarul, ha a locale nem hu):
 

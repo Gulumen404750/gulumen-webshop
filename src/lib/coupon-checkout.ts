@@ -28,7 +28,7 @@ export type ResolvedDbCoupon = {
 
 export type ResolveCheckoutCouponResult =
   | { ok: true; coupon: ResolvedDbCoupon; discount: CouponDiscount }
-  | { ok: false; error: string; code: string }
+  | { ok: false; error: string; code: string; minOrderHuf?: number }
 
 export function dbCouponToDiscount(coupon: {
   discountType: string
@@ -187,6 +187,7 @@ export async function resolveCheckoutCoupon(params: {
       ok: false,
       error: `Minimum order amount is ${preview.coupon.minOrderHuf} HUF`,
       code: 'coupon_min_order',
+      minOrderHuf: preview.coupon.minOrderHuf,
     }
   }
 

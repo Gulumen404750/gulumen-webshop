@@ -3,6 +3,8 @@ import { FALLBACK_HUF_PER_EUR, hufToEur } from './euro-rate'
 import {
   formatEurLabel,
   formatMoneyFromHuf,
+  formatDisplayDate,
+  formatCustomerPrice,
   pointsCopyVars,
   usesEuroCopy,
 } from './display-money'
@@ -33,6 +35,28 @@ describe('formatMoneyFromHuf', () => {
     expect(onePoint).toMatch(/^€0\.00[1-9]/)
     expect(onePoint).not.toBe('€0.00')
     expect(onePoint).not.toMatch(/HUF|Ft/)
+  })
+})
+
+describe('formatDisplayDate', () => {
+  it('uses locale-specific month names, not raw locale codes', () => {
+    const iso = '2026-08-18T12:00:00.000Z'
+    const en = formatDisplayDate(iso, 'en')
+    const hu = formatDisplayDate(iso, 'hu')
+    expect(en).toMatch(/Aug/)
+    expect(en).toMatch(/18/)
+    expect(en).toMatch(/2026/)
+    expect(hu).toMatch(/2026/)
+    expect(hu).toMatch(/18/)
+  })
+})
+
+describe('formatCustomerPrice', () => {
+  it('keeps Ft without display options and converts for EN', () => {
+    expect(formatCustomerPrice(12_000)).toMatch(/12.000 Ft/)
+    const eur = formatCustomerPrice(12_000, { locale: 'en', rate: 395 })
+    expect(eur).toMatch(/^€/)
+    expect(eur).not.toMatch(/HUF|Ft/)
   })
 })
 
