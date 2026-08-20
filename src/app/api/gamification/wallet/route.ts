@@ -13,6 +13,7 @@ import {
   redeemableCouponCount,
   sortUserGamificationCoupons,
 } from '@/lib/gamification/user-coupons'
+import { getUserLifetimeSavingsHuf } from '@/lib/lifetime-savings'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -46,13 +47,18 @@ export async function GET(request: Request) {
 
   if (!isDbConfigured()) {
     const { devGetWallet } = await import('@/lib/dev-gamification')
-    return NextResponse.json(devGetWallet(userId), { headers: NO_STORE_HEADERS })
+    const lifetimeSavedHuf = await getUserLifetimeSavingsHuf(userId)
+    return NextResponse.json(
+      { ...devGetWallet(userId), lifetimeSavedHuf },
+      { headers: NO_STORE_HEADERS }
+    )
   }
 
   try {
     await processPendingPointEvents(10, userId)
 
-    const [wallet, gamificationCoupons, giftPointsAvailable, giftExpiresAt] = await Promise.all([
+    const [wallet, gamificationCoupons, giftPointsAvailable, giftExpiresAt, lifetimeSavedHuf] =
+      await Promise.all([
       prisma.userPointWallet.findUnique({ where: { userId } }),
       prisma.coupon.findMany({
         where: { userId, source: { in: ['gamification', 'admin_claim'] } },
@@ -73,6 +79,7 @@ export async function GET(request: Request) {
       }),
       getAvailableGiftPoints(userId),
       getSoonestGiftExpiry(userId),
+      getUserLifetimeSavingsHuf(userId),
     ])
 
     const coupons = sortUserGamificationCoupons(
@@ -89,6 +96,7 @@ export async function GET(request: Request) {
         balance,
         lifetimeEarned: wallet?.lifetimeEarned ?? 0,
         lifetimeRedeemed: wallet?.lifetimeRedeemed ?? 0,
+        lifetimeSavedHuf,
         redeemThreshold: REDEEM_THRESHOLD_MIN,
         canRedeem,
         redeemableCount: redeemableCouponCount(balance, REDEEM_THRESHOLD_MIN, suspended),

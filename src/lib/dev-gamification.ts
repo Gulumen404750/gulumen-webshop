@@ -185,6 +185,7 @@ export function devGetWallet(userId: string) {
     activityBalance: wallet.balance,
     giftExpiresAt: null,
     gamificationEnabled: true,
+    lifetimeSavedHuf: 0,
     mode: 'dev' as const,
   }
 }

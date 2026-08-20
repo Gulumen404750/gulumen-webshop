@@ -117,11 +117,21 @@ export function PointsProgress({ className = '' }: Props) {
     <div
       className={`relative z-10 self-start w-full min-w-0 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-4 ${className}`}
     >
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-sm font-medium text-foreground">{t('gamification.progressTitle')}</p>
-        <span className="text-sm text-muted">
-          {isLoading ? '…' : `${balance} / ${threshold}`}
-        </span>
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">{t('gamification.progressTitle')}</p>
+          <span className="text-sm text-muted tabular-nums">
+            {isLoading ? '…' : `${balance} / ${threshold}`}
+          </span>
+        </div>
+        <p className="text-right shrink-0">
+          <span className="block text-[11px] text-muted leading-tight">
+            {t('gamification.savedSoFarLabel')}
+          </span>
+          <span className="font-heading text-base font-bold text-discount tabular-nums">
+            {isLoading ? '…' : money(wallet?.lifetimeSavedHuf ?? 0)}
+          </span>
+        </p>
       </div>
 
       <div
@@ -186,13 +196,11 @@ export function PointsProgress({ className = '' }: Props) {
         >
           <summary className="px-3 py-2.5 text-sm font-medium text-foreground cursor-pointer list-none flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-background">
             <span>
-              {t('gamification.myCouponsTitle', { count: coupons.length })}
-              {activeCount > 0 ? (
-                <span className="text-muted font-normal">
-                  {' '}
-                  · {t('gamification.myCouponsActiveCount', { count: activeCount })}
-                </span>
-              ) : null}
+              {t('gamification.myCouponsTitle')}
+              <span className="text-muted font-normal">
+                {' '}
+                · {t('gamification.myCouponsActiveCount', { count: activeCount })}
+              </span>
             </span>
             <span className="text-muted group-open:rotate-180 transition-transform shrink-0 text-xs">
               ▼
