@@ -121,6 +121,8 @@ model User {
   email     String   @unique
   passwordHash String?  // null = OAuth (pl. Google) felhasználó
   name      String?
+  /// A chatben / profilon megjelenő avatar az admin alapkészletéből.
+  avatarId  String?
   /// Marketing / hírlevél hozzájárulás (GDPR). Tranzakciós e-mailektől független.
   marketingOptIn       Boolean   @default(false)
   marketingOptInAt     DateTime?

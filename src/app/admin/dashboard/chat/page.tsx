@@ -1,5 +1,6 @@
 import ChatSettingsForm from '../settings/ChatSettingsForm'
 import { ChatTopQuestions } from '../settings/ChatTopQuestions'
+import ProfileAvatarSettings from '../settings/ProfileAvatarSettings'
 
 export default function AdminChatPage() {
   return (
@@ -11,6 +12,7 @@ export default function AdminChatPage() {
         nélkül az eredeti hardcoded alapértékek érvényesek.
       </p>
       <ChatTopQuestions />
+      <ProfileAvatarSettings />
       <ChatSettingsForm />
     </div>
   )

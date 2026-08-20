@@ -17,6 +17,7 @@ import { usePointWallet } from '@/hooks/usePointWallet'
 import { applyStashedPointsRedeemOnce } from '@/lib/point-wallet-client'
 import { RecaptchaNotice } from '@/components/RecaptchaNotice'
 import { GiftPointClaimForm } from '@/components/GiftPointClaimForm'
+import { ProfileAvatarPicker } from '@/components/ProfileAvatarPicker'
 import { localeNoticeText, type LocaleNotice } from '@/lib/locale-notice'
 
 function NameProfileSection() {
@@ -319,6 +320,7 @@ export default function ProfilePage() {
         </div>
         {userId && <LoyaltyTierBadge email={userId} className="mb-6" />}
         <NameProfileSection />
+        <ProfileAvatarPicker />
         <BirthDateProfileSection />
         <div className="mb-6">
           <Link

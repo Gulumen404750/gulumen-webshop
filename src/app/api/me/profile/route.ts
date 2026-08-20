@@ -16,6 +16,10 @@ import {
   LOYALTY_MAX_PERCENT,
   LOYALTY_THRESHOLD_HUF,
 } from '@/lib/loyalty'
+import {
+  getProfileAvatarCatalog,
+  resolveProfileAvatar,
+} from '@/lib/profile-avatars'
 
 /**
  * GET /api/me/profile – bejelentkezett user profil (születési dátum + születésnapi kupon).
@@ -40,6 +44,7 @@ export async function GET(request: Request) {
       id: true,
       email: true,
       name: true,
+      avatarId: true,
       birthDate: true,
       marketingOptIn: true,
     },
@@ -51,12 +56,16 @@ export async function GET(request: Request) {
   const birthdayCoupon = await findActiveBirthdayCoupon(userId)
   const loyaltyRow = user.email ? await getLoyaltyByEmail(user.email) : null
   const qualifyingPaidOrdersCount = loyaltyRow?.qualifyingPaidOrdersCount ?? 0
+  const catalog = await getProfileAvatarCatalog()
+  const avatar = resolveProfileAvatar(user.avatarId, catalog)
 
   return NextResponse.json({
     user: {
       id: user.id,
       email: user.email,
       name: user.name,
+      avatarId: avatar?.id ?? null,
+      avatarUrl: avatar?.url ?? null,
       birthDate: formatBirthDateForInput(user.birthDate),
       age: user.birthDate ? ageFromBirthDate(user.birthDate) : null,
       marketingOptIn: user.marketingOptIn,
@@ -75,6 +84,7 @@ export async function GET(request: Request) {
 const patchSchema = z.object({
   birthDate: z.union([z.string(), z.null()]).optional(),
   name: z.string().max(200).optional(),
+  avatarId: z.union([z.string().max(80), z.null()]).optional(),
 })
 
 /**
@@ -118,7 +128,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
-  const data: { birthDate?: Date | null; name?: string | null } = {}
+  const data: { birthDate?: Date | null; name?: string | null; avatarId?: string | null } = {}
   let birthDateJustSaved: Date | null = null
 
   if (parsed.data.birthDate !== undefined) {
@@ -144,6 +154,15 @@ export async function PATCH(request: Request) {
     data.name = parsed.data.name.trim() || null
   }
 
+  const catalog = await getProfileAvatarCatalog()
+  if (parsed.data.avatarId !== undefined) {
+    const requested = parsed.data.avatarId?.trim() || null
+    if (requested && !resolveProfileAvatar(requested, catalog)) {
+      return NextResponse.json({ error: 'Invalid avatar' }, { status: 400 })
+    }
+    data.avatarId = requested
+  }
+
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: 'Nincs módosítandó mező' }, { status: 400 })
   }
@@ -155,6 +174,7 @@ export async function PATCH(request: Request) {
       id: true,
       email: true,
       name: true,
+      avatarId: true,
       birthDate: true,
       marketingOptIn: true,
     },
@@ -185,11 +205,15 @@ export async function PATCH(request: Request) {
     birthdayGrant = { deferred: true }
   }
 
+  const avatar = resolveProfileAvatar(user.avatarId, catalog)
+
   return NextResponse.json({
     user: {
       id: user.id,
       email: user.email,
       name: user.name,
+      avatarId: avatar?.id ?? null,
+      avatarUrl: avatar?.url ?? null,
       birthDate: formatBirthDateForInput(user.birthDate),
       age: user.birthDate ? ageFromBirthDate(user.birthDate) : null,
       marketingOptIn: user.marketingOptIn,

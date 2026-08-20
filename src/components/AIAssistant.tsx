@@ -21,6 +21,14 @@ import { getProductById as getProductByIdFromData, getProductName, type Product 
 import { useSaleActive } from '@/hooks/useSaleActive'
 import type { Locale } from '@/i18n/locales'
 import { parseChatTextParts } from '@/lib/chat-message-format'
+import { ChatAvatar } from '@/components/ChatAvatar'
+import { useAuth } from '@/context/AuthContext'
+import {
+  GUEST_AVATAR_SRC,
+  GULUMEN_CHAT_LOGO_FALLBACK_SRC,
+  GULUMEN_CHAT_LOGO_SRC,
+  PROFILE_AVATAR_CHANGED_EVENT,
+} from '@/lib/profile-avatars'
 
 type ChatProductSnippet = {
   id: string
@@ -93,6 +101,7 @@ function voiceErrorKey(code: string): string | null {
 
 export function AIAssistant() {
   const { t, locale } = useLocale()
+  const { isLoggedIn, authChecked } = useAuth()
   const pathname = usePathname()
   const productSlug = useMemo(() => extractProductSlugFromPathname(pathname), [pathname])
   const [open, setOpen] = useState(false)
@@ -108,6 +117,7 @@ export function AIAssistant() {
   messagesRef.current = messages
   const localeRef = useRef(locale)
   const chatGenerationRef = useRef(0)
+  const [userAvatarUrl, setUserAvatarUrl] = useState(GUEST_AVATAR_SRC)
 
   useEffect(() => {
     setVoiceSupported(getSpeechRecognitionCtor() !== null)
@@ -129,6 +139,36 @@ export function AIAssistant() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  useEffect(() => {
+    if (!authChecked || !isLoggedIn) {
+      setUserAvatarUrl(GUEST_AVATAR_SRC)
+      return
+    }
+    let cancelled = false
+    fetch('/api/me/profile', { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled) return
+        const url = typeof data?.user?.avatarUrl === 'string' ? data.user.avatarUrl : ''
+        setUserAvatarUrl(url || GUEST_AVATAR_SRC)
+      })
+      .catch(() => {
+        if (!cancelled) setUserAvatarUrl(GUEST_AVATAR_SRC)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [authChecked, isLoggedIn, open])
+
+  useEffect(() => {
+    const onAvatarChanged = (event: Event) => {
+      const url = (event as CustomEvent<{ avatarUrl?: string }>).detail?.avatarUrl
+      if (typeof url === 'string' && url) setUserAvatarUrl(url)
+    }
+    window.addEventListener(PROFILE_AVATAR_CHANGED_EVENT, onAvatarChanged)
+    return () => window.removeEventListener(PROFILE_AVATAR_CHANGED_EVENT, onAvatarChanged)
+  }, [])
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -303,7 +343,15 @@ export function AIAssistant() {
           <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} />
           <div className="relative w-full sm:max-w-md h-[min(88vh,32rem)] sm:h-[min(80vh,28rem)] flex flex-col rounded-t-2xl sm:rounded-2xl border border-[var(--border)] bg-[var(--card-bg)] shadow-xl">
             <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-[var(--border)]">
-              <span className="font-heading font-semibold text-foreground">{t('ai.title')}</span>
+              <span className="flex min-w-0 items-center gap-2">
+                <ChatAvatar
+                  src={GULUMEN_CHAT_LOGO_SRC}
+                  fallbackSrc={GULUMEN_CHAT_LOGO_FALLBACK_SRC}
+                  alt={t('ai.assistantAvatarAlt')}
+                  size={28}
+                />
+                <span className="font-heading font-semibold text-foreground truncate">{t('ai.title')}</span>
+              </span>
               <div className="flex items-center gap-1">
                 <button
                   type="button"
@@ -331,9 +379,15 @@ export function AIAssistant() {
               {messages.map((m, i) => (
                 <div
                   key={i}
-                  className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                  className={`flex items-end gap-2 ${m.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
                 >
-                  <div className={`max-w-[85%] space-y-2 ${m.role === 'user' ? '' : 'w-full'}`}>
+                  <ChatAvatar
+                    src={m.role === 'user' ? userAvatarUrl : GULUMEN_CHAT_LOGO_SRC}
+                    fallbackSrc={m.role === 'user' ? GUEST_AVATAR_SRC : GULUMEN_CHAT_LOGO_FALLBACK_SRC}
+                    alt={m.role === 'user' ? t('ai.userAvatarAlt') : t('ai.assistantAvatarAlt')}
+                    size={28}
+                  />
+                  <div className={`max-w-[85%] space-y-2 ${m.role === 'user' ? '' : 'min-w-0 flex-1'}`}>
                     <div
                       className={`rounded-2xl px-4 py-2 text-sm ${
                         m.role === 'user'
@@ -358,7 +412,13 @@ export function AIAssistant() {
                 </div>
               ))}
               {loading && (
-                <div className="flex justify-start">
+                <div className="flex items-end gap-2">
+                  <ChatAvatar
+                    src={GULUMEN_CHAT_LOGO_SRC}
+                    fallbackSrc={GULUMEN_CHAT_LOGO_FALLBACK_SRC}
+                    alt={t('ai.assistantAvatarAlt')}
+                    size={28}
+                  />
                   <div className="rounded-2xl px-4 py-2 text-sm bg-[var(--border)] text-muted">
                     …
                   </div>

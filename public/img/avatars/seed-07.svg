@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Profilkép 7">
+  <circle cx="32" cy="32" r="32" fill="#fecaca"/>
+  <path fill="#1e293b" d="M16 24c2-14 10-18 16-18s14 4 16 18v4H16z"/>
+  <circle cx="32" cy="30" r="12" fill="#f1c3a0"/>
+  <path fill="#b91c1c" d="M20 38c4 6 8 8 12 8s8-2 12-8l4 4v8H16v-8z"/>
+  <circle cx="27" cy="29" r="1.6" fill="#1e293b"/>
+  <circle cx="37" cy="29" r="1.6" fill="#1e293b"/>
+  <path fill="none" stroke="#1e293b" stroke-width="1.4" stroke-linecap="round" d="M28 35c2.4 2 5.6 2 8 0"/>
+  <path fill="#0ea5e9" d="M16 54c3-8 9-12 16-12s13 4 16 12v6H16z"/>
+</svg>
