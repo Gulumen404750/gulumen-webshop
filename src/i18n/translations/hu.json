@@ -918,6 +918,8 @@
     "voiceStop": "Felismerés leállítása",
     "voiceListening": "Hallgatlak…",
     "voiceUnsupported": "A hangbevitel nem támogatott ebben a böngészőben. Írd be a kérdésed.",
+    "voiceDenied": "A mikrofon engedélye szükséges a hangbevitelhez. Engedélyezheted a böngészőben.",
+    "voiceError": "A hangfelismerés nem indult el. Próbáld újra, vagy írd be a kérdésed.",
     "viewProduct": "Megnézem",
     "addedToCart": "Hozzáadva a kosárhoz",
     "missingProduct": "Sajnos pontosan ilyen terméket most nem találtam a kínálatunkban. Nézz körül a termékek között, vagy írd meg, mire van szükséged – szívesen keresek hozzá illő ötletet.",

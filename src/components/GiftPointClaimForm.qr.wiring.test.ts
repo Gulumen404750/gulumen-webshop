@@ -43,6 +43,7 @@ describe('QR coupon scanner wiring', () => {
 
   it('allows same-origin camera for the storefront scanner', () => {
     expect(csp).toContain('camera=(self)')
+    expect(csp).toContain('microphone=(self)')
     expect(csp).toContain("media-src 'self' blob:")
     expect(csp).not.toMatch(/camera=\(\),/)
   })

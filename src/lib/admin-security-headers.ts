@@ -53,9 +53,9 @@ export function buildContentSecurityPolicy(
   ].join('; ')
 }
 
-/** Storefront QR scanner needs same-origin camera; third-party frames stay blocked. */
+/** QR scanner (camera) and chat voice input (microphone) are same-origin only. */
 export const PERMISSIONS_POLICY =
-  'camera=(self), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=(), interest-cohort=()'
+  'camera=(self), microphone=(self), geolocation=(), payment=(), usb=(), browsing-topics=(), interest-cohort=()'
 
 export function applySecurityHeaders(
   headers: Headers,

@@ -918,6 +918,8 @@
     "voiceStop": "Aufnahme stoppen",
     "voiceListening": "Ich höre zu…",
     "voiceUnsupported": "Spracheingabe wird in diesem Browser nicht unterstützt. Bitte tippen.",
+    "voiceDenied": "Für die Spracheingabe ist Mikrofonzugriff nötig. Erlaube ihn im Browser.",
+    "voiceError": "Die Spracherkennung konnte nicht starten. Bitte erneut versuchen oder tippen.",
     "viewProduct": "Ansehen",
     "addedToCart": "In den Warenkorb gelegt",
     "missingProduct": "Leider habe ich genau dieses Produkt in unserem aktuellen Sortiment nicht gefunden. Schau dich im Shop um, oder sag mir, wonach du suchst – ich schlage gern eine passende Alternative vor.",

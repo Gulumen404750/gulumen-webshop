@@ -903,6 +903,8 @@
     "voiceStop": "Oprește ascultarea",
     "voiceListening": "Ascult…",
     "voiceUnsupported": "Intrarea vocală nu este suportată în acest browser. Scrie întrebarea.",
+    "voiceDenied": "Pentru intrarea vocală este nevoie de acces la microfon. Permite-l în browser.",
+    "voiceError": "Recunoașterea vocală nu a putut porni. Încearcă din nou sau scrie întrebarea.",
     "viewProduct": "Vezi produsul",
     "addedToCart": "Adăugat în coș",
     "missingProduct": "Din păcate nu am găsit exact acest produs în oferta noastră. Poți răsfoi magazinul sau spune-mi ce cauți – îți propun cu drag o alternativă potrivită.",

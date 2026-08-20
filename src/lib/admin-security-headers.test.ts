@@ -66,10 +66,11 @@ describe('applySecurityHeaders', () => {
 })
 
 describe('PERMISSIONS_POLICY', () => {
-  it('allows same-origin camera for QR scanning and disables microphone, geolocation and payment', () => {
+  it('allows same-origin camera and microphone, and disables geolocation and payment', () => {
     expect(PERMISSIONS_POLICY).toContain('camera=(self)')
+    expect(PERMISSIONS_POLICY).toContain('microphone=(self)')
     expect(PERMISSIONS_POLICY).not.toMatch(/camera=\(\)/)
-    expect(PERMISSIONS_POLICY).toContain('microphone=()')
+    expect(PERMISSIONS_POLICY).not.toMatch(/microphone=\(\)/)
     expect(PERMISSIONS_POLICY).toContain('geolocation=()')
     expect(PERMISSIONS_POLICY).toContain('payment=()')
   })
