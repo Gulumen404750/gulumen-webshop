@@ -647,7 +647,14 @@
     "errorCouponExpired": "A kupon érvényességi ideje lejárt.",
     "errorCouponUsed": "Ezt a kupont már felhasználtad.",
     "errorCouponAlreadyClaimed": "Ez a kupon már aktiválva van a fiókodon.",
-    "errorCouponWrongUser": "Ez a kupon nem ehhez a fiókhoz tartozik."
+    "errorCouponWrongUser": "Ez a kupon nem ehhez a fiókhoz tartozik.",
+    "scanAria": "QR-kód beolvasása",
+    "scannerTitle": "QR-kód olvasása",
+    "scannerHint": "Irányítsd a kamerát a kupon vagy ajándékpont QR-kódjára.",
+    "scanFromPhoto": "Beolvasás fényképről",
+    "cameraDenied": "A kamera engedélye szükséges a beolvasáshoz. Engedélyezheted a böngészőben, vagy válassz egy fényképet.",
+    "cameraUnavailable": "Nem indítható a kamera. Próbáld meg egy fényképről beolvasni a kódot.",
+    "scanEmpty": "A QR-kódból nem sikerült kódot kiolvasni. Próbáld újra."
   },
   "luckySpin": {
     "title": "Szerencsekerék",

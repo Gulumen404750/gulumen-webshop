@@ -675,7 +675,14 @@
     "errorCouponExpired": "This coupon has expired.",
     "errorCouponUsed": "This coupon has already been used.",
     "errorCouponAlreadyClaimed": "This coupon is already activated on your account.",
-    "errorCouponWrongUser": "This coupon does not belong to this account."
+    "errorCouponWrongUser": "This coupon does not belong to this account.",
+    "scanAria": "Scan QR code",
+    "scannerTitle": "Scan QR code",
+    "scannerHint": "Point the camera at the coupon or gift-point QR code.",
+    "scanFromPhoto": "Scan from photo",
+    "cameraDenied": "Camera access is required to scan. Allow it in the browser, or choose a photo.",
+    "cameraUnavailable": "Could not start the camera. Try scanning from a photo.",
+    "scanEmpty": "No code could be read from the QR code. Please try again."
   },
   "luckySpin": {
     "title": "Lucky Wheel",

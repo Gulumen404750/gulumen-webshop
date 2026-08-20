@@ -42,4 +42,10 @@ describe('GiftPointClaimForm help UI', () => {
     expect(src).toMatch(/aria-modal="true"/)
     expect(src).not.toMatch(/<p className="text-sm text-muted mt-1">\{t\('giftClaim\.hint'/)
   })
+
+  it('adds a QR scan control beside the activate button', () => {
+    expect(src).toContain("t('giftClaim.scanAria')")
+    expect(src).toContain('QrCodeScannerModal')
+    expect(src).toContain('setScannerOpen(true)')
+  })
 })

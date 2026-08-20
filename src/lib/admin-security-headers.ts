@@ -43,6 +43,7 @@ export function buildContentSecurityPolicy(
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
     "connect-src 'self' https:",
+    "media-src 'self' blob:",
     "frame-src 'self' https://www.google.com https://www.recaptcha.net",
     "frame-ancestors 'none'",
     "base-uri 'self'",
@@ -52,8 +53,9 @@ export function buildContentSecurityPolicy(
   ].join('; ')
 }
 
+/** Storefront QR scanner needs same-origin camera; third-party frames stay blocked. */
 export const PERMISSIONS_POLICY =
-  'camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=(), interest-cohort=()'
+  'camera=(self), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=(), interest-cohort=()'
 
 export function applySecurityHeaders(
   headers: Headers,

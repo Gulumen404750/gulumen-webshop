@@ -675,7 +675,14 @@
     "errorCouponExpired": "Dieser Gutschein ist abgelaufen.",
     "errorCouponUsed": "Dieser Gutschein wurde bereits verwendet.",
     "errorCouponAlreadyClaimed": "Dieser Gutschein ist bereits auf deinem Konto aktiviert.",
-    "errorCouponWrongUser": "Dieser Gutschein gehört nicht zu diesem Konto."
+    "errorCouponWrongUser": "Dieser Gutschein gehört nicht zu diesem Konto.",
+    "scanAria": "QR-Code scannen",
+    "scannerTitle": "QR-Code scannen",
+    "scannerHint": "Richte die Kamera auf den Gutschein- oder Geschenkpunkt-QR-Code.",
+    "scanFromPhoto": "Aus Foto scannen",
+    "cameraDenied": "Für das Scannen ist Kamerazugriff nötig. Erlaube ihn im Browser oder wähle ein Foto.",
+    "cameraUnavailable": "Kamera konnte nicht gestartet werden. Versuche es mit einem Foto.",
+    "scanEmpty": "Aus dem QR-Code konnte kein Code gelesen werden. Bitte erneut versuchen."
   },
   "luckySpin": {
     "title": "Glücksrad",

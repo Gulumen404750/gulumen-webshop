@@ -17,6 +17,7 @@ describe('gift claim error locale wiring', () => {
     expect(src).not.toMatch(/setError\(t\(/)
     expect(src).not.toMatch(/data\.error/)
     expect(src).toMatch(/localeNoticeText\(t, error\)/)
+    expect(src).toContain("setError({ key: 'giftClaim.scanEmpty' })")
   })
 
   it('maps coupon_already_claimed to a translatable key', () => {

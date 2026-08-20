@@ -660,7 +660,14 @@
     "errorCouponExpired": "Cuponul a expirat.",
     "errorCouponUsed": "Cuponul a fost deja folosit.",
     "errorCouponAlreadyClaimed": "Acest cupon este deja activat pe contul tău.",
-    "errorCouponWrongUser": "Acest cupon nu aparține acestui cont."
+    "errorCouponWrongUser": "Acest cupon nu aparține acestui cont.",
+    "scanAria": "Scanează codul QR",
+    "scannerTitle": "Scanare cod QR",
+    "scannerHint": "Îndreaptă camera spre codul QR al cuponului sau al punctelor cadou.",
+    "scanFromPhoto": "Scanează din fotografie",
+    "cameraDenied": "Pentru scanare este nevoie de acces la cameră. Permite-l în browser sau alege o fotografie.",
+    "cameraUnavailable": "Camera nu a putut fi pornită. Încearcă scanarea dintr-o fotografie.",
+    "scanEmpty": "Nu s-a putut citi un cod din QR. Încearcă din nou."
   },
   "luckySpin": {
     "title": "Roata Norocului",
