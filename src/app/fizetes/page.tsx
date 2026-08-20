@@ -1,6 +1,6 @@
 'use client'
 
-/** Fizetési oldal – Railway src watch-path 2026-08-20T19:00. */
+/** Fizetési oldal – Railway src watch-path 2026-08-20T19:47. */
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
