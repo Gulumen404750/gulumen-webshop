@@ -57,9 +57,10 @@ describe('coupon selection: 15% cap, fixed HUF stacking', () => {
     expect(isCouponStackingBlocked(['cat', 'registration'])).toBe(true)
     expect(isCouponStackingBlocked(['cat', 'gamification'], { fixedIds: ['gamification'] })).toBe(false)
     expect(capLoyaltyPercent(1)).toBeCloseTo(0.01)
-    expect(capLoyaltyPercent(8)).toBeCloseTo(0.08)
+    expect(capLoyaltyPercent(5)).toBeCloseTo(0.05)
+    expect(capLoyaltyPercent(8)).toBeCloseTo(0.05)
     expect(capLoyaltyPercent(0.03)).toBeCloseTo(0.03)
-    expect(capLoyaltyPercent(20)).toBeCloseTo(0.08)
+    expect(capLoyaltyPercent(20)).toBeCloseTo(0.05)
   })
 
   it('lists a redeemed gamification coupon in available checkout coupons', () => {

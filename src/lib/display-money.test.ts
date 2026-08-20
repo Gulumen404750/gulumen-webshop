@@ -43,6 +43,7 @@ describe('pointsCopyVars', () => {
     expect(vars.earnAmount).toMatch(/^€/)
     expect(vars.shippingThreshold).toMatch(/^€/)
     expect(vars.loyaltyThreshold).toMatch(/^€/)
+    expect(vars.loyaltyMaxPercent).toBe('5')
     expect(vars.rate).toBe('1')
     expect(usesEuroCopy('en')).toBe(true)
     expect(usesEuroCopy('hu')).toBe(false)

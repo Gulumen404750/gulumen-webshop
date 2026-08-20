@@ -3,7 +3,7 @@
  * Forrás igazság a szerveren; a kliens ugyanezt a függvényt használja előnézethez.
  *
  * Sorrend:
- * 1. Hűségkedvezmény (1–8%, automatikus, a teljes kosárra)
+ * 1. Hűségkedvezmény (1–5%, automatikus, a teljes kosárra)
  * 2. Extra kedvezmény – egyszerre csak egy:
  *    kupon (fix Ft + max. 15% százalékos) VAGY pontfelhasználás VAGY Szerencsekerék
  * 3. Szállítási díj (a pont nem fedezi; 25 000 Ft felett, csak ponttal fizetve is fizetendő)
@@ -428,7 +428,7 @@ export type ComputeCheckoutTotalsParams = {
   coupon: CouponDiscount
   luckySpin: LuckySpinRecord | null
   points?: PointsRedemptionInput
-  /** 0–1 hűségkedvezmény (max. 8%), automatikus; a kupon/pont/Szerencsekerék extra mellett is megmarad. */
+  /** 0–1 hűségkedvezmény (max. 5%), automatikus; a kupon/pont/Szerencsekerék extra mellett is megmarad. */
   loyaltyPercent?: number
   now?: Date
 }
