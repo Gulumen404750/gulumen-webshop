@@ -26,7 +26,7 @@ export async function GET(request: Request) {
     {
       loyaltyPercent,
       qualifyingPaidOrdersCount: orderCount,
-      tier: getLoyaltyTier(orderCount),
+      tier: getLoyaltyTier(loyaltyPercent),
       thresholdHuf: LOYALTY_THRESHOLD_HUF,
       maxPercent: LOYALTY_MAX_PERCENT,
     },

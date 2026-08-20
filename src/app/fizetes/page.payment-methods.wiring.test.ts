@@ -14,15 +14,20 @@ describe('checkout payment method picker', () => {
     expect(src).toMatch(/methodKlarnaNote/)
   })
 
-  it('allows coupons and points together, and still blocks two percent coupons', () => {
+  it('blocks coupons and points together, and still blocks two percent coupons', () => {
     expect(src).toMatch(/usePoints\s*\?\s*t\('payment.cashEarnHintPointsUsed'\)/)
     expect(src).toMatch(/selectedIds=\{selectedCouponIds\}/)
-    expect(src).not.toMatch(/disabled=\{usePoints\}/)
-    expect(src).not.toMatch(/usePoints \? \[\] : selectedCouponIds/)
-    expect(src).not.toMatch(/coupon: usePoints/)
+    expect(src).toMatch(/disabled=\{usePoints\}/)
+    expect(src).toMatch(/disabled=\{hasCouponExtra\}/)
+    expect(src).toMatch(/extraExclusiveHint/)
+    expect(src).toMatch(/if \(!hasCouponExtra\) return/)
+    expect(src).toMatch(/!hasCouponExtra && pointsDiscountHuf/)
+    expect(src).toMatch(/setUseGiftPoints\(false\)/)
+    expect(src).toMatch(/setUseActivityPoints\(false\)/)
     expect(src).toMatch(/typedCoupon\?\.discountType === 'percent'/)
     const applyFn = src.slice(src.indexOf('const applyTypedCoupon'), src.indexOf('const clearTypedCoupon'))
-    expect(applyFn).not.toMatch(/setUseGiftPoints\(false\)/)
+    expect(applyFn).toMatch(/setUseGiftPoints\(false\)/)
+    expect(applyFn).toMatch(/setUseActivityPoints\(false\)/)
   })
 
   it('does not promise purchase earn on Klarna instalments', () => {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   getLoyaltyTier,
+  getLoyaltyDisplayTier,
   loyaltyPercentFromCount,
   paidGroupQualifiesForLoyalty,
   qualifiesForLoyalty,
@@ -9,22 +10,25 @@ import {
 } from './loyalty'
 
 describe('loyaltyPercentFromCount', () => {
-  it('is 1% after the first qualifying order and caps at 8%', () => {
+  it('is 1% after the first qualifying order and caps at 5%', () => {
     expect(loyaltyPercentFromCount(0)).toBe(0)
     expect(loyaltyPercentFromCount(1)).toBe(1)
-    expect(loyaltyPercentFromCount(8)).toBe(8)
+    expect(loyaltyPercentFromCount(5)).toBe(5)
+    expect(loyaltyPercentFromCount(8)).toBe(LOYALTY_MAX_PERCENT)
     expect(loyaltyPercentFromCount(20)).toBe(LOYALTY_MAX_PERCENT)
   })
 })
 
 describe('getLoyaltyTier', () => {
-  it('hides the badge at 0 and maps bronze/silver/gold', () => {
+  it('maps 0% to mystery and 1–5% to Réz–Gyémánt', () => {
     expect(getLoyaltyTier(0)).toBeNull()
-    expect(getLoyaltyTier(1)).toBe('bronze')
-    expect(getLoyaltyTier(2)).toBe('bronze')
-    expect(getLoyaltyTier(3)).toBe('silver')
-    expect(getLoyaltyTier(5)).toBe('silver')
-    expect(getLoyaltyTier(6)).toBe('gold')
+    expect(getLoyaltyDisplayTier(0)).toBe('mystery')
+    expect(getLoyaltyTier(1)).toBe('copper')
+    expect(getLoyaltyTier(2)).toBe('silver')
+    expect(getLoyaltyTier(3)).toBe('gold')
+    expect(getLoyaltyTier(4)).toBe('platinum')
+    expect(getLoyaltyTier(5)).toBe('diamond')
+    expect(getLoyaltyTier(8)).toBe('diamond')
   })
 })
 

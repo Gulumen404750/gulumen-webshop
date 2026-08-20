@@ -3,6 +3,8 @@ import {
   isCouponStackingBlocked,
   isFixedCouponDiscount,
   exclusiveCouponIds,
+  isCouponPointsStackBlocked,
+  hasCouponExtraDiscount,
 } from '@/lib/coupon-config'
 
 describe('fixed coupon stacking rules', () => {
@@ -29,6 +31,15 @@ describe('fixed coupon stacking rules', () => {
   it('does not treat loyalty as an exclusive coupon', () => {
     expect(exclusiveCouponIds(['loyalty', 'cat'])).toEqual(new Set(['cat']))
     expect(isCouponStackingBlocked(['loyalty', 'cat'])).toBe(false)
+  })
+
+  it('blocks combining a coupon extra with points', () => {
+    expect(isCouponPointsStackBlocked(true, true)).toBe(true)
+    expect(isCouponPointsStackBlocked(true, false)).toBe(false)
+    expect(isCouponPointsStackBlocked(false, true)).toBe(false)
+    expect(hasCouponExtraDiscount({ percent: 0.1 })).toBe(true)
+    expect(hasCouponExtraDiscount({ fixedHuf: 5000 })).toBe(true)
+    expect(hasCouponExtraDiscount({ percent: 0, fixedHuf: 0 })).toBe(false)
   })
 
   it('detects fixed HUF discounts', () => {

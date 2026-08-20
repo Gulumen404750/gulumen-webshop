@@ -1,6 +1,6 @@
 /**
  * Hűségkedvezmény: emailhez kötött, minősített fizetett vásárlásszám alapján.
- * 50 000 Ft+ kártyás fizetésenként +1%, max. 8%. Összevonható kuponnal és ponttal.
+ * 50 000 Ft+ kártyás fizetésenként +1%, max. 5%. A hűség automatikus alapkedvezmény.
  * Élesben Prisma LoyaltyRecord (Railway); DATABASE_URL nélkül JSON fallback.
  */
 import { prisma, isDbConfigured } from '@/lib/prisma'
@@ -8,16 +8,31 @@ import { FALLBACK_HUF_PER_EUR } from '@/lib/euro-rate'
 import { LOYALTY_MAX_PERCENT, LOYALTY_THRESHOLD_HUF } from '@/lib/loyalty-constants'
 import { anyOrderUsedInternalPoints } from '@/lib/order-points-accounting'
 
-export type LoyaltyTier = 'bronze' | 'silver' | 'gold'
+export type LoyaltyTier = 'copper' | 'silver' | 'gold' | 'platinum' | 'diamond'
+export type LoyaltyDisplayTier = 'mystery' | LoyaltyTier
 
 export { LOYALTY_MAX_PERCENT, LOYALTY_THRESHOLD_HUF }
 
-/** Hűségszint a minősített rendelésszám alapján. 0 rendelés → null (nincs badge). */
-export function getLoyaltyTier(orderCount: number): LoyaltyTier | null {
-  if (orderCount <= 0) return null
-  if (orderCount <= 2) return 'bronze'
-  if (orderCount <= 5) return 'silver'
-  return 'gold'
+export const LOYALTY_DISPLAY_TIERS: readonly LoyaltyDisplayTier[] = [
+  'mystery',
+  'copper',
+  'silver',
+  'gold',
+  'platinum',
+  'diamond',
+] as const
+
+const TIER_BY_PERCENT: LoyaltyTier[] = ['copper', 'silver', 'gold', 'platinum', 'diamond']
+
+/** Hűségszint a kedvezmény % / minősített rendelésszám alapján. 0 → null (rejtélyes jelvény). */
+export function getLoyaltyTier(percentOrCount: number): LoyaltyTier | null {
+  const n = loyaltyPercentFromCount(percentOrCount)
+  if (n <= 0) return null
+  return TIER_BY_PERCENT[Math.min(n, TIER_BY_PERCENT.length) - 1]
+}
+
+export function getLoyaltyDisplayTier(percentOrCount: number): LoyaltyDisplayTier {
+  return getLoyaltyTier(percentOrCount) ?? 'mystery'
 }
 
 export function loyaltyPercentFromCount(count: number): number {
@@ -148,7 +163,7 @@ function toPublicRecord(row: {
   return {
     email: row.email,
     qualifyingPaidOrdersCount: row.qualifyingPaidOrdersCount,
-    loyaltyPercent: row.loyaltyPercent,
+    loyaltyPercent: loyaltyPercentFromCount(row.loyaltyPercent),
     lastUpdatedAt:
       typeof row.lastUpdatedAt === 'string' ? row.lastUpdatedAt : row.lastUpdatedAt.toISOString(),
     userId: row.userId ?? null,
@@ -169,7 +184,8 @@ export async function getLoyaltyByEmail(email: string): Promise<LoyaltyRecord | 
   }
 
   const records = loadLoyalty()
-  return records.find((r) => normalizeEmail(r.email) === key) ?? null
+  const found = records.find((r) => normalizeEmail(r.email) === key)
+  return found ? toPublicRecord(found) : null
 }
 
 async function resolveUserIdByEmail(email: string): Promise<string | null> {

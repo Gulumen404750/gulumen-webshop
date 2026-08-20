@@ -1,6 +1,7 @@
 /**
  * Manuális kuponválasztás: egy százalékos kupon (max. 15%) + opcionális fix Ft kupon.
- * A hűségkedvezmény nem kuponválasztás: automatikus, más kedvezményre ráépül.
+ * A hűségkedvezmény nem kuponválasztás: automatikus. Pontfizetés és Szerencsekerék
+ * a kupon extra mellett nem érvényesül.
  */
 
 import {

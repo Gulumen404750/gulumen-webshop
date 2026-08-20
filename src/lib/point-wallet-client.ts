@@ -24,6 +24,7 @@ export type PointWalletData = {
   balance: number
   lifetimeEarned: number
   lifetimeRedeemed: number
+  lifetimeSavedHuf?: number
   redeemThreshold: number
   canRedeem: boolean
   redeemableCount?: number

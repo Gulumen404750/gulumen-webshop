@@ -22,11 +22,11 @@ describe('checkout coupon picker', () => {
     expect(src).toMatch(/paymentMethod === 'klarna'/)
   })
 
-  it('keeps coupons selectable while spending points', () => {
+  it('disables coupons while spending points', () => {
     expect(src).toMatch(/selectedIds=\{selectedCouponIds\}/)
-    expect(src).not.toMatch(/disabled=\{usePoints\}/)
-    expect(src).not.toMatch(/setSelectedCouponIds\(\[\]\)/)
-    expect(src).not.toMatch(/coupon: usePoints/)
+    expect(src).toMatch(/disabled=\{usePoints\}/)
+    expect(src).toMatch(/setSelectedCouponIds\(\[\]\)/)
+    expect(src).toMatch(/usePoints && !hasBlockingCouponExtra && pointsPreview/)
     expect(src).toMatch(/welcomeOfferAccepted: couponSelection\.useWelcome/)
   })
 
@@ -37,22 +37,22 @@ describe('checkout coupon picker', () => {
     expect(src).toMatch(/percent: isFixed \? 0 : coupon\.discountPercent/)
   })
 
-  it('does not turn off point payment when a coupon is activated', () => {
+  it('turns off point payment when a coupon is activated', () => {
     const applyFn = src.slice(src.indexOf('const applyTypedCoupon'), src.indexOf('const clearTypedCoupon'))
     expect(applyFn).toContain('setTypedCoupon(coupon)')
-    expect(applyFn).not.toMatch(/setUseGiftPoints\(false\)/)
-    expect(applyFn).not.toMatch(/setUseActivityPoints\(false\)/)
+    expect(applyFn).toMatch(/setUseGiftPoints\(false\)/)
+    expect(applyFn).toMatch(/setUseActivityPoints\(false\)/)
   })
 
-  it('keeps an applied coupon when gift points are claimed', () => {
+  it('keeps an applied coupon when gift points are claimed if the coupon extra is already on', () => {
     const handler = src.slice(
       src.indexOf('const handleRedeemedCode'),
       src.indexOf('const handleCouponSelectionChange')
     )
     expect(handler).toContain("result.kind === 'gift_points'")
+    expect(handler).toContain('couponExtra')
     expect(handler).toContain('setUseGiftPoints(true)')
     expect(handler).not.toMatch(/clearTypedCoupon\(\)/)
-    expect(handler).not.toMatch(/setUseActivityPoints\(false\)/)
   })
 
   it('shows a remainder warning when a fixed coupon cannot be used in full', () => {

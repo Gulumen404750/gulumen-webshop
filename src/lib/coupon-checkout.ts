@@ -4,6 +4,11 @@
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import type { CouponDiscount } from '@/lib/checkout'
 import { capCombinedCouponPercent, isFixedCouponDiscount } from '@/lib/coupon-config'
+import {
+  isAbandonedCartSource,
+  parseEligibleItems,
+  type AbandonedCartEligibleItem,
+} from '@/lib/abandoned-cart-offer'
 import { Prisma } from '@prisma/client'
 import {
   claimCouponForUser,
@@ -18,6 +23,7 @@ export type ResolvedDbCoupon = {
   discountValue: number
   source: string | null
   userId: string | null
+  eligibleItems: AbandonedCartEligibleItem[]
 }
 
 export type ResolveCheckoutCouponResult =
@@ -54,6 +60,7 @@ export type CouponRedeemPreview = {
   validUntil: Date | null
   source: string | null
   userId: string | null
+  eligibleItems: AbandonedCartEligibleItem[]
 }
 
 /** Kuponkód előnézet (min. rendelés nélkül) – profil / kódbeváltó. */
@@ -116,6 +123,7 @@ export async function previewCouponCode(params: {
       validUntil: coupon.validUntil,
       source: coupon.source,
       userId: coupon.userId,
+      eligibleItems: parseEligibleItems(coupon.eligibleItems),
     },
   }
 }
@@ -150,6 +158,7 @@ export async function resolveCheckoutCoupon(params: {
     discountValue: preview.coupon.discountValue,
     source: preview.coupon.source,
     userId: preview.coupon.userId,
+    eligibleItems: preview.coupon.eligibleItems,
   }
 
   if (!preview.coupon.userId) {
@@ -169,6 +178,7 @@ export async function resolveCheckoutCoupon(params: {
       discountValue: claimed.coupon.discountValue,
       source: claimed.coupon.source,
       userId: claimed.coupon.userId,
+      eligibleItems: preview.coupon.eligibleItems,
     }
   }
 
@@ -183,18 +193,83 @@ export async function resolveCheckoutCoupon(params: {
   return { ok: true, coupon: resolved, discount: dbCouponToDiscount(resolved) }
 }
 
+export type AbandonedCartCheckoutOffer = {
+  percent: number
+  eligibleItems: AbandonedCartEligibleItem[]
+  couponId: string
+}
+
 export type ResolvedCheckoutCoupons = {
   coupons: Array<{ coupon: ResolvedDbCoupon; discount: CouponDiscount }>
   percent: number
   fixedHuf: number
   primaryCouponId: string | null
   secondaryCouponId: string | null
+  abandonedCart: AbandonedCartCheckoutOffer | null
 }
 
 /**
  * Egy vagy két DB kupon: egy fix Ft + egy százalékos összevonható.
- * Két százalékos vagy két fix kupon továbbra is tilos.
+ * Elhagyott kosár (scoped eligibleItems) + egy másik % kupon a többlet/új tételekre megengedett.
+ * Két sima százalékos vagy két fix kupon továbbra is tilos.
  */
+export function isScopedAbandonedCoupon(entry: {
+  coupon: Pick<ResolvedDbCoupon, 'source' | 'eligibleItems'>
+  discount: CouponDiscount
+}): boolean {
+  return (
+    isAbandonedCartSource(entry.coupon.source) &&
+    entry.coupon.eligibleItems.length > 0 &&
+    !isFixedCouponDiscount(entry.discount)
+  )
+}
+
+export function mergeResolvedCheckoutCoupons(
+  resolved: Array<{ coupon: ResolvedDbCoupon; discount: CouponDiscount }>
+):
+  | { ok: true; result: ResolvedCheckoutCoupons }
+  | { ok: false; error: string; code: string } {
+  const abandoned = resolved.filter((r) => isScopedAbandonedCoupon(r))
+  const others = resolved.filter((r) => !isScopedAbandonedCoupon(r))
+  if (abandoned.length > 1) {
+    return { ok: false, error: 'Coupons cannot be combined', code: 'coupon_stack_disabled' }
+  }
+
+  const fixed = others.filter((r) => isFixedCouponDiscount(r.discount))
+  const percent = others.filter((r) => !isFixedCouponDiscount(r.discount))
+  if (fixed.length > 1 || percent.length > 1) {
+    return { ok: false, error: 'Coupons cannot be combined', code: 'coupon_stack_disabled' }
+  }
+
+  const abandonedEntry = abandoned[0] ?? null
+  const extra = fixed[0] ?? percent[0] ?? null
+  const primary = abandonedEntry ?? extra
+  const secondary =
+    primary && extra && extra.coupon.id !== primary.coupon.id ? extra : null
+
+  const abandonedPercent = abandonedEntry
+    ? capCombinedCouponPercent((abandonedEntry.discount.percent ?? 0) || abandonedEntry.coupon.discountValue / 100)
+    : 0
+
+  return {
+    ok: true,
+    result: {
+      coupons: resolved,
+      percent: percent[0]?.discount.percent ?? 0,
+      fixedHuf: fixed[0]?.discount.fixedHuf ?? 0,
+      primaryCouponId: primary?.coupon.id ?? null,
+      secondaryCouponId: secondary?.coupon.id ?? null,
+      abandonedCart: abandonedEntry
+        ? {
+            percent: abandonedPercent,
+            eligibleItems: abandonedEntry.coupon.eligibleItems,
+            couponId: abandonedEntry.coupon.id,
+          }
+        : null,
+    },
+  }
+}
+
 export async function resolveCheckoutCoupons(params: {
   couponCodes: string[]
   checkoutUserId: string | null
@@ -224,28 +299,7 @@ export async function resolveCheckoutCoupons(params: {
     resolved.push({ coupon: one.coupon, discount: one.discount })
   }
 
-  const fixed = resolved.filter((r) => isFixedCouponDiscount(r.discount))
-  const percent = resolved.filter((r) => !isFixedCouponDiscount(r.discount))
-  if (fixed.length > 1 || percent.length > 1) {
-    return { ok: false, error: 'Coupons cannot be combined', code: 'coupon_stack_disabled' }
-  }
-
-  const primary = fixed[0] ?? percent[0] ?? null
-  const secondary =
-    primary && resolved.length === 2
-      ? resolved.find((r) => r.coupon.id !== primary.coupon.id) ?? null
-      : null
-
-  return {
-    ok: true,
-    result: {
-      coupons: resolved,
-      percent: percent[0]?.discount.percent ?? 0,
-      fixedHuf: fixed[0]?.discount.fixedHuf ?? 0,
-      primaryCouponId: primary?.coupon.id ?? null,
-      secondaryCouponId: secondary?.coupon.id ?? null,
-    },
-  }
+  return mergeResolvedCheckoutCoupons(resolved)
 }
 
 const PAID_STATUSES = new Set(['paid', 'sourcing_pending'])

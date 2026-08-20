@@ -8,6 +8,10 @@ describe('PointsProgress profile coupons', () => {
   it('lets the shopper open a list of purchased coupons under redeem', () => {
     expect(src).toMatch(/<details/)
     expect(src).toMatch(/gamification\.myCouponsTitle/)
+    expect(src).not.toMatch(/myCouponsTitle', \{ count: coupons\.length \}/)
+    expect(src).toMatch(/gamification\.myCouponsActiveCount/)
+    expect(src).toMatch(/lifetimeSavedHuf/)
+    expect(src).toMatch(/savedSoFarLabel/)
     expect(src).toMatch(/wallet\?\.coupons/)
   })
 

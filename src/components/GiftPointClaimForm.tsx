@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import Link from 'next/link'
-import { CircleHelp } from 'lucide-react'
+import { CircleHelp, QrCode } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useLocale } from '@/context/LocaleContext'
 import { useDisplayMoney } from '@/hooks/useDisplayMoney'
@@ -10,6 +10,8 @@ import { POINT_WALLET_SWR_KEY } from '@/lib/point-wallet-client'
 import { mutate } from 'swr'
 import { writeTypedCoupon, type StoredTypedCoupon } from '@/lib/typed-coupon-storage'
 import { localeNoticeText, type LocaleNotice } from '@/lib/locale-notice'
+import { extractRedeemCodeFromScan } from '@/lib/scan-redeem-code'
+import { QrCodeScannerModal } from '@/components/QrCodeScannerModal'
 
 export type GiftClaimSuccess = {
   kind: 'gift_points'
@@ -178,6 +180,7 @@ export function GiftPointClaimForm({
   const { isLoggedIn, authChecked } = useAuth()
   const [token, setToken] = useState(initialToken)
   const [busy, setBusy] = useState(false)
+  const [scannerOpen, setScannerOpen] = useState(false)
   const [error, setError] = useState<LocaleNotice | null>(null)
   const [giftSuccess, setGiftSuccess] = useState<GiftClaimSuccess | null>(null)
   const [couponSuccess, setCouponSuccess] = useState<CouponClaimSuccess | null>(null)
@@ -187,12 +190,11 @@ export function GiftPointClaimForm({
       ? `${window.location.pathname}${window.location.search}`
       : '/claim'
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const redeem = async (rawCode: string) => {
     setError(null)
     setGiftSuccess(null)
     setCouponSuccess(null)
-    const trimmed = token.trim()
+    const trimmed = rawCode.trim()
     if (!trimmed) {
       setError({ key: 'giftClaim.errorRequired' })
       return
@@ -255,6 +257,22 @@ export function GiftPointClaimForm({
     } finally {
       setBusy(false)
     }
+  }
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await redeem(token)
+  }
+
+  const handleScannedCode = (code: string) => {
+    setScannerOpen(false)
+    const extracted = extractRedeemCodeFromScan(code)
+    if (!extracted) {
+      setError({ key: 'giftClaim.scanEmpty' })
+      return
+    }
+    setToken(extracted)
+    void redeem(extracted)
   }
 
   return (
@@ -330,14 +348,38 @@ export function GiftPointClaimForm({
           </p>
         ) : null}
 
-        <button
-          type="submit"
-          disabled={busy || (!token.trim() && hideTokenInput)}
-          className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-        >
-          {busy ? t('giftClaim.submitting') : t('giftClaim.submit')}
-        </button>
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="submit"
+            disabled={busy || (!token.trim() && hideTokenInput)}
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+          >
+            {busy ? t('giftClaim.submitting') : t('giftClaim.submit')}
+          </button>
+          {!hideTokenInput ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setError(null)
+                setScannerOpen(true)
+              }}
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent text-white hover:opacity-90 disabled:opacity-50"
+              aria-label={t('giftClaim.scanAria')}
+              aria-haspopup="dialog"
+            >
+              <QrCode className="h-5 w-5" strokeWidth={2} aria-hidden />
+            </button>
+          ) : null}
+        </div>
       </form>
+      {!hideTokenInput ? (
+        <QrCodeScannerModal
+          open={scannerOpen}
+          onClose={() => setScannerOpen(false)}
+          onDetect={handleScannedCode}
+        />
+      ) : null}
     </section>
   )
 }

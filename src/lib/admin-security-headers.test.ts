@@ -22,6 +22,7 @@ describe('buildContentSecurityPolicy', () => {
     expect(csp).toContain("frame-src 'self' https://www.google.com https://www.recaptcha.net")
     expect(csp).toContain("form-action 'self' https://accounts.google.com")
     expect(csp).toContain("object-src 'none'")
+    expect(csp).toContain("media-src 'self' blob:")
     expect(csp).toContain('upgrade-insecure-requests')
   })
 
@@ -65,9 +66,11 @@ describe('applySecurityHeaders', () => {
 })
 
 describe('PERMISSIONS_POLICY', () => {
-  it('disables camera, microphone, geolocation and payment', () => {
-    expect(PERMISSIONS_POLICY).toContain('camera=()')
-    expect(PERMISSIONS_POLICY).toContain('microphone=()')
+  it('allows same-origin camera and microphone, and disables geolocation and payment', () => {
+    expect(PERMISSIONS_POLICY).toContain('camera=(self)')
+    expect(PERMISSIONS_POLICY).toContain('microphone=(self)')
+    expect(PERMISSIONS_POLICY).not.toMatch(/camera=\(\)/)
+    expect(PERMISSIONS_POLICY).not.toMatch(/microphone=\(\)/)
     expect(PERMISSIONS_POLICY).toContain('geolocation=()')
     expect(PERMISSIONS_POLICY).toContain('payment=()')
   })

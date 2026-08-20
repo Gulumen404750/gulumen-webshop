@@ -1,3 +1,5 @@
+import { MAX_LOYALTY_COUPON_PERCENT } from '@/lib/loyalty-constants'
+
 /** Macska-játék egyszeri kupon (0–1). */
 export const CAT_COUPON_PERCENT = 0.05
 
@@ -5,7 +7,7 @@ export const CAT_COUPON_PERCENT = 0.05
 export const REGISTRATION_COUPON_PERCENT = 0.1
 
 /** Éles deploy marker – Railway Watch Paths a src/** fájlokra figyel. */
-export const COUPON_STACKING_DEPLOY_MARKER = '2026-08-19T18:22'
+export const COUPON_STACKING_DEPLOY_MARKER = '2026-08-20T19:00'
 
 /**
  * Checkout welcome ajánlat: hírlevél feliratkozás → azonnali 10%.
@@ -23,12 +25,13 @@ export const BIRTHDAY_COUPON_VALID_DAYS = 7
  * Egy százalékos kupon legnagyobb beváltható kedvezménye (0–1).
  * A százalékos kuponok egymással nem vonhatók össze; a checkouton egyszerre egy % kupon érvényes.
  * A fix forintos kupon (ajándék / admin) összevonható egy százalékos kuponnal:
- * (kosár - fix) * (1 - százalék). A hűség (1–8%) automatikus alapkedvezmény.
+ * (kosár - fix) * (1 - százalék). A hűség (1–5%) automatikus alapkedvezmény.
+ * Pontfizetés és Szerencsekerék a kupon extra mellett nem érvényesül.
  */
 export const MAX_COMBINED_COUPON_PERCENT = 0.15
 
 /** Hűségkedvezmény plafon (0–1). Nem számít bele a 15%-os kuponplafonba. */
-export const MAX_LOYALTY_COUPON_PERCENT = 0.08
+export { MAX_LOYALTY_COUPON_PERCENT }
 
 /** UI / admin: 15. */
 export const MAX_COUPON_PERCENT_DISPLAY = Math.round(MAX_COMBINED_COUPON_PERCENT * 100)
@@ -46,7 +49,7 @@ export function capCombinedCouponPercent(totalPercent: number): number {
 
 export function capLoyaltyPercent(percent: number): number {
   if (!Number.isFinite(percent) || percent <= 0) return 0
-  // DB / UI: 1–8 egész %; számolás: 0–0.08 tört.
+  // DB / UI: 1–5 egész %; számolás: 0–0.05 tört.
   const fraction = percent >= 1 ? percent / 100 : percent
   return Math.min(fraction, MAX_LOYALTY_COUPON_PERCENT)
 }
@@ -80,6 +83,19 @@ export function isCouponStackingBlocked(
 /** true, ha a kedvezmény fix forintos (ajándék / admin) kupon. */
 export function isFixedCouponDiscount(discount: { fixedHuf?: number; percent?: number }): boolean {
   return Boolean(discount.fixedHuf && discount.fixedHuf > 0)
+}
+
+/** Van-e hűségen felüli kupon extra (százalékos vagy fix Ft). */
+export function hasCouponExtraDiscount(discount: { percent?: number; fixedHuf?: number }): boolean {
+  return (Number(discount.percent) || 0) > 0 || (Number(discount.fixedHuf) || 0) > 0
+}
+
+/** Kupon extra és pontfizetés egymást kizárja; a hűség mindig külön. */
+export function isCouponPointsStackBlocked(
+  hasCouponExtra: boolean,
+  usePoints: boolean
+): boolean {
+  return hasCouponExtra && usePoints
 }
 
 /** true, ha a macska + regisztrációs kupon együtt tilos a kijelölésben / checkouton. */

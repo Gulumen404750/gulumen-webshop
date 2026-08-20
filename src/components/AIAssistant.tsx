@@ -73,10 +73,22 @@ const SPEECH_LANG: Record<Locale, string> = {
   ro: 'ro-RO',
 }
 
-function getSpeechRecognition(): SpeechRecognition | null {
+function getSpeechRecognitionCtor(): SpeechRecognitionStatic | null {
   if (typeof window === 'undefined') return null
-  const Ctor = window.SpeechRecognition ?? window.webkitSpeechRecognition
+  return window.SpeechRecognition ?? window.webkitSpeechRecognition ?? null
+}
+
+function createSpeechRecognition(): SpeechRecognition | null {
+  const Ctor = getSpeechRecognitionCtor()
   return Ctor ? new Ctor() : null
+}
+
+function voiceErrorKey(code: string): string | null {
+  if (code === 'aborted' || code === 'no-speech') return null
+  if (code === 'not-allowed' || code === 'service-not-allowed' || code === 'audio-capture') {
+    return 'ai.voiceDenied'
+  }
+  return 'ai.voiceError'
 }
 
 export function AIAssistant() {
@@ -89,6 +101,7 @@ export function AIAssistant() {
   const [loading, setLoading] = useState(false)
   const [listening, setListening] = useState(false)
   const [voiceSupported, setVoiceSupported] = useState(false)
+  const [voiceError, setVoiceError] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const messagesRef = useRef(messages)
@@ -97,7 +110,7 @@ export function AIAssistant() {
   const chatGenerationRef = useRef(0)
 
   useEffect(() => {
-    setVoiceSupported(getSpeechRecognition() !== null)
+    setVoiceSupported(getSpeechRecognitionCtor() !== null)
   }, [])
 
   useEffect(() => {
@@ -107,6 +120,7 @@ export function AIAssistant() {
     recognitionRef.current?.abort()
     recognitionRef.current = null
     setListening(false)
+    setVoiceError(null)
     setMessages([])
     setInput('')
     setLoading(false)
@@ -178,49 +192,77 @@ export function AIAssistant() {
   const send = () => sendMessage(input)
 
   const stopListening = useCallback(() => {
-    recognitionRef.current?.stop()
+    const recognition = recognitionRef.current
     recognitionRef.current = null
     setListening(false)
+    try {
+      recognition?.stop()
+    } catch {
+      /* already stopped */
+    }
   }, [])
 
-  const toggleVoice = useCallback(() => {
-    if (listening) {
-      stopListening()
-      return
-    }
-    const recognition = getSpeechRecognition()
-    if (!recognition) return
-
-    recognition.lang = SPEECH_LANG[locale] ?? 'hu-HU'
-    recognition.continuous = false
-    recognition.interimResults = true
-
-    recognition.onresult = (event) => {
-      let transcript = ''
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        transcript += event.results[i][0].transcript
-      }
-      setInput(transcript.trim())
-      if (event.results[event.results.length - 1]?.isFinal && transcript.trim()) {
+  const toggleVoice = useCallback(
+    (e?: MouseEvent<HTMLButtonElement>) => {
+      e?.preventDefault()
+      e?.stopPropagation()
+      if (loading) return
+      if (listening) {
         stopListening()
-        void sendMessage(transcript.trim())
+        return
       }
-    }
+      const recognition = createSpeechRecognition()
+      if (!recognition) {
+        setVoiceSupported(false)
+        setVoiceError('ai.voiceUnsupported')
+        return
+      }
 
-    recognition.onerror = () => {
-      setListening(false)
-      recognitionRef.current = null
-    }
+      setVoiceError(null)
+      recognition.lang = SPEECH_LANG[locale] ?? 'hu-HU'
+      recognition.continuous = false
+      recognition.interimResults = true
 
-    recognition.onend = () => {
-      setListening(false)
-      recognitionRef.current = null
-    }
+      recognition.onresult = (event) => {
+        let transcript = ''
+        for (let i = 0; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript
+        }
+        const next = transcript.trim()
+        if (next) setInput(next)
+        if (event.results[event.results.length - 1]?.isFinal && next) {
+          stopListening()
+        }
+      }
 
-    recognitionRef.current = recognition
-    setListening(true)
-    recognition.start()
-  }, [listening, locale, sendMessage, stopListening])
+      recognition.onerror = (event) => {
+        const key = voiceErrorKey(event.error)
+        if (key) setVoiceError(key)
+        recognitionRef.current = null
+        setListening(false)
+      }
+
+      recognition.onend = () => {
+        setListening(false)
+        recognitionRef.current = null
+      }
+
+      recognitionRef.current = recognition
+      try {
+        recognition.start()
+        setListening(true)
+      } catch {
+        recognitionRef.current = null
+        setListening(false)
+        setVoiceError('ai.voiceError')
+      }
+    },
+    [listening, loading, locale, stopListening]
+  )
+
+  useEffect(() => {
+    if (!open) stopListening()
+  }, [open, stopListening])
 
   useEffect(() => {
     return () => {
@@ -331,28 +373,28 @@ export function AIAssistant() {
                 send()
               }}
             >
-              {voiceSupported && (
-                <button
-                  type="button"
-                  onClick={toggleVoice}
-                  disabled={loading}
-                  className={`shrink-0 p-2.5 rounded-xl border font-medium text-sm transition-colors disabled:opacity-60 ${
-                    listening
-                      ? 'border-red-500 bg-red-500/15 text-red-600 animate-pulse'
-                      : 'border-[var(--border)] text-foreground hover:bg-[var(--border)]'
-                  }`}
-                  aria-label={listening ? t('ai.voiceStop') : t('ai.voiceStart')}
-                  title={listening ? t('ai.voiceStop') : t('ai.voiceStart')}
-                >
-                  <MicIcon className="w-5 h-5" />
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={toggleVoice}
+                disabled={loading}
+                className={`shrink-0 p-2.5 rounded-full border font-medium text-sm transition-colors disabled:opacity-60 ${
+                  listening
+                    ? 'border-red-500 bg-red-500/20 text-red-500 animate-pulse'
+                    : 'border-[var(--border)] text-foreground hover:bg-[var(--border)]'
+                }`}
+                aria-label={listening ? t('ai.voiceStop') : t('ai.voiceStart')}
+                title={listening ? t('ai.voiceStop') : t('ai.voiceStart')}
+                aria-pressed={listening}
+              >
+                <MicIcon className="w-5 h-5" />
+              </button>
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={listening ? t('ai.voiceListening') : t('ai.placeholder')}
                 disabled={loading}
+                aria-live="polite"
                 className="flex-1 min-w-0 px-4 py-2 rounded-xl border border-[var(--border)] bg-background text-foreground placeholder:text-muted text-sm disabled:opacity-60"
               />
               <button
@@ -363,9 +405,13 @@ export function AIAssistant() {
                 {t('ai.send')}
               </button>
             </form>
-            {!voiceSupported && (
+            {voiceError ? (
+              <p className="px-4 pb-3 text-xs text-red-600 dark:text-red-400" role="alert">
+                {t(voiceError)}
+              </p>
+            ) : !voiceSupported ? (
               <p className="px-4 pb-3 text-xs text-muted">{t('ai.voiceUnsupported')}</p>
-            )}
+            ) : null}
           </div>
         </div>
       )}

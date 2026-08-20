@@ -6,6 +6,7 @@ function wallet(balance: number): PointWalletData {
     balance,
     lifetimeEarned: 1000,
     lifetimeRedeemed: 0,
+    lifetimeSavedHuf: 0,
     redeemThreshold: 350,
     canRedeem: balance >= 350,
     hasActiveCoupon: false,

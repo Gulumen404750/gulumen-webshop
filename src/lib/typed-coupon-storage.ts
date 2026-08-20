@@ -1,3 +1,6 @@
+import type { AbandonedCartEligibleItem } from '@/lib/abandoned-cart-offer'
+import { parseEligibleItems } from '@/lib/abandoned-cart-offer'
+
 const STORAGE_KEY = 'gulumen.typedCouponCode'
 
 export type StoredTypedCoupon = {
@@ -5,6 +8,8 @@ export type StoredTypedCoupon = {
   discountType: 'percent' | 'fixed'
   discountValue: number
   minOrderHuf: number | null
+  source?: string | null
+  eligibleItems?: AbandonedCartEligibleItem[]
 }
 
 export function readTypedCoupon(): StoredTypedCoupon | null {
@@ -22,6 +27,8 @@ export function readTypedCoupon(): StoredTypedCoupon | null {
       discountType: parsed.discountType,
       discountValue: Math.floor(parsed.discountValue),
       minOrderHuf: parsed.minOrderHuf == null ? null : Math.floor(parsed.minOrderHuf),
+      source: parsed.source ? String(parsed.source) : undefined,
+      eligibleItems: parseEligibleItems(parsed.eligibleItems),
     }
   } catch {
     return null

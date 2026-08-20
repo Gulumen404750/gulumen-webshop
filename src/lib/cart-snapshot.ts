@@ -1,5 +1,14 @@
 import { prisma, isDbConfigured } from '@/lib/prisma'
 import { normalizeCartItem, type CartItem } from '@/lib/cart-storage'
+import { absoluteFirstPartyProductImages } from '@/lib/product-image-urls'
+import { eligibleItemsFromCart, parseEligibleItems } from '@/lib/abandoned-cart-offer'
+import {
+  abandonedCartRestoreUrl,
+  generateRestoreToken,
+  hashRestoreToken,
+  isLikelyRestoreToken,
+} from '@/lib/abandoned-cart-restore'
+import { isCouponInValidPeriod } from '@/lib/coupon-checkout'
 
 export const ABANDONED_CART_DAYS = 7
 export const ABANDONED_CART_OFFER_VALID_DAYS = 14
@@ -14,6 +23,7 @@ export type CartSnapshotLine = {
   name: string
   unitPriceHuf: number
   lineTotalHuf: number
+  image?: string
 }
 
 export type AdminCartSnapshotRow = {
@@ -48,7 +58,7 @@ async function computeLines(items: CartItem[]): Promise<{
   const products = productIds.length
     ? await prisma.product.findMany({
         where: { id: { in: productIds } },
-        select: { id: true, name: true, priceHuf: true, discountPriceHuf: true },
+        select: { id: true, name: true, priceHuf: true, discountPriceHuf: true, image: true, images: true },
       })
     : []
   const byId = new Map(products.map((p) => [p.id, p]))
@@ -69,6 +79,7 @@ async function computeLines(items: CartItem[]): Promise<{
     const lineTotalHuf = unitPriceHuf * item.qty
     itemCount += item.qty
     subtotalHuf += lineTotalHuf
+    const image = p ? absoluteFirstPartyProductImages(p, 1)[0] : undefined
     lines.push({
       productId: item.productId,
       qty: item.qty,
@@ -76,6 +87,7 @@ async function computeLines(items: CartItem[]): Promise<{
       name: (p?.name || item.name || item.productId).trim(),
       unitPriceHuf,
       lineTotalHuf,
+      ...(image ? { image } : {}),
     })
   }
 
@@ -106,8 +118,28 @@ export async function upsertUserCartSnapshot(userId: string, items: CartItem[]):
   })
 }
 
-export async function clearUserCartSnapshot(userId: string): Promise<void> {
+export async function clearUserCartSnapshot(
+  userId: string,
+  options?: { force?: boolean }
+): Promise<void> {
   if (!isDbConfigured()) return
+  if (!options?.force) {
+    const row = await prisma.userCartSnapshot.findUnique({
+      where: { userId },
+      select: { restoreTokenHash: true, restoreExpiresAt: true },
+    })
+    if (
+      row?.restoreTokenHash &&
+      row.restoreExpiresAt &&
+      row.restoreExpiresAt.getTime() > Date.now()
+    ) {
+      await prisma.userCartSnapshot.update({
+        where: { userId },
+        data: { items: [], itemCount: 0, subtotalHuf: 0 },
+      })
+      return
+    }
+  }
   await prisma.userCartSnapshot.deleteMany({ where: { userId } })
 }
 
@@ -259,15 +291,20 @@ export async function sendAbandonedCartOffer(
       userId,
       source: 'abandoned_cart',
       validUntil,
+      eligibleItems: eligibleItemsFromCart(items),
     },
   })
 
+  const { token: restoreToken, hash: restoreTokenHash } = generateRestoreToken()
   await prisma.userCartSnapshot.update({
     where: { userId },
     data: {
       lastOfferAt: now,
       lastOfferPercent: percent,
       lastOfferCouponId: coupon.id,
+      restoreTokenHash,
+      frozenItems: items as object,
+      restoreExpiresAt: validUntil,
     },
   })
 
@@ -280,6 +317,7 @@ export async function sendAbandonedCartOffer(
     validUntil,
     lines,
     subtotalHuf,
+    restoreUrl: abandonedCartRestoreUrl(restoreToken),
   })
 
   return {
@@ -325,6 +363,18 @@ export async function sendAbandonedCartReminder(
 
   const items = parseItems(snapshot.items)
   const { lines, subtotalHuf } = await computeLines(items)
+  const restoreExpiresAt = new Date(
+    Date.now() + ABANDONED_CART_OFFER_VALID_DAYS * 24 * 60 * 60 * 1000
+  )
+  const { token: restoreToken, hash: restoreTokenHash } = generateRestoreToken()
+  await prisma.userCartSnapshot.update({
+    where: { userId },
+    data: {
+      restoreTokenHash,
+      frozenItems: items as object,
+      restoreExpiresAt,
+    },
+  })
 
   const { sendAbandonedCartReminderEmail } = await import('@/lib/abandoned-cart-email')
   const emailResult = await sendAbandonedCartReminderEmail({
@@ -332,6 +382,7 @@ export async function sendAbandonedCartReminder(
     name: snapshot.user.name,
     lines,
     subtotalHuf,
+    restoreUrl: abandonedCartRestoreUrl(restoreToken),
   })
 
   if (!emailResult.ok) {
@@ -340,3 +391,68 @@ export async function sendAbandonedCartReminder(
 
   return { ok: true, emailSent: true, to: snapshot.user.email }
 }
+
+export type AbandonedCartRestoreCoupon = {
+  code: string
+  discountType: 'percent' | 'fixed'
+  discountValue: number
+  minOrderHuf: number | null
+  source: string
+  eligibleItems: ReturnType<typeof parseEligibleItems>
+  validUntil: string | null
+}
+
+export type AbandonedCartRestorePayload =
+  | { ok: true; items: CartItem[]; coupon: AbandonedCartRestoreCoupon | null }
+  | { ok: false; code: 'invalid' | 'expired' }
+
+export async function loadAbandonedCartByRestoreToken(
+  token: string
+): Promise<AbandonedCartRestorePayload> {
+  if (!isDbConfigured() || !isLikelyRestoreToken(token)) {
+    return { ok: false, code: 'invalid' }
+  }
+
+  const hash = hashRestoreToken(token)
+  const snapshot = await prisma.userCartSnapshot.findUnique({
+    where: { restoreTokenHash: hash },
+  })
+  if (!snapshot) return { ok: false, code: 'invalid' }
+
+  const now = Date.now()
+  if (snapshot.restoreExpiresAt && snapshot.restoreExpiresAt.getTime() < now) {
+    return { ok: false, code: 'expired' }
+  }
+
+  const frozen = parseItems(snapshot.frozenItems)
+  const live = parseItems(snapshot.items)
+  const items = frozen.length > 0 ? frozen : live
+  if (items.length === 0) return { ok: false, code: 'expired' }
+
+  let coupon: AbandonedCartRestoreCoupon | null = null
+  if (snapshot.lastOfferCouponId) {
+    const row = await prisma.coupon.findUnique({
+      where: { id: snapshot.lastOfferCouponId },
+    })
+    if (
+      row &&
+      row.active &&
+      !row.consumed &&
+      isCouponInValidPeriod(row, new Date()) &&
+      (row.maxUses == null || row.usedCount < row.maxUses)
+    ) {
+      coupon = {
+        code: row.code,
+        discountType: row.discountType === 'fixed' ? 'fixed' : 'percent',
+        discountValue: row.discountValue,
+        minOrderHuf: row.minOrderHuf,
+        source: row.source || 'abandoned_cart',
+        eligibleItems: parseEligibleItems(row.eligibleItems),
+        validUntil: row.validUntil?.toISOString() ?? null,
+      }
+    }
+  }
+
+  return { ok: true, items, coupon }
+}
+
