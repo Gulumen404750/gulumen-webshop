@@ -1,5 +1,7 @@
 'use client'
 
+import { useEffect, useId, useRef, useState } from 'react'
+import { CircleHelp } from 'lucide-react'
 import {
   MAX_COMBINED_COUPON_PERCENT,
   canToggleCoupon,
@@ -26,6 +28,69 @@ type Props = {
   exclusiveHint?: string
 }
 
+/** Kérdőjel: desktopon hover, mobilon kattintás – a szabályzat a buborékban van. */
+function CouponSelectorHelpHint({ text, ariaLabel }: { text: string; ariaLabel: string }) {
+  const [open, setOpen] = useState(false)
+  const [hover, setHover] = useState(false)
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const panelId = useId()
+  const visible = hover || open
+
+  useEffect(() => {
+    if (!visible) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      setOpen(false)
+      setHover(false)
+    }
+    const onPointerDown = (e: PointerEvent) => {
+      if (wrapRef.current?.contains(e.target as Node)) return
+      setOpen(false)
+      setHover(false)
+    }
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('pointerdown', onPointerDown)
+    }
+  }, [visible])
+
+  return (
+    <div
+      ref={wrapRef}
+      className="relative shrink-0"
+      onPointerEnter={(e) => {
+        if (e.pointerType === 'mouse') setHover(true)
+      }}
+      onPointerLeave={() => setHover(false)}
+    >
+      <button
+        type="button"
+        className="flex h-8 w-8 items-center justify-center rounded-full text-muted transition-colors hover:bg-[var(--border)]/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        aria-label={ariaLabel}
+        aria-expanded={visible}
+        aria-controls={panelId}
+        onClick={() => {
+          setHover(false)
+          setOpen((current) => !current)
+        }}
+      >
+        <CircleHelp className="h-4 w-4" strokeWidth={2} aria-hidden />
+      </button>
+      {visible ? (
+        <div
+          id={panelId}
+          role="tooltip"
+          className="absolute right-0 z-30 mt-2 w-[min(18rem,calc(100vw-2.5rem))] rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-3 text-sm leading-snug text-muted shadow-lg"
+        >
+          {text}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 export function CouponSelector({
   coupons,
   selectedIds,
@@ -42,11 +107,10 @@ export function CouponSelector({
   const { t } = useLocale()
   const { money } = useDisplayMoney()
   const resolvedTitle = title ?? t('payment.couponSelectorTitle')
-  const defaultHint =
-    t('payment.couponSelectorHint')
-  const resolvedHint = hint ?? defaultHint
+  const resolvedHint = hint ?? t('payment.couponSelectorHint')
   const resolvedEmpty = emptyText ?? t('payment.couponSelectorEmpty')
   const resolvedCap = capReachedText ?? t('payment.couponCapReached')
+  const helpAria = t('payment.couponSelectorHelpAria')
   const selected = new Set(selectedIds)
   const selectedFixedHuf = coupons
     .filter((coupon) => selected.has(coupon.id) && isFixedSelectableCoupon(coupon))
@@ -68,30 +132,27 @@ export function CouponSelector({
     onChange(nextCouponSelection(coupons, selected, id, true))
   }
 
+  const header = (
+    <div className="flex items-start justify-between gap-2">
+      <h2 className="font-heading text-lg font-semibold text-foreground">{resolvedTitle}</h2>
+      <CouponSelectorHelpHint text={resolvedHint} ariaLabel={helpAria} />
+    </div>
+  )
+
   if (coupons.length === 0) {
     return (
       <section className="mb-8 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
-        <h2 className="font-heading text-lg font-semibold text-foreground mb-1">{resolvedTitle}</h2>
-        <p className="text-sm text-muted">{resolvedEmpty}</p>
+        {header}
+        <p className="text-sm text-muted mt-2">{resolvedEmpty}</p>
       </section>
     )
   }
 
   return (
-    <section
-      className={`mb-8 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] space-y-3 ${
-        disabled ? 'opacity-60' : ''
-      }`}
-    >
-      <div>
-        <h2 className="font-heading text-lg font-semibold text-foreground">{resolvedTitle}</h2>
-        <p className="text-sm text-muted mt-1">{resolvedHint}</p>
-        {exclusiveHint ? (
-          <p className="text-xs text-muted mt-1">{exclusiveHint}</p>
-        ) : null}
-      </div>
+    <section className="mb-8 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] space-y-3">
+      {header}
 
-      <ul className="space-y-2">
+      <ul className={`space-y-2 ${disabled ? 'opacity-60' : ''}`}>
         {coupons.map((coupon) => {
           const checked = selected.has(coupon.id)
           const cannotSelect =

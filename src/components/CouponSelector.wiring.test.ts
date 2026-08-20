@@ -21,4 +21,13 @@ describe('CouponSelector fixed vs percent display', () => {
     expect(src).toContain('exclusiveHint')
     expect(src).toContain('disabled={disabled || cannotSelect}')
   })
+
+  it('puts coupon rules in a hover/click help tooltip instead of body copy', () => {
+    expect(src).toContain('CircleHelp')
+    expect(src).toContain('CouponSelectorHelpHint')
+    expect(src).toContain('role="tooltip"')
+    expect(src).toContain("e.pointerType === 'mouse'")
+    expect(src).toContain('couponSelectorHelpAria')
+    expect(src).not.toMatch(/<p className="text-sm text-muted mt-1">\{resolvedHint\}<\/p>/)
+  })
 })
