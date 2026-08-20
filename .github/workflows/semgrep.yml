@@ -23,7 +23,7 @@ jobs:
     container:
       image: semgrep/semgrep
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Scan ERROR findings
         run: |
@@ -48,7 +48,7 @@ jobs:
     container:
       image: semgrep/semgrep
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Scan WARNING and INFO
         run: |
