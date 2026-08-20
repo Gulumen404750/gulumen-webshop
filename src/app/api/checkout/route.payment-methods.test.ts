@@ -31,6 +31,7 @@ describe('checkout API payment methods', () => {
     expect(paymentIdx).toBeGreaterThan(stackIdx)
     expect(src).toMatch(/couponCodes/)
     expect(src).toMatch(/resolveCheckoutCoupons/)
+    expect(src).toMatch(/minOrderHuf: resolved\.minOrderHuf/)
     expect(src).toMatch(/secondaryCouponId/)
     expect(src).toMatch(/isFixedCouponDiscount/)
     expect(src).toMatch(/fixedIds/)

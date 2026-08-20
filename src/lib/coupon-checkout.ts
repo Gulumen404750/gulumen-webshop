@@ -26,9 +26,16 @@ export type ResolvedDbCoupon = {
   eligibleItems: AbandonedCartEligibleItem[]
 }
 
+export type CheckoutCouponReject = {
+  ok: false
+  error: string
+  code: string
+  minOrderHuf?: number
+}
+
 export type ResolveCheckoutCouponResult =
   | { ok: true; coupon: ResolvedDbCoupon; discount: CouponDiscount }
-  | { ok: false; error: string; code: string; minOrderHuf?: number }
+  | CheckoutCouponReject
 
 export function dbCouponToDiscount(coupon: {
   discountType: string
@@ -229,7 +236,7 @@ export function mergeResolvedCheckoutCoupons(
   resolved: Array<{ coupon: ResolvedDbCoupon; discount: CouponDiscount }>
 ):
   | { ok: true; result: ResolvedCheckoutCoupons }
-  | { ok: false; error: string; code: string } {
+  | CheckoutCouponReject {
   const abandoned = resolved.filter((r) => isScopedAbandonedCoupon(r))
   const others = resolved.filter((r) => !isScopedAbandonedCoupon(r))
   if (abandoned.length > 1) {
@@ -278,7 +285,7 @@ export async function resolveCheckoutCoupons(params: {
   now?: Date
 }): Promise<
   | { ok: true; result: ResolvedCheckoutCoupons }
-  | { ok: false; error: string; code: string }
+  | CheckoutCouponReject
 > {
   const unique: string[] = []
   for (const raw of params.couponCodes) {

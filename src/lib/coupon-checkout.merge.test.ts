@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest'
-import { mergeResolvedCheckoutCoupons } from './coupon-checkout'
+import { describe, expect, expectTypeOf, it } from 'vitest'
+import {
+  mergeResolvedCheckoutCoupons,
+  resolveCheckoutCoupons,
+} from './coupon-checkout'
 import type { ResolvedDbCoupon } from './coupon-checkout'
 
 function coupon(
@@ -60,5 +63,13 @@ describe('mergeResolvedCheckoutCoupons', () => {
       },
     ])
     expect(merged.ok).toBe(false)
+  })
+})
+
+describe('resolveCheckoutCoupons failure payload', () => {
+  it('exposes minOrderHuf so checkout can return the shop-currency threshold', () => {
+    type Fail = Extract<Awaited<ReturnType<typeof resolveCheckoutCoupons>>, { ok: false }>
+    expectTypeOf<Fail>().toHaveProperty('minOrderHuf')
+    expectTypeOf<Fail['minOrderHuf']>().toEqualTypeOf<number | undefined>()
   })
 })
