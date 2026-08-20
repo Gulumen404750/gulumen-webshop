@@ -12,6 +12,7 @@ import {
   clearPersistedCart,
   loadPersistedCart,
   savePersistedCart,
+  normalizeCartItem,
   type CartItem,
   type CartItemOptions,
 } from '@/lib/cart-storage'
@@ -69,6 +70,7 @@ type CartContextValue = {
   removeItem: (productId: string, options?: CartItemOptions) => void
   updateQty: (productId: string, qty: number, options?: CartItemOptions) => void
   clearCart: () => void
+  replaceItems: (next: CartItem[]) => void
   subtotalHuf: number
   discountHuf: number
   totalHuf: number
@@ -230,6 +232,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const replaceItems = useCallback((next: CartItem[]) => {
+    const normalized = next
+      .map((item) => normalizeCartItem(item))
+      .filter((item): item is CartItem => item != null)
+    setItems(normalized)
+    savePersistedCart(normalized)
+  }, [])
+
   const { subtotalHuf, discountHuf, totalHuf, itemCount } = useMemo(() => {
     let sub = 0
     let count = 0
@@ -254,6 +264,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     removeItem,
     updateQty,
     clearCart,
+    replaceItems,
     subtotalHuf,
     discountHuf,
     totalHuf,

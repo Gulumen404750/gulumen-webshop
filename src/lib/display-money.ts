@@ -9,7 +9,7 @@ import {
   POINTS_PER_HUF,
   PURCHASE_EARN_HUF_PER_POINT,
 } from '@/lib/gamification/constants'
-import { LOYALTY_THRESHOLD_HUF } from '@/lib/loyalty-constants'
+import { LOYALTY_MAX_PERCENT, LOYALTY_THRESHOLD_HUF } from '@/lib/loyalty-constants'
 
 export function intlLocaleFor(locale: Locale): string {
   if (locale === 'de') return 'de-DE'
@@ -68,6 +68,7 @@ export type PointsCopyVars = {
   earnAmount: string
   shippingThreshold: string
   loyaltyThreshold: string
+  loyaltyMaxPercent: string
   rate: string
 }
 
@@ -90,6 +91,7 @@ export function pointsCopyVars(locale: Locale, rate: number): PointsCopyVars {
     earnAmount: formatMoneyFromHuf(PURCHASE_EARN_HUF_PER_POINT, locale, rate),
     shippingThreshold: formatMoneyFromHuf(FREE_SHIPPING_THRESHOLD, locale, rate),
     loyaltyThreshold: formatMoneyFromHuf(LOYALTY_THRESHOLD_HUF, locale, rate),
+    loyaltyMaxPercent: String(LOYALTY_MAX_PERCENT),
     rate: String(POINTS_PER_HUF),
   }
 }

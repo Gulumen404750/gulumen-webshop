@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import Link from 'next/link'
-import { CircleHelp } from 'lucide-react'
+import { CircleHelp, QrCode } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useLocale } from '@/context/LocaleContext'
 import { useDisplayMoney } from '@/hooks/useDisplayMoney'
@@ -11,6 +11,8 @@ import { mutate } from 'swr'
 import { writeTypedCoupon, type StoredTypedCoupon } from '@/lib/typed-coupon-storage'
 import { sanitizeRedeemCode } from '@/lib/sanitize-redeem-code'
 import { localeNoticeText, type LocaleNotice } from '@/lib/locale-notice'
+import { extractRedeemCodeFromScan } from '@/lib/scan-redeem-code'
+import { QrCodeScannerModal } from '@/components/QrCodeScannerModal'
 
 export type GiftClaimSuccess = {
   kind: 'gift_points'
@@ -61,7 +63,7 @@ type Props = {
   onSuccess?: (result: CodeRedeemSuccess) => void
 }
 
-/** Kérdőjel: hover / fókusz / kattintás megjeleníti a kupon- és ajándékpont-szabályokat. */
+/** Kérdőjel: hover tooltip, kattintásra olvasható modal a szabályzattal. */
 function GiftClaimHelpHint() {
   const { t } = useLocale()
   const { copy } = useDisplayMoney()
@@ -69,18 +71,20 @@ function GiftClaimHelpHint() {
   const [hover, setHover] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
   const panelId = useId()
-  const visible = open || hover
+  const titleId = useId()
+  const showTooltip = hover && !open
+  const hint = t('giftClaim.hint', copy)
 
   useEffect(() => {
-    if (!visible) return
+    if (!open && !showTooltip) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       setOpen(false)
       setHover(false)
     }
     const onPointerDown = (e: PointerEvent) => {
+      if (open) return
       if (wrapRef.current?.contains(e.target as Node)) return
-      setOpen(false)
       setHover(false)
     }
     document.addEventListener('keydown', onKey)
@@ -89,7 +93,16 @@ function GiftClaimHelpHint() {
       document.removeEventListener('keydown', onKey)
       document.removeEventListener('pointerdown', onPointerDown)
     }
-  }, [visible])
+  }, [open, showTooltip])
+
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [open])
 
   return (
     <div
@@ -104,19 +117,53 @@ function GiftClaimHelpHint() {
         type="button"
         className="flex h-8 w-8 items-center justify-center rounded-full text-muted transition-colors hover:bg-[var(--border)]/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         aria-label={t('giftClaim.helpAria')}
-        aria-expanded={visible}
+        aria-expanded={open || showTooltip}
         aria-controls={panelId}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => {
+          setHover(false)
+          setOpen((current) => !current)
+        }}
       >
         <CircleHelp className="h-4 w-4" strokeWidth={2} aria-hidden />
       </button>
-      {visible ? (
+      {showTooltip ? (
         <div
           id={panelId}
           role="tooltip"
           className="absolute right-0 z-30 mt-2 w-[min(18rem,calc(100vw-2.5rem))] rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-3 text-sm leading-snug text-muted shadow-lg"
         >
-          {t('giftClaim.hint', copy)}
+          {hint}
+        </div>
+      ) : null}
+      {open ? (
+        <div className="fixed inset-0 z-[400] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50"
+            aria-hidden
+            onClick={() => setOpen(false)}
+          />
+          <div
+            id={panelId}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            className="relative w-full max-w-md rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-5 shadow-xl"
+          >
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <h3 id={titleId} className="font-heading text-base font-semibold text-foreground">
+                {t('giftClaim.title')}
+              </h3>
+              <button
+                type="button"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted hover:bg-[var(--border)]/60 hover:text-foreground"
+                onClick={() => setOpen(false)}
+                aria-label={t('buttons.close')}
+              >
+                <span aria-hidden className="text-lg leading-none">×</span>
+              </button>
+            </div>
+            <p className="text-sm leading-relaxed text-muted">{hint}</p>
+          </div>
         </div>
       ) : null}
     </div>
@@ -135,6 +182,7 @@ export function GiftPointClaimForm({
   const examplePlaceholder = t('giftClaim.codePlaceholder')
   const [token, setToken] = useState(() => sanitizeRedeemCode(initialToken, ''))
   const [busy, setBusy] = useState(false)
+  const [scannerOpen, setScannerOpen] = useState(false)
   const [error, setError] = useState<LocaleNotice | null>(null)
   const [giftSuccess, setGiftSuccess] = useState<GiftClaimSuccess | null>(null)
   const [couponSuccess, setCouponSuccess] = useState<CouponClaimSuccess | null>(null)
@@ -144,12 +192,11 @@ export function GiftPointClaimForm({
       ? `${window.location.pathname}${window.location.search}`
       : '/claim'
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const redeem = async (rawCode: string) => {
     setError(null)
     setGiftSuccess(null)
     setCouponSuccess(null)
-    const trimmed = token.trim()
+    const trimmed = rawCode.trim()
     if (!trimmed) {
       setError({ key: 'giftClaim.errorRequired' })
       return
@@ -168,8 +215,9 @@ export function GiftPointClaimForm({
         return
       }
       if (!res.ok) {
+        const code = typeof data.code === 'string' ? data.code : ''
         setError({
-          key: REDEEM_ERROR_KEYS[String(data.code)] ?? 'giftClaim.errorGeneric',
+          key: REDEEM_ERROR_KEYS[code] ?? 'giftClaim.errorGeneric',
         })
         return
       }
@@ -213,6 +261,22 @@ export function GiftPointClaimForm({
     }
   }
 
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await redeem(token)
+  }
+
+  const handleScannedCode = (code: string) => {
+    setScannerOpen(false)
+    const extracted = extractRedeemCodeFromScan(code)
+    if (!extracted) {
+      setError({ key: 'giftClaim.scanEmpty' })
+      return
+    }
+    setToken(extracted)
+    void redeem(extracted)
+  }
+
   return (
     <section className={`rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-4 ${className}`}>
       <div className="flex items-start justify-between gap-3">
@@ -231,12 +295,14 @@ export function GiftPointClaimForm({
               name="redeem-code"
               value={token}
               onChange={(e) => setToken(sanitizeRedeemCode(e.target.value, examplePlaceholder))}
-              autoComplete="one-time-code"
+              autoComplete="off"
               autoCorrect="off"
               autoCapitalize="characters"
               spellCheck={false}
-              className="mt-1 w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 font-mono text-foreground placeholder:font-sans placeholder:font-normal placeholder:text-slate-500 dark:placeholder:text-slate-500"
-              placeholder={examplePlaceholder}
+              className={`redeem-code-input mt-1 w-full rounded-lg border border-[var(--border)] bg-background px-3 py-2 text-foreground ${
+                token ? 'font-mono' : 'font-sans'
+              }`}
+              placeholder={t('giftClaim.codePlaceholder')}
             />
           </label>
         )}
@@ -284,14 +350,38 @@ export function GiftPointClaimForm({
           </p>
         ) : null}
 
-        <button
-          type="submit"
-          disabled={busy || (!token.trim() && hideTokenInput)}
-          className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-        >
-          {busy ? t('giftClaim.submitting') : t('giftClaim.submit')}
-        </button>
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="submit"
+            disabled={busy || (!token.trim() && hideTokenInput)}
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+          >
+            {busy ? t('giftClaim.submitting') : t('giftClaim.submit')}
+          </button>
+          {!hideTokenInput ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setError(null)
+                setScannerOpen(true)
+              }}
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent text-white hover:opacity-90 disabled:opacity-50"
+              aria-label={t('giftClaim.scanAria')}
+              aria-haspopup="dialog"
+            >
+              <QrCode className="h-5 w-5" strokeWidth={2} aria-hidden />
+            </button>
+          ) : null}
+        </div>
       </form>
+      {!hideTokenInput ? (
+        <QrCodeScannerModal
+          open={scannerOpen}
+          onClose={() => setScannerOpen(false)}
+          onDetect={handleScannedCode}
+        />
+      ) : null}
     </section>
   )
 }

@@ -5,6 +5,7 @@ import {
   isProductSearchQuery,
   resolveChatProductSearchIntent,
   scoreProductAgainstKeywords,
+  scoreProductFields,
   type ChatRecommendedProduct,
 } from './chat-product-search'
 
@@ -49,6 +50,17 @@ describe('scoreProductAgainstKeywords', () => {
   it('does not treat a laptop bag as a lamp', () => {
     const bag = { name: 'Laptop táska', slug: 'laptop-taska', category: 'Táskák' }
     expect(scoreProductAgainstKeywords(bag, ['lámpa', 'lampa', 'lamp'])).toBe(0)
+  })
+
+  it('ignores lamp-like words that only appear in an unrelated description', () => {
+    const backpack = {
+      name: 'Full price product 1',
+      slug: 'full-price-1',
+      category: 'Táskák',
+      description: 'A backpack with a lamp-shaped zipper pull.',
+    }
+    const fields = scoreProductFields(backpack, ['lámpa', 'lampa', 'lamp'])
+    expect(fields.nameScore).toBe(0)
   })
 
   it('matches stemmed Hungarian lamp names', () => {

@@ -24,6 +24,20 @@ import {
 } from '@/lib/checkout'
 import { getLuckySpinNextTierRemaining } from '@/lib/gamification/lucky-spin'
 
+const CART_ADD_CONSUMED_PREFIX = 'gulumen-cart-add-consumed:'
+
+/** ?add= ne maradjon a history stackben, különben a Vissza gomb a kosárba ciklizál. */
+function stripCartAddQuery() {
+  if (typeof window === 'undefined') return
+  const url = new URL(window.location.href)
+  if (!url.searchParams.has('add') && !url.searchParams.has('qty')) return
+  url.searchParams.delete('add')
+  url.searchParams.delete('qty')
+  const search = url.searchParams.toString()
+  const next = `${url.pathname}${search ? `?${search}` : ''}${url.hash}`
+  window.history.replaceState(window.history.state, '', next)
+}
+
 export default function CartPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -141,23 +155,54 @@ export default function CartPage() {
       processedAddIdRef.current = null
       return
     }
-    if (processedAddIdRef.current === addId) return
+
+    let alreadyConsumed = false
+    try {
+      alreadyConsumed = sessionStorage.getItem(`${CART_ADD_CONSUMED_PREFIX}${addId}`) === '1'
+    } catch {
+      alreadyConsumed = false
+    }
+
+    if (processedAddIdRef.current === addId) {
+      stripCartAddQuery()
+      return
+    }
+
+    if (alreadyConsumed) {
+      stripCartAddQuery()
+      return
+    }
+
     const product = getProductById(addId)
-    if (!product) return
-    const priceHuf = product.discountPriceHuf ?? product.priceHuf
-    const priceEur = product.discountPriceEur ?? product.priceEur
-    const type = product.type === 'sourcing_deal' ? 'sourcing_deal' : 'stock'
+    if (!product) {
+      stripCartAddQuery()
+      return
+    }
     const currentQty = items.find((x) => x.productId === product.id)?.qty ?? 0
     const ordersOverride = product.type === 'sourcing_deal' ? (product.ordersCount ?? 0) + currentQty : undefined
     const { canAdd } = getAddToCartReason(product, new Date(), ordersOverride)
-    if (!canAdd) return
+    if (!canAdd) {
+      stripCartAddQuery()
+      return
+    }
     const maxQty = getMaxQty(product, ordersOverride)
     if (currentQty >= maxQty) {
       toast(t('cart.allAvailableAdded'))
-      router.replace('/kosar')
+      try {
+        sessionStorage.setItem(`${CART_ADD_CONSUMED_PREFIX}${addId}`, '1')
+      } catch {
+        /* ignore quota / private mode */
+      }
+      processedAddIdRef.current = addId
+      stripCartAddQuery()
       return
     }
     processedAddIdRef.current = addId
+    try {
+      sessionStorage.setItem(`${CART_ADD_CONSUMED_PREFIX}${addId}`, '1')
+    } catch {
+      /* ignore quota / private mode */
+    }
     const requestedQty = Math.max(1, parseInt(searchParams.get('qty') || '1', 10) || 1)
     const addQty = Math.min(requestedQty, maxQty - currentQty)
     if (product.type === 'sourcing_deal') {
@@ -167,8 +212,8 @@ export default function CartPage() {
     if (addQty < requestedQty) {
       toast(t('cart.allAvailableAdded'))
     }
-    router.replace('/kosar')
-  }, [searchParams, router, addItem, placeOrder, items, t, toast, getProductById, products])
+    stripCartAddQuery()
+  }, [searchParams, addItem, placeOrder, items, t, toast, getProductById, products])
 
   const handleCompleteOrder = () => {
     let corrected = false
@@ -199,7 +244,7 @@ export default function CartPage() {
   const justOrdered = searchParams.get('ordered') === '1'
   if (items.length === 0) {
     return (
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="relative z-0 max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <h1 className="font-heading text-2xl font-bold text-foreground mb-6">{t('cart.title')}</h1>
         {justOrdered ? (
           <p className="text-foreground mb-4">{t('cart.thanksOrder')}</p>
@@ -216,7 +261,7 @@ export default function CartPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div className="relative z-0 max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <h1 className="font-heading text-2xl font-bold text-foreground mb-6">{t('cart.title')}</h1>
 
       {!productsLoaded && items.length > 0 && (

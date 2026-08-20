@@ -20,42 +20,41 @@ const bodySchema = z.object({
 function mapGiftError(reason: string): { status: number; code: string; error: string } {
   switch (reason) {
     case 'not_found':
-      return { status: 404, code: 'gift_code_invalid', error: 'Ismeretlen kód.' }
+      return { status: 404, code: 'gift_code_invalid', error: 'Unknown code.' }
     case 'already_used':
-      return { status: 409, code: 'gift_code_used', error: 'Ez a kód már fel lett használva.' }
+      return { status: 409, code: 'gift_code_used', error: 'This code has already been used.' }
     case 'inactive':
-      return { status: 400, code: 'gift_code_inactive', error: 'Ez a kód nem aktív.' }
+      return { status: 400, code: 'gift_code_inactive', error: 'This code is not active.' }
     case 'expired':
-      return { status: 400, code: 'gift_code_expired', error: 'A kód érvényességi ideje lejárt.' }
+      return { status: 400, code: 'gift_code_expired', error: 'This code has expired.' }
     case 'not_yet_valid':
-      return { status: 400, code: 'gift_code_not_yet_valid', error: 'A kód még nem váltható be.' }
+      return { status: 400, code: 'gift_code_not_yet_valid', error: 'This code cannot be claimed yet.' }
     case 'db_unavailable':
-      return { status: 503, code: 'db_unavailable', error: 'Az adatbázis nem elérhető.' }
+      return { status: 503, code: 'db_unavailable', error: 'Database unavailable.' }
     default:
-      return { status: 400, code: 'gift_code_failed', error: 'Az aktiválás sikertelen.' }
+      return { status: 400, code: 'gift_code_failed', error: 'Activation failed.' }
   }
 }
 
 function mapCouponError(code: string, fallback: string): { status: number; code: string; error: string } {
+  const error = fallback || 'Invalid coupon code.'
   switch (code) {
     case 'coupon_inactive':
-      return { status: 400, code, error: 'Ez a kupon jelenleg nem aktív.' }
+      return { status: 400, code, error }
     case 'coupon_expired':
-      return { status: 400, code, error: 'A kupon érvényességi ideje lejárt.' }
+      return { status: 400, code, error }
     case 'coupon_exhausted':
-      return { status: 409, code, error: 'A kupont már felhasználták.' }
     case 'coupon_already_claimed':
-      return { status: 409, code, error: 'Ez a kupon már aktiválva van a fiókodon.' }
     case 'coupon_used':
-      return { status: 409, code, error: 'Ezt a kupont már felhasználtad.' }
+      return { status: 409, code, error }
     case 'coupon_login_required':
-      return { status: 401, code, error: 'A beváltáshoz jelentkezz be.' }
+      return { status: 401, code, error }
     case 'coupon_not_owned':
-      return { status: 403, code, error: 'Ez a kupon nem ehhez a fiókhoz tartozik.' }
+      return { status: 403, code, error }
     case 'coupon_unavailable':
-      return { status: 503, code, error: 'Az adatbázis nem elérhető.' }
+      return { status: 503, code, error }
     default:
-      return { status: 400, code, error: fallback || 'Érvénytelen kuponkód.' }
+      return { status: 400, code, error }
   }
 }
 
@@ -66,10 +65,10 @@ function mapCouponError(code: string, fallback: string): { status: number; code:
 export async function POST(request: Request) {
   const limit = await rateLimit(request, { preset: 'auth' })
   if (!limit.ok) {
-    return NextResponse.json({ error: 'Túl sok kérés.' }, { status: 429, headers: NO_STORE })
+    return NextResponse.json({ error: 'Too many requests.' }, { status: 429, headers: NO_STORE })
   }
   if (!isDbConfigured()) {
-    return NextResponse.json({ error: 'Az adatbázis nem elérhető.', code: 'db_unavailable' }, { status: 503, headers: NO_STORE })
+    return NextResponse.json({ error: 'Database unavailable.', code: 'db_unavailable' }, { status: 503, headers: NO_STORE })
   }
 
   let body: unknown
@@ -80,11 +79,11 @@ export async function POST(request: Request) {
   }
   const parsed = bodySchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Érvénytelen kód.', code: 'code_invalid' }, { status: 400, headers: NO_STORE })
+    return NextResponse.json({ error: 'Invalid code.', code: 'code_invalid' }, { status: 400, headers: NO_STORE })
   }
   const raw = (parsed.data.code ?? parsed.data.token ?? '').trim()
   if (!raw) {
-    return NextResponse.json({ error: 'Add meg a kódot.', code: 'code_required' }, { status: 400, headers: NO_STORE })
+    return NextResponse.json({ error: 'Enter the code.', code: 'code_required' }, { status: 400, headers: NO_STORE })
   }
 
   const session = await getSession(request)
@@ -131,7 +130,7 @@ export async function POST(request: Request) {
   if (looked.kind === 'gift_points') {
     if (!userId) {
       return NextResponse.json(
-        { error: 'A pontok beváltásához jelentkezz be.', code: 'login_required' },
+        { error: 'Log in to redeem.', code: 'login_required' },
         { status: 401, headers: NO_STORE }
       )
     }
@@ -160,7 +159,7 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json(
-    { error: 'Ismeretlen kupon- vagy ajándékpont-kód.', code: 'code_invalid' },
+    { error: 'Unknown coupon or gift-point code.', code: 'code_invalid' },
     { status: 404, headers: NO_STORE }
   )
 }

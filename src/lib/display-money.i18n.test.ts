@@ -45,7 +45,7 @@ describe('foreign-language points copy', () => {
       for (const key of KEYS) {
         const text = t(dict, key, vars)
         expect(text, `${locale} ${key}`).not.toMatch(/\bHUF\b|\bFt\b|25[.\s]?000|50[.\s]?000|100 Ft|1 HUF|1 Ft/)
-        expect(text, `${locale} ${key} leftover placeholder`).not.toMatch(/\{(shippingThreshold|loyaltyThreshold|pointValue|earnAmount)\}/)
+        expect(text, `${locale} ${key} leftover placeholder`).not.toMatch(/\{(shippingThreshold|loyaltyThreshold|loyaltyMaxPercent|pointValue|earnAmount)\}/)
       }
     }
   })

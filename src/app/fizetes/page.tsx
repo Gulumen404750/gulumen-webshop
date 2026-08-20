@@ -1,6 +1,6 @@
 'use client'
 
-/** Fizetési oldal – Railway src watch-path 2026-08-19T08:20. */
+/** Fizetési oldal – Railway src watch-path 2026-08-20T19:00. */
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
@@ -34,6 +34,7 @@ import {
   type CheckoutPaymentMethod,
 } from '@/lib/checkout-payment-methods'
 import { WELCOME_CHECKOUT_COUPON_PERCENT, capCombinedCouponPercent } from '@/lib/coupon-config'
+import { isAbandonedCartSource } from '@/lib/abandoned-cart-offer'
 import { CouponSelector } from '@/components/CouponSelector'
 import { GiftPointClaimForm } from '@/components/GiftPointClaimForm'
 import type { CodeRedeemSuccess } from '@/components/GiftPointClaimForm'
@@ -42,6 +43,8 @@ import {
   buildPromoCoupons,
   calculateSelectedCouponPercent,
   canToggleCoupon,
+  fixedHufFromCoupon,
+  isFixedAmountCoupon,
   isFixedSelectableCoupon,
   isGamificationCouponId,
   nextCouponSelection,
@@ -158,19 +161,17 @@ export default function PaymentPage() {
     if (active.length > 0) {
       return active.map((coupon) => {
         const checkoutCode = coupon.checkoutCode || coupon.code
-        const isFixed = coupon.discountType === 'fixed'
+        const isFixed = isFixedAmountCoupon(coupon)
+        const fixedHuf = fixedHufFromCoupon(coupon)
         return {
           code: checkoutCode,
-          percent: coupon.discountPercent,
-          fixedHuf: isFixed ? coupon.discountValue : undefined,
+          percent: isFixed ? 0 : coupon.discountPercent,
+          ...(fixedHuf ? { fixedHuf } : {}),
           validUntil: coupon.validUntil
             ? new Date(coupon.validUntil).toLocaleDateString(locale)
             : undefined,
           label: isFixed
-            ? t('payment.couponDiscountFixed', {
-                amount: money(coupon.discountValue ?? 0),
-                code: coupon.code,
-              })
+            ? t('payment.couponFixedName', { code: coupon.code })
             : t('payment.couponGamificationLabel', {
                 percent:
                   coupon.discountPercent > 1
@@ -181,7 +182,8 @@ export default function PaymentPage() {
       })
     }
     if (!wallet?.hasActiveCoupon || !wallet.activeCouponCode) return []
-    const percent = wallet.activeCouponPercent ?? 10
+    const percent = wallet.activeCouponPercent ?? 0
+    if (percent <= 0) return []
     return [
       {
         code: wallet.activeCouponCode,
@@ -194,7 +196,7 @@ export default function PaymentPage() {
         }),
       },
     ]
-  }, [wallet, locale, t, money])
+  }, [wallet, locale, t])
 
   const availableCoupons = useMemo(
     () =>
@@ -238,8 +240,18 @@ export default function PaymentPage() {
     [availableCoupons, selectedCouponIds]
   )
 
+  const isAbandonedTypedCoupon = isAbandonedCartSource(typedCoupon?.source)
+
+  const abandonedCartOffer =
+    isAbandonedTypedCoupon && typedCoupon?.discountType === 'percent'
+      ? {
+          percent: capCombinedCouponPercent(typedCoupon.discountValue / 100),
+          eligibleItems: typedCoupon.eligibleItems ?? [],
+        }
+      : null
+
   const effectiveCouponPercent =
-    typedCoupon?.discountType === 'percent'
+    typedCoupon?.discountType === 'percent' && !isAbandonedTypedCoupon
       ? capCombinedCouponPercent(typedCoupon.discountValue / 100)
       : couponSelection.finalPercent
 
@@ -249,6 +261,12 @@ export default function PaymentPage() {
       : couponSelection.gamificationFixedHuf
 
   const usePoints = useGiftPoints || useActivityPoints
+  const hasBlockingCouponExtra =
+    (Boolean(typedCoupon) && !isAbandonedTypedCoupon) ||
+    selectedCouponIds.length > 0 ||
+    effectiveCouponPercent > 0 ||
+    Boolean(effectiveFixedHuf && effectiveFixedHuf > 0)
+  const hasCouponExtra = hasBlockingCouponExtra
 
   const loyaltyFraction = loyaltyPercent > 0 ? loyaltyPercent / 100 : 0
 
@@ -260,8 +278,9 @@ export default function PaymentPage() {
     },
     luckySpin: luckySpinRecord,
     loyaltyPercent: loyaltyFraction,
+    abandonedCart: abandonedCartOffer,
     points:
-      usePoints && pointsPreview
+      usePoints && !hasBlockingCouponExtra && pointsPreview
         ? {
             requestedDiscountHuf: Math.max(
               pointsPreview.balance,
@@ -332,6 +351,12 @@ export default function PaymentPage() {
   const luckySpinDiscountActive = luckySpinDiscount.active
   const luckySpinDiscountPercent = luckySpinDiscount.discountPercent
   const luckySpinNextTierRemaining = getLuckySpinNextTierRemaining(luckySpinDiscount.qualifyingItemCount)
+
+  useEffect(() => {
+    if (!hasBlockingCouponExtra) return
+    setUseGiftPoints(false)
+    setUseActivityPoints(false)
+  }, [hasBlockingCouponExtra])
 
   // Profil: születésnapi kupon + mentett név előtöltés
   useEffect(() => {
@@ -427,6 +452,7 @@ export default function PaymentPage() {
 
   const autoSelectedGamificationRef = useRef<string | null>(null)
   useEffect(() => {
+    if (useGiftPoints || useActivityPoints) return
     const firstFixed = availableCoupons.find(
       (c) => isGamificationCouponId(c.id) && (c.fixedHuf ?? 0) > 0
     )
@@ -451,13 +477,13 @@ export default function PaymentPage() {
       if (!canToggleCoupon(availableCoupons, new Set(prev), selectionId, true)) return prev
       return nextCouponSelection(availableCoupons, new Set(prev), selectionId, true)
     })
-  }, [availableCoupons, typedCoupon])
+  }, [availableCoupons, typedCoupon, useGiftPoints, useActivityPoints])
 
   useEffect(() => {
     const stored = readTypedCoupon()
     if (stored) {
       setTypedCoupon(stored)
-      if (stored.discountType === 'percent') {
+      if (stored.discountType === 'percent' && !isAbandonedCartSource(stored.source)) {
         setSelectedCouponIds((prev) =>
           prev.filter((id) => isFixedSelectableCoupon(availableCoupons.find((c) => c.id === id)))
         )
@@ -470,15 +496,16 @@ export default function PaymentPage() {
   const applyTypedCoupon = (coupon: StoredTypedCoupon) => {
     setTypedCoupon(coupon)
     writeTypedCoupon(coupon)
+    setCouponCodeInput(coupon.code)
+    if (isAbandonedCartSource(coupon.source)) return
+    setUseGiftPoints(false)
+    setUseActivityPoints(false)
     setSelectedCouponIds((prev) => {
       if (coupon.discountType === 'fixed') {
         return prev.filter((id) => !isFixedSelectableCoupon(availableCoupons.find((c) => c.id === id)))
       }
       return prev.filter((id) => isFixedSelectableCoupon(availableCoupons.find((c) => c.id === id)))
     })
-    setCouponCodeInput(coupon.code)
-    setUseGiftPoints(false)
-    setUseActivityPoints(false)
   }
 
   const clearTypedCoupon = () => {
@@ -490,9 +517,8 @@ export default function PaymentPage() {
   const handleRedeemedCode = (result: CodeRedeemSuccess) => {
     if (result.kind === 'gift_points') {
       void refreshWallet()
-      clearTypedCoupon()
-      setUseGiftPoints(true)
-      setUseActivityPoints(false)
+      const couponExtra = Boolean(typedCoupon) || selectedCouponIds.length > 0
+      if (!couponExtra) setUseGiftPoints(true)
       return
     }
     applyTypedCoupon({
@@ -512,10 +538,18 @@ export default function PaymentPage() {
     const nextHasPercent = nextCoupons.some((c) => (c.percent ?? 0) > 0 && !isFixedSelectableCoupon(c))
     if (typedCoupon?.discountType === 'fixed' && nextHasFixed) {
       clearTypedCoupon()
-    } else if (typedCoupon?.discountType === 'percent' && nextHasPercent) {
+    } else if (
+      typedCoupon?.discountType === 'percent' &&
+      !isAbandonedCartSource(typedCoupon.source) &&
+      nextHasPercent
+    ) {
       clearTypedCoupon()
     }
     setWelcomeOfferError(null)
+    if (next.length > 0) {
+      setUseGiftPoints(false)
+      setUseActivityPoints(false)
+    }
     const turningWelcomeOn = next.includes('welcome') && !selectedCouponIds.includes('welcome')
     if (turningWelcomeOn) {
       const email = (userId || guestEmail).trim().toLowerCase()
@@ -755,9 +789,10 @@ export default function PaymentPage() {
           selectedCoupons: couponSelection.selectedIds
             .filter((id) => id !== 'loyalty')
             .map((id) => toCheckoutSelectedCouponId(id)),
-          pointsDiscountHuf: pointsDiscountHuf > 0 ? pointsDiscountHuf : undefined,
-          useGiftPoints: usePoints ? useGiftPoints : undefined,
-          useActivityPoints: usePoints ? useActivityPoints : undefined,
+          pointsDiscountHuf:
+            !hasBlockingCouponExtra && pointsDiscountHuf > 0 ? pointsDiscountHuf : undefined,
+          useGiftPoints: !hasBlockingCouponExtra && usePoints ? useGiftPoints : undefined,
+          useActivityPoints: !hasBlockingCouponExtra && usePoints ? useActivityPoints : undefined,
           paymentMethod,
           locale,
         }),
@@ -1374,6 +1409,8 @@ export default function PaymentPage() {
         coupons={availableCoupons}
         selectedIds={selectedCouponIds}
         onChange={(next) => void handleCouponSelectionChange(next)}
+        disabled={usePoints}
+        exclusiveHint={t('payment.extraExclusiveHint')}
         title={t('payment.couponSelectorTitle')}
         hint={
           t('payment.couponSelectorHint')
@@ -1412,12 +1449,21 @@ export default function PaymentPage() {
           <p className="text-sm font-medium text-foreground">
             {t('payment.pointsWalletsTitle')}
           </p>
+          <p className="text-xs text-muted">{t('payment.extraExclusiveHint')}</p>
           {pointsPreview.giftBalance > 0 && (
-            <label className="flex items-start gap-3 cursor-pointer">
+            <label className={`flex items-start gap-3 ${hasCouponExtra ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
               <input
                 type="checkbox"
                 checked={useGiftPoints}
-                onChange={(e) => setUseGiftPoints(e.target.checked)}
+                disabled={hasCouponExtra}
+                onChange={(e) => {
+                  const on = e.target.checked
+                  setUseGiftPoints(on)
+                  if (on) {
+                    setSelectedCouponIds([])
+                    clearTypedCoupon()
+                  }
+                }}
                 className="mt-1 w-4 h-4 rounded border-[var(--border)] text-accent focus:ring-accent"
               />
               <span className="text-sm text-foreground">
@@ -1437,11 +1483,19 @@ export default function PaymentPage() {
             </label>
           )}
           {pointsPreview.maxActivityDiscountHuf > 0 && (
-            <label className="flex items-start gap-3 cursor-pointer">
+            <label className={`flex items-start gap-3 ${hasCouponExtra ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
               <input
                 type="checkbox"
                 checked={useActivityPoints}
-                onChange={(e) => setUseActivityPoints(e.target.checked)}
+                disabled={hasCouponExtra}
+                onChange={(e) => {
+                  const on = e.target.checked
+                  setUseActivityPoints(on)
+                  if (on) {
+                    setSelectedCouponIds([])
+                    clearTypedCoupon()
+                  }
+                }}
                 className="mt-1 w-4 h-4 rounded border-[var(--border)] text-accent focus:ring-accent"
               />
               <span className="text-sm text-foreground">

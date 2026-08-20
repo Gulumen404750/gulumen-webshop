@@ -6,6 +6,7 @@ import { useLocale } from '@/context/LocaleContext'
 import { useDisplayMoney } from '@/hooks/useDisplayMoney'
 import { usePointWallet } from '@/hooks/usePointWallet'
 import type { PointWalletCoupon } from '@/lib/point-wallet-client'
+import { localeNoticeText, type LocaleNotice } from '@/lib/locale-notice'
 
 type Props = {
   className?: string
@@ -37,8 +38,8 @@ export function PointsProgress({ className = '' }: Props) {
   const { money } = useDisplayMoney()
   const { wallet, isLoading, refresh } = usePointWallet(isLoggedIn)
   const [redeeming, setRedeeming] = useState(false)
-  const [redeemError, setRedeemError] = useState<string | null>(null)
-  const [redeemSuccess, setRedeemSuccess] = useState<string | null>(null)
+  const [redeemError, setRedeemError] = useState<LocaleNotice | null>(null)
+  const [redeemSuccess, setRedeemSuccess] = useState<LocaleNotice | null>(null)
   const [listOpen, setListOpen] = useState(false)
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
   const seenCouponIds = useRef<Set<string> | null>(null)
@@ -86,14 +87,17 @@ export function PointsProgress({ className = '' }: Props) {
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setRedeemError(data.message || t('gamification.redeemError'))
+        setRedeemError({ key: 'gamification.redeemError' })
         return
       }
-      setRedeemSuccess(t('gamification.redeemSuccess', { code: data.couponCode ?? '' }))
+      setRedeemSuccess({
+        key: 'gamification.redeemSuccess',
+        params: { code: data.couponCode ?? '' },
+      })
       setListOpen(true)
       await refresh()
     } catch {
-      setRedeemError(t('gamification.redeemError'))
+      setRedeemError({ key: 'gamification.redeemError' })
     } finally {
       setRedeeming(false)
     }
@@ -113,11 +117,21 @@ export function PointsProgress({ className = '' }: Props) {
     <div
       className={`relative z-10 self-start w-full min-w-0 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-4 ${className}`}
     >
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-sm font-medium text-foreground">{t('gamification.progressTitle')}</p>
-        <span className="text-sm text-muted">
-          {isLoading ? '…' : `${balance} / ${threshold}`}
-        </span>
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">{t('gamification.progressTitle')}</p>
+          <span className="text-sm text-muted tabular-nums">
+            {isLoading ? '…' : `${balance} / ${threshold}`}
+          </span>
+        </div>
+        <p className="text-right shrink-0">
+          <span className="block text-[11px] text-muted leading-tight">
+            {t('gamification.savedSoFarLabel')}
+          </span>
+          <span className="font-heading text-base font-bold text-discount tabular-nums">
+            {isLoading ? '…' : money(wallet?.lifetimeSavedHuf ?? 0)}
+          </span>
+        </p>
       </div>
 
       <div
@@ -167,8 +181,12 @@ export function PointsProgress({ className = '' }: Props) {
         </button>
       )}
 
-      {redeemError && <p className="text-sm text-red-600 mt-2">{redeemError}</p>}
-      {redeemSuccess && <p className="text-sm text-accent mt-2">{redeemSuccess}</p>}
+      {redeemError && (
+        <p className="text-sm text-red-600 mt-2">{localeNoticeText(t, redeemError)}</p>
+      )}
+      {redeemSuccess && (
+        <p className="text-sm text-accent mt-2">{localeNoticeText(t, redeemSuccess)}</p>
+      )}
 
       {coupons.length > 0 && (
         <details
@@ -178,13 +196,11 @@ export function PointsProgress({ className = '' }: Props) {
         >
           <summary className="px-3 py-2.5 text-sm font-medium text-foreground cursor-pointer list-none flex items-center justify-between gap-3 rounded-lg border border-[var(--border)] bg-background">
             <span>
-              {t('gamification.myCouponsTitle', { count: coupons.length })}
-              {activeCount > 0 ? (
-                <span className="text-muted font-normal">
-                  {' '}
-                  · {t('gamification.myCouponsActiveCount', { count: activeCount })}
-                </span>
-              ) : null}
+              {t('gamification.myCouponsTitle')}
+              <span className="text-muted font-normal">
+                {' '}
+                · {t('gamification.myCouponsActiveCount', { count: activeCount })}
+              </span>
             </span>
             <span className="text-muted group-open:rotate-180 transition-transform shrink-0 text-xs">
               ▼

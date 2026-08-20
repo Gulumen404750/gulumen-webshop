@@ -26,7 +26,7 @@ type PopupConfig = {
  * Storefront akciós popup.
  * Admin beállítás: /admin/dashboard/deal-popup (enabled + termékek).
  * Feltétel: enabled && products.length > 0 && session-ben még nem zárták be.
- * Admin / fizetés útvonalakon nem jelenik meg.
+ * Admin / fizetés / profil / kosár útvonalakon nem jelenik meg.
  */
 export function DealPopup() {
   const pathname = usePathname()
@@ -40,7 +40,8 @@ export function DealPopup() {
   const suppressOnPath =
     pathname?.startsWith('/admin') ||
     pathname?.startsWith('/fizetes') ||
-    pathname?.startsWith('/profil')
+    pathname?.startsWith('/profil') ||
+    pathname === '/kosar'
 
   useEffect(() => {
     setMounted(true)

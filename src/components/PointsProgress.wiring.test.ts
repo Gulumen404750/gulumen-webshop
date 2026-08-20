@@ -8,6 +8,10 @@ describe('PointsProgress profile coupons', () => {
   it('lets the shopper open a list of purchased coupons under redeem', () => {
     expect(src).toMatch(/<details/)
     expect(src).toMatch(/gamification\.myCouponsTitle/)
+    expect(src).not.toMatch(/myCouponsTitle', \{ count: coupons\.length \}/)
+    expect(src).toMatch(/gamification\.myCouponsActiveCount/)
+    expect(src).toMatch(/lifetimeSavedHuf/)
+    expect(src).toMatch(/savedSoFarLabel/)
     expect(src).toMatch(/wallet\?\.coupons/)
   })
 
@@ -36,5 +40,13 @@ describe('PointsProgress profile coupons', () => {
     expect(src).toMatch(/wallet\?\.canRedeem/)
     expect(src).not.toMatch(/canRedeem && !wallet\?\.hasActiveCoupon/)
     expect(src).not.toMatch(/remaining > 0 && !wallet\?\.hasActiveCoupon/)
+  })
+
+  it('stores redeem feedback as i18n keys so language changes update the text', () => {
+    expect(src).toMatch(/useState<LocaleNotice \| null>\(null\)/)
+    expect(src).toContain("setRedeemError({ key: 'gamification.redeemError' })")
+    expect(src).toContain('{localeNoticeText(t, redeemError)}')
+    expect(src).toContain('{localeNoticeText(t, redeemSuccess)}')
+    expect(src).not.toMatch(/setRedeemError\(t\(/)
   })
 })

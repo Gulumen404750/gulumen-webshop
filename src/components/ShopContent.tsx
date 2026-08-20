@@ -56,13 +56,14 @@ export function ShopContent({ initialProducts }: ShopContentProps = {}) {
     [setParams]
   )
 
-  /** Az aktuális nézet alap listája. Alapértelmezés: 3D termékek (egyetlen látható kategória). */
+  /** Az aktuális nézet alap listája. Keresésnél a teljes kínálat, különben 3D (alap) vagy a választott kategória. */
   const productsForView = useMemo(() => {
+    if (searchQuery) return stockProducts
     if (categoryParam === '3d-nyomtatott' || !categoryParam) {
       return stockProducts.filter((p) => is3DProduct(p))
     }
     return stockProducts.filter((p) => !is3DProduct(p) && p.category === categoryParam)
-  }, [categoryParam, stockProducts])
+  }, [categoryParam, stockProducts, searchQuery])
 
   const filtered = useMemo(() => {
     let list = [...productsForView]
@@ -103,9 +104,14 @@ export function ShopContent({ initialProducts }: ShopContentProps = {}) {
   const pageTitle = t('pages.productsTitle')
   const showFilters = filtered.length >= AUTO_HIDE_FILTERS_BELOW_COUNT || sizes.length > 1 || conditions.length > 1
   const show3DTabs = is3DPage && !searchQuery && productsForView.length > AUTO_HIDE_FILTERS_BELOW_COUNT
-  const saleAlternatives = useMemo(
-    () => stockProducts.filter((p) => is3DProduct(p) && isSaleActive(p)).slice(0, 6),
-    [stockProducts]
+  const saleAlternatives = useMemo(() => {
+    const sales = stockProducts.filter((p) => isSaleActive(p)).slice(0, 6)
+    if (sales.length > 0) return sales
+    return stockProducts.slice(0, 6)
+  }, [stockProducts])
+  const saleAlternativesAreOnSale = useMemo(
+    () => saleAlternatives.some((p) => isSaleActive(p)),
+    [saleAlternatives]
   )
 
   const INITIAL_PAGE_SIZE = 12
@@ -178,7 +184,9 @@ export function ShopContent({ initialProducts }: ShopContentProps = {}) {
 
         <div className="flex-1 min-w-0">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-            <p className="text-muted text-sm">{t('product.productsCount', { count: filtered.length })}</p>
+            {!(searchQuery && filtered.length === 0) && (
+              <p className="text-muted text-sm">{t('product.productsCount', { count: filtered.length })}</p>
+            )}
             <div className="flex items-center gap-2 self-end sm:self-auto">
               {showFilters && (
                 <button
@@ -237,7 +245,11 @@ export function ShopContent({ initialProducts }: ShopContentProps = {}) {
                       id="search-sale-heading"
                       className="font-heading text-xl font-semibold text-foreground mb-6"
                     >
-                      {t('search.saleAlternativesTitle')}
+                      {t(
+                        saleAlternativesAreOnSale
+                          ? 'search.saleAlternativesTitle'
+                          : 'search.browseAlternativesTitle'
+                      )}
                     </h2>
                     <div className="grid w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                       {saleAlternatives.map((p, i) => (

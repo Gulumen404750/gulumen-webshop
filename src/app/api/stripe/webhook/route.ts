@@ -228,7 +228,7 @@ export async function POST(request: Request) {
 
       const updatedOrder = paidResult.order ?? (await getOrderById(orderId))
       if (updatedOrder?.userId) {
-        await clearUserCartSnapshot(updatedOrder.userId)
+        await clearUserCartSnapshot(updatedOrder.userId, { force: true })
       }
 
       try {

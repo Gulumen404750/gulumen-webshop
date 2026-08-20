@@ -13,10 +13,14 @@ describe('chat locale + missing-product wiring', () => {
     'utf-8'
   )
 
-  it('puts a locale language lock first in the OpenAI system prompt', () => {
-    expect(chatRoute).toContain("import { buildChatLanguageLock } from '@/lib/chat-language'")
-    expect(chatRoute).toMatch(/languageLock[\s\S]*settings\.systemPrompt/)
+  it('puts a locale language lock first and last around the OpenAI turn', () => {
+    expect(chatRoute).toContain("from '@/lib/chat-language'")
     expect(chatRoute).toContain('buildChatLanguageLock(locale)')
+    expect(chatRoute).toContain('wrapUserMessageForLocale(message, locale)')
+    expect(chatRoute).toContain('resolveChatLocale(body?.locale, request)')
+    expect(chatRoute).toContain('assistantReplyIgnoresLocale')
+    expect(chatRoute).toContain('isCasualChatGreeting')
+    expect(chatRoute).toMatch(/role: 'system',\s*content: languageLock/)
   })
 
   it('resets the on-site chat when the storefront locale changes', () => {
@@ -36,7 +40,10 @@ describe('chat locale + missing-product wiring', () => {
     expect(log).toContain('missingProductSearch: !!params.missingProductSearch')
     expect(log).toContain('missingProductSearchCount')
     expect(adminList).toContain('Hiányzó termék keresve')
+    expect(adminList).toContain('Termékeresés – Nincs készleten')
     expect(adminList).toContain("filter === 'missing'")
     expect(chatRoute).toContain('missingProductSearch: search.missingExactMatch')
+    expect(assistant).toContain("t('ai.alternativeBadge')")
+    expect(assistant).toContain("t('ai.alternativesNote')")
   })
 })
