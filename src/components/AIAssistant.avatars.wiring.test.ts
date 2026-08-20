@@ -24,6 +24,7 @@ describe('chat message avatars wiring', () => {
     expect(schema).toContain('avatarId')
     expect(adminChat).toContain('ProfileAvatarSettings')
     expect(hu.profile.avatarLabel).toBe('Profilkép')
+    expect(hu.profile.avatarSectionTitle).toBe('Profilképek')
     expect(existsSync(join(process.cwd(), 'public/img/avatars/seed-01.svg'))).toBe(true)
     expect(existsSync(join(process.cwd(), 'public/img/avatars/guest.svg'))).toBe(true)
   })

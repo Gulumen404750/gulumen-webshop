@@ -10,12 +10,24 @@ type Props = {
   size?: number
   className?: string
   fallbackSrc?: string
+  /** Hibás képnél ne guest fallback, hanem semmi (pl. profilválasztó). */
+  hideOnError?: boolean
+  onLoadError?: () => void
 }
 
 /** Kör alakú chat / profil avatar. SVG és a Gulumen logo unoptimized. */
-export function ChatAvatar({ src, alt, size = 32, className = '', fallbackSrc }: Props) {
+export function ChatAvatar({
+  src,
+  alt,
+  size = 32,
+  className = '',
+  fallbackSrc,
+  hideOnError = false,
+  onLoadError,
+}: Props) {
   const [broken, setBroken] = useState(false)
   const resolved = broken || !src ? fallbackSrc || GUEST_AVATAR_SRC : src
+  if (hideOnError && (broken || !src?.trim())) return null
   const isLocal = resolved.startsWith('/')
   const unoptimized =
     resolved.endsWith('.svg') || resolved.includes('/img/logo') || resolved.includes('logo-round')
@@ -33,7 +45,10 @@ export function ChatAvatar({ src, alt, size = 32, className = '', fallbackSrc }:
           sizes={`${size}px`}
           className="object-cover"
           unoptimized={unoptimized}
-          onError={() => setBroken(true)}
+          onError={() => {
+            setBroken(true)
+            onLoadError?.()
+          }}
         />
       ) : (
         <img
@@ -41,7 +56,10 @@ export function ChatAvatar({ src, alt, size = 32, className = '', fallbackSrc }:
           alt={alt}
           className="absolute inset-0 h-full w-full object-cover"
           referrerPolicy="no-referrer"
-          onError={() => setBroken(true)}
+          onError={() => {
+            setBroken(true)
+            onLoadError?.()
+          }}
         />
       )}
     </span>

@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useState } from 'react'
+import { ChevronDown } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useLocale } from '@/context/LocaleContext'
 import { ChatAvatar } from '@/components/ChatAvatar'
@@ -13,10 +14,18 @@ import { localeNoticeText, type LocaleNotice } from '@/lib/locale-notice'
 
 type CatalogItem = Pick<ProfileAvatar, 'id' | 'url'>
 
+function hasAvatarImage(item: CatalogItem): boolean {
+  const url = item.url.trim()
+  return url.length > 0 && !url.includes('placeholder')
+}
+
 export function ProfileAvatarPicker() {
   const { t } = useLocale()
   const { isLoggedIn } = useAuth()
+  const panelId = useId()
+  const [open, setOpen] = useState(false)
   const [avatars, setAvatars] = useState<CatalogItem[]>([])
+  const [brokenIds, setBrokenIds] = useState<Set<string>>(() => new Set())
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [savedId, setSavedId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -40,7 +49,8 @@ export function ProfileAvatarPicker() {
                 !!a &&
                 typeof a === 'object' &&
                 typeof (a as CatalogItem).id === 'string' &&
-                typeof (a as CatalogItem).url === 'string'
+                typeof (a as CatalogItem).url === 'string' &&
+                hasAvatarImage(a as CatalogItem)
             )
           : []
         setAvatars(list)
@@ -58,6 +68,22 @@ export function ProfileAvatarPicker() {
       cancelled = true
     }
   }, [isLoggedIn])
+
+  const visibleAvatars = useMemo(
+    () => avatars.filter((avatar) => hasAvatarImage(avatar) && !brokenIds.has(avatar.id)),
+    [avatars, brokenIds]
+  )
+
+  const selectedAvatar = visibleAvatars.find((avatar) => avatar.id === selectedId) ?? null
+
+  const markBroken = useCallback((id: string) => {
+    setBrokenIds((prev) => {
+      if (prev.has(id)) return prev
+      const next = new Set(prev)
+      next.add(id)
+      return next
+    })
+  }, [])
 
   const save = useCallback(
     async (e: React.FormEvent) => {
@@ -99,54 +125,92 @@ export function ProfileAvatarPicker() {
   if (!isLoggedIn || loading) return null
 
   return (
-    <form
-      onSubmit={save}
-      className="mb-6 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-4 space-y-3"
-    >
-      <div>
-        <p className="text-sm font-medium text-foreground">{t('profile.avatarLabel')}</p>
-        <p className="mt-1 text-xs text-muted leading-relaxed">{t('profile.avatarHint')}</p>
-      </div>
-      <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t('profile.avatarLabel')}>
-        {avatars.map((avatar, index) => {
-          const checked = selectedId === avatar.id
-          return (
-            <button
-              key={avatar.id}
-              type="button"
-              role="radio"
-              aria-checked={checked}
-              onClick={() => {
-                setSelectedId(avatar.id)
-                setSavedMsg(false)
-              }}
-              className={`rounded-full p-0.5 transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-                checked ? 'ring-2 ring-accent ring-offset-2 ring-offset-[var(--card-bg)]' : ''
-              }`}
-              aria-label={t('profile.avatarOption', { n: String(index + 1) })}
-            >
-              <ChatAvatar src={avatar.url} alt="" size={48} />
-            </button>
-          )
-        })}
-      </div>
-      {error && (
-        <p className="text-sm text-red-600 dark:text-red-400" role="alert">
-          {localeNoticeText(t, error)}
-        </p>
-      )}
-      {savedMsg && (
-        <p className="text-sm text-green-700 dark:text-green-400" role="status">
-          {t('profile.avatarSaved')}
-        </p>
-      )}
+    <section className="mb-6 rounded-xl border border-[var(--border)] bg-[var(--card-bg)]">
       <button
-        type="submit"
-        disabled={saving || selectedId === savedId}
-        className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:opacity-90 disabled:opacity-60"
+        type="button"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => setOpen((value) => !value)}
+        className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-[var(--border)]/20"
       >
-        {saving ? t('profile.avatarSaving') : t('profile.avatarSave')}
+        {selectedAvatar ? (
+          <ChatAvatar
+            src={selectedAvatar.url}
+            alt=""
+            size={28}
+            hideOnError
+            onLoadError={() => markBroken(selectedAvatar.id)}
+          />
+        ) : null}
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium text-foreground">{t('profile.avatarSectionTitle')}</span>
+        </span>
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 text-muted transition-transform ${open ? 'rotate-180' : ''}`}
+          aria-hidden
+        />
+        <span className="sr-only">{open ? t('profile.avatarCollapse') : t('profile.avatarExpand')}</span>
       </button>
-    </form>
+
+      {open && (
+        <form id={panelId} onSubmit={save} className="space-y-3 border-t border-[var(--border)] px-4 py-3">
+          <p className="text-xs text-muted leading-relaxed">{t('profile.avatarHint')}</p>
+          {visibleAvatars.length > 0 ? (
+            <div
+              className="grid grid-cols-6 gap-1.5 sm:grid-cols-8 md:grid-cols-10"
+              role="radiogroup"
+              aria-label={t('profile.avatarSectionTitle')}
+            >
+              {visibleAvatars.map((avatar, index) => {
+                const checked = selectedId === avatar.id
+                return (
+                  <button
+                    key={avatar.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={checked}
+                    onClick={() => {
+                      setSelectedId(avatar.id)
+                      setSavedMsg(false)
+                    }}
+                    className={`mx-auto rounded-full p-0.5 transition-shadow empty:hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                      checked ? 'ring-2 ring-accent ring-offset-2 ring-offset-[var(--card-bg)]' : ''
+                    }`}
+                    aria-label={t('profile.avatarOption', { n: String(index + 1) })}
+                  >
+                    <ChatAvatar
+                      src={avatar.url}
+                      alt=""
+                      size={32}
+                      hideOnError
+                      onLoadError={() => markBroken(avatar.id)}
+                    />
+                  </button>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="text-xs text-muted">{t('profile.avatarEmpty')}</p>
+          )}
+          {error && (
+            <p className="text-sm text-red-600 dark:text-red-400" role="alert">
+              {localeNoticeText(t, error)}
+            </p>
+          )}
+          {savedMsg && (
+            <p className="text-sm text-green-700 dark:text-green-400" role="status">
+              {t('profile.avatarSaved')}
+            </p>
+          )}
+          <button
+            type="submit"
+            disabled={saving || selectedId === savedId || visibleAvatars.length === 0}
+            className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-medium hover:opacity-90 disabled:opacity-60"
+          >
+            {saving ? t('profile.avatarSaving') : t('profile.avatarSave')}
+          </button>
+        </form>
+      )}
+    </section>
   )
 }
