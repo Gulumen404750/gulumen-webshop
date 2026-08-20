@@ -9,6 +9,7 @@ import { useDisplayMoney } from '@/hooks/useDisplayMoney'
 import { POINT_WALLET_SWR_KEY } from '@/lib/point-wallet-client'
 import { mutate } from 'swr'
 import { writeTypedCoupon, type StoredTypedCoupon } from '@/lib/typed-coupon-storage'
+import { sanitizeRedeemCode } from '@/lib/sanitize-redeem-code'
 import { localeNoticeText, type LocaleNotice } from '@/lib/locale-notice'
 import { extractRedeemCodeFromScan } from '@/lib/scan-redeem-code'
 import { QrCodeScannerModal } from '@/components/QrCodeScannerModal'
@@ -178,7 +179,8 @@ export function GiftPointClaimForm({
   const { t, locale } = useLocale()
   const { money } = useDisplayMoney()
   const { isLoggedIn, authChecked } = useAuth()
-  const [token, setToken] = useState(initialToken)
+  const examplePlaceholder = t('giftClaim.codePlaceholder')
+  const [token, setToken] = useState(() => sanitizeRedeemCode(initialToken, ''))
   const [busy, setBusy] = useState(false)
   const [scannerOpen, setScannerOpen] = useState(false)
   const [error, setError] = useState<LocaleNotice | null>(null)
@@ -292,7 +294,7 @@ export function GiftPointClaimForm({
               type="text"
               name="redeem-code"
               value={token}
-              onChange={(e) => setToken(e.target.value.toUpperCase())}
+              onChange={(e) => setToken(sanitizeRedeemCode(e.target.value, examplePlaceholder))}
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="characters"

@@ -10,7 +10,7 @@ describe('gift / coupon redeem input wiring', () => {
   it('keeps a generic placeholder, not a campaign-code example', () => {
     expect(src).toContain("placeholder={t('giftClaim.codePlaceholder')}")
     expect(src).toMatch(/value=\{token\}/)
-    expect(src).toMatch(/useState\(initialToken\)/)
+    expect(src).toMatch(/sanitizeRedeemCode/)
     expect(src).not.toMatch(/value=\{t\(['"]giftClaim\.codePlaceholder['"]\)\}/)
     expect(src).not.toMatch(/useState\(t\(['"]giftClaim\.codePlaceholder['"]\)\)/)
     expect(src).not.toMatch(/defaultValue=\{/)
