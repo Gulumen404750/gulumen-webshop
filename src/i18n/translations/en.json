@@ -162,7 +162,10 @@
     "mobileStickyBannerAria": "Cart summary",
     "emptyStateTitle": "Your cart is empty",
     "emptyStateCta": "Browse our deals",
-    "productFallback": "Product"
+    "productFallback": "Product",
+    "restoreLoading": "Restoring your cart…",
+    "restoreFailedTitle": "This cart link is no longer valid",
+    "restoreFailedBody": "The restore link has expired or is invalid. Open your cart, or request a new reminder."
   },
   "payment": {
     "title": "Payment",

@@ -147,7 +147,10 @@
     "mobileStickyBannerAria": "Rezumat coș",
     "emptyStateTitle": "Coșul este gol",
     "emptyStateCta": "Vezi ofertele",
-    "productFallback": "Produs"
+    "productFallback": "Produs",
+    "restoreLoading": "Se restaurează coșul…",
+    "restoreFailedTitle": "Linkul coșului nu mai este valid",
+    "restoreFailedBody": "Linkul de restaurare a expirat sau este invalid. Deschide coșul sau cere un nou memento."
   },
   "payment": {
     "title": "Plată",

@@ -62,6 +62,7 @@ import { acceptWelcomeCheckoutOffer } from '@/lib/welcome-checkout-offer'
 import { finalizeOrderRewards } from '@/lib/checkout-rewards'
 import { WELCOME_CHECKOUT_COUPON_PERCENT } from '@/lib/coupon-config'
 import type { CouponDiscount } from '@/lib/checkout'
+import type { AbandonedCartOfferDiscount } from '@/lib/abandoned-cart-offer'
 import {
   checkoutCustomerSchema,
   toOrderCustomerSnapshot,
@@ -337,6 +338,7 @@ export async function POST(request: Request) {
   let appliedCouponId: string | null = null
   let appliedSecondaryCouponId: string | null = null
   let appliedCouponCode: string | null = null
+  let abandonedCartOffer: AbandonedCartOfferDiscount | null = null
 
   const luckySpin = checkoutUserId ? await getLuckySpinForCheckout(checkoutUserId, now) : null
   const lines = resolveCartLines(items, productMap)
@@ -425,6 +427,12 @@ export async function POST(request: Request) {
     appliedCouponId = resolved.result.primaryCouponId
     appliedSecondaryCouponId = resolved.result.secondaryCouponId
     appliedCouponCode = resolved.result.coupons[0]?.coupon.code ?? null
+    if (resolved.result.abandonedCart) {
+      abandonedCartOffer = {
+        percent: resolved.result.abandonedCart.percent,
+        eligibleItems: resolved.result.abandonedCart.eligibleItems,
+      }
+    }
     const fixedIds: string[] = []
     for (const entry of resolved.result.coupons) {
       if (entry.coupon.source === 'gamification') {
@@ -496,6 +504,7 @@ export async function POST(request: Request) {
     coupon: couponDiscount,
     luckySpin,
     loyaltyPercent,
+    abandonedCart: abandonedCartOffer,
     now,
   })
 
@@ -520,6 +529,7 @@ export async function POST(request: Request) {
     coupon: couponDiscount,
     luckySpin,
     loyaltyPercent,
+    abandonedCart: abandonedCartOffer,
     points:
       validatedPointsHuf > 0 && checkoutUserId
         ? {

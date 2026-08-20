@@ -136,7 +136,7 @@ async function applyTransactionOutcome(
     }
 
     if (order.userId) {
-      await clearUserCartSnapshot(order.userId)
+      await clearUserCartSnapshot(order.userId, { force: true })
     }
 
     try {

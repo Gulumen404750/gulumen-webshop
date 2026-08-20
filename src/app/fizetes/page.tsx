@@ -1,6 +1,6 @@
 'use client'
 
-/** Fizetési oldal – Railway src watch-path 2026-08-20T18:30. */
+/** Fizetési oldal – Railway src watch-path 2026-08-20T19:00. */
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
@@ -34,6 +34,7 @@ import {
   type CheckoutPaymentMethod,
 } from '@/lib/checkout-payment-methods'
 import { WELCOME_CHECKOUT_COUPON_PERCENT, capCombinedCouponPercent } from '@/lib/coupon-config'
+import { isAbandonedCartSource } from '@/lib/abandoned-cart-offer'
 import { CouponSelector } from '@/components/CouponSelector'
 import { GiftPointClaimForm } from '@/components/GiftPointClaimForm'
 import type { CodeRedeemSuccess } from '@/components/GiftPointClaimForm'
@@ -239,8 +240,18 @@ export default function PaymentPage() {
     [availableCoupons, selectedCouponIds]
   )
 
+  const isAbandonedTypedCoupon = isAbandonedCartSource(typedCoupon?.source)
+
+  const abandonedCartOffer =
+    isAbandonedTypedCoupon && typedCoupon?.discountType === 'percent'
+      ? {
+          percent: capCombinedCouponPercent(typedCoupon.discountValue / 100),
+          eligibleItems: typedCoupon.eligibleItems ?? [],
+        }
+      : null
+
   const effectiveCouponPercent =
-    typedCoupon?.discountType === 'percent'
+    typedCoupon?.discountType === 'percent' && !isAbandonedTypedCoupon
       ? capCombinedCouponPercent(typedCoupon.discountValue / 100)
       : couponSelection.finalPercent
 
@@ -250,11 +261,12 @@ export default function PaymentPage() {
       : couponSelection.gamificationFixedHuf
 
   const usePoints = useGiftPoints || useActivityPoints
-  const hasCouponExtra =
-    Boolean(typedCoupon) ||
+  const hasBlockingCouponExtra =
+    (Boolean(typedCoupon) && !isAbandonedTypedCoupon) ||
     selectedCouponIds.length > 0 ||
     effectiveCouponPercent > 0 ||
     Boolean(effectiveFixedHuf && effectiveFixedHuf > 0)
+  const hasCouponExtra = hasBlockingCouponExtra
 
   const loyaltyFraction = loyaltyPercent > 0 ? loyaltyPercent / 100 : 0
 
@@ -266,8 +278,9 @@ export default function PaymentPage() {
     },
     luckySpin: luckySpinRecord,
     loyaltyPercent: loyaltyFraction,
+    abandonedCart: abandonedCartOffer,
     points:
-      usePoints && !hasCouponExtra && pointsPreview
+      usePoints && !hasBlockingCouponExtra && pointsPreview
         ? {
             requestedDiscountHuf: Math.max(
               pointsPreview.balance,
@@ -340,10 +353,10 @@ export default function PaymentPage() {
   const luckySpinNextTierRemaining = getLuckySpinNextTierRemaining(luckySpinDiscount.qualifyingItemCount)
 
   useEffect(() => {
-    if (!hasCouponExtra) return
+    if (!hasBlockingCouponExtra) return
     setUseGiftPoints(false)
     setUseActivityPoints(false)
-  }, [hasCouponExtra])
+  }, [hasBlockingCouponExtra])
 
   // Profil: születésnapi kupon + mentett név előtöltés
   useEffect(() => {
@@ -470,7 +483,7 @@ export default function PaymentPage() {
     const stored = readTypedCoupon()
     if (stored) {
       setTypedCoupon(stored)
-      if (stored.discountType === 'percent') {
+      if (stored.discountType === 'percent' && !isAbandonedCartSource(stored.source)) {
         setSelectedCouponIds((prev) =>
           prev.filter((id) => isFixedSelectableCoupon(availableCoupons.find((c) => c.id === id)))
         )
@@ -483,6 +496,8 @@ export default function PaymentPage() {
   const applyTypedCoupon = (coupon: StoredTypedCoupon) => {
     setTypedCoupon(coupon)
     writeTypedCoupon(coupon)
+    setCouponCodeInput(coupon.code)
+    if (isAbandonedCartSource(coupon.source)) return
     setUseGiftPoints(false)
     setUseActivityPoints(false)
     setSelectedCouponIds((prev) => {
@@ -491,7 +506,6 @@ export default function PaymentPage() {
       }
       return prev.filter((id) => isFixedSelectableCoupon(availableCoupons.find((c) => c.id === id)))
     })
-    setCouponCodeInput(coupon.code)
   }
 
   const clearTypedCoupon = () => {
@@ -524,7 +538,11 @@ export default function PaymentPage() {
     const nextHasPercent = nextCoupons.some((c) => (c.percent ?? 0) > 0 && !isFixedSelectableCoupon(c))
     if (typedCoupon?.discountType === 'fixed' && nextHasFixed) {
       clearTypedCoupon()
-    } else if (typedCoupon?.discountType === 'percent' && nextHasPercent) {
+    } else if (
+      typedCoupon?.discountType === 'percent' &&
+      !isAbandonedCartSource(typedCoupon.source) &&
+      nextHasPercent
+    ) {
       clearTypedCoupon()
     }
     setWelcomeOfferError(null)
@@ -772,9 +790,9 @@ export default function PaymentPage() {
             .filter((id) => id !== 'loyalty')
             .map((id) => toCheckoutSelectedCouponId(id)),
           pointsDiscountHuf:
-            !hasCouponExtra && pointsDiscountHuf > 0 ? pointsDiscountHuf : undefined,
-          useGiftPoints: !hasCouponExtra && usePoints ? useGiftPoints : undefined,
-          useActivityPoints: !hasCouponExtra && usePoints ? useActivityPoints : undefined,
+            !hasBlockingCouponExtra && pointsDiscountHuf > 0 ? pointsDiscountHuf : undefined,
+          useGiftPoints: !hasBlockingCouponExtra && usePoints ? useGiftPoints : undefined,
+          useActivityPoints: !hasBlockingCouponExtra && usePoints ? useActivityPoints : undefined,
           paymentMethod,
           locale,
         }),

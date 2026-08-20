@@ -94,6 +94,9 @@ model Coupon {
   pointTransactionId String? @unique
   /// Kampánykód, amiből a személyes példány készült (pl. NYAR2026). Egyszer / user.
   claimedFromCode String?
+  /// Elhagyott kosár: csak ezekre a tételekre/darabszámra érvényes a kedvezmény.
+  /// [{ productId, qty, options?: { colorName, colorHex, materialName } }]
+  eligibleItems Json?
   /// Fix Ft kupon: a fizetés a teljes névértéket felemészti, maradék nem jár vissza.
   consumed     Boolean   @default(false)
   createdAt    DateTime  @default(now())
@@ -188,6 +191,11 @@ model UserCartSnapshot {
   lastOfferAt     DateTime?
   lastOfferPercent Int?
   lastOfferCouponId String?
+  /// SHA-256 (hex) a kosár-visszaállító tokenről – az e-mail deep linkhez.
+  restoreTokenHash String?  @unique
+  /// Az e-mail kiküldésekor befagyasztott kosár (nem a későbbi élő snapshot).
+  frozenItems      Json?
+  restoreExpiresAt DateTime?
   @@index([lastUpdatedAt])
   @@index([itemCount])
 }

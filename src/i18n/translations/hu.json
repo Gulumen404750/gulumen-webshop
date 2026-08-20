@@ -162,7 +162,10 @@
     "mobileStickyBannerAria": "Kosár összefoglaló",
     "emptyStateTitle": "Üres a kosár",
     "emptyStateCta": "Böngéssz az akciók között",
-    "productFallback": "Termék"
+    "productFallback": "Termék",
+    "restoreLoading": "Kosár visszaállítása…",
+    "restoreFailedTitle": "A kosár linkje már nem érvényes",
+    "restoreFailedBody": "Ez a visszaállító link lejárt vagy hibás. Nyisd meg a kosarat, vagy kérj új emlékeztetőt."
   },
   "payment": {
     "title": "Fizetés",

@@ -162,7 +162,10 @@
     "mobileStickyBannerAria": "Warenkorb-Übersicht",
     "emptyStateTitle": "Dein Warenkorb ist leer",
     "emptyStateCta": "Aktionen entdecken",
-    "productFallback": "Produkt"
+    "productFallback": "Produkt",
+    "restoreLoading": "Warenkorb wird wiederhergestellt…",
+    "restoreFailedTitle": "Dieser Warenkorb-Link ist ungültig",
+    "restoreFailedBody": "Der Wiederherstellungslink ist abgelaufen oder ungültig. Öffne den Warenkorb oder fordere eine neue Erinnerung an."
   },
   "payment": {
     "title": "Zahlung",

@@ -26,7 +26,7 @@ describe('checkout coupon picker', () => {
     expect(src).toMatch(/selectedIds=\{selectedCouponIds\}/)
     expect(src).toMatch(/disabled=\{usePoints\}/)
     expect(src).toMatch(/setSelectedCouponIds\(\[\]\)/)
-    expect(src).toMatch(/usePoints && !hasCouponExtra && pointsPreview/)
+    expect(src).toMatch(/usePoints && !hasBlockingCouponExtra && pointsPreview/)
     expect(src).toMatch(/welcomeOfferAccepted: couponSelection\.useWelcome/)
   })
 

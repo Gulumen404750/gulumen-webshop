@@ -658,3 +658,68 @@ describe('validateCouponPercent', () => {
     expect(validateCouponPercent(0.25, true)).toBe(false)
   })
 })
+
+describe('abandoned cart checkout totals', () => {
+  it('charges extra qty of an eligible product at full price', () => {
+    const totals = computeCheckoutTotals({
+      lines: [line('a', 3, 10_000)],
+      coupon: { percent: 0 },
+      luckySpin: null,
+      abandonedCart: { percent: 0.1, eligibleItems: [{ productId: 'a', qty: 1 }] },
+    })
+    expect(totals.abandonedCartDiscountHuf).toBe(1_000)
+    expect(totals.couponDiscountHuf).toBe(1_000)
+    expect(totals.merchandiseTotalHuf).toBe(29_000)
+  })
+
+  it('keeps new products full price and still allows points on the remainder', () => {
+    const totals = computeCheckoutTotals({
+      lines: [line('a', 1, 10_000), line('b', 1, 8_000)],
+      coupon: { percent: 0 },
+      luckySpin: null,
+      abandonedCart: { percent: 0.1, eligibleItems: [{ productId: 'a', qty: 1 }] },
+      points: { requestedDiscountHuf: 8_000, userBalance: 50_000 },
+    })
+    expect(totals.abandonedCartDiscountHuf).toBe(1_000)
+    expect(totals.pointsDiscountHuf).toBe(8_000)
+    expect(totals.merchandiseTotalHuf).toBe(9_000)
+  })
+
+  it('applies a second percent coupon only to extras / new products', () => {
+    const totals = computeCheckoutTotals({
+      lines: [line('a', 2, 10_000), line('b', 1, 8_000)],
+      coupon: { percent: 0.1 },
+      luckySpin: null,
+      abandonedCart: { percent: 0.1, eligibleItems: [{ productId: 'a', qty: 1 }] },
+    })
+    expect(totals.abandonedCartDiscountHuf).toBe(1_000)
+    expect(totals.percentCouponDiscountHuf).toBe(1_000 + 1_800)
+    expect(totals.pointsDiscountHuf).toBe(0)
+  })
+
+  it('keeps loyalty on the whole cart including abandoned-cart items', () => {
+    const totals = computeCheckoutTotals({
+      lines: [line('a', 1, 10_000)],
+      coupon: { percent: 0 },
+      luckySpin: null,
+      loyaltyPercent: 0.05,
+      abandonedCart: { percent: 0.1, eligibleItems: [{ productId: 'a', qty: 1 }] },
+    })
+    expect(totals.loyaltyDiscountHuf).toBe(500)
+    expect(totals.abandonedCartDiscountHuf).toBe(950)
+    expect(totals.merchandiseTotalHuf).toBe(8_550)
+  })
+
+  it('still charges shipping when merchandise after discounts is below the threshold', () => {
+    const totals = computeCheckoutTotals({
+      lines: [line('a', 1, 26_000)],
+      coupon: { percent: 0 },
+      luckySpin: null,
+      abandonedCart: { percent: 0.15, eligibleItems: [{ productId: 'a', qty: 1 }] },
+    })
+    expect(totals.abandonedCartDiscountHuf).toBe(3_900)
+    expect(totals.merchandiseTotalHuf).toBe(22_100)
+    expect(totals.merchandiseTotalHuf).toBeLessThan(FREE_SHIPPING_THRESHOLD)
+    expect(totals.shippingHuf).toBe(STANDARD_SHIPPING_FEE_HUF)
+  })
+})
