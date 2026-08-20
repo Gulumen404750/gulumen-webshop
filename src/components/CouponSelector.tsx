@@ -23,6 +23,7 @@ type Props = {
   selectedPercentDisplay?: number
   capped?: boolean
   disabled?: boolean
+  exclusiveHint?: string
 }
 
 export function CouponSelector({
@@ -36,6 +37,7 @@ export function CouponSelector({
   selectedPercentDisplay = 0,
   capped = false,
   disabled = false,
+  exclusiveHint,
 }: Props) {
   const { t } = useLocale()
   const { money } = useDisplayMoney()
@@ -76,10 +78,17 @@ export function CouponSelector({
   }
 
   return (
-    <section className="mb-8 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] space-y-3">
+    <section
+      className={`mb-8 p-4 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] space-y-3 ${
+        disabled ? 'opacity-60' : ''
+      }`}
+    >
       <div>
         <h2 className="font-heading text-lg font-semibold text-foreground">{resolvedTitle}</h2>
         <p className="text-sm text-muted mt-1">{resolvedHint}</p>
+        {exclusiveHint ? (
+          <p className="text-xs text-muted mt-1">{exclusiveHint}</p>
+        ) : null}
       </div>
 
       <ul className="space-y-2">
@@ -130,6 +139,9 @@ export function CouponSelector({
                       {resolvedCap}
                     </span>
                   )}
+                  {disabled && !checked && exclusiveHint ? (
+                    <span className="block text-xs text-muted mt-1">{exclusiveHint}</span>
+                  ) : null}
                 </span>
               </label>
             </li>

@@ -1,6 +1,6 @@
 'use client'
 
-/** Fizetési oldal – Railway src watch-path 2026-08-19T18:22. */
+/** Fizetési oldal – Railway src watch-path 2026-08-20T18:30. */
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
@@ -250,6 +250,11 @@ export default function PaymentPage() {
       : couponSelection.gamificationFixedHuf
 
   const usePoints = useGiftPoints || useActivityPoints
+  const hasCouponExtra =
+    Boolean(typedCoupon) ||
+    selectedCouponIds.length > 0 ||
+    effectiveCouponPercent > 0 ||
+    Boolean(effectiveFixedHuf && effectiveFixedHuf > 0)
 
   const loyaltyFraction = loyaltyPercent > 0 ? loyaltyPercent / 100 : 0
 
@@ -262,7 +267,7 @@ export default function PaymentPage() {
     luckySpin: luckySpinRecord,
     loyaltyPercent: loyaltyFraction,
     points:
-      usePoints && pointsPreview
+      usePoints && !hasCouponExtra && pointsPreview
         ? {
             requestedDiscountHuf: Math.max(
               pointsPreview.balance,
@@ -333,6 +338,12 @@ export default function PaymentPage() {
   const luckySpinDiscountActive = luckySpinDiscount.active
   const luckySpinDiscountPercent = luckySpinDiscount.discountPercent
   const luckySpinNextTierRemaining = getLuckySpinNextTierRemaining(luckySpinDiscount.qualifyingItemCount)
+
+  useEffect(() => {
+    if (!hasCouponExtra) return
+    setUseGiftPoints(false)
+    setUseActivityPoints(false)
+  }, [hasCouponExtra])
 
   // Profil: születésnapi kupon + mentett név előtöltés
   useEffect(() => {
@@ -428,6 +439,7 @@ export default function PaymentPage() {
 
   const autoSelectedGamificationRef = useRef<string | null>(null)
   useEffect(() => {
+    if (useGiftPoints || useActivityPoints) return
     const firstFixed = availableCoupons.find(
       (c) => isGamificationCouponId(c.id) && (c.fixedHuf ?? 0) > 0
     )
@@ -452,7 +464,7 @@ export default function PaymentPage() {
       if (!canToggleCoupon(availableCoupons, new Set(prev), selectionId, true)) return prev
       return nextCouponSelection(availableCoupons, new Set(prev), selectionId, true)
     })
-  }, [availableCoupons, typedCoupon])
+  }, [availableCoupons, typedCoupon, useGiftPoints, useActivityPoints])
 
   useEffect(() => {
     const stored = readTypedCoupon()
@@ -471,6 +483,8 @@ export default function PaymentPage() {
   const applyTypedCoupon = (coupon: StoredTypedCoupon) => {
     setTypedCoupon(coupon)
     writeTypedCoupon(coupon)
+    setUseGiftPoints(false)
+    setUseActivityPoints(false)
     setSelectedCouponIds((prev) => {
       if (coupon.discountType === 'fixed') {
         return prev.filter((id) => !isFixedSelectableCoupon(availableCoupons.find((c) => c.id === id)))
@@ -489,7 +503,8 @@ export default function PaymentPage() {
   const handleRedeemedCode = (result: CodeRedeemSuccess) => {
     if (result.kind === 'gift_points') {
       void refreshWallet()
-      setUseGiftPoints(true)
+      const couponExtra = Boolean(typedCoupon) || selectedCouponIds.length > 0
+      if (!couponExtra) setUseGiftPoints(true)
       return
     }
     applyTypedCoupon({
@@ -513,6 +528,10 @@ export default function PaymentPage() {
       clearTypedCoupon()
     }
     setWelcomeOfferError(null)
+    if (next.length > 0) {
+      setUseGiftPoints(false)
+      setUseActivityPoints(false)
+    }
     const turningWelcomeOn = next.includes('welcome') && !selectedCouponIds.includes('welcome')
     if (turningWelcomeOn) {
       const email = (userId || guestEmail).trim().toLowerCase()
@@ -752,9 +771,10 @@ export default function PaymentPage() {
           selectedCoupons: couponSelection.selectedIds
             .filter((id) => id !== 'loyalty')
             .map((id) => toCheckoutSelectedCouponId(id)),
-          pointsDiscountHuf: pointsDiscountHuf > 0 ? pointsDiscountHuf : undefined,
-          useGiftPoints: usePoints ? useGiftPoints : undefined,
-          useActivityPoints: usePoints ? useActivityPoints : undefined,
+          pointsDiscountHuf:
+            !hasCouponExtra && pointsDiscountHuf > 0 ? pointsDiscountHuf : undefined,
+          useGiftPoints: !hasCouponExtra && usePoints ? useGiftPoints : undefined,
+          useActivityPoints: !hasCouponExtra && usePoints ? useActivityPoints : undefined,
           paymentMethod,
           locale,
         }),
@@ -1371,6 +1391,8 @@ export default function PaymentPage() {
         coupons={availableCoupons}
         selectedIds={selectedCouponIds}
         onChange={(next) => void handleCouponSelectionChange(next)}
+        disabled={usePoints}
+        exclusiveHint={t('payment.extraExclusiveHint')}
         title={t('payment.couponSelectorTitle')}
         hint={
           t('payment.couponSelectorHint')
@@ -1409,12 +1431,21 @@ export default function PaymentPage() {
           <p className="text-sm font-medium text-foreground">
             {t('payment.pointsWalletsTitle')}
           </p>
+          <p className="text-xs text-muted">{t('payment.extraExclusiveHint')}</p>
           {pointsPreview.giftBalance > 0 && (
-            <label className="flex items-start gap-3 cursor-pointer">
+            <label className={`flex items-start gap-3 ${hasCouponExtra ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
               <input
                 type="checkbox"
                 checked={useGiftPoints}
-                onChange={(e) => setUseGiftPoints(e.target.checked)}
+                disabled={hasCouponExtra}
+                onChange={(e) => {
+                  const on = e.target.checked
+                  setUseGiftPoints(on)
+                  if (on) {
+                    setSelectedCouponIds([])
+                    clearTypedCoupon()
+                  }
+                }}
                 className="mt-1 w-4 h-4 rounded border-[var(--border)] text-accent focus:ring-accent"
               />
               <span className="text-sm text-foreground">
@@ -1434,11 +1465,19 @@ export default function PaymentPage() {
             </label>
           )}
           {pointsPreview.maxActivityDiscountHuf > 0 && (
-            <label className="flex items-start gap-3 cursor-pointer">
+            <label className={`flex items-start gap-3 ${hasCouponExtra ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
               <input
                 type="checkbox"
                 checked={useActivityPoints}
-                onChange={(e) => setUseActivityPoints(e.target.checked)}
+                disabled={hasCouponExtra}
+                onChange={(e) => {
+                  const on = e.target.checked
+                  setUseActivityPoints(on)
+                  if (on) {
+                    setSelectedCouponIds([])
+                    clearTypedCoupon()
+                  }
+                }}
                 className="mt-1 w-4 h-4 rounded border-[var(--border)] text-accent focus:ring-accent"
               />
               <span className="text-sm text-foreground">

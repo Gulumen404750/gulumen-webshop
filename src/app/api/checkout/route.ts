@@ -21,7 +21,9 @@ import {
   REGISTRATION_COUPON_PERCENT,
   isCatRegistrationStackBlocked,
   isCouponStackingBlocked,
+  isCouponPointsStackBlocked,
   isFixedCouponDiscount,
+  hasCouponExtraDiscount,
 } from '@/lib/coupon-config'
 import { rateLimit } from '@/lib/rate-limit'
 import {
@@ -473,6 +475,18 @@ export async function POST(request: Request) {
   couponDiscount = {
     percent: cappedPercent,
     ...(fixedHufFromDb > 0 ? { fixedHuf: fixedHufFromDb } : {}),
+  }
+
+  const wantsPointsSpend =
+    requestedPointsHuf > 0 && Boolean(checkoutUserId) && (spendGift || spendActivity)
+  if (isCouponPointsStackBlocked(hasCouponExtraDiscount(couponDiscount), wantsPointsSpend)) {
+    return NextResponse.json(
+      {
+        code: 'points_coupon_stack_disabled',
+        error: 'Points cannot be combined with a coupon',
+      },
+      { status: 400 }
+    )
   }
 
   if (loyaltyPercent > 0) selectedCoupons.add('loyalty')

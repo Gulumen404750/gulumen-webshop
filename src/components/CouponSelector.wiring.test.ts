@@ -16,4 +16,9 @@ describe('CouponSelector fixed vs percent display', () => {
     expect(src).toContain('selectedFixedHuf > 0 ? money(selectedFixedHuf)')
     expect(src).toMatch(/percentDisplay > 0 \|\| selectedFixedHuf > 0/)
   })
+
+  it('shows an exclusive-discount hint when the selector is disabled', () => {
+    expect(src).toContain('exclusiveHint')
+    expect(src).toContain('disabled={disabled || cannotSelect}')
+  })
 })

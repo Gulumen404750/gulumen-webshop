@@ -5,7 +5,7 @@ export const CAT_COUPON_PERCENT = 0.05
 export const REGISTRATION_COUPON_PERCENT = 0.1
 
 /** Éles deploy marker – Railway Watch Paths a src/** fájlokra figyel. */
-export const COUPON_STACKING_DEPLOY_MARKER = '2026-08-19T18:22'
+export const COUPON_STACKING_DEPLOY_MARKER = '2026-08-20T18:20'
 
 /**
  * Checkout welcome ajánlat: hírlevél feliratkozás → azonnali 10%.
@@ -24,6 +24,7 @@ export const BIRTHDAY_COUPON_VALID_DAYS = 7
  * A százalékos kuponok egymással nem vonhatók össze; a checkouton egyszerre egy % kupon érvényes.
  * A fix forintos kupon (ajándék / admin) összevonható egy százalékos kuponnal:
  * (kosár - fix) * (1 - százalék). A hűség (1–8%) automatikus alapkedvezmény.
+ * Pontfizetés és Szerencsekerék a kupon extra mellett nem érvényesül.
  */
 export const MAX_COMBINED_COUPON_PERCENT = 0.15
 
@@ -80,6 +81,19 @@ export function isCouponStackingBlocked(
 /** true, ha a kedvezmény fix forintos (ajándék / admin) kupon. */
 export function isFixedCouponDiscount(discount: { fixedHuf?: number; percent?: number }): boolean {
   return Boolean(discount.fixedHuf && discount.fixedHuf > 0)
+}
+
+/** Van-e hűségen felüli kupon extra (százalékos vagy fix Ft). */
+export function hasCouponExtraDiscount(discount: { percent?: number; fixedHuf?: number }): boolean {
+  return (Number(discount.percent) || 0) > 0 || (Number(discount.fixedHuf) || 0) > 0
+}
+
+/** Kupon extra és pontfizetés egymást kizárja; a hűség mindig külön. */
+export function isCouponPointsStackBlocked(
+  hasCouponExtra: boolean,
+  usePoints: boolean
+): boolean {
+  return hasCouponExtra && usePoints
 }
 
 /** true, ha a macska + regisztrációs kupon együtt tilos a kijelölésben / checkouton. */

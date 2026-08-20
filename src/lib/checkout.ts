@@ -3,12 +3,10 @@
  * Forrás igazság a szerveren; a kliens ugyanezt a függvényt használja előnézethez.
  *
  * Sorrend:
- * 1. Hűségkedvezmény (1–8%, automatikus, a teljes kosárra; kuponnal és ponttal is összevonható)
- * 2. Fix forintos kupon – (kosár - fix); a fel nem használt maradék elveszik
- * 3. Százalékos kupon (max. 15%) a fennmaradóra: (kosár - fix) * (1 - %)
- *    A Szerencsekerék 15/20/25% a spin termékek fennmaradó árára ugyanezen sorrendben.
- * 4. Pontbeváltás (aktivitási és ajándékpont 1:1 a fennmaradó termékárra; kuponnal és hűséggel összevonható)
- * 5. Szállítási díj (a pont nem fedezi; 25 000 Ft felett, csak ponttal fizetve is fizetendő)
+ * 1. Hűségkedvezmény (1–8%, automatikus, a teljes kosárra)
+ * 2. Extra kedvezmény – egyszerre csak egy:
+ *    kupon (fix Ft + max. 15% százalékos) VAGY pontfelhasználás VAGY Szerencsekerék
+ * 3. Szállítási díj (a pont nem fedezi; 25 000 Ft felett, csak ponttal fizetve is fizetendő)
  */
 
 import type { Product } from '@/lib/data'
@@ -27,7 +25,7 @@ import {
   POINTS_PER_HUF,
   STANDARD_SHIPPING_FEE_HUF,
 } from '@/lib/gamification/constants'
-import { MAX_COMBINED_COUPON_PERCENT, capLoyaltyPercent } from '@/lib/coupon-config'
+import { MAX_COMBINED_COUPON_PERCENT, capLoyaltyPercent, hasCouponExtraDiscount } from '@/lib/coupon-config'
 import {
   computeLuckySpinDiscount,
   calculateLuckySpinDiscountPercent,
@@ -430,7 +428,7 @@ export type ComputeCheckoutTotalsParams = {
   coupon: CouponDiscount
   luckySpin: LuckySpinRecord | null
   points?: PointsRedemptionInput
-  /** 0–1 hűségkedvezmény (max. 8%), automatikus; ponttal és kuponnal is összevonható. */
+  /** 0–1 hűségkedvezmény (max. 8%), automatikus; a kupon/pont/Szerencsekerék extra mellett is megmarad. */
   loyaltyPercent?: number
   now?: Date
 }
@@ -448,6 +446,8 @@ export function computeCheckoutTotals(params: ComputeCheckoutTotalsParams): Chec
   const spinProductIds = new Set(luckySpin?.productIds ?? [])
   const fullPriceSubtotal = lineSubtotalHuf(filterLinesBySpin(lines, spinProductIds, false))
   const afterLoyaltyHuf = Math.max(0, subtotalHuf - loyaltyDiscountHuf)
+  const hasCouponExtra = hasCouponExtraDiscount(coupon)
+  const wantsPoints = Boolean(points && points.requestedDiscountHuf > 0)
 
   const fixedApplication = applyFixedCouponHuf(afterLoyaltyHuf, coupon.fixedHuf)
   const afterFixedHuf = Math.max(0, afterLoyaltyHuf - fixedApplication.appliedHuf)
@@ -466,8 +466,9 @@ export function computeCheckoutTotals(params: ComputeCheckoutTotalsParams): Chec
     priceHuf: l.priceHuf,
   }))
   const luckySpinResult = computeLuckySpinDiscount(discountItems, luckySpin, now, false)
+  const applyLuckySpin = luckySpinResult.active && !hasCouponExtra && !wantsPoints
   const luckySpinDiscountHuf =
-    !luckySpinResult.active
+    !applyLuckySpin
       ? 0
       : Math.min(
           spinRemainingHuf,
@@ -484,7 +485,7 @@ export function computeCheckoutTotals(params: ComputeCheckoutTotalsParams): Chec
   let pointsUsed = 0
   let giftPointsUsed = 0
   let activityPointsUsed = 0
-  if (points && points.requestedDiscountHuf > 0) {
+  if (wantsPoints && !hasCouponExtra && points) {
     const redemption = computePointsRedemption(afterCouponAndLuckyHuf, points)
     pointsDiscountHuf = redemption.pointsDiscountHuf
     pointsUsed = redemption.pointsUsed
@@ -559,7 +560,12 @@ export function computeCheckoutTotals(params: ComputeCheckoutTotalsParams): Chec
     invoiceShippingHuf: shippingHuf,
     invoiceTotalHuf: finalTotalHuf,
     freeShippingRemainingHuf,
-    luckySpin: { ...luckySpinResult, discountHuf: luckySpinDiscountHuf },
+    luckySpin: {
+      ...luckySpinResult,
+      active: applyLuckySpin,
+      discountPercent: applyLuckySpin ? luckySpinResult.discountPercent : 0,
+      discountHuf: luckySpinDiscountHuf,
+    },
     inStock,
     sourcing,
   }
