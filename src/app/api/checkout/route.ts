@@ -422,11 +422,15 @@ export async function POST(request: Request) {
       now,
     })
     if (!resolved.ok) {
+      const minOrderHuf =
+        'minOrderHuf' in resolved && typeof resolved.minOrderHuf === 'number'
+          ? resolved.minOrderHuf
+          : undefined
       return NextResponse.json(
         {
           code: resolved.code,
           error: resolved.error,
-          ...(typeof resolved.minOrderHuf === 'number' ? { minOrderHuf: resolved.minOrderHuf } : {}),
+          ...(minOrderHuf != null ? { minOrderHuf } : {}),
         },
         { status: 400 }
       )
